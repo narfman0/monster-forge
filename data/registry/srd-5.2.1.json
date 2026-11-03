@@ -49,6 +49,11 @@
     "death"
    ],
    "scale_m": 6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "primordial eel-like fish with a long finned tail, three slit eyes stacked on its head, four long tentacles, slimy gray-green hide with mucus sheen. Large aberration. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "fish-like body with a tail and four long tentacles",
    "body_plan_rule_guess": "biped"
@@ -82,6 +87,11 @@
     "death"
    ],
    "scale_m": 4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "swirling whirlwind of pale gray air with a vague humanoid face and arms in the vortex, dust and debris caught inside. Large elemental. Low-poly game asset, full body, neutral hovering pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "winged_biped"
   },
@@ -112,7 +122,20 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "empty suit of dented plate armor moving on its own, open visor showing darkness, longsword-less gauntlets. Medium construct. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "empty suit of dented plate armor moving on its own, open visor showing darkness, empty steel gauntlets. Medium construct. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "empty gauntlets; art often adds a sword the stat block does not have (Slam only)"
   },
   {
    "id": "animated-flying-sword",
@@ -143,6 +166,11 @@
     "death"
    ],
    "scale_m": 1.2,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "hovering enchanted longsword with a faint magical glow, crossguard and leather-wrapped grip. Small construct. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "inanimate object; hovers",
    "body_plan_rule_guess": "winged_biped"
@@ -174,6 +202,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "ornate woven rug with tasseled edges, rippling and partially folded as if alive. Large construct. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -205,6 +238,11 @@
     "death"
    ],
    "scale_m": 4.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "giant burrowing insect with chitinous brown carapace, six legs, large mandibles and antennae. Large monstrosity. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -236,7 +274,22 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "lean hooded assassin in dark leather armor, face mask, short sword and hand crossbow. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "shortsword",
+    "light-crossbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "lean hooded assassin in dark leather armor and face mask, scabbard and holster on a belt at the hip. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "awakened-shrub",
@@ -265,6 +318,11 @@
     "death"
    ],
    "scale_m": 1.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small leafy shrub with twiggy branch arms and root feet, two knot-hole eyes. Small plant. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "shrub shuffling on roots",
    "body_plan_rule_guess": "biped"
@@ -296,6 +354,11 @@
     "death"
    ],
    "scale_m": 6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "oak tree walking on gnarled roots, branches as limbs, bark with knot-like features. Huge plant. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "tree walking on roots; unlike the treant it has no humanoid face/limbs",
    "body_plan_rule_guess": "biped"
@@ -327,6 +390,11 @@
     "death"
    ],
    "scale_m": 2.7,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "tall flightless bird with a huge axe-shaped hooked beak, long strong legs, stubby wings, ostrich-like build. Large monstrosity. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "flightless bird",
    "body_plan_rule_guess": "biped"
@@ -358,7 +426,24 @@
     "death"
    ],
    "scale_m": 1.5,
-   "reference_prompt": "stocky dwarf-like humanoid of polished bronze skin with hair and beard of living flame, kilt and warhammer. Medium elemental. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "warhammer"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "stocky dwarf-like humanoid of polished bronze skin with hair and beard of living flame, bronze kilt and wide belt. Medium elemental. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "warhammer": "Burning Hammer"
+   }
   },
   {
    "id": "balor",
@@ -391,7 +476,26 @@
     "death"
    ],
    "scale_m": 3.7,
-   "reference_prompt": "towering demon with red skin, huge bat wings, ram horns, fiery whip and flaming sword, wreathed in flame. Huge fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "longsword",
+    "whip"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "towering demon with red skin, huge bat wings, ram horns, wreathed in flame. Huge fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "longsword": "Lightning Blade",
+    "whip": "Flame Whip"
+   }
   },
   {
    "id": "bandit",
@@ -422,7 +526,22 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "scruffy outlaw in patched leather armor with scimitar and light crossbow, bandana over face. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "scimitar",
+    "light-crossbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "scruffy outlaw in patched leather armor, bandana over face, scabbard at the hip and a bolt case on the belt. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "bandit-captain",
@@ -453,7 +572,22 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "swaggering bandit leader in studded leather and long coat, scimitar and dagger. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "scimitar",
+    "pistol"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "swaggering bandit leader in studded leather and long coat, scabbard and holster at the hip. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "barbed-devil",
@@ -486,7 +620,16 @@
     "death"
    ],
    "scale_m": 1.9,
-   "reference_prompt": "gaunt humanoid devil covered in sharp barbs and spines, long clawed fingers, whip-like tail, red-brown skin. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
+   "reference_prompt": "gaunt humanoid devil covered in sharp barbs and spines, long clawed fingers, whip-like tail, red-brown skin. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "Hurl Flame is a spell-like attack, nothing held"
   },
   {
    "id": "basilisk",
@@ -515,6 +658,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "heavy eight-legged reptile with dull brown scales, spiny back ridge, toothy jaws and glowing green eyes. Medium monstrosity. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "eight-legged reptile; leg count drives the rig, texture is reptilian",
    "body_plan_rule_guess": "biped"
@@ -548,7 +696,24 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "humanoid devil with a writhing beard of snake-like tendrils, pointed ears, clawed hands, wielding a saw-toothed glaive. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "glaive"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "humanoid devil with a writhing beard of snake-like tendrils, pointed ears, clawed hands, crude infernal armor plates. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "glaive": "Infernal Glaive"
+   }
   },
   {
    "id": "behir",
@@ -579,6 +744,11 @@
     "death"
    ],
    "scale_m": 12,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "long serpentine monster with twelve short legs, cobalt blue scales, horned crocodilian head crackling with lightning. Huge monstrosity. Low-poly game asset, full body, body in a loose S-curve, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "serpentine body with twelve short legs; serpent spine chain plus leg pairs",
    "body_plan_rule_guess": "biped"
@@ -611,7 +781,21 @@
     "death"
    ],
    "scale_m": 1.9,
-   "reference_prompt": "muscular warrior in furs and hide armor with greataxe, wild hair, war paint. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "greataxe"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "muscular warrior in furs and hide armor, wild hair, war paint, a harness strap across the chest. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "black-dragon-wyrmling",
@@ -647,6 +831,11 @@
     "death"
    ],
    "scale_m": 2.2,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged swamp-dwelling dragon with glossy black scales, skull-like face with forward-curving horns, acid dripping from jaws, hatchling proportions with oversized head and eyes. Medium dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -683,6 +872,11 @@
     "death"
    ],
    "scale_m": 5.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged swamp-dwelling dragon with glossy black scales, skull-like face with forward-curving horns, acid dripping from jaws, lean adolescent build. Large dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -720,6 +914,11 @@
     "death"
    ],
    "scale_m": 10.8,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged swamp-dwelling dragon with glossy black scales, skull-like face with forward-curving horns, acid dripping from jaws, fully grown and powerful. Huge dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -757,6 +956,11 @@
     "death"
    ],
    "scale_m": 18.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged swamp-dwelling dragon with glossy black scales, skull-like face with forward-curving horns, acid dripping from jaws, colossal, battle-scarred, with elaborate horns. Gargantuan dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -787,6 +991,11 @@
     "death"
    ],
    "scale_m": 2.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "glossy black ooze puddle with a rounded rising mass, tar-like and dripping. Large ooze. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -816,6 +1025,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "lean yellowish-brown hound with large ears and clever eyes, faint teleport shimmer. Medium fey. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -853,6 +1067,11 @@
     "death"
    ],
    "scale_m": 2.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged desert dragon with deep blue scales, a single large horn on its snout, frilled ears, crackling lightning, hatchling proportions with oversized head and eyes. Medium dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -889,6 +1108,11 @@
     "death"
    ],
    "scale_m": 6.3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged desert dragon with deep blue scales, a single large horn on its snout, frilled ears, crackling lightning, lean adolescent build. Large dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -926,6 +1150,11 @@
     "death"
    ],
    "scale_m": 12.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged desert dragon with deep blue scales, a single large horn on its snout, frilled ears, crackling lightning, fully grown and powerful. Huge dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -963,6 +1192,11 @@
     "death"
    ],
    "scale_m": 21.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged desert dragon with deep blue scales, a single large horn on its snout, frilled ears, crackling lightning, colossal, battle-scarred, with elaborate horns. Gargantuan dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -996,6 +1230,14 @@
     "death"
    ],
    "scale_m": 2.7,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "skeletal gaunt devil with dried skin stretched over bones, tattered bat wings, scorpion stinger tail, skull-like head. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "skeletal humanoid with bat wings and scorpion tail"
   },
@@ -1033,6 +1275,11 @@
     "death"
    ],
    "scale_m": 2.2,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged desert metallic dragon with brass-gold scales and a broad blade-shaped head crest, hatchling proportions with oversized head and eyes. Medium dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -1069,6 +1316,11 @@
     "death"
    ],
    "scale_m": 5.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged desert metallic dragon with brass-gold scales and a broad blade-shaped head crest, lean adolescent build. Large dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -1106,6 +1358,11 @@
     "death"
    ],
    "scale_m": 10.8,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged desert metallic dragon with brass-gold scales and a broad blade-shaped head crest, fully grown and powerful. Huge dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -1143,6 +1400,11 @@
     "death"
    ],
    "scale_m": 18.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged desert metallic dragon with brass-gold scales and a broad blade-shaped head crest, colossal, battle-scarred, with elaborate horns. Gargantuan dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -1179,6 +1441,11 @@
     "death"
    ],
    "scale_m": 2.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged coastal metallic dragon with bronze scales, ridged fin-like frill and webbed claws, hatchling proportions with oversized head and eyes. Medium dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -1215,6 +1482,11 @@
     "death"
    ],
    "scale_m": 6.3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged coastal metallic dragon with bronze scales, ridged fin-like frill and webbed claws, lean adolescent build. Large dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -1252,6 +1524,11 @@
     "death"
    ],
    "scale_m": 12.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged coastal metallic dragon with bronze scales, ridged fin-like frill and webbed claws, fully grown and powerful. Huge dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -1289,6 +1566,11 @@
     "death"
    ],
    "scale_m": 21.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged coastal metallic dragon with bronze scales, ridged fin-like frill and webbed claws, colossal, battle-scarred, with elaborate horns. Gargantuan dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -1321,7 +1603,22 @@
     "death"
    ],
    "scale_m": 2.1,
-   "reference_prompt": "hairy goblinoid with bear-like features, long arms, hooded dark leathers, javelins and morningstar. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "morningstar",
+    "javelin"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "hairy goblinoid with bear-like features, long arms, hooded dark leathers, a long leather case strapped to its back. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "bugbear-warrior",
@@ -1353,7 +1650,21 @@
     "death"
    ],
    "scale_m": 2.1,
-   "reference_prompt": "tall hairy goblinoid with bear-like snout and long arms, hide armor, morningstar and javelins. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "light-hammer"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "tall hairy goblinoid with bear-like snout and long arms, hide armor, wide belt with tool loops. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "bulette",
@@ -1384,6 +1695,11 @@
     "death"
    ],
    "scale_m": 3.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "armored land-shark with a dorsal crest, gray-blue plated shell, four stubby clawed legs, huge jaws. Large monstrosity. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -1415,7 +1731,22 @@
     "death"
    ],
    "scale_m": 2.4,
-   "reference_prompt": "centaur with a human torso on a horse body, leather armor, pike and longbow. Large fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "hands": true,
+   "wields": [
+    "pike",
+    "longbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "centaur with a human torso on a horse body, breastplate over the human torso, arrow quiver on the back. Large fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
   {
@@ -1447,7 +1778,16 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "humanoid devil wrapped in barbed chains like a burial shroud, hooked chains trailing from its body. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
+   "reference_prompt": "humanoid devil wrapped in barbed chains like a burial shroud, hooked chains trailing from its body. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "its chains are wrapped around and grow from its body: baked into the mesh (plus rig chains), not props"
   },
   {
    "id": "chimera",
@@ -1479,6 +1819,11 @@
     "death"
    ],
    "scale_m": 3.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "lion-bodied beast with three heads (lion, goat, red dragon), leathery dragon wings and serpent tail. Large monstrosity. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -1511,6 +1856,11 @@
     "death"
    ],
    "scale_m": 2.7,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "lobster-like crustacean with large pincers, multiple legs, armored carapace and a cluster of writhing tentacles around its mouth. Large aberration. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "lobster-like crustacean aberration with pincers and face tentacles",
    "body_plan_rule_guess": "biped"
@@ -1542,6 +1892,14 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "hulking crude humanoid sculpted from reddish clay, cracked surface, inscriptions on chest. Large construct. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -1572,6 +1930,11 @@
     "death"
    ],
    "scale_m": 2.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "manta-ray-like creature resembling a black leather cloak, pale ivory claws at its edges, red eyes, whip tail. Large aberration. Low-poly game asset, full body, neutral hovering pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "manta-ray/cloak-shaped flyer; membrane grid rig",
    "body_plan_rule_guess": "biped"
@@ -1608,7 +1971,24 @@
     "death"
    ],
    "scale_m": 7.3,
-   "reference_prompt": "towering giant with pale blue-white skin, silver hair, fine robes and jewelry, morningstar. Huge giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "mace"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "towering giant with pale blue-white skin, silver hair, fine robes and jewelry, a jeweled belt. Huge giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "mace": "Thunderous Mace"
+   }
   },
   {
    "id": "cockatrice",
@@ -1639,6 +2019,11 @@
     "death"
    ],
    "scale_m": 0.9,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "rooster-like creature with leathery bat wings, scaly lizard tail and sharp beak. Small monstrosity. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "rooster-like with bat-ish wings and lizard tail",
    "body_plan_rule_guess": "biped"
@@ -1671,7 +2056,21 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "ordinary villager in simple tunic and trousers holding a club. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "club"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "ordinary villager in simple tunic and trousers, rope belt. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "copper-dragon-wyrmling",
@@ -1706,6 +2105,11 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged metallic dragon with copper scales, segmented back-swept horns and a lean agile build, hatchling proportions with oversized head and eyes. Medium dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -1741,6 +2145,11 @@
     "death"
    ],
    "scale_m": 5.7,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged metallic dragon with copper scales, segmented back-swept horns and a lean agile build, lean adolescent build. Large dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -1777,6 +2186,11 @@
     "death"
    ],
    "scale_m": 11.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged metallic dragon with copper scales, segmented back-swept horns and a lean agile build, fully grown and powerful. Huge dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -1813,6 +2227,11 @@
     "death"
    ],
    "scale_m": 19.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged metallic dragon with copper scales, segmented back-swept horns and a lean agile build, colossal, battle-scarred, with elaborate horns. Gargantuan dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -1845,6 +2264,11 @@
     "death"
    ],
    "scale_m": 6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "feathered serpent with iridescent rainbow plumage, a pair of feathered wings, golden eyes. Medium celestial. Low-poly game asset, full body, body in a loose S-curve, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "feathered serpent with a pair of feathered wings",
    "body_plan_rule_guess": "winged_biped"
@@ -1879,6 +2303,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "mass of severed undead hands crawling on their fingers, pale withered skin; show one representative individual creature plus a small loose cluster. Medium swarm of tiny undeads. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "swarm_unit_size": "tiny"
   },
@@ -1910,7 +2339,24 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "robed cultist in dark hooded vestments with ritual dagger and occult symbol. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "sickle"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "robed cultist in dark hooded vestments with an occult symbol embroidered on the chest. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "sickle": "Ritual Sickle"
+   }
   },
   {
    "id": "cultist-fanatic",
@@ -1941,7 +2387,25 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "zealous cult leader in ornate dark robes with ritual dagger and glowing sigil. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "longsword"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "zealous cult leader in ornate dark robes over leather armor, glowing sigil, holy symbol on a chain around the neck. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "longsword": "Pact Blade"
+   },
+   "equipment_note": "Pact Blade (1d8 slashing) read as a longsword; Holy Symbol is worn"
   },
   {
    "id": "darkmantle",
@@ -1971,6 +2435,11 @@
     "death"
    ],
    "scale_m": 1.2,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small squid-like creature with a fleshy hooded body and webbed tentacles, dark stony coloring. Small aberration. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "squid-like ambusher that levitates",
    "body_plan_rule_guess": "biped"
@@ -2002,6 +2471,11 @@
     "death"
    ],
    "scale_m": 1.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "gaunt two-headed hound with mangy black fur, red eyes and snarling jaws. Medium monstrosity. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -2038,7 +2512,24 @@
     "death"
    ],
    "scale_m": 1.9,
-   "reference_prompt": "radiant angel with silver skin, feathered white wings, flowing robes and a heavenly mace. Medium celestial. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "mace"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "radiant angel with silver skin, feathered white wings and flowing robes. Medium celestial. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "mace": "Holy Mace"
+   }
   },
   {
    "id": "djinni",
@@ -2073,9 +2564,27 @@
     "death"
    ],
    "scale_m": 3.6,
-   "reference_prompt": "towering blue-skinned genie with muscular torso, turban and jewelry, lower body a swirling whirlwind, scimitar. Large elemental. Low-poly game asset, full body, neutral hovering pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "hands": true,
+   "wields": [
+    "scimitar"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "towering blue-skinned genie with muscular torso, turban and jewelry, lower body a swirling whirlwind, sash at the waist. Large elemental. Low-poly game asset, full body, neutral hovering pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "humanoid torso over a whirlwind lower body",
-   "body_plan_rule_guess": "winged_biped"
+   "body_plan_rule_guess": "winged_biped",
+   "wields_aka": {
+    "scimitar": "Storm Blade"
+   },
+   "equipment_note": "floating whirlwind lower body but a full humanoid upper body with hands"
   },
   {
    "id": "doppelganger",
@@ -2104,6 +2613,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "gaunt gray humanoid with smooth featureless face, large blank eyes and long fingers. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -2136,6 +2653,11 @@
     "death"
    ],
    "scale_m": 20,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "colossal sea turtle with a draconic head, spiked shell like a coral-crusted island, webbed clawed feet. Gargantuan dragon. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "huge legged sea turtle with dragon head; walks and swims, no wings",
    "body_plan_rule_guess": "biped"
@@ -2169,6 +2691,14 @@
     "death"
    ],
    "scale_m": 1.0,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "small pot-bellied demon with spindly limbs, pale gray-green skin and toothy grin. Small fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -2200,9 +2730,22 @@
     "death"
    ],
    "scale_m": 3,
-   "reference_prompt": "dark elf torso fused to a giant black spider body with eight legs, longsword and longbow. Large monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "dark elf torso fused to a giant black spider body with eight legs, leather harness over the elf torso. Large monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "humanoid torso on an 8-legged spider body; centauroid layout with arachnid lower half",
-   "body_plan_rule_guess": "biped"
+   "body_plan_rule_guess": "biped",
+   "equipment_note": "5.2.1 drider attacks with Foreleg and Poison Burst only; drow-derived art usually adds a sword and bow"
   },
   {
    "id": "druid",
@@ -2236,7 +2779,24 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "druid in hide and leaf-woven robes with wooden staff, bone and feather trinkets. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "quarterstaff"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "druid in studded leather under hide and leaf-woven robes, bone and feather trinkets. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "quarterstaff": "Vine Staff"
+   }
   },
   {
    "id": "dryad",
@@ -2267,7 +2827,16 @@
     "death"
    ],
    "scale_m": 1.7,
-   "reference_prompt": "graceful fey woman with bark-textured skin, hair of leaves and flowers, simple vine garments. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
+   "reference_prompt": "graceful fey woman with bark-textured skin, hair of leaves and flowers, simple vine garments. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "Vine Lash and Thorn Burst are magical, nothing held"
   },
   {
    "id": "earth-elemental",
@@ -2299,8 +2868,14 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "hulking humanoid of rock and earth with glowing gem eyes, boulder fists. Large elemental. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
-   "body_plan_note": "hulking rock humanoid; some art shows a legless rock torso rising from the ground"
+   "body_plan_note": "hulking rock humanoid; some art shows a legless rock torso rising from the ground",
+   "equipment_note": "boulder fists without fingers"
   },
   {
    "id": "efreeti",
@@ -2336,9 +2911,27 @@
     "death"
    ],
    "scale_m": 3.6,
-   "reference_prompt": "huge red-skinned genie with muscular build, flame-crowned head, brass armor and scimitar. Large elemental. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "hands": true,
+   "wields": [
+    "scimitar"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "huge red-skinned genie with muscular build, flame-crowned head, brass armor and a wide sash. Large elemental. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "2024 art shows legs; some editions give a smoke-column lower body like the djinni",
-   "body_plan_rule_guess": "winged_biped"
+   "body_plan_rule_guess": "winged_biped",
+   "wields_aka": {
+    "scimitar": "Heated Blade"
+   },
+   "equipment_note": "Heated Blade (2d6 slashing, Large) read as a scimitar"
   },
   {
    "id": "erinyes",
@@ -2371,7 +2964,25 @@
     "death"
    ],
    "scale_m": 1.9,
-   "reference_prompt": "beautiful but grim fallen-angel devil with black feathered wings, plate armor, longsword and rope of entanglement. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "longsword"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "beautiful but grim fallen-angel devil with black feathered wings, plate armor, a coiled rope at the hip. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "longsword": "Withering Sword"
+   },
+   "equipment_note": "5.2.1 has no bow; the Entangling Rope is worn coiled at the hip"
   },
   {
    "id": "ettercap",
@@ -2401,6 +3012,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "hunched spider-like humanoid with purple-black chitinous hide, mandibles, long clawed fingers. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -2430,7 +3049,23 @@
     "death"
    ],
    "scale_m": 4,
-   "reference_prompt": "two-headed ogre-like giant in crude hides, each head with its own ugly face, morningstar and battleaxe. Large giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "battleaxe",
+    "morningstar"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "two-headed ogre-like giant in crude hides, each head with its own ugly face, broad belt. Large giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "one weapon per head/arm"
   },
   {
    "id": "fire-elemental",
@@ -2459,6 +3094,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "roaring column of living flame with a vague humanoid upper body and arms, ember sparks. Large elemental. Low-poly game asset, full body, neutral hovering pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "legless column (flame / wave) with arms; walk speed only but no legs",
    "body_plan_rule_guess": "biped"
@@ -2491,7 +3131,26 @@
     "death"
    ],
    "scale_m": 5.5,
-   "reference_prompt": "massive giant with coal-black skin, flaming red-orange hair and beard, heavy blackened iron plate armor, greatsword. Huge giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "greatsword",
+    "warhammer"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "massive giant with coal-black skin, flaming red-orange hair and beard, heavy blackened iron plate armor. Huge giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "greatsword": "Flame Sword",
+    "warhammer": "Hammer Throw"
+   }
   },
   {
    "id": "flesh-golem",
@@ -2520,6 +3179,14 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "stitched-together humanoid corpse giant, mismatched limbs, iron bolts and crude sutures. Medium construct. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -2550,7 +3217,26 @@
     "death"
    ],
    "scale_m": 6.4,
-   "reference_prompt": "huge giant with pale icy-blue skin, white hair and beard braided with frost, fur and mail armor, greataxe. Huge giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "greataxe",
+    "longbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "huge giant with pale icy-blue skin, white hair and beard braided with frost, fur and mail armor, quiver of huge arrows on the back. Huge giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "greataxe": "Frost Axe",
+    "longbow": "Great Bow"
+   }
   },
   {
    "id": "shrieker-fungus",
@@ -2579,6 +3265,11 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "human-sized purple-gray mushroom with a broad cap and thick stalk. Medium plant. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -2609,6 +3300,11 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "human-sized violet mushroom with four whip-like tendrils sprouting from its stalk. Medium plant. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -2641,6 +3337,14 @@
     "death"
    ],
    "scale_m": 1.9,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "stone-skinned winged fiend resembling a grotesque statue, horns, bat wings, clawed feet. Medium elemental. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -2670,6 +3374,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "transparent green gelatinous cube with bones, coins and debris suspended inside. Large ooze. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -2699,6 +3408,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "emaciated undead with gray mottled skin, long tongue, sharp claws and putrid aura. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -2730,7 +3447,16 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "translucent spectral humanoid in tattered clothes, lower body fading into mist. Medium undead. Low-poly game asset, full body, neutral hovering pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
+   "reference_prompt": "translucent spectral humanoid in tattered clothes, lower body fading into mist. Medium undead. Low-poly game asset, full body, neutral hovering pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "spectral humanoid upper body with hands"
   },
   {
    "id": "ghoul",
@@ -2759,6 +3485,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "emaciated undead humanoid with gray skin, long clawed hands, sharp teeth, hunched posture. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -2790,6 +3524,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "amorphous mass of flesh covered in countless eyes and toothy mouths. Medium aberration. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -2823,7 +3562,17 @@
     "death"
    ],
    "scale_m": 4.5,
-   "reference_prompt": "towering demon with dog-like horned head, four arms including two massive pincers, red-brown skin. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
+   "reference_prompt": "towering demon with dog-like horned head, four arms including two massive pincers, red-brown skin. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "arms": 4,
+   "equipment_note": "four arms: two huge pincers (natural weapons, part of the mesh) and two smaller hands; only the hands get sockets"
   },
   {
    "id": "gladiator",
@@ -2854,7 +3603,22 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "arena fighter in mismatched armor with spear and shield, crested helm. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "spear",
+    "shield"
+   ],
+   "shield": true,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "arena fighter in mismatched studded leather armor with a crested helm and bare arms. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "gnoll-warrior",
@@ -2884,7 +3648,24 @@
     "death"
    ],
    "scale_m": 2.1,
-   "reference_prompt": "hyena-headed humanoid with spotted fur, crude armor, spear and longbow. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "longbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "hyena-headed humanoid with spotted fur and crude armor, arrow quiver on the back. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "longbow": "Bone Bow"
+   }
   },
   {
    "id": "goblin-minion",
@@ -2916,7 +3697,21 @@
     "death"
    ],
    "scale_m": 1.0,
-   "reference_prompt": "small green-skinned goblin with pointed ears, ragged leather, dagger. Small fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "dagger"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "small green-skinned goblin with pointed ears and ragged leather, knife sheaths on the belt. Small fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "goblin-warrior",
@@ -2948,7 +3743,23 @@
     "death"
    ],
    "scale_m": 1.0,
-   "reference_prompt": "small goblin in scrap leather armor with scimitar and shortbow. Small fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "scimitar",
+    "shortbow",
+    "shield"
+   ],
+   "shield": true,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "small goblin in scrap leather armor, scabbard at the hip and an arrow quiver on the back. Small fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "goblin-boss",
@@ -2980,7 +3791,23 @@
     "death"
    ],
    "scale_m": 1.1,
-   "reference_prompt": "small goblin chieftain in mismatched chain armor and crude crown, scimitar. Small fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "scimitar",
+    "shortbow",
+    "shield"
+   ],
+   "shield": true,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "small goblin chieftain in mismatched chain armor and crude crown, scabbard at the hip and an arrow quiver on the back. Small fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "gold-dragon-wyrmling",
@@ -3016,6 +3843,11 @@
     "death"
    ],
    "scale_m": 2.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged regal sinuous metallic dragon with gold scales, whisker-like barbels and sail-like wings, hatchling proportions with oversized head and eyes. Medium dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -3052,6 +3884,11 @@
     "death"
    ],
    "scale_m": 6.3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged regal sinuous metallic dragon with gold scales, whisker-like barbels and sail-like wings, lean adolescent build. Large dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -3089,6 +3926,11 @@
     "death"
    ],
    "scale_m": 12.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged regal sinuous metallic dragon with gold scales, whisker-like barbels and sail-like wings, fully grown and powerful. Huge dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -3126,6 +3968,11 @@
     "death"
    ],
    "scale_m": 21.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged regal sinuous metallic dragon with gold scales, whisker-like barbels and sail-like wings, colossal, battle-scarred, with elaborate horns. Gargantuan dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -3156,6 +4003,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "bull-like construct covered in iron plates, metallic horns, steam venting from nostrils. Large construct. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -3187,6 +4039,11 @@
     "death"
    ],
    "scale_m": 1,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "puddle of gray ooze resembling wet stone, oily sheen. Medium ooze. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -3223,6 +4080,11 @@
     "death"
    ],
    "scale_m": 2.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged forest dragon with emerald scales and a tall crest frill running from head down the spine, hatchling proportions with oversized head and eyes. Medium dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -3259,6 +4121,11 @@
     "death"
    ],
    "scale_m": 6.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged forest dragon with emerald scales and a tall crest frill running from head down the spine, lean adolescent build. Large dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -3296,6 +4163,11 @@
     "death"
    ],
    "scale_m": 12.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged forest dragon with emerald scales and a tall crest frill running from head down the spine, fully grown and powerful. Huge dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -3333,6 +4205,11 @@
     "death"
    ],
    "scale_m": 20.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged forest dragon with emerald scales and a tall crest frill running from head down the spine, colossal, battle-scarred, with elaborate horns. Gargantuan dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -3365,6 +4242,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "hideous hag with green skin, long tangled black hair, crooked nose, ragged dress and long claws. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -3395,6 +4280,11 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "worm-like creature with rubbery gray-green hide and four barbed tentacles around a beak. Medium aberration. Low-poly game asset, full body, body in a loose S-curve, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "worm-like body with four tentacles around a beak; tentacle crown as extra chains",
    "body_plan_rule_guess": "biped"
@@ -3428,6 +4318,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "eagle head, forelegs and wings on a lion's body, tawny fur and golden feathers. Large monstrosity. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -3459,7 +4354,24 @@
     "death"
    ],
    "scale_m": 1.7,
-   "reference_prompt": "eyeless gray-skinned humanoid with smooth face over empty sockets, primitive bone club. Medium aberration. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "club"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "eyeless gray-skinned humanoid with smooth face over empty sockets, loincloth and bone trinkets. Medium aberration. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "club": "Bone Cudgel"
+   }
   },
   {
    "id": "guardian-naga",
@@ -3492,6 +4404,11 @@
     "death"
    ],
    "scale_m": 6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "huge serpent with a serene human-like face, golden-green scales and frilled crest. Large celestial. Low-poly game asset, full body, body in a loose S-curve, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -3523,7 +4440,22 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "town guard in chain shirt and helmet with spear and shield. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "spear",
+    "shield"
+   ],
+   "shield": true,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "town guard in chain shirt and helmet with a tabard. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "guard-captain",
@@ -3554,7 +4486,23 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "seasoned guard captain in breastplate and cloak with longsword and javelins. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "longsword",
+    "javelin",
+    "shield"
+   ],
+   "shield": true,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "seasoned guard captain in breastplate and cloak, scabbard at the hip. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "half-dragon",
@@ -3584,6 +4532,14 @@
     "death"
    ],
    "scale_m": 2.0,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "humanoid with draconic features: scaled skin, horned reptilian head, clawed hands and tail, plate armor. Medium dragon. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -3615,8 +4571,17 @@
     "death"
    ],
    "scale_m": 1.7,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "woman's upper body with grotesque features, vulture wings for arms-and-wings, bird legs with talons, matted hair. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
-   "body_plan_rule_guess": "biped"
+   "body_plan_rule_guess": "biped",
+   "equipment_note": "drawn with clawed hands as well as wings; claws are natural weapons"
   },
   {
    "id": "hell-hound",
@@ -3646,6 +4611,11 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large black hound with smoldering red eyes and flames dripping from its jaws. Medium fiend. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -3678,6 +4648,14 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "bloated toad-like humanoid demon with warty green-brown skin, wide mouth of teeth, spiny back. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -3708,7 +4686,25 @@
     "death"
    ],
    "scale_m": 4.9,
-   "reference_prompt": "huge dim-witted giant with tan skin, crude hides and furs, pot belly, tree-trunk greatclub. Huge giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "greatclub"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "huge dim-witted giant with tan skin, crude hides and furs, pot belly. Huge giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "greatclub": "Tree Club"
+   },
+   "equipment_note": "Trash Lob throws debris: spawned FX, not a prop"
   },
   {
    "id": "hippogriff",
@@ -3739,6 +4735,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "eagle head, forelegs and wings on a horse's body, brown feathers and coat. Large monstrosity. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -3772,7 +4773,23 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "disciplined goblinoid soldier with orange-red skin, lamellar armor, longsword and longbow. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "longsword",
+    "longbow",
+    "shield"
+   ],
+   "shield": true,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "disciplined goblinoid soldier with orange-red skin, lamellar armor, scabbard at the hip and an arrow quiver on the back. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "hobgoblin-captain",
@@ -3804,7 +4821,22 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "hobgoblin officer in polished plate-and-lamellar armor with greatsword and banner sash. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "greatsword",
+    "longbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "hobgoblin officer in polished plate-and-lamellar armor with banner sash and an arrow quiver on the back. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "homunculus",
@@ -3835,6 +4867,14 @@
     "death"
    ],
    "scale_m": 0.45,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "tiny winged humanoid construct with leathery bat wings, gray-green skin, pointed ears and a stinger tail. Tiny construct. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -3869,7 +4909,24 @@
     "death"
    ],
    "scale_m": 2.7,
-   "reference_prompt": "towering devil with leathery bat wings, curved horns, spiked tail, red scales, wielding a fork. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "fork"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "towering devil with leathery bat wings, curved horns, spiked tail, red scales. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "fork": "Searing Fork"
+   }
   },
   {
    "id": "hydra",
@@ -3900,6 +4957,11 @@
     "death"
    ],
    "scale_m": 6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "massive reptile with five long serpentine necks and snapping heads, dark green scales. Huge monstrosity. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "quadruped body with five (regrowing) neck chains",
    "body_plan_rule_guess": "biped"
@@ -3934,7 +4996,24 @@
     "death"
    ],
    "scale_m": 3.6,
-   "reference_prompt": "towering insectoid devil with pale blue chitin, bulbous eyes, mandibles, long spiked tail, ice spear. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "spear"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "towering insectoid devil with pale blue chitin, bulbous eyes, mandibles, long spiked tail. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "spear": "Ice Spear"
+   }
   },
   {
    "id": "imp",
@@ -3967,6 +5046,14 @@
     "death"
    ],
    "scale_m": 0.6,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "tiny red-skinned devil with bat wings, horns and a barbed scorpion-like tail. Tiny fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -3999,6 +5086,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "charming humanoid fiend with bat wings, small horns, slender tail and fine clothing. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "bat-winged humanoid (wings can be hidden in disguise)"
   },
@@ -4031,6 +5126,11 @@
     "death"
    ],
    "scale_m": 2.7,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "translucent vortex of air faintly outlining a tall humanoid shape. Large elemental. Low-poly game asset, full body, neutral hovering pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "invisible; visualised as a translucent vaguely humanoid vortex",
    "body_plan_rule_guess": "winged_biped"
@@ -4064,7 +5164,16 @@
     "death"
    ],
    "scale_m": 3.6,
-   "reference_prompt": "towering humanoid of riveted black iron with a crested helm-like head and huge iron sword. Large construct. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
+   "reference_prompt": "towering humanoid of riveted black iron with a crested helm-like head and a broad blade built into one forearm. Large construct. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "Bladed Arm is a blade built into the forearm: part of the mesh"
   },
   {
    "id": "knight",
@@ -4095,7 +5204,23 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "armored knight in full plate with greatsword and heraldic tabard. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "greatsword",
+    "heavy-crossbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "armored knight in full plate with heraldic tabard. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "5.2.1 knight: greatsword and heavy crossbow, no shield"
   },
   {
    "id": "kobold-warrior",
@@ -4125,7 +5250,21 @@
     "death"
    ],
    "scale_m": 0.9,
-   "reference_prompt": "small reptilian humanoid with rust-red scales, dog-like snout, crude leather, spear and sling. Small dragon. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "dagger"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "small reptilian humanoid with rust-red scales, dog-like snout, crude leather, knife sheaths on the belt. Small dragon. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "kraken",
@@ -4157,6 +5296,11 @@
     "death"
    ],
    "scale_m": 30,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "colossal squid-like titan with ten immense tentacles, armored beak and glowing eyes. Gargantuan monstrosity. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -4187,6 +5331,14 @@
     "death"
    ],
    "scale_m": 2.7,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "beautiful woman's upper body joined to a lion's lower body, golden jewelry, clawed hands. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "classically a woman's torso on a lion body; some depictions use a serpent lower body (merfolk_naga)",
    "body_plan_rule_guess": "biped"
@@ -4220,9 +5372,15 @@
     "death"
    ],
    "scale_m": 1.2,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "shapeless molten blob of pinkish flesh with a vaguely humanoid head and torso. Medium fiend. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "molten blob of flesh with a vaguely humanoid head and torso",
-   "body_plan_rule_guess": "biped"
+   "body_plan_rule_guess": "biped",
+   "equipment_note": "blob with stubby humanoid arms; mindless, never grips"
   },
   {
    "id": "lich",
@@ -4255,7 +5413,20 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "undead wizard with skeletal face, glowing pinpoint eyes, ornate tattered robes and crown, staff. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "undead wizard with skeletal face, glowing pinpoint eyes, ornate tattered robes and crown, component pouch at the belt. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "no weapon or staff in the stat block (Component Pouch is worn); art usually adds a staff"
   },
   {
    "id": "mage",
@@ -4289,7 +5460,21 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "wizard in flowing robes with a staff and spellbook, arcane runes. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "wand"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "wizard in flowing robes with arcane runes, spellbook hanging from the belt. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "archmage",
@@ -4323,7 +5508,21 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "elder wizard in elaborate rune-embroidered robes with a glowing staff. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "wand"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "elder wizard in elaborate rune-embroidered robes, spellbook hanging from the belt. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "magmin",
@@ -4352,6 +5551,14 @@
     "death"
    ],
    "scale_m": 1.0,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "small humanoid of cooling magma with cracked dark crust and glowing orange seams, flickering flames. Small elemental. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -4384,6 +5591,11 @@
     "death"
    ],
    "scale_m": 3.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "lion body with a horned human-like head, bat wings and a tail bristling with iron spikes. Large monstrosity. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -4417,9 +5629,37 @@
     "death"
    ],
    "scale_m": 4.5,
-   "reference_prompt": "six-armed demon with a woman's upper body and a huge serpent lower body, a longsword in each hand. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "hands": true,
+   "wields": [
+    "longsword",
+    "longsword",
+    "longsword",
+    "longsword",
+    "longsword",
+    "longsword"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r1",
+    "hand_l1",
+    "hand_r2",
+    "hand_l2",
+    "hand_r3",
+    "hand_l3",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "six-armed demon with a woman's upper body and a huge serpent lower body, ornate armor and jewelry. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "six arms",
-   "body_plan_rule_guess": "biped"
+   "body_plan_rule_guess": "biped",
+   "arms": 6,
+   "wields_aka": {
+    "longsword": "Pact Blade"
+   },
+   "equipment_note": "six Pact Blade attacks: one longsword per hand"
   },
   {
    "id": "medusa",
@@ -4449,7 +5689,20 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "woman with snakes for hair, scaled green skin, longbow and short sword, flowing robes. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "woman with snakes for hair, scaled green skin, flowing robes. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "5.2.1 medusa has claws, snake hair and Poison Ray; older art gives her a bow"
   },
   {
    "id": "dust-mephit",
@@ -4481,6 +5734,14 @@
     "death"
    ],
    "scale_m": 1.2,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "small winged imp-like elemental made of dust with gray skin and dusty wings. Small elemental. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -4513,6 +5774,14 @@
     "death"
    ],
    "scale_m": 1.2,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "small winged imp-like elemental with crystalline icy blue skin and jagged frost wings. Small elemental. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -4545,6 +5814,14 @@
     "death"
    ],
    "scale_m": 1.2,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "small winged imp-like elemental of molten rock with glowing cracks and fiery wings. Small elemental. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -4577,6 +5854,14 @@
     "death"
    ],
    "scale_m": 1.2,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "small winged imp-like elemental of scalding water and hissing steam with wispy wings. Small elemental. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -4608,8 +5893,25 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "merfolk with human upper body and blue-green fish tail, coral jewelry, trident and javelins. Medium elemental. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
-   "body_plan_rule_guess": "biped"
+   "hands": true,
+   "wields": [
+    "spear"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "merfolk with human upper body and blue-green fish tail, coral jewelry. Medium elemental. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "body_plan_rule_guess": "biped",
+   "wields_aka": {
+    "spear": "Ocean Spear"
+   }
   },
   {
    "id": "merrow",
@@ -4640,7 +5942,21 @@
     "death"
    ],
    "scale_m": 3,
-   "reference_prompt": "brutish merfolk with warty green skin, sharp teeth, clawed hands, fish tail, harpoon. Large monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "hands": true,
+   "wields": [
+    "harpoon"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "brutish merfolk with warty green skin, sharp teeth, clawed hands and fish tail, rope coiled over the shoulder. Large monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "brutish fish-tailed merfolk",
    "body_plan_rule_guess": "biped"
   },
@@ -4671,6 +5987,11 @@
     "death"
    ],
    "scale_m": 1.2,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "wooden treasure chest with teeth lining its lid, a long tongue and sticky pseudopods. Medium monstrosity. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "shapechanger; modelled in treasure-chest form with pseudopods",
    "body_plan_rule_guess": "biped"
@@ -4702,7 +6023,24 @@
     "death"
    ],
    "scale_m": 2.7,
-   "reference_prompt": "massive bull-headed humanoid with great horns, shaggy fur and huge greataxe. Large monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "glaive"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "massive bull-headed humanoid with great horns and shaggy fur, crude armor straps. Large monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "glaive": "Abyssal Glaive"
+   }
   },
   {
    "id": "mummy",
@@ -4732,6 +6070,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "undead humanoid wrapped in decaying linen bandages, withered skin, glowing eyes. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -4766,6 +6112,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "mummified priest-king in gilded funerary wrappings and jeweled headdress, ankh amulet. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -4799,6 +6153,14 @@
     "death"
    ],
    "scale_m": 4,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "obese boar-headed demon with ape-like body, tiny feathered wings and tusks. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -4829,6 +6191,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "hag with blue-black skin, white wild hair, horns, burning eyes and long black claws, tattered robes. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -4861,6 +6231,11 @@
     "death"
    ],
    "scale_m": 2.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "black horse with a fiery mane and tail, flaming hooves and red glowing eyes. Large fiend. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "winged_biped"
   },
@@ -4892,7 +6267,21 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "well-dressed noble in fine doublet and cape with rapier. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "rapier"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "well-dressed noble in fine doublet, breastplate and cape, scabbard at the hip. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "ochre-jelly",
@@ -4922,6 +6311,11 @@
     "death"
    ],
    "scale_m": 2.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "yellow-orange translucent jelly that spreads like a slime puddle with a raised center. Large ooze. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -4952,7 +6346,22 @@
     "death"
    ],
    "scale_m": 2.9,
-   "reference_prompt": "brutish large humanoid with dull skin, pot belly, crude hides and greatclub. Large giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "greatclub",
+    "javelin"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "brutish large humanoid with dull skin, pot belly, crude hides, a long leather case strapped to its back. Large giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "oni",
@@ -4986,8 +6395,21 @@
     "death"
    ],
    "scale_m": 3,
-   "reference_prompt": "ogre-like fiend with blue skin, horns, tusks, ornate samurai-like armor and glaive. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
-   "body_plan_rule_guess": "winged_biped"
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "ogre-like fiend with blue skin, horns, tusks, ornate samurai-like armor. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "body_plan_rule_guess": "winged_biped",
+   "equipment_note": "5.2.1 oni attacks with Claw and Nightmare Ray; art usually gives it a glaive"
   },
   {
    "id": "otyugh",
@@ -5016,6 +6438,11 @@
     "death"
    ],
    "scale_m": 2.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "bloated bulbous creature on three stout legs with two toothed tentacles and an eye stalk, gaping maw. Large aberration. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "bloated body on three legs with two toothed tentacles and an eye stalk",
    "body_plan_rule_guess": "biped"
@@ -5048,6 +6475,11 @@
     "death"
    ],
    "scale_m": 2.8,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "bear body with an owl head and beak, brown feathers blending into fur, sharp claws. Large monstrosity. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "bear body with owl head; rears up to attack but moves on four legs",
    "body_plan_rule_guess": "biped"
@@ -5081,6 +6513,11 @@
     "death"
    ],
    "scale_m": 2.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "white winged horse with large feathered wings. Large celestial. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "winged_biped"
   },
@@ -5112,6 +6549,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large spider with blue-violet iridescent carapace, eight legs, slightly shimmering ethereal outline. Large monstrosity. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -5143,7 +6585,21 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "weathered pirate in loose shirt, sash and bandana with cutlass and pistol. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "dagger"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "weathered pirate in loose shirt, sash and bandana, knife sheaths on the sash. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "pirate-captain",
@@ -5174,7 +6630,22 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "flamboyant pirate captain in long coat and tricorne hat with rapier and pistol. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "rapier",
+    "pistol"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "flamboyant pirate captain in long coat and tricorne hat, scabbard and holster at the hip. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "pit-fiend",
@@ -5207,7 +6678,24 @@
     "death"
    ],
    "scale_m": 3.7,
-   "reference_prompt": "huge devil with crimson scales, enormous bat wings, horns, fanged maw and spiked mace, armored hide. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "mace"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "huge devil with crimson scales, enormous bat wings, horns, fanged maw, armored hide. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "mace": "Fiery Mace"
+   }
   },
   {
    "id": "planetar",
@@ -5242,7 +6730,24 @@
     "death"
    ],
    "scale_m": 2.7,
-   "reference_prompt": "tall muscular angel with emerald-green skin, white feathered wings, bald head, greatsword. Large celestial. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "greatsword"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "tall muscular angel with emerald-green skin, white feathered wings, bald head. Large celestial. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "greatsword": "Radiant Sword"
+   }
   },
   {
    "id": "priest-acolyte",
@@ -5276,7 +6781,22 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "young temple acolyte in simple vestments with holy symbol and mace. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "mace"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "young temple acolyte in simple vestments with a holy symbol on a chain. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "Holy Symbol is worn"
   },
   {
    "id": "priest",
@@ -5310,7 +6830,22 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "temple priest in ornate vestments with holy symbol and mace. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "mace"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "temple priest in ornate vestments over a chain shirt, holy symbol on a chain. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "Holy Symbol is worn"
   },
   {
    "id": "pseudodragon",
@@ -5341,6 +6876,11 @@
     "death"
    ],
    "scale_m": 0.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "tiny dragon with red-brown scales, bat wings, horned head and barbed tail. Tiny dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -5373,6 +6913,11 @@
     "death"
    ],
    "scale_m": 25,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "colossal purple segmented worm with a cavernous toothed maw and a poison stinger tail. Gargantuan monstrosity. Low-poly game asset, full body, body in a loose S-curve, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -5404,6 +6949,14 @@
     "death"
    ],
    "scale_m": 0.6,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "tiny green-skinned demon with horns, clawed hands and barbed tail, impish grin. Tiny fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -5434,6 +6987,14 @@
     "death"
    ],
    "scale_m": 1.9,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "tiger-headed humanoid fiend with backward-facing hands, rich silk robes and jewelry. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -5469,6 +7030,11 @@
     "death"
    ],
    "scale_m": 2.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged volcanic dragon with crimson scales, massive swept-back horns and smoke wisping from its nostrils, hatchling proportions with oversized head and eyes. Medium dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -5504,6 +7070,11 @@
     "death"
    ],
    "scale_m": 6.3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged volcanic dragon with crimson scales, massive swept-back horns and smoke wisping from its nostrils, lean adolescent build. Large dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -5540,6 +7111,11 @@
     "death"
    ],
    "scale_m": 12.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged volcanic dragon with crimson scales, massive swept-back horns and smoke wisping from its nostrils, fully grown and powerful. Huge dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -5576,6 +7152,11 @@
     "death"
    ],
    "scale_m": 21.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged volcanic dragon with crimson scales, massive swept-back horns and smoke wisping from its nostrils, colossal, battle-scarred, with elaborate horns. Gargantuan dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -5607,6 +7188,11 @@
     "death"
    ],
    "scale_m": 9,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "long centipede-like polar beast with many legs, chitinous blue-white plating glowing red-hot along its back, flaring wing-like fins behind its head. Huge monstrosity. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "many-legged centipede-like polar worm",
    "body_plan_rule_guess": "biped"
@@ -5640,6 +7226,11 @@
     "death"
    ],
    "scale_m": 15,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "enormous eagle-like raptor with brown plumage, hooked beak and giant talons. Gargantuan monstrosity. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -5670,6 +7261,11 @@
     "death"
    ],
    "scale_m": 2.7,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "stalagmite-like cone of rocky gray hide with a single eye, a toothy mouth and six long tendrils. Large aberration. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -5699,6 +7295,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "insect-like quadruped with rusty-colored hide, feathery antennae, armored tail ending in a propeller-like fin. Medium monstrosity. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -5731,7 +7332,20 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "shark-like fish-man with green scales, webbed claws, fin crest, trident. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "shark-like fish-man with green scales, webbed claws, fin crest. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "5.2.1 sahuagin warrior has only claws; art usually gives it a trident"
   },
   {
    "id": "salamander",
@@ -5762,8 +7376,25 @@
     "death"
    ],
    "scale_m": 4.5,
-   "reference_prompt": "serpentine lower body with a humanoid torso of fiery red-orange scales, spined head, flaming spear. Large elemental. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
-   "body_plan_rule_guess": "biped"
+   "hands": true,
+   "wields": [
+    "spear"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "serpentine lower body with a humanoid torso of fiery red-orange scales, spined head. Large elemental. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "body_plan_rule_guess": "biped",
+   "wields_aka": {
+    "spear": "Flame Spear"
+   }
   },
   {
    "id": "satyr",
@@ -5792,7 +7423,20 @@
     "death"
    ],
    "scale_m": 1.7,
-   "reference_prompt": "fey humanoid with goat legs and hooves, small horns, panpipes and shortbow. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "fey humanoid with goat legs and hooves, small horns, panpipes hanging on a cord at the hip. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "Hooves only in 5.2.1; panpipes are worn on a cord, not held"
   },
   {
    "id": "scout",
@@ -5823,7 +7467,22 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "ranger-like scout in leather armor and green cloak with longbow and shortsword. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "shortsword",
+    "longbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "ranger-like scout in leather armor and green cloak, scabbard at the hip and an arrow quiver on the back. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "sea-hag",
@@ -5854,6 +7513,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "hag with slimy pale green skin, seaweed-like hair, bulging eyes and webbed clawed hands. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -5883,6 +7550,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "flat living shadow in the shape of a humanoid, smoky edges, faint glowing eyes. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "flat shadowy humanoid; walks (no fly speed) so biped, but can share the ghost rig"
   },
@@ -5914,8 +7589,14 @@
     "death"
    ],
    "scale_m": 2.7,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "hulking heap of rotting vines, moss and vegetation in a rough humanoid shape. Large plant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
-   "body_plan_note": "roughly humanoid heap of vines and rot"
+   "body_plan_note": "roughly humanoid heap of vines and rot",
+   "equipment_note": "heap of vines in a humanoid shape; no grip"
   },
   {
    "id": "shield-guardian",
@@ -5944,7 +7625,16 @@
     "death"
    ],
    "scale_m": 3,
-   "reference_prompt": "large construct of stone and iron in a vaguely knight-like shape with a shield arm and amulet socket. Large construct. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
+   "reference_prompt": "large construct of stone and iron in a vaguely knight-like shape with a shield arm and amulet socket. Large construct. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "its shield-like arm is part of the construct, not a prop"
   },
   {
    "id": "silver-dragon-wyrmling",
@@ -5978,6 +7668,11 @@
     "death"
    ],
    "scale_m": 2.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged metallic dragon with gleaming silver scales, smooth head frill and a beak-like chin spike, hatchling proportions with oversized head and eyes. Medium dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -6012,6 +7707,11 @@
     "death"
    ],
    "scale_m": 6.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged metallic dragon with gleaming silver scales, smooth head frill and a beak-like chin spike, lean adolescent build. Large dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -6047,6 +7747,11 @@
     "death"
    ],
    "scale_m": 12.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged metallic dragon with gleaming silver scales, smooth head frill and a beak-like chin spike, fully grown and powerful. Huge dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -6082,6 +7787,11 @@
     "death"
    ],
    "scale_m": 20.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged metallic dragon with gleaming silver scales, smooth head frill and a beak-like chin spike, colossal, battle-scarred, with elaborate horns. Gargantuan dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -6112,7 +7822,22 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "humanoid skeleton in scraps of armor with shortsword and shortbow. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "shortsword",
+    "shortbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "humanoid skeleton in scraps of armor, scabbard at the hip and an arrow quiver on the back. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "warhorse-skeleton",
@@ -6141,6 +7866,11 @@
     "death"
    ],
    "scale_m": 2.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "skeletal warhorse with tattered barding. Large undead. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -6171,7 +7901,20 @@
     "death"
    ],
    "scale_m": 2.7,
-   "reference_prompt": "skeletal bull-headed giant humanoid with great horns and a greataxe. Large undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "skeletal bull-headed giant humanoid with great horns. Large undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "Gore and Slam only in 5.2.1; art often adds a greataxe"
   },
   {
    "id": "solar",
@@ -6207,7 +7950,26 @@
     "death"
    ],
    "scale_m": 2.9,
-   "reference_prompt": "majestic angel with golden skin, shining feathered wings, radiant eyes, greatsword and longbow. Large celestial. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "greatsword",
+    "longbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "majestic angel with golden skin, shining feathered wings, radiant eyes, arrow quiver on the back. Large celestial. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "greatsword": "Flying Sword",
+    "longbow": "Slaying Bow"
+   }
   },
   {
    "id": "specter",
@@ -6238,6 +8000,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "dark translucent humanoid apparition with no features but glowing eyes, lower body dissolving. Medium undead. Low-poly game asset, full body, neutral hovering pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -6269,6 +8039,11 @@
     "death"
    ],
    "scale_m": 0.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "tiny winged lion-bodied sphinx with a feathered mane and golden fur. Tiny celestial. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "tiny winged lion-like sphinx",
    "body_plan_rule_guess": "winged_biped"
@@ -6303,6 +8078,11 @@
     "death"
    ],
    "scale_m": 3.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "winged lion body with a wise woman's head and elaborate headdress, feathered wings. Large celestial. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "winged_biped"
   },
@@ -6336,6 +8116,11 @@
     "death"
    ],
    "scale_m": 3.8,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "winged lion body with a stern bearded human head and pharaonic headdress, golden fur. Large celestial. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "winged_biped"
   },
@@ -6368,6 +8153,11 @@
     "death"
    ],
    "scale_m": 6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "huge black-and-red serpent with a malevolent human-like face and stringy black hair. Large fiend. Low-poly game asset, full body, body in a loose S-curve, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -6399,7 +8189,26 @@
     "death"
    ],
    "scale_m": 0.3,
-   "reference_prompt": "tiny fey humanoid with dragonfly wings, leafy garments, tiny longsword and shortbow. Tiny fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "rapier",
+    "shortbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "tiny fey humanoid with dragonfly wings and leafy garments, tiny arrow quiver on the back. Tiny fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "rapier": "Needle Sword",
+    "shortbow": "Enchanting Bow"
+   }
   },
   {
    "id": "spy",
@@ -6431,7 +8240,22 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "nondescript agent in a dark hooded cloak and leather, shortsword and hand crossbow. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "shortsword",
+    "hand-crossbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "nondescript agent in a dark hooded cloak and leather, scabbard and holster at the hip. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "stirge",
@@ -6461,6 +8285,11 @@
     "death"
    ],
    "scale_m": 0.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "bat-winged bloodsucking creature with a long needle proboscis and clinging insect legs. Tiny monstrosity. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "bat-winged bloodsucker with mosquito proboscis and small clinging legs; could also be treated as winged insectoid",
    "body_plan_rule_guess": "biped"
@@ -6493,7 +8322,25 @@
     "death"
    ],
    "scale_m": 5.5,
-   "reference_prompt": "tall lean giant with smooth gray stone-like skin, bald head, bare chest, greatclub and boulders. Huge giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "greatclub"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "tall lean giant with smooth gray stone-like skin, bald head, bare chest. Huge giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "greatclub": "Stone Club"
+   },
+   "equipment_note": "Boulder is a thrown rock: spawned FX, not a carried prop"
   },
   {
    "id": "stone-golem",
@@ -6523,6 +8370,14 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "massive humanoid statue of carved stone with blocky features and glowing runes. Large construct. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -6559,7 +8414,24 @@
     "death"
    ],
    "scale_m": 7.9,
-   "reference_prompt": "colossal giant with violet-gray skin, silver hair, regal armor and greatsword crackling with lightning. Huge giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "greatsword"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "colossal giant with violet-gray skin, silver hair, regal armor crackling with lightning. Huge giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "greatsword": "Storm Sword"
+   }
   },
   {
    "id": "succubus",
@@ -6590,6 +8462,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "alluring humanoid fiend with bat wings, small horns and slender tail, elegant attire. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "bat-winged humanoid (wings can be hidden in disguise)"
   },
@@ -6625,8 +8505,14 @@
     "death"
    ],
    "scale_m": 15,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "colossal reptilian kaiju with an armored carapace, two forward-pointing horns, massive jaws and a long spiked tail. Gargantuan monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
-   "body_plan_note": "upright kaiju with huge tail and carapace; some art is near-quadrupedal"
+   "body_plan_note": "upright kaiju with huge tail and carapace; some art is near-quadrupedal",
+   "equipment_note": "kaiju claws, no grip"
   },
   {
    "id": "tough",
@@ -6657,7 +8543,22 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "burly thug in leather armor with mace and heavy crossbow. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "mace",
+    "heavy-crossbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "burly thug in leather armor, bolt case on the belt. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "tough-boss",
@@ -6688,7 +8589,22 @@
     "death"
    ],
    "scale_m": 1.9,
-   "reference_prompt": "hulking gang boss in chain shirt with warhammer and heavy crossbow. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "warhammer",
+    "heavy-crossbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "hulking gang boss in chain mail, bolt case on the belt. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "treant",
@@ -6718,7 +8634,13 @@
     "death"
    ],
    "scale_m": 9,
-   "reference_prompt": "huge tree-like humanoid with bark skin, a gnarled face in the trunk, branch arms and root legs. Huge plant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
+   "reference_prompt": "huge tree-like humanoid with bark skin, a gnarled face in the trunk, branch arms and root legs. Huge plant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "branch arms with twig fingers; slams and hurls bark, never grips a prop"
   },
   {
    "id": "troll",
@@ -6747,6 +8669,14 @@
     "death"
    ],
    "scale_m": 2.7,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "tall gangly green-skinned troll with long arms, warty hide, hooked nose and wild hair. Large giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -6776,6 +8706,11 @@
     "death"
    ],
    "scale_m": 0.8,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "severed green troll arm crawling on its clawed fingers, regenerating stump. Small giant. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "severed crawling troll arm; a body part rather than a body plan",
    "body_plan_rule_guess": "biped"
@@ -6808,6 +8743,11 @@
     "death"
    ],
    "scale_m": 2.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "white horse with a single spiraling horn, flowing silver mane and cloven hooves. Large celestial. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -6841,7 +8781,24 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "pale gaunt human servant in dark clothes with dagger and hand crossbow. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "dagger"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "pale gaunt human servant in dark clothes, knife sheaths on the belt. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "dagger": "Umbral Dagger"
+   }
   },
   {
    "id": "vampire-spawn",
@@ -6871,6 +8828,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "pale undead humanoid with fangs, bloodshot eyes and clawed hands, tattered clothes. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -6902,6 +8867,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "aristocratic vampire with pale skin, fangs and red eyes, high-collared cloak and fine clothes. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -6935,6 +8908,14 @@
     "death"
    ],
    "scale_m": 2.7,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "vulture-headed demon with a lanky humanoid body, feathered wings and talons. Large fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -6966,7 +8947,22 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "foot soldier in chain shirt with spear and shield. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "spear"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "foot soldier in chain shirt and helmet. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "5.2.1 gear is Chain Shirt and Spear: no shield"
   },
   {
    "id": "warrior-veteran",
@@ -6997,7 +8993,22 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "grizzled veteran soldier in splint armor with longsword and heavy crossbow. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "greatsword",
+    "heavy-crossbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "grizzled veteran soldier in splint armor, bolt case on the belt. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "water-elemental",
@@ -7027,6 +9038,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "surging wave of water forming a vague humanoid upper body with arms. Large elemental. Low-poly game asset, full body, neutral hovering pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "legless column (flame / wave) with arms; walk speed only but no legs",
    "body_plan_rule_guess": "biped"
@@ -7063,8 +9079,23 @@
     "death"
    ],
    "scale_m": 2.4,
-   "reference_prompt": "hybrid bear-humanoid with brown fur, bear head and huge clawed hands, tattered clothing. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
-   "body_plan_note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset"
+   "hands": true,
+   "wields": [
+    "handaxe"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "hybrid bear-humanoid with brown fur, bear head and huge clawed hands, tattered clothing, wide belt with loops. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "body_plan_note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset",
+   "equipment_note": "modelled in hybrid form; handaxes usable in humanoid or hybrid form"
   },
   {
    "id": "wereboar",
@@ -7097,8 +9128,23 @@
     "death"
    ],
    "scale_m": 2.0,
-   "reference_prompt": "hybrid boar-humanoid with bristly fur, tusked boar head and maul. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
-   "body_plan_note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset"
+   "hands": true,
+   "wields": [
+    "javelin"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "hybrid boar-humanoid with bristly fur and tusked boar head, tattered clothing, a long leather case strapped to its back. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "body_plan_note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset",
+   "equipment_note": "hybrid form; javelins usable in humanoid or hybrid form"
   },
   {
    "id": "wererat",
@@ -7132,8 +9178,23 @@
     "death"
    ],
    "scale_m": 1.7,
-   "reference_prompt": "hybrid rat-humanoid with gray fur, rat head and tail, hand crossbow. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
-   "body_plan_note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset"
+   "hands": true,
+   "wields": [
+    "hand-crossbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "hybrid rat-humanoid with gray fur, rat head and tail, tattered clothing, bolt case on the belt. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "body_plan_note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset",
+   "equipment_note": "hybrid form"
   },
   {
    "id": "weretiger",
@@ -7166,8 +9227,23 @@
     "death"
    ],
    "scale_m": 2.0,
-   "reference_prompt": "hybrid tiger-humanoid with striped orange fur, tiger head and scimitar. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
-   "body_plan_note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset"
+   "hands": true,
+   "wields": [
+    "longbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "hybrid tiger-humanoid with striped orange fur and tiger head, tattered clothing, arrow quiver on the back. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "body_plan_note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset",
+   "equipment_note": "hybrid form"
   },
   {
    "id": "werewolf",
@@ -7200,8 +9276,23 @@
     "death"
    ],
    "scale_m": 2.0,
-   "reference_prompt": "hybrid wolf-humanoid with gray fur, wolf head, clawed hands and tattered clothing. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
-   "body_plan_note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset"
+   "hands": true,
+   "wields": [
+    "longbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "hybrid wolf-humanoid with gray fur, wolf head, clawed hands and tattered clothing, arrow quiver on the back. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "body_plan_note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset",
+   "equipment_note": "hybrid form"
   },
   {
    "id": "white-dragon-wyrmling",
@@ -7239,6 +9330,11 @@
     "death"
    ],
    "scale_m": 2.1,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged arctic dragon with icy white scales, sharp beaked head and spiny crest, hatchling proportions with oversized head and eyes. Medium dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -7277,6 +9373,11 @@
     "death"
    ],
    "scale_m": 5.1,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged arctic dragon with icy white scales, sharp beaked head and spiny crest, lean adolescent build. Large dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -7315,6 +9416,11 @@
     "death"
    ],
    "scale_m": 10.2,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged arctic dragon with icy white scales, sharp beaked head and spiny crest, fully grown and powerful. Huge dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -7353,6 +9459,11 @@
     "death"
    ],
    "scale_m": 17.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "four-legged winged arctic dragon with icy white scales, sharp beaked head and spiny crest, colossal, battle-scarred, with elaborate horns. Gargantuan dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -7383,7 +9494,26 @@
     "death"
    ],
    "scale_m": 1.8,
-   "reference_prompt": "undead warrior with dried gray skin, glowing eyes, corroded armor, longsword and longbow. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [
+    "longsword",
+    "longbow"
+   ],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "undead warrior with dried gray skin, glowing eyes, corroded armor, scabbard at the hip and an arrow quiver on the back. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "wields_aka": {
+    "longsword": "Necrotic Sword",
+    "longbow": "Necrotic Bow"
+   }
   },
   {
    "id": "will-o-wisp",
@@ -7414,6 +9544,11 @@
     "death"
    ],
    "scale_m": 0.3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small floating orb of flickering pale-blue light with a faint ghostly glow. Tiny undead. Low-poly game asset, full body, neutral hovering pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -7444,6 +9579,11 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large wolf with white-blue frosty fur and icy breath. Large monstrosity. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -7474,6 +9614,11 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "huge evil wolf with dark gray fur and glowing eyes. Large fey. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -7507,6 +9652,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "floating hooded figure of black tattered shadow-robes with glowing eyes and no legs. Medium undead. Low-poly game asset, full body, neutral hovering pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -7538,6 +9691,11 @@
     "death"
    ],
    "scale_m": 6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "dragon-like creature with two legs, bat wings as forelimbs, long neck and a venomous scorpion-like tail stinger, brown-green scales. Large dragon. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "two legs + wings-as-forelimbs (bat/pterosaur layout), long stinger tail; NOT a four-legged dragon",
    "body_plan_rule_guess": "biped"
@@ -7571,9 +9729,15 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "barrel-shaped stone-skinned creature with three thick legs, three clawed arms, three eyes and a wide mouth on top. Medium elemental. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "radially symmetric: three legs, three arms, top mouth",
-   "body_plan_rule_guess": "biped"
+   "body_plan_rule_guess": "biped",
+   "equipment_note": "three clawed arms used for digging; no grip sockets"
   },
   {
    "id": "zombie",
@@ -7602,6 +9766,14 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "shambling rotting human corpse with torn clothing and gray-green skin. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -7631,7 +9803,20 @@
     "death"
    ],
    "scale_m": 2.9,
-   "reference_prompt": "rotting undead ogre with exposed bones and torn hides, morningstar. Large undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l",
+    "back",
+    "hip_l",
+    "hip_r",
+    "head"
+   ],
+   "unarmed_reference": true,
+   "reference_prompt": "rotting undead ogre with exposed bones and torn hides. Large undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "equipment_note": "Slam only in 5.2.1; older art gives it a morningstar"
   },
   {
    "id": "allosaurus",
@@ -7662,6 +9847,11 @@
     "death"
    ],
    "scale_m": 9,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large bipedal predatory dinosaur with short arms, sharp teeth, ridged head and long tail. Large beast. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "theropod: bird-like hind legs and horizontal spine, vestigial arms, heavy tail; uses the avian locomotion class without wings",
    "body_plan_rule_guess": "quadruped"
@@ -7695,6 +9885,11 @@
     "death"
    ],
    "scale_m": 7,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "armored quadruped dinosaur with plated back, side spikes and a heavy tail club. Huge beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -7726,9 +9921,18 @@
     "death"
    ],
    "scale_m": 1.7,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "gorilla-like great ape with dark fur and long powerful arms. Medium beast. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "knuckle-walking great ape; human rig with long arms covers walk + chest-beat",
-   "body_plan_rule_guess": "quadruped"
+   "body_plan_rule_guess": "quadruped",
+   "equipment_note": "graspable hands; throws rocks (spawned FX)"
   },
   {
    "id": "archelon",
@@ -7760,6 +9964,11 @@
     "death"
    ],
    "scale_m": 4.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "giant prehistoric sea turtle with a leathery shell and broad front flippers. Huge beast. Low-poly game asset, full body, neutral swimming pose, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "four flippers, no walking legs",
    "body_plan_rule_guess": "quadruped"
@@ -7792,8 +10001,14 @@
     "death"
    ],
    "scale_m": 1.0,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "baboon with olive-brown fur, dog-like muzzle and long tail. Small beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
-   "body_plan_note": "moves on all fours; could share the ape biped rig"
+   "body_plan_note": "moves on all fours; could share the ape biped rig",
+   "equipment_note": "has real hands but walks on all fours and never wields anything; no sockets needed"
   },
   {
    "id": "badger",
@@ -7823,6 +10038,11 @@
     "death"
    ],
    "scale_m": 0.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small badger with gray-black fur and white face stripe. Tiny beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -7853,6 +10073,11 @@
     "death"
    ],
    "scale_m": 0.3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small brown bat with leathery wings. Tiny beast. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "membrane wings as forelimbs, two legs; bird-class rig with finger bones"
   },
@@ -7886,6 +10111,11 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "black bear with glossy black fur. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -7916,6 +10146,11 @@
     "death"
    ],
    "scale_m": 0.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "hawk with crimson feathers and a sharp hooked beak. Small beast. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -7945,6 +10180,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "wild boar with bristly dark fur and sharp tusks. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -7975,6 +10215,11 @@
     "death"
    ],
    "scale_m": 2.7,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large brown bear with shaggy fur, powerful shoulders and claws. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8004,6 +10249,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "dromedary camel with single hump and saddle blanket. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8034,6 +10284,11 @@
     "death"
    ],
    "scale_m": 0.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "domestic cat with tabby fur. Tiny beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8065,6 +10320,11 @@
     "death"
    ],
    "scale_m": 4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large constrictor snake with patterned brown scales. Large beast. Low-poly game asset, full body, body in a loose S-curve, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8096,6 +10356,11 @@
     "death"
    ],
    "scale_m": 0.3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small crab with orange shell and pincers. Tiny beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8127,6 +10392,11 @@
     "death"
    ],
    "scale_m": 4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "crocodile with armored olive-green scales and long toothy snout. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8156,6 +10426,11 @@
     "death"
    ],
    "scale_m": 1.7,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "deer with tawny coat and small antlers. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8185,6 +10460,11 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "huge shaggy prehistoric wolf with dark fur. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8214,6 +10494,11 @@
     "death"
    ],
    "scale_m": 2.7,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "heavy draft horse with feathered hooves and harness. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8244,6 +10529,11 @@
     "death"
    ],
    "scale_m": 0.9,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "eagle with brown plumage, white head and hooked beak. Small beast. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8273,6 +10563,11 @@
     "death"
    ],
    "scale_m": 6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "elephant with gray hide, large ears and ivory tusks. Huge beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8302,6 +10597,11 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "elk with tawny coat and broad branching antlers. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8335,6 +10635,11 @@
     "death"
    ],
    "scale_m": 0.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small brightly colored snake with feathered wings. Tiny monstrosity. Low-poly game asset, full body, body in a loose S-curve, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8366,6 +10671,11 @@
     "death"
    ],
    "scale_m": 0.15,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small green frog. Tiny beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8396,6 +10706,14 @@
     "death"
    ],
    "scale_m": 6,
+   "hands": true,
+   "wields": [],
+   "shield": false,
+   "sockets": [
+    "hand_r",
+    "hand_l"
+   ],
+   "unarmed_reference": false,
    "reference_prompt": "enormous gorilla-like ape with dark fur and massive arms. Huge beast. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "knuckle-walking great ape; human rig with long arms",
    "body_plan_rule_guess": "quadruped"
@@ -8428,6 +10746,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large badger with gray-black fur, white face stripe and digging claws. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8458,6 +10781,11 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large bat with dark leathery wings and big ears. Large beast. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "membrane wings as forelimbs, two legs; bird-class rig with finger bones"
   },
@@ -8488,6 +10816,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "huge wild boar with bristly fur and massive tusks. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8518,6 +10851,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "giant segmented centipede with reddish-brown chitin and many legs. Small beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8549,6 +10887,11 @@
     "death"
    ],
    "scale_m": 9,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "huge constrictor snake with patterned green-brown scales. Huge beast. Low-poly game asset, full body, body in a loose S-curve, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8580,6 +10923,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large crab with blue-gray shell and big pincers. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8611,6 +10959,11 @@
     "death"
    ],
    "scale_m": 9,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "enormous crocodile with armored dark scales and huge jaws. Huge beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8641,6 +10994,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "huge noble eagle with golden-brown plumage. Large celestial. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8670,6 +11028,11 @@
     "death"
    ],
    "scale_m": 5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "majestic huge elk with enormous antlers and silver-white coat. Huge celestial. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
@@ -8701,6 +11064,11 @@
     "death"
    ],
    "scale_m": 0.9,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large beetle with dark carapace and two glowing orange glands above its eyes. Small beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8732,6 +11100,11 @@
     "death"
    ],
    "scale_m": 1.2,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large green-brown frog with a long sticky tongue. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8762,6 +11135,11 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large mountain goat with thick white fur and curled horns. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8791,6 +11169,11 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large hyena with spotted fur and powerful jaws. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8821,6 +11204,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large lizard with scaly green-brown hide. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8851,6 +11239,11 @@
     "death"
    ],
    "scale_m": 4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "giant octopus with reddish skin and eight long tentacles. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8882,6 +11275,11 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "huge owl with soft brown-gray feathers and large intelligent eyes. Large celestial. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8912,6 +11310,11 @@
     "death"
    ],
    "scale_m": 0.9,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "dog-sized rat with mangy fur and long tail. Small beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8941,6 +11344,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "huge scorpion with black-brown chitin, large pincers and venomous stinger. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -8971,6 +11379,11 @@
     "death"
    ],
    "scale_m": 2.7,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large seahorse with ridged scales and fin crest. Large beast. Low-poly game asset, full body, neutral swimming pose, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9001,6 +11414,11 @@
     "death"
    ],
    "scale_m": 12,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "enormous shark with gray skin and gaping toothy maw. Huge beast. Low-poly game asset, full body, neutral swimming pose, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9031,6 +11449,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "huge black hairy spider with eight legs and fangs. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9062,6 +11485,11 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "huge warty brown toad. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9093,6 +11521,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large venomous snake with banded scales and fangs. Medium beast. Low-poly game asset, full body, body in a loose S-curve, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9123,6 +11556,11 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large vulture with dark feathers and bald red head. Large monstrosity. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9153,6 +11591,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "giant wasp with black-and-yellow striped body, translucent wings and stinger. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9183,6 +11626,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large weasel with sleek brown fur. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9213,6 +11661,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large brown hairy wolf spider with eight legs. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9243,6 +11696,11 @@
     "death"
    ],
    "scale_m": 1.2,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "goat with short horns. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9273,6 +11731,11 @@
     "death"
    ],
    "scale_m": 0.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small hawk with brown feathers. Tiny beast. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9304,6 +11767,11 @@
     "death"
    ],
    "scale_m": 4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "hippopotamus with gray-brown hide and massive jaws. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9334,6 +11802,11 @@
     "death"
    ],
    "scale_m": 4.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large shark with gray skin and rows of sharp teeth. Large beast. Low-poly game asset, full body, neutral swimming pose, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9363,6 +11836,11 @@
     "death"
    ],
    "scale_m": 1.3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "hyena with spotted fur. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9392,6 +11870,11 @@
     "death"
    ],
    "scale_m": 0.9,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "jackal with tan fur and pointed ears. Small beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9422,6 +11905,11 @@
     "death"
    ],
    "scale_m": 7,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "orca with black-and-white markings. Huge beast. Low-poly game asset, full body, neutral swimming pose, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9451,6 +11939,11 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "lion with golden fur and thick mane. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9481,6 +11974,11 @@
     "death"
    ],
    "scale_m": 0.3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small lizard. Tiny beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9510,6 +12008,11 @@
     "death"
    ],
    "scale_m": 7,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "woolly mammoth with shaggy brown fur and long curved tusks. Huge beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9539,6 +12042,11 @@
     "death"
    ],
    "scale_m": 1.2,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "large mastiff dog with short fawn coat and collar. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9568,6 +12076,11 @@
     "death"
    ],
    "scale_m": 2.1,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "mule with saddlebags. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9598,6 +12111,11 @@
     "death"
    ],
    "scale_m": 0.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small octopus with reddish skin. Small beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9628,6 +12146,11 @@
     "death"
    ],
    "scale_m": 0.3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small owl with brown feathers. Tiny beast. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9658,6 +12181,11 @@
     "death"
    ],
    "scale_m": 1.8,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "black panther with sleek fur. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9688,6 +12216,11 @@
     "death"
    ],
    "scale_m": 0.3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small piranha with silver body and red belly, sharp teeth. Tiny beast. Low-poly game asset, full body, neutral swimming pose, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9720,6 +12253,11 @@
     "death"
    ],
    "scale_m": 6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "long-necked marine reptile with four flippers and small toothy head. Large beast. Low-poly game asset, full body, neutral swimming pose, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "four flippers, no walking legs",
    "body_plan_rule_guess": "quadruped"
@@ -9753,6 +12291,11 @@
     "death"
    ],
    "scale_m": 2.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "polar bear with thick white fur. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9782,6 +12325,11 @@
     "death"
    ],
    "scale_m": 2,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small pony with shaggy mane. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9814,6 +12362,11 @@
     "death"
    ],
    "scale_m": 2,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "flying reptile with leathery wings and long crested head. Medium beast. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9844,6 +12397,11 @@
     "death"
    ],
    "scale_m": 0.25,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "common brown rat. Tiny beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9874,6 +12432,11 @@
     "death"
    ],
    "scale_m": 0.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "black raven. Tiny beast. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9904,6 +12467,11 @@
     "death"
    ],
    "scale_m": 2,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "reef shark with gray-brown skin. Medium beast. Low-poly game asset, full body, neutral swimming pose, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9933,6 +12501,11 @@
     "death"
    ],
    "scale_m": 4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "rhinoceros with thick gray hide and large nose horn. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9962,6 +12535,11 @@
     "death"
    ],
    "scale_m": 2.4,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "riding horse with saddle and bridle. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -9991,6 +12569,11 @@
     "death"
    ],
    "scale_m": 3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "prehistoric big cat with long saber fangs and tawny fur. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -10020,6 +12603,11 @@
     "death"
    ],
    "scale_m": 0.2,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small scorpion. Tiny beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -10050,6 +12638,11 @@
     "death"
    ],
    "scale_m": 0.15,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small seahorse. Tiny beast. Low-poly game asset, full body, neutral swimming pose, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -10080,6 +12673,11 @@
     "death"
    ],
    "scale_m": 0.1,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small spider. Tiny beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -10112,6 +12710,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "cluster of small brown bats with leathery wings; show one representative individual creature plus a small loose cluster. Large swarm of tiny beasts. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "swarm_unit_size": "tiny"
   },
@@ -10144,6 +12747,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "cloud of beetles and wasps; show one representative individual creature plus a small loose cluster. Medium swarm of tiny beasts. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "swarm_unit_size": "tiny"
   },
@@ -10177,6 +12785,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "school of silver-and-red piranhas; show one representative individual creature plus a small loose cluster. Medium swarm of tiny beasts. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "swarm_unit_size": "tiny"
   },
@@ -10210,6 +12823,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "pack of brown rats; show one representative individual creature plus a small loose cluster. Medium swarm of tiny beasts. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "swarm_unit_size": "tiny"
   },
@@ -10243,6 +12861,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "flock of black ravens; show one representative individual creature plus a small loose cluster. Medium swarm of tiny beasts. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "swarm_unit_size": "tiny"
   },
@@ -10277,6 +12900,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "tangle of small venomous snakes; show one representative individual creature plus a small loose cluster. Medium swarm of tiny beasts. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting.",
    "swarm_unit_size": "tiny"
   },
@@ -10307,6 +12935,11 @@
     "death"
    ],
    "scale_m": 2.7,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "tiger with orange fur and black stripes. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -10338,6 +12971,11 @@
     "death"
    ],
    "scale_m": 9,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "horned dinosaur with three facial horns and bony frill. Huge beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -10369,6 +13007,11 @@
     "death"
    ],
    "scale_m": 12,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "massive bipedal tyrannosaur with huge jaws, tiny arms and long tail. Huge beast. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "theropod: bird-like hind legs and horizontal spine, vestigial arms, heavy tail; uses the avian locomotion class without wings",
    "body_plan_rule_guess": "quadruped"
@@ -10402,6 +13045,11 @@
     "death"
    ],
    "scale_m": 1,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small venomous snake with banded scales. Tiny beast. Low-poly game asset, full body, body in a loose S-curve, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -10432,6 +13080,11 @@
     "death"
    ],
    "scale_m": 0.8,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "vulture with dark feathers and bald head. Medium beast. Low-poly game asset, full body, neutral standing stance with wings partly spread, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -10461,6 +13114,11 @@
     "death"
    ],
    "scale_m": 2.6,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "armored warhorse with barding. Large beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -10491,6 +13149,11 @@
     "death"
    ],
    "scale_m": 0.3,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "small weasel. Tiny beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   },
   {
@@ -10520,6 +13183,11 @@
     "death"
    ],
    "scale_m": 1.5,
+   "hands": false,
+   "wields": [],
+   "shield": false,
+   "sockets": [],
+   "unarmed_reference": false,
    "reference_prompt": "gray wolf. Medium beast. Low-poly game asset, full body, neutral stance, side view, plain gray background, clean silhouette, flat even lighting."
   }
  ]

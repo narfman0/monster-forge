@@ -92,7 +92,7 @@
   "scale_m": 17.0
  },
  "animated-armor": {
-  "desc": "empty suit of dented plate armor moving on its own, open visor showing darkness, longsword-less gauntlets",
+  "desc": "empty suit of dented plate armor moving on its own, open visor showing darkness, empty steel gauntlets",
   "scale_m": 1.8
  },
  "animated-flying-sword": {
@@ -120,11 +120,11 @@
   "scale_m": 4.5
  },
  "archmage": {
-  "desc": "elder wizard in elaborate rune-embroidered robes with a glowing staff",
+  "desc": "elder wizard in elaborate rune-embroidered robes, spellbook hanging from the belt",
   "scale_m": 1.8
  },
  "assassin": {
-  "desc": "lean hooded assassin in dark leather armor, face mask, short sword and hand crossbow",
+  "desc": "lean hooded assassin in dark leather armor and face mask, scabbard and holster on a belt at the hip",
   "scale_m": 1.8
  },
  "awakened-shrub": {
@@ -140,7 +140,7 @@
   "scale_m": 2.7
  },
  "azer-sentinel": {
-  "desc": "stocky dwarf-like humanoid of polished bronze skin with hair and beard of living flame, kilt and warhammer",
+  "desc": "stocky dwarf-like humanoid of polished bronze skin with hair and beard of living flame, bronze kilt and wide belt",
   "scale_m": 1.5
  },
  "baboon": {
@@ -152,15 +152,15 @@
   "scale_m": 0.6
  },
  "balor": {
-  "desc": "towering demon with red skin, huge bat wings, ram horns, fiery whip and flaming sword, wreathed in flame",
+  "desc": "towering demon with red skin, huge bat wings, ram horns, wreathed in flame",
   "scale_m": 3.7
  },
  "bandit": {
-  "desc": "scruffy outlaw in patched leather armor with scimitar and light crossbow, bandana over face",
+  "desc": "scruffy outlaw in patched leather armor, bandana over face, scabbard at the hip and a bolt case on the belt",
   "scale_m": 1.8
  },
  "bandit-captain": {
-  "desc": "swaggering bandit leader in studded leather and long coat, scimitar and dagger",
+  "desc": "swaggering bandit leader in studded leather and long coat, scabbard and holster at the hip",
   "scale_m": 1.8
  },
  "barbed-devil": {
@@ -176,7 +176,7 @@
   "scale_m": 0.3
  },
  "bearded-devil": {
-  "desc": "humanoid devil with a writhing beard of snake-like tendrils, pointed ears, clawed hands, wielding a saw-toothed glaive",
+  "desc": "humanoid devil with a writhing beard of snake-like tendrils, pointed ears, clawed hands, crude infernal armor plates",
   "scale_m": 1.8
  },
  "behir": {
@@ -184,7 +184,7 @@
   "scale_m": 12
  },
  "berserker": {
-  "desc": "muscular warrior in furs and hide armor with greataxe, wild hair, war paint",
+  "desc": "muscular warrior in furs and hide armor, wild hair, war paint, a harness strap across the chest",
   "scale_m": 1.9
  },
  "black-bear": {
@@ -232,11 +232,11 @@
   "scale_m": 2.7
  },
  "bugbear-stalker": {
-  "desc": "hairy goblinoid with bear-like features, long arms, hooded dark leathers, javelins and morningstar",
+  "desc": "hairy goblinoid with bear-like features, long arms, hooded dark leathers, a long leather case strapped to its back",
   "scale_m": 2.1
  },
  "bugbear-warrior": {
-  "desc": "tall hairy goblinoid with bear-like snout and long arms, hide armor, morningstar and javelins",
+  "desc": "tall hairy goblinoid with bear-like snout and long arms, hide armor, wide belt with tool loops",
   "scale_m": 2.1
  },
  "bulette": {
@@ -252,7 +252,7 @@
   "scale_m": 0.5
  },
  "centaur-trooper": {
-  "desc": "centaur with a human torso on a horse body, leather armor, pike and longbow",
+  "desc": "centaur with a human torso on a horse body, breastplate over the human torso, arrow quiver on the back",
   "scale_m": 2.4
  },
  "chain-devil": {
@@ -276,7 +276,7 @@
   "scale_m": 2.5
  },
  "cloud-giant": {
-  "desc": "towering giant with pale blue-white skin, silver hair, fine robes and jewelry, morningstar",
+  "desc": "towering giant with pale blue-white skin, silver hair, fine robes and jewelry, a jeweled belt",
   "scale_m": 7.3
  },
  "cockatrice": {
@@ -284,7 +284,7 @@
   "scale_m": 0.9
  },
  "commoner": {
-  "desc": "ordinary villager in simple tunic and trousers holding a club",
+  "desc": "ordinary villager in simple tunic and trousers, rope belt",
   "scale_m": 1.8
  },
  "constrictor-snake": {
@@ -308,11 +308,11 @@
   "scale_m": 4
  },
  "cultist": {
-  "desc": "robed cultist in dark hooded vestments with ritual dagger and occult symbol",
+  "desc": "robed cultist in dark hooded vestments with an occult symbol embroidered on the chest",
   "scale_m": 1.8
  },
  "cultist-fanatic": {
-  "desc": "zealous cult leader in ornate dark robes with ritual dagger and glowing sigil",
+  "desc": "zealous cult leader in ornate dark robes over leather armor, glowing sigil, holy symbol on a chain around the neck",
   "scale_m": 1.8
  },
  "darkmantle": {
@@ -328,7 +328,7 @@
   "scale_m": 1.7
  },
  "deva": {
-  "desc": "radiant angel with silver skin, feathered white wings, flowing robes and a heavenly mace",
+  "desc": "radiant angel with silver skin, feathered white wings and flowing robes",
   "scale_m": 1.9
  },
  "dire-wolf": {
@@ -336,7 +336,7 @@
   "scale_m": 2.4
  },
  "djinni": {
-  "desc": "towering blue-skinned genie with muscular torso, turban and jewelry, lower body a swirling whirlwind, scimitar",
+  "desc": "towering blue-skinned genie with muscular torso, turban and jewelry, lower body a swirling whirlwind, sash at the waist",
   "scale_m": 3.6
  },
  "doppelganger": {
@@ -356,11 +356,11 @@
   "scale_m": 1.0
  },
  "drider": {
-  "desc": "dark elf torso fused to a giant black spider body with eight legs, longsword and longbow",
+  "desc": "dark elf torso fused to a giant black spider body with eight legs, leather harness over the elf torso",
   "scale_m": 3
  },
  "druid": {
-  "desc": "druid in hide and leaf-woven robes with wooden staff, bone and feather trinkets",
+  "desc": "druid in studded leather under hide and leaf-woven robes, bone and feather trinkets",
   "scale_m": 1.8
  },
  "dryad": {
@@ -380,7 +380,7 @@
   "scale_m": 3
  },
  "efreeti": {
-  "desc": "huge red-skinned genie with muscular build, flame-crowned head, brass armor and scimitar",
+  "desc": "huge red-skinned genie with muscular build, flame-crowned head, brass armor and a wide sash",
   "scale_m": 3.6
  },
  "elephant": {
@@ -392,7 +392,7 @@
   "scale_m": 2.4
  },
  "erinyes": {
-  "desc": "beautiful but grim fallen-angel devil with black feathered wings, plate armor, longsword and rope of entanglement",
+  "desc": "beautiful but grim fallen-angel devil with black feathered wings, plate armor, a coiled rope at the hip",
   "scale_m": 1.9
  },
  "ettercap": {
@@ -400,7 +400,7 @@
   "scale_m": 1.8
  },
  "ettin": {
-  "desc": "two-headed ogre-like giant in crude hides, each head with its own ugly face, morningstar and battleaxe",
+  "desc": "two-headed ogre-like giant in crude hides, each head with its own ugly face, broad belt",
   "scale_m": 4
  },
  "fire-elemental": {
@@ -408,7 +408,7 @@
   "scale_m": 3
  },
  "fire-giant": {
-  "desc": "massive giant with coal-black skin, flaming red-orange hair and beard, heavy blackened iron plate armor, greatsword",
+  "desc": "massive giant with coal-black skin, flaming red-orange hair and beard, heavy blackened iron plate armor",
   "scale_m": 5.5
  },
  "flesh-golem": {
@@ -424,7 +424,7 @@
   "scale_m": 0.15
  },
  "frost-giant": {
-  "desc": "huge giant with pale icy-blue skin, white hair and beard braided with frost, fur and mail armor, greataxe",
+  "desc": "huge giant with pale icy-blue skin, white hair and beard braided with frost, fur and mail armor, quiver of huge arrows on the back",
   "scale_m": 6.4
  },
  "gargoyle": {
@@ -568,11 +568,11 @@
   "scale_m": 4.5
  },
  "gladiator": {
-  "desc": "arena fighter in mismatched armor with spear and shield, crested helm",
+  "desc": "arena fighter in mismatched studded leather armor with a crested helm and bare arms",
   "scale_m": 1.8
  },
  "gnoll-warrior": {
-  "desc": "hyena-headed humanoid with spotted fur, crude armor, spear and longbow",
+  "desc": "hyena-headed humanoid with spotted fur and crude armor, arrow quiver on the back",
   "scale_m": 2.1
  },
  "goat": {
@@ -580,15 +580,15 @@
   "scale_m": 1.2
  },
  "goblin-boss": {
-  "desc": "small goblin chieftain in mismatched chain armor and crude crown, scimitar",
+  "desc": "small goblin chieftain in mismatched chain armor and crude crown, scabbard at the hip and an arrow quiver on the back",
   "scale_m": 1.1
  },
  "goblin-minion": {
-  "desc": "small green-skinned goblin with pointed ears, ragged leather, dagger",
+  "desc": "small green-skinned goblin with pointed ears and ragged leather, knife sheaths on the belt",
   "scale_m": 1.0
  },
  "goblin-warrior": {
-  "desc": "small goblin in scrap leather armor with scimitar and shortbow",
+  "desc": "small goblin in scrap leather armor, scabbard at the hip and an arrow quiver on the back",
   "scale_m": 1.0
  },
  "gold-dragon-wyrmling": {
@@ -620,15 +620,15 @@
   "scale_m": 3
  },
  "grimlock": {
-  "desc": "eyeless gray-skinned humanoid with smooth face over empty sockets, primitive bone club",
+  "desc": "eyeless gray-skinned humanoid with smooth face over empty sockets, loincloth and bone trinkets",
   "scale_m": 1.7
  },
  "guard": {
-  "desc": "town guard in chain shirt and helmet with spear and shield",
+  "desc": "town guard in chain shirt and helmet with a tabard",
   "scale_m": 1.8
  },
  "guard-captain": {
-  "desc": "seasoned guard captain in breastplate and cloak with longsword and javelins",
+  "desc": "seasoned guard captain in breastplate and cloak, scabbard at the hip",
   "scale_m": 1.8
  },
  "guardian-naga": {
@@ -656,7 +656,7 @@
   "scale_m": 3
  },
  "hill-giant": {
-  "desc": "huge dim-witted giant with tan skin, crude hides and furs, pot belly, tree-trunk greatclub",
+  "desc": "huge dim-witted giant with tan skin, crude hides and furs, pot belly",
   "scale_m": 4.9
  },
  "hippogriff": {
@@ -668,11 +668,11 @@
   "scale_m": 4
  },
  "hobgoblin-captain": {
-  "desc": "hobgoblin officer in polished plate-and-lamellar armor with greatsword and banner sash",
+  "desc": "hobgoblin officer in polished plate-and-lamellar armor with banner sash and an arrow quiver on the back",
   "scale_m": 1.8
  },
  "hobgoblin-warrior": {
-  "desc": "disciplined goblinoid soldier with orange-red skin, lamellar armor, longsword and longbow",
+  "desc": "disciplined goblinoid soldier with orange-red skin, lamellar armor, scabbard at the hip and an arrow quiver on the back",
   "scale_m": 1.8
  },
  "homunculus": {
@@ -680,7 +680,7 @@
   "scale_m": 0.45
  },
  "horned-devil": {
-  "desc": "towering devil with leathery bat wings, curved horns, spiked tail, red scales, wielding a fork",
+  "desc": "towering devil with leathery bat wings, curved horns, spiked tail, red scales",
   "scale_m": 2.7
  },
  "hunter-shark": {
@@ -696,7 +696,7 @@
   "scale_m": 1.3
  },
  "ice-devil": {
-  "desc": "towering insectoid devil with pale blue chitin, bulbous eyes, mandibles, long spiked tail, ice spear",
+  "desc": "towering insectoid devil with pale blue chitin, bulbous eyes, mandibles, long spiked tail",
   "scale_m": 3.6
  },
  "ice-mephit": {
@@ -716,7 +716,7 @@
   "scale_m": 2.7
  },
  "iron-golem": {
-  "desc": "towering humanoid of riveted black iron with a crested helm-like head and huge iron sword",
+  "desc": "towering humanoid of riveted black iron with a crested helm-like head and a broad blade built into one forearm",
   "scale_m": 3.6
  },
  "jackal": {
@@ -728,11 +728,11 @@
   "scale_m": 7
  },
  "knight": {
-  "desc": "armored knight in full plate with greatsword and heraldic tabard",
+  "desc": "armored knight in full plate with heraldic tabard",
   "scale_m": 1.8
  },
  "kobold-warrior": {
-  "desc": "small reptilian humanoid with rust-red scales, dog-like snout, crude leather, spear and sling",
+  "desc": "small reptilian humanoid with rust-red scales, dog-like snout, crude leather, knife sheaths on the belt",
   "scale_m": 0.9
  },
  "kraken": {
@@ -748,7 +748,7 @@
   "scale_m": 1.2
  },
  "lich": {
-  "desc": "undead wizard with skeletal face, glowing pinpoint eyes, ornate tattered robes and crown, staff",
+  "desc": "undead wizard with skeletal face, glowing pinpoint eyes, ornate tattered robes and crown, component pouch at the belt",
   "scale_m": 1.8
  },
  "lion": {
@@ -760,7 +760,7 @@
   "scale_m": 0.3
  },
  "mage": {
-  "desc": "wizard in flowing robes with a staff and spellbook, arcane runes",
+  "desc": "wizard in flowing robes with arcane runes, spellbook hanging from the belt",
   "scale_m": 1.8
  },
  "magma-mephit": {
@@ -780,7 +780,7 @@
   "scale_m": 3.5
  },
  "marilith": {
-  "desc": "six-armed demon with a woman's upper body and a huge serpent lower body, a longsword in each hand",
+  "desc": "six-armed demon with a woman's upper body and a huge serpent lower body, ornate armor and jewelry",
   "scale_m": 4.5
  },
  "mastiff": {
@@ -788,15 +788,15 @@
   "scale_m": 1.2
  },
  "medusa": {
-  "desc": "woman with snakes for hair, scaled green skin, longbow and short sword, flowing robes",
+  "desc": "woman with snakes for hair, scaled green skin, flowing robes",
   "scale_m": 1.8
  },
  "merfolk-skirmisher": {
-  "desc": "merfolk with human upper body and blue-green fish tail, coral jewelry, trident and javelins",
+  "desc": "merfolk with human upper body and blue-green fish tail, coral jewelry",
   "scale_m": 1.8
  },
  "merrow": {
-  "desc": "brutish merfolk with warty green skin, sharp teeth, clawed hands, fish tail, harpoon",
+  "desc": "brutish merfolk with warty green skin, sharp teeth, clawed hands and fish tail, rope coiled over the shoulder",
   "scale_m": 3
  },
  "mimic": {
@@ -804,11 +804,11 @@
   "scale_m": 1.2
  },
  "minotaur-of-baphomet": {
-  "desc": "massive bull-headed humanoid with great horns, shaggy fur and huge greataxe",
+  "desc": "massive bull-headed humanoid with great horns and shaggy fur, crude armor straps",
   "scale_m": 2.7
  },
  "minotaur-skeleton": {
-  "desc": "skeletal bull-headed giant humanoid with great horns and a greataxe",
+  "desc": "skeletal bull-headed giant humanoid with great horns",
   "scale_m": 2.7
  },
  "mule": {
@@ -836,7 +836,7 @@
   "scale_m": 2.6
  },
  "noble": {
-  "desc": "well-dressed noble in fine doublet and cape with rapier",
+  "desc": "well-dressed noble in fine doublet, breastplate and cape, scabbard at the hip",
   "scale_m": 1.8
  },
  "ochre-jelly": {
@@ -848,15 +848,15 @@
   "scale_m": 0.6
  },
  "ogre": {
-  "desc": "brutish large humanoid with dull skin, pot belly, crude hides and greatclub",
+  "desc": "brutish large humanoid with dull skin, pot belly, crude hides, a long leather case strapped to its back",
   "scale_m": 2.9
  },
  "ogre-zombie": {
-  "desc": "rotting undead ogre with exposed bones and torn hides, morningstar",
+  "desc": "rotting undead ogre with exposed bones and torn hides",
   "scale_m": 2.9
  },
  "oni": {
-  "desc": "ogre-like fiend with blue skin, horns, tusks, ornate samurai-like armor and glaive",
+  "desc": "ogre-like fiend with blue skin, horns, tusks, ornate samurai-like armor",
   "scale_m": 3
  },
  "otyugh": {
@@ -888,19 +888,19 @@
   "scale_m": 0.3
  },
  "pirate": {
-  "desc": "weathered pirate in loose shirt, sash and bandana with cutlass and pistol",
+  "desc": "weathered pirate in loose shirt, sash and bandana, knife sheaths on the sash",
   "scale_m": 1.8
  },
  "pirate-captain": {
-  "desc": "flamboyant pirate captain in long coat and tricorne hat with rapier and pistol",
+  "desc": "flamboyant pirate captain in long coat and tricorne hat, scabbard and holster at the hip",
   "scale_m": 1.8
  },
  "pit-fiend": {
-  "desc": "huge devil with crimson scales, enormous bat wings, horns, fanged maw and spiked mace, armored hide",
+  "desc": "huge devil with crimson scales, enormous bat wings, horns, fanged maw, armored hide",
   "scale_m": 3.7
  },
  "planetar": {
-  "desc": "tall muscular angel with emerald-green skin, white feathered wings, bald head, greatsword",
+  "desc": "tall muscular angel with emerald-green skin, white feathered wings, bald head",
   "scale_m": 2.7
  },
  "plesiosaurus": {
@@ -916,11 +916,11 @@
   "scale_m": 2
  },
  "priest": {
-  "desc": "temple priest in ornate vestments with holy symbol and mace",
+  "desc": "temple priest in ornate vestments over a chain shirt, holy symbol on a chain",
   "scale_m": 1.8
  },
  "priest-acolyte": {
-  "desc": "young temple acolyte in simple vestments with holy symbol and mace",
+  "desc": "young temple acolyte in simple vestments with a holy symbol on a chain",
   "scale_m": 1.8
  },
  "pseudodragon": {
@@ -988,15 +988,15 @@
   "scale_m": 3
  },
  "sahuagin-warrior": {
-  "desc": "shark-like fish-man with green scales, webbed claws, fin crest, trident",
+  "desc": "shark-like fish-man with green scales, webbed claws, fin crest",
   "scale_m": 1.8
  },
  "salamander": {
-  "desc": "serpentine lower body with a humanoid torso of fiery red-orange scales, spined head, flaming spear",
+  "desc": "serpentine lower body with a humanoid torso of fiery red-orange scales, spined head",
   "scale_m": 4.5
  },
  "satyr": {
-  "desc": "fey humanoid with goat legs and hooves, small horns, panpipes and shortbow",
+  "desc": "fey humanoid with goat legs and hooves, small horns, panpipes hanging on a cord at the hip",
   "scale_m": 1.7
  },
  "scorpion": {
@@ -1004,7 +1004,7 @@
   "scale_m": 0.2
  },
  "scout": {
-  "desc": "ranger-like scout in leather armor and green cloak with longbow and shortsword",
+  "desc": "ranger-like scout in leather armor and green cloak, scabbard at the hip and an arrow quiver on the back",
   "scale_m": 1.8
  },
  "sea-hag": {
@@ -1036,11 +1036,11 @@
   "scale_m": 2.5
  },
  "skeleton": {
-  "desc": "humanoid skeleton in scraps of armor with shortsword and shortbow",
+  "desc": "humanoid skeleton in scraps of armor, scabbard at the hip and an arrow quiver on the back",
   "scale_m": 1.8
  },
  "solar": {
-  "desc": "majestic angel with golden skin, shining feathered wings, radiant eyes, greatsword and longbow",
+  "desc": "majestic angel with golden skin, shining feathered wings, radiant eyes, arrow quiver on the back",
   "scale_m": 2.9
  },
  "specter": {
@@ -1068,11 +1068,11 @@
   "scale_m": 6
  },
  "sprite": {
-  "desc": "tiny fey humanoid with dragonfly wings, leafy garments, tiny longsword and shortbow",
+  "desc": "tiny fey humanoid with dragonfly wings and leafy garments, tiny arrow quiver on the back",
   "scale_m": 0.3
  },
  "spy": {
-  "desc": "nondescript agent in a dark hooded cloak and leather, shortsword and hand crossbow",
+  "desc": "nondescript agent in a dark hooded cloak and leather, scabbard and holster at the hip",
   "scale_m": 1.8
  },
  "steam-mephit": {
@@ -1084,7 +1084,7 @@
   "scale_m": 0.4
  },
  "stone-giant": {
-  "desc": "tall lean giant with smooth gray stone-like skin, bald head, bare chest, greatclub and boulders",
+  "desc": "tall lean giant with smooth gray stone-like skin, bald head, bare chest",
   "scale_m": 5.5
  },
  "stone-golem": {
@@ -1092,7 +1092,7 @@
   "scale_m": 3
  },
  "storm-giant": {
-  "desc": "colossal giant with violet-gray skin, silver hair, regal armor and greatsword crackling with lightning",
+  "desc": "colossal giant with violet-gray skin, silver hair, regal armor crackling with lightning",
   "scale_m": 7.9
  },
  "succubus": {
@@ -1136,11 +1136,11 @@
   "scale_m": 2.7
  },
  "tough": {
-  "desc": "burly thug in leather armor with mace and heavy crossbow",
+  "desc": "burly thug in leather armor, bolt case on the belt",
   "scale_m": 1.8
  },
  "tough-boss": {
-  "desc": "hulking gang boss in chain shirt with warhammer and heavy crossbow",
+  "desc": "hulking gang boss in chain mail, bolt case on the belt",
   "scale_m": 1.9
  },
  "treant": {
@@ -1172,7 +1172,7 @@
   "scale_m": 1.8
  },
  "vampire-familiar": {
-  "desc": "pale gaunt human servant in dark clothes with dagger and hand crossbow",
+  "desc": "pale gaunt human servant in dark clothes, knife sheaths on the belt",
   "scale_m": 1.8
  },
  "vampire-spawn": {
@@ -1204,11 +1204,11 @@
   "scale_m": 2.6
  },
  "warrior-infantry": {
-  "desc": "foot soldier in chain shirt with spear and shield",
+  "desc": "foot soldier in chain shirt and helmet",
   "scale_m": 1.8
  },
  "warrior-veteran": {
-  "desc": "grizzled veteran soldier in splint armor with longsword and heavy crossbow",
+  "desc": "grizzled veteran soldier in splint armor, bolt case on the belt",
   "scale_m": 1.8
  },
  "water-elemental": {
@@ -1220,23 +1220,23 @@
   "scale_m": 0.3
  },
  "werebear": {
-  "desc": "hybrid bear-humanoid with brown fur, bear head and huge clawed hands, tattered clothing",
+  "desc": "hybrid bear-humanoid with brown fur, bear head and huge clawed hands, tattered clothing, wide belt with loops",
   "scale_m": 2.4
  },
  "wereboar": {
-  "desc": "hybrid boar-humanoid with bristly fur, tusked boar head and maul",
+  "desc": "hybrid boar-humanoid with bristly fur and tusked boar head, tattered clothing, a long leather case strapped to its back",
   "scale_m": 2.0
  },
  "wererat": {
-  "desc": "hybrid rat-humanoid with gray fur, rat head and tail, hand crossbow",
+  "desc": "hybrid rat-humanoid with gray fur, rat head and tail, tattered clothing, bolt case on the belt",
   "scale_m": 1.7
  },
  "weretiger": {
-  "desc": "hybrid tiger-humanoid with striped orange fur, tiger head and scimitar",
+  "desc": "hybrid tiger-humanoid with striped orange fur and tiger head, tattered clothing, arrow quiver on the back",
   "scale_m": 2.0
  },
  "werewolf": {
-  "desc": "hybrid wolf-humanoid with gray fur, wolf head, clawed hands and tattered clothing",
+  "desc": "hybrid wolf-humanoid with gray fur, wolf head, clawed hands and tattered clothing, arrow quiver on the back",
   "scale_m": 2.0
  },
  "white-dragon-wyrmling": {
@@ -1244,7 +1244,7 @@
   "scale_m": 2.1
  },
  "wight": {
-  "desc": "undead warrior with dried gray skin, glowing eyes, corroded armor, longsword and longbow",
+  "desc": "undead warrior with dried gray skin, glowing eyes, corroded armor, scabbard at the hip and an arrow quiver on the back",
   "scale_m": 1.8
  },
  "will-o-wisp": {

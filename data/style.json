@@ -30,5 +30,7 @@
       "small": "workflows/pose/apose_openpose_small.png"
     }
   },
-  "notes": "House style: manga / Kim Jung Gi-like dense ink linework with bold saturated flat colour, evenly lit on plain white so Pixal3D does not bake shading into the albedo. The negative is appended to workflows/ref_image.api.json's base negative. Subject = registry reference_prompt (or data/prompt_tweaks.json) with strip_from_subject removed, then ', ' + positive_suffix. OpenPose A-pose ControlNet only for biped/winged_biped. Tested LoRAs (lineartSDXL, tokiame_xl_v1) were rejected: see docs/style.md."
+  "notes": "House style: manga / Kim Jung Gi-like dense ink linework with bold saturated flat colour, evenly lit on plain white so Pixal3D does not bake shading into the albedo. The negative is appended to workflows/ref_image.api.json's base negative. Subject = registry reference_prompt (or data/prompt_tweaks.json) with strip_from_subject removed, then ', ' + positive_suffix. OpenPose A-pose ControlNet only for biped/winged_biped. Tested LoRAs (lineartSDXL, tokiame_xl_v1) were rejected: see docs/style.md. Records with unarmed_reference (weapon wielders, see docs/equipment.md) get ', ' + unarmed_suffix after the subject and unarmed_negative appended to the negative; held props are separate assets.",
+  "unarmed_suffix": "(empty open hands:1.2), open palms, spread fingers, arms held slightly away from the body, unarmed, bare hands",
+  "unarmed_negative": "(sword, bow, axe, spear, club, staff, shield, dagger, weapon, holding:1.4), crossbow, mace, hammer, polearm, wand, holding an object, clenched fist, gripping"
 }

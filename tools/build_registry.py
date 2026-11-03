@@ -7,6 +7,9 @@ files in data/ and writes data/registry/srd-5.2.1.json.
   data/body_plan_overrides.json  slug -> {body_plan, confidence, rig_template?, note?}
   data/body_plan_reviewed.json   {source: [slugs whose rule result was hand-confirmed]}
   data/visual_profiles.json      slug -> {desc, scale_m?}
+  data/equipment.json            prop specs + per-monster hands/wields (hand-reviewed)
+
+Also writes data/registry/props.json (one entry per held weapon/shield/implement).
 
 Run:  python3 -I tools/build_registry.py [--src PATH] [--out PATH]
 Stdlib only.
@@ -68,6 +71,37 @@ SIZE_ORDER = ["tiny", "small", "medium", "large", "huge", "gargantuan"]
 SIZE_SCALE_M = {"tiny": 0.5, "small": 1.0, "medium": 1.8, "large": 3.0, "huge": 5.0, "gargantuan": 10.0}
 
 UPRIGHT_PLANS = {"biped", "winged_biped", "centauroid", "merfolk_naga"}
+# Plans whose bodies have graspable hands unless data/equipment.json says otherwise.
+HAND_PLANS = UPRIGHT_PLANS
+
+# Rule-based weapon detection from gear and attack names, used to cross-check the
+# hand-curated wields lists (and as the fallback for unreviewed tiers). Specific
+# names first; the generic ones only fire when nothing specific matched.
+WEAPON_WORDS = [
+    ("hand crossbow", "hand-crossbow"), ("light crossbow", "light-crossbow"),
+    ("heavy crossbow", "heavy-crossbow"), ("light hammer", "light-hammer"),
+    ("greatsword", "greatsword"), ("longsword", "longsword"), ("shortsword", "shortsword"),
+    ("scimitar", "scimitar"), ("rapier", "rapier"), ("dagger", "dagger"), ("sickle", "sickle"),
+    ("greataxe", "greataxe"), ("battleaxe", "battleaxe"), ("handaxe", "handaxe"),
+    ("greatclub", "greatclub"), ("morningstar", "morningstar"), ("warhammer", "warhammer"),
+    ("maul", "maul"), ("flail", "flail"), ("mace", "mace"), ("club", "club"),
+    ("quarterstaff", "quarterstaff"), ("glaive", "glaive"), ("halberd", "halberd"),
+    ("pike", "pike"), ("trident", "trident"), ("javelin", "javelin"), ("spear", "spear"),
+    ("lance", "lance"), ("harpoon", "harpoon"), ("whip", "whip"), ("fork", "fork"),
+    ("longbow", "longbow"), ("shortbow", "shortbow"), ("sling", "sling"), ("net", "net"),
+    ("pistol", "pistol"), ("musket", "musket"), ("wand", "wand"), ("shield", "shield"),
+]
+WEAPON_GENERIC = [("sword", "longsword"), ("blade", "longsword"), ("bow", "longbow"),
+                  ("axe", "greataxe"), ("hammer", "warhammer"), ("cudgel", "club"),
+                  ("staff", "quarterstaff")]
+# Words a reference description must not contain when the creature is drawn unarmed.
+HELD_WORDS = re.compile(
+    r"\b(swords?|longswords?|greatswords?|shortswords?|scimitars?|rapiers?|cutlass(es)?|"
+    r"daggers?|sickles?|axes?|greataxes?|battleaxes?|handaxes?|clubs?|greatclubs?|maces?|"
+    r"mauls?|morningstars?|flails?|hammers?|warhammers?|spears?|pikes?|glaives?|halberds?|"
+    r"tridents?|javelins?|lances?|harpoons?|whips?|forks?|staffs?|staves|quarterstaffs?|"
+    r"bows?|longbows?|shortbows?|crossbows?|slings?|nets?|pistols?|wands?|shields?|"
+    r"weapons?|holding|wielding)\b", re.I)
 
 
 def tokens(slug):
@@ -185,6 +219,39 @@ def animation_set(plan, speed, d):
     return list(dict.fromkeys(clips))
 
 
+def weapon_names(text):
+    t = text.lower()
+    found = [w for k, w in WEAPON_WORDS if re.search(rf"\b{k}s?\b", t)]
+    if not found:
+        found = [w for k, w in WEAPON_GENERIC if re.search(rf"\b{k}s?\b", t)]
+    return found
+
+
+def derive_wields(d):
+    """Weapon prop ids named by gear or attack actions (unordered, deduplicated)."""
+    out = []
+    for g in d.get("gear") or []:
+        out += weapon_names(re.sub(r"\s*\(.*?\)", "", g))
+    for a in iter_actions(d):
+        if (a.get("attack") or {}) or "Attack Roll" in a.get("text", ""):
+            out += weapon_names(re.sub(r"\s*\(.*?\)", "", a.get("name", "")))
+    return list(dict.fromkeys(out))
+
+
+def sockets_for(hands, arms, armed):
+    """Attachment points the rig must provide (bone names, see docs/equipment.md)."""
+    if not hands:
+        return []
+    pairs = max(1, arms // 2) if arms > 4 else 1
+    if pairs == 1:
+        socks = ["hand_r", "hand_l"]
+    else:
+        socks = [f"hand_{side}{i}" for i in range(1, pairs + 1) for side in "rl"]
+    if armed:
+        socks += ["back", "hip_l", "hip_r", "head"]
+    return socks
+
+
 def reference_prompt(desc, plan, size, typ, is_swarm):
     if plan in UPRIGHT_PLANS:
         pose = "A-pose, front view"
@@ -205,6 +272,53 @@ def reference_prompt(desc, plan, size, typ, is_swarm):
             f"plain gray background, clean silhouette, flat even lighting.")
 
 
+def prop_prompt(spec):
+    """Same shape as the monster prompts, so the house style's strip/suffix rules apply."""
+    return (f"{spec['desc']}. Single {spec['category'].replace('_', ' ')} prop, no hands, no "
+            f"character. Low-poly game asset, the whole object, standing vertical, "
+            f"flat side view, plain gray background, clean silhouette, flat even lighting.")
+
+
+def build_props(records, specs):
+    used = {}
+    for r in records:
+        for w in r["wields"]:
+            u = used.setdefault(w, {})
+            u[r["id"]] = u.get(r["id"], 0) + 1
+    props = []
+    for pid, spec in specs.items():
+        users = used.get(pid, {})
+        if not users:
+            continue
+        variants = {}
+        for r in records:
+            name = (r.get("wields_aka") or {}).get(pid)
+            if name:
+                variants.setdefault(name, []).append(r["id"])
+        sizes = sorted({r["size"] for r in records if r["id"] in users}, key=SIZE_ORDER.index)
+        rec = {
+            "id": pid,
+            "name": pid.replace("-", " "),
+            "category": spec["category"],
+            "grip": spec["grip"],
+            "length_m": spec["length_m"],
+            "tri_budget": spec["tris"],
+            "grip_socket": spec["grip_socket"],
+            "stow_socket": spec["stow_socket"],
+            "wielder_sizes": sizes,
+            "monster_count": len(users),
+            "used_by": dict(sorted(users.items())),
+            "reference_prompt": prop_prompt(spec),
+        }
+        if variants:
+            rec["variants"] = variants
+        if spec.get("rig"):
+            rec["rig"] = spec["rig"]
+        props.append(rec)
+    props.sort(key=lambda p: (-p["monster_count"], p["id"]))
+    return props
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--src", type=Path, default=DEFAULT_SRC)
@@ -215,6 +329,9 @@ def main():
     overrides = json.loads((ROOT / "data/body_plan_overrides.json").read_text())
     visuals = json.loads((ROOT / "data/visual_profiles.json").read_text())
     reviewed = set(json.loads((ROOT / "data/body_plan_reviewed.json").read_text()).get(SOURCE_ID, []))
+    equipment = json.loads((ROOT / "data/equipment.json").read_text())
+    prop_specs = equipment["props"]
+    equip = equipment["monsters"].get(SOURCE_ID, {})
     slugs = {m["slug"] for m in monsters}
 
     errors = []
@@ -229,10 +346,20 @@ def main():
             errors.append(f"body_plan_overrides: {s}: bad body_plan {ov['body_plan']}")
     for s in sorted(slugs - set(visuals)):
         errors.append(f"visual_profiles: missing slug {s}")
+    for s in sorted(set(equip) - slugs):
+        errors.append(f"equipment: unknown slug {s}")
+    for s, e in equip.items():
+        for w in e.get("wields", []):
+            if w not in prop_specs:
+                errors.append(f"equipment: {s}: wields {w!r} has no entry in props")
+        for w in e.get("aka", {}):
+            if w not in e.get("wields", []):
+                errors.append(f"equipment: {s}: aka for {w!r}, which it does not wield")
     if errors:
         sys.exit("\n".join(errors))
 
     records = []
+    equip_diffs = []
     for m in monsters:
         slug, d = m["slug"], m["data"]
         speed = {k: v for k, v in d.get("speed", {}).items()}
@@ -267,6 +394,25 @@ def main():
         vis = visuals[slug]
         scale = vis.get("scale_m", SIZE_SCALE_M[size])
 
+        derived = derive_wields(d)
+        eq = equip.get(slug)
+        if eq is None:
+            # Unreviewed: plan default for hands, rule-based weapons (new tiers start here).
+            eq = {"wields": [w for w in derived if w in prop_specs]}
+            if (plan in HAND_PLANS or derived) and SOURCE_ID == "srd-5.2.1":
+                errors.append(f"equipment: {slug} ({plan}) is not reviewed in data/equipment.json"
+                              + (f" (stat block names {derived})" if derived else ""))
+        wields = list(eq.get("wields", []))
+        hands = eq.get("hands", plan in HAND_PLANS) or bool(wields)
+        arms = eq.get("arms", 2 if hands else 0)
+        armed = bool(wields) or bool(eq.get("armed_look"))
+        unarmed_ref = hands and armed
+        if unarmed_ref and HELD_WORDS.search(vis["desc"]):
+            errors.append(f"visual_profiles: {slug} is drawn unarmed but its desc names "
+                          f"{HELD_WORDS.search(vis['desc']).group(0)!r}; describe worn gear only")
+        if sorted(set(derived)) != sorted(set(wields)):
+            equip_diffs.append(f"{slug}: stat block {derived} -> curated {sorted(set(wields))}")
+
         rec = {
             "id": slug,
             "name": m["name"],
@@ -284,6 +430,11 @@ def main():
             "rig_template": rig,
             "animation_set": animation_set(plan, speed, d),
             "scale_m": scale,
+            "hands": hands,
+            "wields": wields,
+            "shield": "shield" in wields,
+            "sockets": sockets_for(hands, arms, armed),
+            "unarmed_reference": unarmed_ref,
             "reference_prompt": reference_prompt(
                 vis["desc"], plan, size.capitalize(),
                 f"swarm of {unit_size} {typ}s" if is_swarm else typ, is_swarm),
@@ -294,7 +445,16 @@ def main():
             rec["body_plan_note"] = note
         if plan_src == "override" and plan != rule_plan:
             rec["body_plan_rule_guess"] = rule_plan
+        if arms not in (0, 2):
+            rec["arms"] = arms
+        if eq.get("aka"):
+            rec["wields_aka"] = eq["aka"]
+        if eq.get("note"):
+            rec["equipment_note"] = eq["note"]
         records.append(rec)
+
+    if errors:
+        sys.exit("\n".join(errors))
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     out = {
@@ -305,6 +465,14 @@ def main():
         "monsters": records,
     }
     args.out.write_text(json.dumps(out, indent=1, ensure_ascii=False) + "\n")
+    props = build_props(records, prop_specs)
+    props_out = args.out.parent / "props.json"
+    props_out.write_text(json.dumps({
+        "source": SOURCE_ID,
+        "count": len(props),
+        "note": "Generated by tools/build_registry.py from data/equipment.json and the wields "
+                "lists. Held props are attached at runtime, never baked. See docs/equipment.md.",
+        "props": props}, indent=1, ensure_ascii=False) + "\n")
 
     counts = Counter(r["body_plan"] for r in records)
     print(f"wrote {len(records)} records -> {args.out.relative_to(ROOT) if args.out.is_relative_to(ROOT) else args.out}")
@@ -316,6 +484,15 @@ def main():
     print("  sources: " + ", ".join(f"{k}={v}" for k, v in sorted(src.items())))
     if low:
         print("  " + " ".join(low))
+    n = lambda f: sum(1 for r in records if f(r))
+    print(f"  hands={n(lambda r: r['hands'])} wields={n(lambda r: r['wields'])} "
+          f"shield={n(lambda r: r['shield'])} unarmed_reference={n(lambda r: r['unarmed_reference'])} "
+          f"multi-arm={n(lambda r: r.get('arms', 2) > 2)}")
+    print(f"wrote {len(props)} props -> {props_out.relative_to(ROOT) if props_out.is_relative_to(ROOT) else props_out}")
+    if equip_diffs:
+        print(f"  curated wields that differ from the stat-block words ({len(equip_diffs)}):")
+        for line in equip_diffs:
+            print("    " + line)
 
 
 if __name__ == "__main__":

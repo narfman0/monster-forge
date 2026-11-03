@@ -58,6 +58,20 @@ before re-rolls; rigging/animation unmeasured.
 - M5 Full SRD rig+animate; publish SRD pack.
 - M6 Monster Manual 2024 and later tiers (name list from community data, no bulk downloads).
 
+## Equipment and sockets
+
+User rule: intelligent creatures that wield weapons must be modelled with **empty hands** and
+proper wrists and palms, so weapons, shields and held items can be attached as separate props at
+runtime. They are never baked into the mesh. Worn gear (armour, clothing, belts, quivers,
+helmets) may stay baked in. Natural weapons (claws, bites, horns) are part of the body.
+
+The registry carries `hands`, `wields`, `shield`, `sockets` and `unarmed_reference` per
+monster. Reference images for `unarmed_reference` records are drawn with open, empty hands.
+`data/registry/props.json` lists each held prop, built through the same pipeline at 500-1500
+tris. Sockets are bones (`hand_r`, `hand_l`, `back`, `hip_l`, `hip_r`, `head`), and the rig
+stage must provide named hand and wrist bones for every `hands: true` record. Details in
+`equipment.md`.
+
 ## Review and quality gates
 
 Every asset gets a manifest with seed, settings, tri count, and a turntable thumbnail.

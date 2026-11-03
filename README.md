@@ -15,7 +15,9 @@ renamed analogues.
 ## Layout
 
 - `data/registry/` one JSON record per monster: body plan, rig template, animation set,
-  reference prompt, scale (`data/registry/README.md` has the schema).
+  reference prompt, scale, hands, wielded props and sockets (`data/registry/README.md` has the schema).
+  `props.json` lists the held weapons and shields, which are separate runtime props (`docs/equipment.md`).
+- `data/equipment.json` hand-reviewed hands and weapons per monster, plus prop specs.
 - `data/body_plan_overrides.json`, `data/body_plan_reviewed.json` hand-curated taxonomy.
 - `docs/plan.md` pipeline design and milestones. `docs/research-*.md` tool research.
 - `tools/` scripts. `workflows/` ComfyUI API workflows. `viewer/` local web viewer.

@@ -112,6 +112,20 @@ with 1-7 uses each.
 `build_registry.py` prints these counts every time it runs. Update this table
 when they change.
 
+## Hands and sockets
+
+The four upright plans (`biped`, `winged_biped`, `centauroid`, `merfolk_naga`)
+have graspable hands by default. Every other plan has none. `data/equipment.json`
+lists the exceptions:
+
+- Without hands: earth elemental, shambling mound, treant, tarrasque.
+- With hands: the floating djinni, ghost, specter and wraith.
+
+The baboon, lemure and xorn have hand-like limbs but never grip anything, so they
+get no sockets. The glabrezu (4 arms) and marilith (6 arms) are the multi-armed
+cases. SRD 5.2.1 has 127 monsters with hands, 70 that wield a prop, and 79 with
+an unarmed reference image. See `equipment.md`.
+
 ## Rig template naming
 
 - `rigify.*` is a stock Blender Rigify metarig (Add > Armature): `basic_human`,

@@ -1,6 +1,6 @@
 # Monster registry
 
-`srd-5.2.1.json` is generated. Do not edit it by hand. Rebuild it with:
+`srd-5.2.1.json` and `props.json` are generated. Do not edit them by hand. Rebuild them with:
 
 ```sh
 python3 -I tools/build_registry.py
@@ -14,10 +14,14 @@ python3 -I tools/build_registry.py
 | `data/body_plan_overrides.json` | Hand-curated `slug -> {body_plan, confidence, rig_template?, note?}` |
 | `data/body_plan_reviewed.json` | `{source_id: [slug, ...]}`: slugs whose rule-based plan was checked by hand (confidence becomes 1.0) |
 | `data/visual_profiles.json` | `slug -> {desc, scale_m?}`: visual description for the reference prompt, plus an optional scale override |
+| `data/equipment.json` | `props`: one spec per held prop. `monsters`: `source -> slug -> {wields, hands?, arms?, armed_look?, aka?, note?}`, hand-reviewed against each stat block (`docs/equipment.md`) |
 
 The build fails if any curated slug is unknown, if a monster has no visual
 profile, if a body plan is outside the enum, or if a slug is in both the
-override file and the reviewed list.
+override file and the reviewed list. It also fails if a monster with hands, or
+with a weapon in its stat block, is missing from `data/equipment.json`, if a
+wielded prop has no spec, or if an `unarmed_reference` monster's description
+names a held weapon.
 
 ## File layout
 
@@ -54,6 +58,14 @@ override file and the reviewed list.
 | `rig_template` | string | `rigify.<metarig>` or `custom.<template>`. See `docs/body-plans.md`. |
 | `animation_set` | string[] | Clip names to author or generate. See below. |
 | `scale_m` | float | Approximate largest body dimension in metres: standing height for upright bodies, nose-to-tail length for horizontal ones. Wingspan is not included. Size-category default (tiny 0.5, small 1, medium 1.8, large 3, huge 5, gargantuan 10) unless `visual_profiles.json` overrides it. All 330 SRD entries are hand-set. |
+| `hands` | bool | Has graspable hands that the rig exposes as hand bones. Defaults to true for the upright plans. See `docs/equipment.md`. |
+| `wields` | string[] | Held prop ids (keys of `props.json`). Duplicates mean several copies: the marilith has six `longsword`. |
+| `shield` | bool | `"shield"` is in `wields` |
+| `sockets` | string[] | Attachment bones the rig must provide: `hand_r`, `hand_l` (or `hand_r1..n`, `hand_l1..n`), plus `back`, `hip_l`, `hip_r`, `head` for armed creatures |
+| `unarmed_reference` | bool | Draw the reference image with empty, open hands: the creature has hands and either wields something or is usually drawn armed |
+| `arms` | int | Only present when it is not 2 (glabrezu 4, marilith 6) |
+| `wields_aka` | object | Stat-block names for props, e.g. `{"greatsword": "Flame Sword"}` |
+| `equipment_note` | string | Why an equipment edge case was decided the way it was |
 | `reference_prompt` | string | Text-to-image prompt for a reference sheet. See below. |
 
 ## Animation clips
@@ -93,5 +105,17 @@ The pose depends on the plan:
 
 Swarm prompts ask for one representative unit plus a small cluster.
 
+For `unarmed_reference` records, the description mentions only worn gear
+("scabbard at the hip", "arrow quiver on the back"), never a held weapon.
+`forge.py ref` adds the house style's `unarmed_suffix` and `unarmed_negative`
+for these records.
+
 Descriptions are written from the creatures' canonical traits. They do not
 describe or imitate any specific piece of published art.
+
+## props.json
+
+One entry per distinct held prop (32 for SRD 5.2.1). Each entry has its
+category, grip, length, triangle budget, default sockets, the monsters that use
+it, the stat-block names it goes by, and a reference prompt. The schema is in
+`docs/equipment.md`.
