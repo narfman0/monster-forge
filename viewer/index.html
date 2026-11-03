@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>monster-forge viewer</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/build/three.module.js",
+    "three/addons/": "./vendor/three/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<aside id="sidebar">
+  <header id="progress">
+    <div class="title"><span>monster-forge</span> <span id="source" class="muted"></span></div>
+    <div id="stage-bars"></div>
+    <details id="plan-details">
+      <summary>by body plan</summary>
+      <table id="plan-table"></table>
+    </details>
+  </header>
+  <div id="filters">
+    <input id="search" type="search" placeholder="search name / id / type  ( / )" autocomplete="off">
+    <div class="row">
+      <select id="f-plan"><option value="">all body plans</option></select>
+      <select id="f-size"><option value="">all sizes</option></select>
+    </div>
+    <div class="row">
+      <select id="f-stage">
+        <option value="">any status</option>
+      </select>
+      <span id="count" class="muted"></span>
+    </div>
+  </div>
+  <ul id="list" tabindex="0"></ul>
+</aside>
+
+<main id="stage">
+  <div id="viewport"></div>
+  <div id="hud">
+    <div id="hud-title"></div>
+    <div id="hud-stats" class="muted"></div>
+  </div>
+  <div id="toolbar">
+    <label><input type="checkbox" id="t-wire"> wireframe</label>
+    <label><input type="checkbox" id="t-tex" checked> textures</label>
+    <label><input type="checkbox" id="t-env" checked> env light</label>
+    <label><input type="checkbox" id="t-skel"> skeleton</label>
+    <label><input type="checkbox" id="t-ref" checked> 1.8 m ref</label>
+    <label><input type="checkbox" id="t-rotate"> turntable</label>
+    <button id="b-frame" title="re-frame camera (f)">frame</button>
+  </div>
+  <div id="empty" class="hidden">
+    <div class="big">no mesh yet</div>
+    <div id="empty-detail" class="muted"></div>
+  </div>
+  <div id="loading" class="hidden">loading…</div>
+</main>
+
+<aside id="panel">
+  <section>
+    <h3>animation</h3>
+    <div id="anim-status" class="muted"></div>
+    <ul id="clips"></ul>
+    <div id="anim-controls">
+      <div class="row">
+        <button id="b-play" title="space">play</button>
+        <button id="b-next" title="n">next</button>
+        <label><input type="checkbox" id="t-loop" checked> loop</label>
+      </div>
+      <div class="row">
+        <button id="b-cycle" title="c">cycle</button>
+        <label>every <input type="number" id="cycle-secs" value="4" min="1" max="60" step="1"> s</label>
+      </div>
+      <div class="row">
+        <label class="grow">speed <input type="range" id="speed" min="0.1" max="2" step="0.05" value="1"></label>
+        <span id="speed-val">1.00×</span>
+      </div>
+      <div class="row">
+        <input type="range" id="scrub" min="0" max="1" step="0.001" value="0" class="grow">
+        <span id="time-val">0.00 / 0.00</span>
+      </div>
+    </div>
+    <h4>expected set</h4>
+    <div id="expected"></div>
+  </section>
+  <section>
+    <h3>images</h3>
+    <div id="images"></div>
+  </section>
+  <section>
+    <h3>details</h3>
+    <dl id="details"></dl>
+    <a id="manifest-link" target="_blank" class="muted"></a>
+  </section>
+  <section class="muted keys">
+    j/k ↑/↓ move · space play · n next clip · c cycle · w wire · t textures · f frame · / search
+  </section>
+</aside>
+
+<div id="lightbox" class="hidden"><img alt=""></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

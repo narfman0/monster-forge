@@ -18,7 +18,7 @@ renamed analogues.
   reference prompt, scale (`data/registry/README.md` has the schema).
 - `data/body_plan_overrides.json`, `data/body_plan_reviewed.json` hand-curated taxonomy.
 - `docs/plan.md` pipeline design and milestones. `docs/research-*.md` tool research.
-- `tools/` scripts. `workflows/` ComfyUI API workflows.
+- `tools/` scripts. `workflows/` ComfyUI API workflows. `viewer/` local web viewer.
 - `out/<source>/<id>/` generated assets (git-ignored; never commit art).
 
 ## Environment
@@ -34,3 +34,15 @@ python3 -I tools/forge.py contact <id>... --name batch1
 ```
 
 Needs the ComfyUI server on 8188 with the models listed in `docs/pilot-report.md`.
+
+## Viewer
+
+```sh
+python3 -I tools/viewer.py            # http://127.0.0.1:8787/ (--port, --source, --no-open)
+```
+
+A local web page (stdlib server, vanilla JS, vendored three.js) for checking progress and
+assets: stage counts per body plan, a filterable monster list, a three.js view of
+`model.glb` with a 1.8 m scale figure, wireframe/texture toggles, and animation playback
+for embedded clips and `anims/<clip>.glb` files. The stage-status rules that `forge.py` has
+to follow (`rig`, `anim` in `manifest.json`) are in `viewer/README.md`.
