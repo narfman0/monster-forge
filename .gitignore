@@ -6,3 +6,4 @@ __pycache__/
 *.fbx
 *.png
 *.jpg
+!workflows/pose/*.png

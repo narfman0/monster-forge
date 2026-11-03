@@ -1,0 +1,34 @@
+{
+  "name": "manga-ink-v1",
+  "checkpoint": "juggernautXL_v9.safetensors",
+  "positive_suffix": "full color manga ink illustration, Kim Jung Gi style dense ink linework, dynamic brush pen strokes, bold black outlines, vibrant saturated flat colors, flat color fills, evenly lit, flat lighting, no shadows, isolated on plain white background",
+  "negative": "photo, photorealistic, 3d render, cgi, octane render, realistic lighting, volumetric lighting, chiaroscuro, dramatic shadows, drop shadow, ground shadow, shading gradients, low poly, faceted, muted colors, pale, washed out, desaturated, signature, artist seal, stamp, ink splatter, paint splashes, smoke clouds, multiple views, text, (nude, topless, nipples, bare breasts, bikini, lingerie:1.5), (monochrome, grayscale, black and white, uncolored:1.3), fire, flames, fire breath, (shadow under feet, colored shadow:1.2), cream background, paper texture",
+  "strip_from_subject": [
+    "Low-poly game asset,",
+    "plain gray background, clean silhouette, flat even lighting."
+  ],
+  "lora": [],
+  "cfg": 5.5,
+  "steps": 30,
+  "sampler": "dpmpp_2m",
+  "scheduler": "karras",
+  "width": 1024,
+  "height": 1024,
+  "controlnet": {
+    "model": "controlnet-union-sdxl-promax.safetensors",
+    "type": "openpose",
+    "strength": 0.6,
+    "start": 0.0,
+    "end": 0.6,
+    "body_plans": [
+      "biped",
+      "winged_biped"
+    ],
+    "pose_images": {
+      "default": "workflows/pose/apose_openpose.png",
+      "tiny": "workflows/pose/apose_openpose_small.png",
+      "small": "workflows/pose/apose_openpose_small.png"
+    }
+  },
+  "notes": "House style: manga / Kim Jung Gi-like dense ink linework with bold saturated flat colour, evenly lit on plain white so Pixal3D does not bake shading into the albedo. The negative is appended to workflows/ref_image.api.json's base negative. Subject = registry reference_prompt (or data/prompt_tweaks.json) with strip_from_subject removed, then ', ' + positive_suffix. OpenPose A-pose ControlNet only for biped/winged_biped. Tested LoRAs (lineartSDXL, tokiame_xl_v1) were rejected: see docs/style.md."
+}

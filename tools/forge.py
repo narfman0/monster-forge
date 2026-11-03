@@ -190,6 +190,59 @@ def load_prompt_tweaks() -> dict:
     return json.loads(p.read_text()) if p.exists() else {}
 
 
+def load_style(path: str | None) -> dict:
+    """House art style (data/style.json by default); '' or 'none' = unstyled pilot prompt."""
+    if not path or path.lower() == "none":
+        return {}
+    p = Path(path)
+    return json.loads((p if p.is_absolute() else ROOT / p).read_text())
+
+
+def apply_style(wf: dict, style: dict, prompt: str, mon: dict) -> str:
+    """Patch the ref graph with the style's sampler, LoRAs, negative and (for upright plans)
+    an OpenPose A-pose ControlNet. Returns the styled positive prompt."""
+    for s in style.get("strip_from_subject", []):
+        prompt = prompt.replace(s, "")
+    prompt = " ".join(prompt.split()).strip().rstrip(",. ")
+    if style.get("positive_suffix"):
+        prompt += ", " + style["positive_suffix"]
+    if style.get("negative"):
+        wf["neg"]["inputs"]["text"] += ", " + style["negative"]
+    if style.get("checkpoint"):
+        wf["ckpt"]["inputs"]["ckpt_name"] = style["checkpoint"]
+    smp = wf["sample"]["inputs"]
+    for key, field in (("cfg", "cfg"), ("steps", "steps"), ("sampler", "sampler_name"), ("scheduler", "scheduler")):
+        if key in style:
+            smp[field] = style[key]
+    for key in ("width", "height"):
+        if key in style:
+            wf["latent"]["inputs"][key] = style[key]
+    model, clip = ["ckpt", 0], ["ckpt", 1]
+    for i, lora in enumerate(style.get("lora") or []):
+        wf[f"lora{i}"] = {"class_type": "LoraLoader", "inputs": {
+            "model": model, "clip": clip, "lora_name": lora["file"],
+            "strength_model": lora["strength"], "strength_clip": lora.get("strength_clip", lora["strength"])}}
+        model, clip = [f"lora{i}", 0], [f"lora{i}", 1]
+    smp["model"] = model
+    wf["pos"]["inputs"]["clip"] = clip
+    wf["neg"]["inputs"]["clip"] = clip
+    cn = style.get("controlnet")
+    if cn and mon["body_plan"] in cn.get("body_plans", []):
+        imgs = cn["pose_images"]
+        img = ROOT / imgs.get(mon["size"], imgs["default"])
+        wf["cn_img"] = {"class_type": "LoadImage", "inputs": {
+            "image": upload_file(img, "monster-forge/pose")}}
+        wf["cn_load"] = {"class_type": "ControlNetLoader", "inputs": {"control_net_name": cn["model"]}}
+        wf["cn_type"] = {"class_type": "SetUnionControlNetType", "inputs": {
+            "control_net": ["cn_load", 0], "type": cn.get("type", "openpose")}}
+        wf["cn_apply"] = {"class_type": "ControlNetApplyAdvanced", "inputs": {
+            "positive": ["pos", 0], "negative": ["neg", 0], "control_net": ["cn_type", 0],
+            "image": ["cn_img", 0], "strength": cn["strength"], "start_percent": cn.get("start", 0.0),
+            "end_percent": cn.get("end", 1.0), "vae": ["ckpt", 2]}}
+        smp["positive"], smp["negative"] = ["cn_apply", 0], ["cn_apply", 1]
+    return prompt
+
+
 def stage_ref(mon: dict, d: Path, args) -> None:
     man = load_manifest(d)
     refs = sorted(d.glob("ref_*.png"))
@@ -201,6 +254,9 @@ def stage_ref(mon: dict, d: Path, args) -> None:
     wf = load_workflow("ref_image.api.json")
     tweak = load_prompt_tweaks().get(mon["id"], {})
     prompt = tweak.get("prompt") or (tweak.get("prepend", "") + REF_PROMPT_PREFIX + mon["reference_prompt"])
+    style = load_style(args.style)
+    if style:
+        prompt = apply_style(wf, style, prompt, mon)
     if tweak.get("negative_append"):
         wf["neg"]["inputs"]["text"] += ", " + tweak["negative_append"]
     seed0 = args.seed if args.seed is not None else base_seed(mon["id"])
@@ -222,7 +278,14 @@ def stage_ref(mon: dict, d: Path, args) -> None:
                   "negative": wf["neg"]["inputs"]["text"], "seed": seed0, "n": len(images),
                   "picked": pick, "steps": wf["sample"]["inputs"]["steps"],
                   "cfg": wf["sample"]["inputs"]["cfg"], "sampler": wf["sample"]["inputs"]["sampler_name"],
-                  "size": [1024, 1024], "seconds": dt}
+                  "size": [wf["latent"]["inputs"]["width"], wf["latent"]["inputs"]["height"]],
+                  "style": style.get("name") if style else None,
+                  "lora": [[n["inputs"]["lora_name"], n["inputs"]["strength_model"]]
+                           for k, n in sorted(wf.items()) if k.startswith("lora")],
+                  "controlnet": ({"image": wf["cn_img"]["inputs"]["image"],
+                                  "strength": wf["cn_apply"]["inputs"]["strength"]}
+                                 if "cn_apply" in wf else None),
+                  "seconds": dt}
     man.setdefault("timings", {})["ref"] = dt
     save_manifest(d, man)
     log(f"{mon['id']}: ref done in {dt}s ({len(images)} candidates, picked {pick})")
@@ -471,6 +534,8 @@ def main() -> int:
     ap.add_argument("--seed", type=int, help="override the per-monster seed")
     ap.add_argument("--n", type=int, default=1, help="reference candidates to generate")
     ap.add_argument("--pick", type=int, help="which ref_<i>.png feeds the mesh stage")
+    ap.add_argument("--style", default="data/style.json",
+                    help="ref: house art style JSON ('none' = unstyled pilot prompts)")
     ap.add_argument("--tris", type=int, help="override the decimate target")
     ap.add_argument("--remesh-resolution", dest="remesh_resolution", type=int)
     ap.add_argument("--texture-size", dest="texture_size", type=int)

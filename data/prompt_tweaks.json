@@ -1,7 +1,22 @@
 {
   "owlbear": {
-    "prompt": "single creature, centered, full body side view of an owlbear walking on all fours, (four-legged bear body:1.2) with brown fur and big claws, (owl head with feathered face, round yellow eyes and hooked beak:1.25), feathered neck and shoulders. Large fantasy monstrosity. Low-poly game asset, whole body in frame, legs and paws visible, plain gray background, clean silhouette, flat even lighting.",
-    "negative_append": "close-up, portrait, head only, bear head, bear snout, bear ears, wings, perched bird",
-    "note": "SDXL draws either a plain owl or a plain bear from the registry prompt; weight the owl head and forbid the bear head"
+    "prompt": "single creature, centered, full body side view of an owlbear walking on all fours, (four-legged bear body:1.2) with (dark brown fur:1.3) and big claws, (owl head with brown-feathered face, round yellow eyes and hooked beak:1.25), feathered neck and shoulders. Large fantasy monstrosity, whole body in frame, legs and paws visible",
+    "negative_append": "close-up, portrait, head only, bear head, bear snout, bear ears, wings, perched bird, yellow fur, blonde fur",
+    "note": "SDXL draws either a plain owl or a plain bear from the registry prompt; weight the owl head and forbid the bear head. The bold-colour house style drifts to yellow, so force brown"
+  },
+  "goblin-warrior": {
+    "prepend": "ugly mean goblin with (green skin:1.2), a wide sharp-toothed grin, long pointed nose and beady red eyes, ",
+    "negative_append": "yoda, baby yoda, cute, big round eyes, yellow skin",
+    "note": "juggernaut draws Yoda from 'small goblin'; force a mean green goblin"
+  },
+  "harpy": {
+    "prompt": "single creature, centered, harpy, a monstrous half-woman half-vulture: a gaunt woman's torso covered in a ragged feathered leather top, grotesque fanged face and matted hair, huge vulture wings where the arms should be, scaly bird legs with talons. Medium monstrosity, full body, A-pose, front view",
+    "negative_append": "angel, pretty face, dress, eagle head, vulture head",
+    "note": "the registry prompt gives nude women or plain vultures in the manga style; clothe her and keep the monstrous face"
+  },
+  "young-red-dragon": {
+    "prepend": "(crimson red dragon, red scales all over the body:1.3), ",
+    "negative_append": "blue scales, teal scales, black scales, smoke cloud, red mist",
+    "note": "the bold-colour style paints the body teal/black with red wings; force red scales"
   }
 }
