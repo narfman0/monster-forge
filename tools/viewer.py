@@ -23,6 +23,7 @@ import itertools
 import json
 import os
 import socketserver
+import struct
 import subprocess
 import sys
 import threading
@@ -38,8 +39,8 @@ ROOT = Path(__file__).resolve().parent.parent
 VIEWER = ROOT / "viewer"
 OUT_ROOT = ROOT / "out"
 REGISTRY_DIR = ROOT / "data" / "registry"
-STAGES = ("ref", "mesh", "qa", "lod", "rig", "anim")
-RUN_STAGES = ("ref", "mesh", "qa", "lod")  # what a re-run job may redo
+STAGES = ("ref", "mesh", "qa", "paint", "lod", "rig", "anim")
+RUN_STAGES = ("ref", "mesh", "qa", "paint", "lod")  # what a re-run job may redo
 RECORD_KEYS = ("id", "name", "source", "size", "type", "tags", "cr", "body_plan",
                "body_plan_confidence", "rig_template", "animation_set", "scale_m", "speeds")
 
@@ -56,6 +57,48 @@ def _ok(stage) -> bool:
     return isinstance(stage, dict) and bool(stage) and not stage.get("error")
 
 
+# glb path -> ((mtime_ns, size), faces). Only the GLB's JSON chunk is read, once per file
+# version, so the index stays cheap even with 12+ MB high-poly files in every directory.
+_GLB_FACES: dict[str, tuple[tuple[int, int], int | None]] = {}
+_GLB_LOCK = threading.Lock()
+
+
+def glb_faces(p: Path) -> int | None:
+    """Triangle count of a GLB from its JSON chunk (index or position accessor counts of
+    triangle primitives), cached by mtime and size."""
+    try:
+        st = p.stat()
+    except OSError:
+        return None
+    key = (st.st_mtime_ns, st.st_size)
+    with _GLB_LOCK:
+        hit = _GLB_FACES.get(str(p))
+    if hit and hit[0] == key:
+        return hit[1]
+    faces = None
+    try:
+        with open(p, "rb") as f:
+            head = f.read(20)
+            magic, _ver, _len, clen, ctype = struct.unpack("<4sIIII", head)
+            if magic == b"glTF" and ctype == 0x4E4F534A and clen < 64 * 1024 * 1024:
+                g = json.loads(f.read(clen))
+                acc = g.get("accessors", [])
+                n = 0
+                for mesh in g.get("meshes", []):
+                    for prim in mesh.get("primitives", []):
+                        if prim.get("mode", 4) != 4:
+                            continue
+                        i = prim.get("indices", prim.get("attributes", {}).get("POSITION"))
+                        if i is not None and i < len(acc):
+                            n += int(acc[i].get("count", 0)) // 3
+                faces = n
+    except (OSError, ValueError, struct.error):
+        faces = None
+    with _GLB_LOCK:
+        _GLB_FACES[str(p)] = (key, faces)
+    return faces
+
+
 def stage_status(d: Path, man: dict) -> dict:
     """Derive {stages, found_clips, files} for one out/<source>/<id>/ directory."""
     exists = d.is_dir()
@@ -65,6 +108,7 @@ def stage_status(d: Path, man: dict) -> dict:
     ref = has("ref.png") or bool(refs)
     mesh = has("model_raw.glb") or has("model.glb")
     qa = has("model.glb") and _ok(man.get("qa"))
+    paint = has("textures/base_color_painted.png") and _ok(man.get("paint"))
 
     rig_m = man.get("rig")
     rig = _ok(rig_m) or man.get("has_skeleton") is True
@@ -87,14 +131,24 @@ def stage_status(d: Path, man: dict) -> dict:
             and has(v["file"])} if lod else {}
 
     model = "model.glb" if has("model.glb") else ("model_raw.glb" if has("model_raw.glb") else None)
+    # RAW tier: the undecimated remeshed high-poly. A textured one (model_hi_tex.glb) wins.
+    hi = "model_hi_tex.glb" if has("model_hi_tex.glb") else ("model_hi.glb" if has("model_hi.glb") else None)
+    hi_faces = glb_faces(d / hi) if hi else None
+    if hi and hi_faces is None:  # unreadable header: fall back to what the mesh stage recorded
+        hi_faces = ((man.get("mesh") or {}).get("weighted_decimate") or {}).get("faces_in")
     return {
-        "stages": {"ref": ref, "mesh": mesh, "qa": qa, "lod": lod, "rig": rig, "anim": anim},
+        "stages": {"ref": ref, "mesh": mesh, "qa": qa, "paint": paint, "lod": lod, "rig": rig, "anim": anim},
+        "hi_faces": hi_faces,
         "lods": lods,
         "found_clips": found,
         "external_clips": external,
         "embedded_clips": embedded,
         "files": {
-            "model": model, "thumb": "thumb.png" if has("thumb.png") else None,
+            "model": model, "hi": hi, "hi_textured": hi == "model_hi_tex.glb",
+            "hi_bytes": (d / hi).stat().st_size if hi else None,
+            "base_color_painted": "textures/base_color_painted.png" if has("textures/base_color_painted.png") else None,
+            "base_color_voxel": "textures/base_color_voxel.png" if has("textures/base_color_voxel.png") else None,
+            "thumb": "thumb.png" if has("thumb.png") else None,
             "thumb_head": "thumb_head.png" if has("thumb_head.png") else None,
             "thumb_ground": "thumb_ground.png" if has("thumb_ground.png") else None,
             "crop": "crop.png" if has("crop.png") else None,

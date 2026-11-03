@@ -17,7 +17,7 @@ python3 -I tools/viewer.py --port 8790 --no-open --out-root out/_viewtest   # te
 | `/api/index.json` | rebuilt from the registry + `out/` on every request |
 | `GET /api/override/<id>` | effective overrides: per field `default`, `override`, `value`, `stage`, `help` |
 | `POST /api/override/<id>` | JSON object of fields (`null` = unset); validated, written to `data/overrides/<source>/<id>.json` (removed when empty) |
-| `POST /api/run/<id>` | `{"stages": ["qa", "lod"], "force": true}`: queue `forge.py run <id> --stages ... --force` |
+| `POST /api/run/<id>` | `{"stages": ["qa", "paint", "lod"], "force": true}`: queue `forge.py run <id> --stages ... --force` (stages: ref, mesh, qa, paint, lod) |
 | `GET /api/jobs[?id=<id>&tail=N]` | queue and recent jobs: status (`queued`, `running`, `done`, `failed`, `cancelled`), rc, times, log tail |
 | `POST /api/jobs/<n>/cancel` | drop a queued job or terminate the running forge process |
 
@@ -46,6 +46,7 @@ whose value is a non-empty object without an `"error"` key.
 | `ref` | `ref.png` or any `ref_<i>.png` exists |
 | `mesh` | `model_raw.glb` (or `model.glb`) exists |
 | `qa` | `model.glb` exists **and** manifest has a `qa` stage entry |
+| `paint` | `textures/base_color_painted.png` exists **and** manifest has a `paint` stage entry |
 | `lod` | `lods.json` exists and every file it lists (`lods.<k>.file`) exists |
 | `rig` | manifest has a `rig` stage entry, **or** top-level `"has_skeleton": true` (set this when `model.glb` itself carries the skin) |
 | `anim` | at least one clip is found (below) and `manifest.anim` has no `"error"` key |
@@ -65,14 +66,73 @@ Each entry also gets `expected_clips` (the registry `animation_set`), `missing_c
 "anim": {"embedded_clips": ["idle", "walk"], "clips": [], "seconds": 64.0}
 ```
 
-`summary` holds per-stage totals (plus `anim_complete`) and per-body-plan counts.
+`summary` holds per-stage totals (plus `anim_complete`) and per-body-plan counts. Stage
+order: ref, mesh, qa, paint, lod, rig, anim.
 
-## LODs
+Other per-entry fields the page uses: `lods` (from `lods.json`), `hi_faces` (triangles of
+the RAW tier), and in `files`: `hi` (`model_hi_tex.glb` or `model_hi.glb`), `hi_textured`,
+`hi_bytes`, `base_color_painted`, `base_color_voxel` (paths under `textures/` or null).
+`hi_faces` is read from the GLB's JSON chunk only (accessor counts, no buffers) and cached
+per file by mtime and size, so the index stays cheap; if the header cannot be read it falls
+back to `manifest.mesh.weighted_decimate.faces_in`.
+
+## LODs, RAW tier and auto LOD
 
 `model.glb` is LOD0; `model_lod<k>.glb` (listed in `lods.json`, see `docs/lods.md`) share
-its UVs and material and carry no images. The toolbar shows `LOD0`-`LOD3` buttons with
-triangle counts; `l` cycles. The LOD geometry is swapped in under the loaded LOD0
-material, and the chosen LOD sticks when moving to the next monster.
+its UVs and material and carry no images. The LOD geometry is swapped in under the loaded
+LOD0 material, as an engine would. All LODs of the selected monster are preloaded right
+after LOD0 (they are small), so switching is instant.
+
+**RAW** is the undecimated remeshed high-poly the LOD0 decimation starts from
+(`model_hi.glb`, ~0.3-1.3 M triangles, 12+ MB, no UVs or colour). It is loaded only when
+RAW is picked, shown as clay (neutral grey PBR under the same lights, normals computed in
+the page) and is never chosen by auto mode. It comes out of the mesh stage in the
+generator's raw frame, so the page re-applies QA's transform from `manifest.qa`
+(`yaw_deg`, `level.normal_before` when `level.enabled`, `scale_factor`, then centre on x/z
+and drop to y=0); the HUD shows `aligned: qa`. A file already in the final frame (height,
+floor and width within a few % of LOD0) is used as is.
+
+Filename convention: a **textured** high-poly, if a later stage ever writes one, goes in
+`out/<source>/<id>/model_hi_tex.glb`, with its own material. The viewer prefers it over
+`model_hi.glb` (index `files.hi`, `files.hi_textured: true`) and renders it with its own
+material instead of clay. Either frame works (raw or final, see above); exporting it in
+the final frame (QA's frame, like `model.glb`) is preferred.
+
+The toolbar's mode selector is `auto | RAW | LOD0 | LOD1 | LOD2 | LOD3` (triangle counts in
+small type) and a `⚙` settings button. The selected mode is filled; in auto mode the
+level currently drawn is outlined. Clicking a level pins it (manual mode), `auto` (key `a`)
+returns to auto, `l` pins the next of LOD0-LOD3. The mode is kept in localStorage
+(`mf.lodMode`) and so sticks across monsters and reloads.
+
+**Auto LOD by screen coverage.** At 10 Hz the page takes LOD0's bounding sphere (radius r,
+centre following the turntable), its distance d from the camera, and computes the
+projected diameter as a fraction of the viewport height:
+
+    coverage = tan(asin(r / d)) / tan(fov / 2)        (>= 1000% shown as "inside")
+
+and picks LOD0 above 60%, LOD1 above 30%, LOD2 above 12%, else LOD3 (defaults). A ±10%
+hysteresis band stops flicker: it only moves to a finer level once coverage is 10% above
+that level's switch point, and to a coarser one once it is 10% below the current level's
+point. The toolbar readout shows the level drawn and the coverage (hover: pixels, switch
+points); in manual mode it also shows what auto would pick (`LOD1 (manual) · cov 12% →
+auto LOD3`) so the switch points can be tuned against the view. The bounding sphere is a
+conservative size: for the 1.7 m harpy (r = 1.33 m, fov 40°) auto drops to LOD3 at about 34 m.
+
+The `⚙` popover edits the switch points (percent) and the hysteresis; they are stored in
+localStorage (`mf.lodRatios`, `mf.lodHyst`). A monster's `lod_screen_ratios` override
+(three decreasing fractions, e.g. `[0.5, 0.25, 0.08]`) takes precedence for that monster;
+the readout then shows `✎` and the popover names it.
+
+**Wire on shaded** (`W`) draws a line overlay on the visible level, RAW included. It
+shares the mesh's geometry, and three.js builds the wireframe index only on the first
+draw, so nothing is built until it is switched on. `wireframe` (`w`) is the plain
+wireframe material.
+
+**Albedo toggle (paint stage).** When both `textures/base_color_painted.png` and
+`textures/base_color_voxel.png` exist, an `albedo: painted | voxel` switch appears and
+swaps the base colour map on LOD0's material (so LOD1-3 follow) at runtime, with the
+sampler settings of the embedded map. The choice is kept (`mf.albedo`, default painted).
+Without those files nothing changes.
 
 ## Overrides and re-runs
 
@@ -109,6 +169,8 @@ with other ComfyUI clients.
 | `level` | bool | qa | stance leveling (default on for legged plans) |
 | `level_tilt` | float 0-60 | qa | largest tilt leveling may apply (20; insectoid 40) |
 | `lod_ratios` | decreasing floats in (0,1) | lod | LOD1.. ratios of LOD0 (0.5, 0.25, 0.1) |
+| `paint` | object (JSON in the form) | paint | multiview paint settings (`enabled`, `views`, `denoise`, ...; see `tools/overrides.py`) |
+| `lod_screen_ratios` | 3 decreasing floats in (0, 4] | - (viewer only) | auto LOD switch points, fraction of viewport height for LOD0/LOD1/LOD2; unset = viewer settings |
 | `notes` | string | - | why the override exists |
 
 ## Animations in the page
@@ -128,5 +190,6 @@ mismatch when the GLB has a skeleton but the manifest has no rig stage, or the r
 ## Keys
 
 `j`/`k` or arrows: next/previous monster · space: play/pause · `n`/`N`: next/previous clip ·
-`c`: cycle clips · `w`: wireframe · `t`: textures · `l`: next LOD · `f`: frame camera · `/`: search ·
-Esc: leave search / close image.
+`c`: cycle clips · `w`: wireframe · `W`: wire on shaded · `t`: textures · `a`: auto LOD ·
+`l`: pin the next LOD · `f`: frame camera · `/`: search · Esc: leave search / close image or
+LOD settings.

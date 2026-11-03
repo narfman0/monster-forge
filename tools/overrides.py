@@ -59,6 +59,16 @@ def _style(v):
     return None if isinstance(v, str) and _NAME.match(v) else "must be a style name or data path"
 
 
+def _screen_ratios(v):
+    if not (isinstance(v, list) and len(v) == 3):
+        return "must be a list of 3 numbers (LOD0, LOD1, LOD2 switch points)"
+    if any(isinstance(x, bool) or not isinstance(x, (int, float)) or not 0 < x <= 4 for x in v):
+        return "ratios must be in (0, 4] (fraction of the viewport height)"
+    if any(b >= a for a, b in zip(v, v[1:])):
+        return "ratios must be strictly decreasing"
+    return None
+
+
 def _ratios(v):
     if not (isinstance(v, list) and 1 <= len(v) <= 6):
         return "must be a list of 1-6 ratios"
@@ -87,6 +97,9 @@ FIELDS = {
     "level": (_bool, "qa", "stance leveling on/off"),
     "level_tilt": (_num(0, 60), "qa", "max tilt (deg) leveling may apply"),
     "lod_ratios": (_ratios, "lod", "LOD1.. triangle ratios of LOD0"),
+    "lod_screen_ratios": (_screen_ratios, None,
+                          "viewer auto LOD: LOD0/LOD1/LOD2 when the model covers more than these fractions "
+                          "of the viewport height (else LOD3); unset = the viewer's settings"),
     "notes": (_text(2000), None, "free text"),
 }
 
@@ -147,7 +160,7 @@ def defaults(mon: dict, style_name: str | None = None) -> dict:
         "prompt_extra": "", "negative_extra": "", "style": style_name, "seed_ref": None,
         "yaw": None, "forward": "-Z", "level": plan in FEET_BY_PLAN,
         "level_tilt": TILT_CAP_BY_PLAN.get(plan, DEFAULT_TILT_CAP),
-        "lod_ratios": list(LOD_RATIOS), "notes": "",
+        "lod_ratios": list(LOD_RATIOS), "lod_screen_ratios": None, "notes": "",
     }
 
 

@@ -48,15 +48,19 @@
     <div id="hud-stats" class="muted"></div>
   </div>
   <div id="toolbar">
-    <label><input type="checkbox" id="t-wire"> wireframe</label>
+    <label title="w"><input type="checkbox" id="t-wire"> wireframe</label>
+    <label title="wireframe drawn over the shaded mesh (W)"><input type="checkbox" id="t-wireo"> wire on shaded</label>
     <label><input type="checkbox" id="t-tex" checked> textures</label>
     <label><input type="checkbox" id="t-env" checked> env light</label>
     <label><input type="checkbox" id="t-skel"> skeleton</label>
     <label><input type="checkbox" id="t-ref" checked> 1.8 m ref</label>
     <label><input type="checkbox" id="t-rotate"> turntable</label>
     <button id="b-frame" title="re-frame camera (f)">frame</button>
-    <span id="lod-bar" title="level of detail (l cycles)"></span>
+    <span id="lod-bar" title="level of detail: auto (a) or a pinned level (l cycles)"></span>
+    <span id="lod-readout" class="muted"></span>
+    <span id="albedo-bar" class="hidden"></span>
   </div>
+  <div id="lod-settings" class="hidden"></div>
   <div id="empty" class="hidden">
     <div class="big">no mesh yet</div>
     <div id="empty-detail" class="muted"></div>
@@ -117,7 +121,7 @@
     <a id="manifest-link" target="_blank" class="muted"></a>
   </section>
   <section class="muted keys">
-    j/k ↑/↓ move · space play · n next clip · c cycle · w wire · t textures · l LOD · f frame · / search
+    j/k ↑/↓ move · space play · n next clip · c cycle · w wire · W wire on shaded · t textures · a auto LOD · l pin next LOD · f frame · / search
   </section>
 </aside>
 

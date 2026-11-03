@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-const STAGES = ['ref', 'mesh', 'qa', 'lod', 'rig', 'anim'];
+const STAGES = ['ref', 'mesh', 'qa', 'paint', 'lod', 'rig', 'anim'];
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...kids) => {
   const e = Object.assign(document.createElement(tag), props);
@@ -12,6 +12,19 @@ const el = (tag, props = {}, ...kids) => {
   return e;
 };
 const fmt = (n, d = 2) => (n == null || Number.isNaN(n) ? '–' : Number(n).toFixed(d));
+const kfmt = (n) => (n == null ? '?' : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e4 ? `${Math.round(n / 1e3)}k` : Number(n).toLocaleString());
+// localStorage under "mf.<key>", JSON-encoded; private mode / quota errors are ignored.
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem('mf.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('mf.' + k, JSON.stringify(v)); } catch { /* ignore */ } },
+};
+// Auto LOD: LOD0/LOD1/LOD2 while the bounding sphere covers more than these fractions of the
+// viewport height, LOD3 below the last one. RAW is never picked automatically.
+const DEFAULT_LOD_RATIOS = [0.6, 0.3, 0.12];
+const DEFAULT_LOD_HYST = 0.1;
+const validRatios = (r) => Array.isArray(r) && r.length === 3 && r.every((x) => typeof x === 'number' && x > 0 && x <= 4)
+  && r[0] > r[1] && r[1] > r[2];
+const savedMode = LS.get('lodMode', 'auto');
 
 // ------------------------------------------------------------------ state
 const state = {
@@ -19,7 +32,12 @@ const state = {
   filtered: [],
   selId: null,
   loadToken: 0,
-  lodPref: 0,          // LOD the user picked; re-applied when the next monster has it
+  // 'auto' | 'raw' | 0..3: auto LOD by screen coverage, or a pinned level (sticks across
+  // monsters and reloads)
+  lodMode: savedMode === 'auto' || savedMode === 'raw' || [0, 1, 2, 3].includes(savedMode) ? savedMode : 'auto',
+  lodRatios: validRatios(LS.get('lodRatios', null)) ? LS.get('lodRatios', null) : [...DEFAULT_LOD_RATIOS],
+  lodHyst: Number.isFinite(LS.get('lodHyst', null)) ? LS.get('lodHyst', null) : DEFAULT_LOD_HYST,
+  albedo: LS.get('albedo', 'painted') === 'voxel' ? 'voxel' : 'painted',
   jobs: {},            // id -> 'running' | 'queued' (from /api/jobs)
   jobList: [],
   ov: null,            // GET /api/override/<id> payload for the selected monster
@@ -134,6 +152,10 @@ const view = {
   root: null, mixer: null, clips: [], action: null, clipIdx: -1,
   skelHelper: null, playing: true, cycle: false, cycleT: 0, box: null,
   scrubbing: false, lod: 0, lodMesh: null, lodGeoms: {}, entry: null,
+  // RAW tier (model_hi[_tex].glb): loaded on demand into its own group
+  raw: null, rawPromise: null, showRaw: false,
+  coverage: null, coveragePx: 0, autoLevel: null, autoT: 0,
+  overlays: [], albedoTex: {},
 };
 const clock = new THREE.Clock();
 const loader = new GLTFLoader();
@@ -157,8 +179,11 @@ function animate() {
     if (view.cycleT >= Number($('cycle-secs').value || 4)) { view.cycleT = 0; nextClip(); }
   }
   if ($('t-rotate').checked && view.root) view.root.rotation.y += dt * 0.5;
+  if (view.raw && view.root) view.raw.group.rotation.y = view.root.rotation.y;
   updateTimeUI();
   controls.update();
+  view.autoT += dt;
+  if (view.autoT >= 0.1) { view.autoT = 0; autoLodTick(); }  // throttled: 10 Hz
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
@@ -168,6 +193,9 @@ function disposeModel() {
   if (view.mixer) { view.mixer.stopAllAction(); view.mixer.uncacheRoot(view.root); }
   if (view.skelHelper) { scene.remove(view.skelHelper); view.skelHelper.dispose?.(); }
   for (const [k, g] of Object.entries(view.lodGeoms)) if (k !== '0') g.dispose();
+  clearWireOverlay();
+  if (view.raw) { scene.remove(view.raw.group); disposeTree(view.raw.group); }
+  for (const t of Object.values(view.albedoTex)) t.dispose();
   if (view.root) {
     scene.remove(view.root);
     view.root.traverse((o) => {
@@ -175,20 +203,33 @@ function disposeModel() {
       o.geometry.dispose();
       for (const m of [].concat(o.material)) {
         for (const t of Object.values(m.userData.maps || {})) t?.dispose?.();
+        m.userData.origMap?.dispose?.();
         m.dispose();
       }
     });
   }
   Object.assign(view, { root: null, mixer: null, clips: [], action: null, clipIdx: -1, skelHelper: null, box: null, cycleT: 0,
-    lod: 0, lodMesh: null, lodGeoms: {} });
+    lod: 0, lodMesh: null, lodGeoms: {}, raw: null, rawPromise: null, showRaw: false, autoLevel: null, overlays: [],
+    albedoTex: {} });
+}
+
+function disposeTree(root) {
+  root.traverse((o) => {
+    if (!o.isMesh || o.userData.overlay) return;
+    o.geometry.dispose();
+    for (const m of [].concat(o.material)) {
+      for (const k of MAP_KEYS) m[k]?.dispose?.();
+      m.dispose();
+    }
+  });
 }
 
 const MAP_KEYS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];
 function applyMaterialToggles() {
   if (!view.root) return;
   const wire = $('t-wire').checked, tex = $('t-tex').checked;
-  view.root.traverse((o) => {
-    if (!o.isMesh) return;
+  const visit = (o) => {
+    if (!o.isMesh || o.userData.overlay) return;
     for (const m of [].concat(o.material)) {
       m.wireframe = wire;
       for (const k of MAP_KEYS) {
@@ -199,7 +240,9 @@ function applyMaterialToggles() {
       const c = tex ? m.userData.color : 0xb0b4bb;
       m.color.set(c);
     }
-  });
+  };
+  view.root.traverse(visit);
+  view.raw?.group.traverse(visit);
 }
 
 function frameCamera() {
@@ -269,7 +312,8 @@ async function loadModel(entry) {
   $('empty-detail').textContent = entry.files.model ? '' :
     (entry.stages.ref ? 'reference image exists; run forge.py mesh' : 'run: python3 -I tools/forge.py run ' + entry.id);
   scaleRef.position.set(-1.2, 0, 0);
-  if (!entry.files.model) { setHud(entry, null); return; }
+  if (!entry.files.model) { setHud(entry, null); renderLodBar(entry); applyAlbedo(entry); return; }
+  $('loading').textContent = 'loading…';
   $('loading').classList.remove('hidden');
   let gltf;
   try {
@@ -342,9 +386,13 @@ async function loadModel(entry) {
     view.lodMesh = meshes[0];
     view.lodGeoms = { 0: meshes[0].geometry };
   }
+  view.info.lod0 = { tris: view.info.tris, file: entry.files.model };
   renderLodBar(entry);
   setHud(entry, view.info);
-  if (state.lodPref && entry.lods?.[state.lodPref]) setLod(state.lodPref, token);
+  updateWireOverlay();
+  applyAlbedo(entry, token);
+  preloadLods(entry, token).then(() => { if (token === state.loadToken) applyMode(); });
+  applyMode();
   renderClips(entry);
   const firstOk = view.clips.findIndex((c) => c.ok);
   if (firstOk >= 0) playClip(firstOk);
@@ -352,52 +400,423 @@ async function loadModel(entry) {
 
 // ------------------------------------------------------------------ LODs
 // model_lod<k>.glb share LOD0's UVs and material; only the geometry is swapped in, so the
-// loaded LOD0 material (with its textures) is reused, as an engine would.
-function renderLodBar(entry) {
-  const bar = $('lod-bar');
-  bar.replaceChildren();
-  const lods = entry.lods || {};
-  const keys = Object.keys(lods).sort();
-  if (!view.lodMesh || keys.length < 2) return;
-  for (const k of keys) {
-    const b = el('button', { title: `${lods[k].file} (ratio ${lods[k].ratio})` },
-      `LOD${k}`, el('small', { textContent: Number(lods[k].tris).toLocaleString() }));
-    b.classList.toggle('on', Number(k) === view.lod);
-    b.onclick = () => { state.lodPref = Number(k); setLod(Number(k)); };
-    bar.append(b);
-  }
+// loaded LOD0 material (with its textures) is reused, as an engine would. All LODs of the
+// selected monster are preloaded (they are small) so auto switching is instant. RAW is the
+// undecimated high-poly (model_hi.glb, clay; model_hi_tex.glb when a textured one exists),
+// loaded only when picked.
+function lodKeys(entry = view.entry) {
+  return view.lodMesh ? Object.keys(entry?.lods || {}).map(Number).sort((a, b) => a - b) : [];
 }
 
-async function setLod(k, token = state.loadToken) {
-  const entry = view.entry;
-  if (!view.lodMesh || !entry?.lods?.[k]) return;
-  let geo = view.lodGeoms[k];
-  if (!geo) {
+async function preloadLods(entry, token) {
+  await Promise.all(lodKeys(entry).filter((k) => k !== 0).map(async (k) => {
+    if (view.lodGeoms[k]) return;
     try {
       const g = await loadGLB(entry.dir + entry.lods[k].file);
-      if (token !== state.loadToken) return;
+      let geo = null;
       g.scene.traverse((o) => { if (o.isMesh && !geo) geo = o.geometry; });
+      if (token !== state.loadToken) { disposeTree(g.scene); return; }
+      if (geo) view.lodGeoms[k] = geo;
+    } catch (err) {
+      if (token === state.loadToken) $('hud-stats').textContent += `\nLOD${k}: ${err.message}`;
+    }
+  }));
+  if (token === state.loadToken) renderLodBar(entry);
+}
+
+// Show one LOD (geometry swap under LOD0's material); hides RAW.
+async function setLod(k, token = state.loadToken) {
+  const entry = view.entry;
+  if (!view.root) return;
+  if (k !== 0 && (!view.lodMesh || !entry?.lods?.[k])) k = 0;
+  if (view.lodMesh && !view.lodGeoms[k]) {
+    try {
+      const g = await loadGLB(entry.dir + entry.lods[k].file);
+      if (token !== state.loadToken) { disposeTree(g.scene); return; }
+      let geo = null;
+      g.scene.traverse((o) => { if (o.isMesh && !geo) geo = o.geometry; });
+      if (!geo) return;
+      view.lodGeoms[k] = geo;
     } catch (err) {
       $('hud-stats').textContent += `\nLOD${k}: ${err.message}`;
       return;
     }
-    if (!geo) return;
-    view.lodGeoms[k] = geo;
   }
-  view.lodMesh.geometry = geo;
+  const changed = view.showRaw || view.lod !== k;
+  if (view.lodMesh) view.lodMesh.geometry = view.lodGeoms[k];
   view.lod = k;
+  view.showRaw = false;
+  view.root.visible = true;
+  if (view.raw) view.raw.group.visible = false;
   view.info.tris = triCount(view.root);
-  view.info.file = k ? entry.lods[k].file : entry.files.model;
-  setHud(entry, view.info);
+  view.info.file = k ? entry.lods[k].file : view.info.lod0.file;
+  if (changed) { setHud(entry, view.info); updateWireOverlay(); }
   renderLodBar(entry);
 }
 
+// QA transform (tools/blender_qa.py: yaw about up, stance-level rotation, uniform scale;
+// the caller then puts the origin at the feet) re-applied to the raw-frame high-poly so it
+// lines up with LOD0. Blender (x, y, z) is glTF (x, z, -y). null = already in the final frame.
+function rawAlignMatrix(box, qa) {
+  const lod = view.box, ls = lod.getSize(new THREE.Vector3()), bs = box.getSize(new THREE.Vector3());
+  const near = (a, b, tol) => Math.abs(a - b) <= tol;
+  // Already in the final frame (e.g. a textured high-poly exported after QA)?
+  if (near(bs.y, ls.y, 0.03 * ls.y) && near(box.min.y, lod.min.y, 0.03 * ls.y) && near(bs.x, ls.x, 0.06 * ls.x)) return null;
+  const M = new THREE.Matrix4();
+  if (qa?.scale_factor) {
+    M.makeRotationY(THREE.MathUtils.degToRad(qa.yaw_deg || 0));
+    const n = qa.level?.enabled && qa.level.normal_before;
+    if (n) {
+      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(n[0], n[2], -n[1]).normalize(), new THREE.Vector3(0, 1, 0));
+      M.premultiply(new THREE.Matrix4().makeRotationFromQuaternion(q));
+    }
+    const s = qa.scale_factor;
+    M.premultiply(new THREE.Matrix4().makeScale(s, s, s));
+  } else {
+    const s = ls.y / Math.max(bs.y, 1e-6);  // no QA record: fit the height
+    M.makeScale(s, s, s);
+  }
+  return M;
+}
+
+function ensureRaw(entry, token) {
+  if (view.raw) return Promise.resolve(view.raw);
+  if (view.rawPromise) return view.rawPromise;
+  const file = entry.files.hi;
+  view.rawPromise = (async () => {
+    $('loading').textContent = `loading RAW ${file} (${fmt((entry.files.hi_bytes || 0) / 1048576, 1)} MB)…`;
+    $('loading').classList.remove('hidden');
+    renderLodBar(entry);
+    let gltf, man = {};
+    try {
+      [gltf, man] = await Promise.all([loadGLB(entry.dir + file),
+        fetch(entry.dir + 'manifest.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : {})).catch(() => ({}))]);
+    } catch (err) {
+      if (token === state.loadToken) {
+        $('loading').classList.add('hidden');
+        $('hud-stats').textContent += `\nRAW: ${err.message}`;
+        view.rawPromise = null;
+        renderLodBar(entry);
+      }
+      return null;
+    }
+    if (token !== state.loadToken) { disposeTree(gltf.scene); return null; }
+    gltf.scene.updateMatrixWorld(true);
+    const meshes = [];
+    gltf.scene.traverse((o) => { if (o.isMesh) meshes.push(o); });
+    const textured = entry.files.hi_textured;
+    const clay = new THREE.MeshStandardMaterial({ color: 0xbab3a8, roughness: 0.62, metalness: 0, side: THREE.DoubleSide });
+    const box = new THREE.Box3();
+    for (const m of meshes) {
+      m.geometry.applyMatrix4(m.matrixWorld);  // flatten node transforms
+      if (!m.geometry.attributes.normal) m.geometry.computeVertexNormals();
+      m.geometry.computeBoundingBox();
+      box.union(m.geometry.boundingBox);
+    }
+    const M = rawAlignMatrix(box, man.qa);
+    if (M) {
+      // rotate + scale the vertices, then centre x/z and drop to y=0 on the exact bounds
+      // (as QA does; a transformed bounding box would overestimate after rotation)
+      const b2 = new THREE.Box3();
+      for (const m of meshes) { m.geometry.applyMatrix4(M); m.geometry.computeBoundingBox(); b2.union(m.geometry.boundingBox); }
+      const c = b2.getCenter(new THREE.Vector3());
+      const T = new THREE.Matrix4().makeTranslation(-c.x, -b2.min.y, -c.z);
+      for (const m of meshes) { m.geometry.applyMatrix4(T); m.geometry.computeBoundingBox(); m.geometry.computeBoundingSphere(); }
+    }
+    const group = new THREE.Group();
+    let faces = 0;
+    for (const m of meshes) {
+      const mat = textured ? m.material : clay;
+      if (!textured) { for (const old of [].concat(m.material)) old.dispose(); }
+      const mesh = new THREE.Mesh(m.geometry, mat);
+      mesh.castShadow = mesh.receiveShadow = true;
+      for (const mm of [].concat(mat)) {
+        mm.userData.maps = {};
+        for (const k of MAP_KEYS) if (mm[k]) mm.userData.maps[k] = mm[k];
+        mm.userData.color = mm.color.getHex();
+      }
+      faces += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3;
+      group.add(mesh);
+    }
+    group.visible = false;
+    group.rotation.y = view.root?.rotation.y ?? 0;
+    scene.add(group);
+    view.raw = { group, faces: Math.round(faces), file, textured, aligned: M ? (man.qa?.scale_factor ? 'qa' : 'fit') : 'as-is' };
+    $('loading').classList.add('hidden');
+    applyMaterialToggles();
+    return view.raw;
+  })();
+  return view.rawPromise;
+}
+
+async function showRaw(token = state.loadToken) {
+  const entry = view.entry;
+  if (!entry?.files.hi || !view.root) return;
+  const raw = await ensureRaw(entry, token);
+  if (!raw || token !== state.loadToken || state.lodMode !== 'raw') { renderLodBar(entry); return; }
+  view.showRaw = true;
+  raw.group.visible = true;
+  view.root.visible = false;
+  view.info.tris = raw.faces;
+  view.info.file = raw.file + (raw.aligned === 'as-is' ? '' : ` (aligned: ${raw.aligned})`);
+  setHud(entry, view.info);
+  updateWireOverlay();
+  renderLodBar(entry);
+}
+
+// Apply the current mode to the loaded monster.
+function applyMode() {
+  if (!view.root) return;
+  const m = state.lodMode;
+  if (m === 'raw' && view.entry?.files.hi) { showRaw(); return; }
+  if (m === 'auto' || m === 'raw') {
+    view.autoLevel = null;
+    autoLodTick();
+    if (view.showRaw || (m === 'raw')) setLod(view.autoLevel ?? 0);
+    return;
+  }
+  const keys = lodKeys();
+  setLod(keys.includes(m) ? m : (keys.filter((k) => k <= m).pop() ?? 0));
+}
+
+function setMode(m) {
+  state.lodMode = m;
+  LS.set('lodMode', m);
+  applyMode();
+  renderLodBar(view.entry);
+}
+
 function cycleLod() {
-  const keys = Object.keys(view.entry?.lods || {}).map(Number).sort();
-  if (keys.length < 2 || !view.lodMesh) return;
-  const next = keys[(keys.indexOf(view.lod) + 1) % keys.length];
-  state.lodPref = next;
-  setLod(next);
+  const keys = lodKeys();
+  if (keys.length < 2) return;
+  const cur = typeof state.lodMode === 'number' ? state.lodMode : view.lod;
+  setMode(keys[(keys.indexOf(cur) + 1) % keys.length]);
+}
+
+// Per-monster lod_screen_ratios (overrides file) win over the viewer settings.
+function monsterRatios() {
+  const o = state.ov && state.ov.id === state.selId ? state.ov.fields?.lod_screen_ratios?.override : null;
+  return validRatios(o) ? o : null;
+}
+const activeRatios = () => monsterRatios() || state.lodRatios;
+
+// Screen coverage: the LOD0 bounding sphere's projected diameter as a fraction of the
+// viewport height, tan(asin(r / d)) / tan(fov / 2) (exact for a sphere on the view axis).
+const _sph = new THREE.Sphere();
+const _yAxis = new THREE.Vector3(0, 1, 0);
+function screenCoverage() {
+  if (!view.box) return null;
+  view.box.getBoundingSphere(_sph);
+  if (view.root) _sph.center.applyAxisAngle(_yAxis, view.root.rotation.y);  // turntable spins about the origin
+  const d = camera.position.distanceTo(_sph.center);
+  const half = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  if (d <= _sph.radius * 1.0001) return 10;
+  return Math.min(10, Math.tan(Math.asin(_sph.radius / d)) / half);
+}
+
+// Level for coverage c with hysteresis around the switch points: move finer only once c
+// is h above the next point up, coarser once it is h below the current one.
+function pickAutoLevel(c, cur) {
+  const t = activeRatios(), h = state.lodHyst;
+  if (cur == null) { const i = t.findIndex((x) => c > x); return i < 0 ? 3 : i; }
+  let L = cur;
+  while (L > 0 && c > t[L - 1] * (1 + h)) L--;
+  while (L < 3 && c < t[L] * (1 - h)) L++;
+  return L;
+}
+
+function autoLodTick() {
+  if (!view.root) { renderLodReadout(); return; }
+  const c = screenCoverage();
+  view.coverage = c;
+  view.coveragePx = c == null ? 0 : c * viewport.clientHeight;
+  if (c != null) view.autoLevel = pickAutoLevel(c, view.autoLevel);
+  if (state.lodMode === 'auto' && view.autoLevel != null && view.lodMesh) {
+    const keys = lodKeys();
+    const want = keys.filter((k) => k <= view.autoLevel).pop() ?? 0;
+    if ((want !== view.lod || view.showRaw) && view.lodGeoms[want]) setLod(want);
+  }
+  renderLodReadout();
+}
+
+let lastReadout = '';
+function renderLodReadout() {
+  const r = $('lod-readout');
+  let txt = '', title = '';
+  if (view.root) {
+    const cur = view.showRaw ? 'RAW' : `LOD${view.lod}`;
+    const cov = view.coverage == null ? '–' : view.coverage >= 10 ? 'inside' : `${Math.round(view.coverage * 100)}%`;
+    const auto = view.autoLevel == null ? '' : `LOD${view.autoLevel}`;
+    const src = monsterRatios() ? ' ✎' : '';
+    txt = state.lodMode === 'auto' ? `${cur} · cov ${cov}${src}` : `${cur} (manual) · cov ${cov} → auto ${auto}${src}`;
+    title = `bounding sphere covers ${cov} of the viewport height (${Math.round(view.coveragePx)} px)\n` +
+      `switch points ${activeRatios().map((x) => Math.round(x * 100) + '%').join(' / ')}` +
+      `${monsterRatios() ? ' (this monster: lod_screen_ratios)' : ''}, hysteresis ±${Math.round(state.lodHyst * 100)}%`;
+  }
+  if (txt !== lastReadout) { r.textContent = txt; r.title = title; lastReadout = txt; }
+}
+
+function renderLodBar(entry) {
+  const bar = $('lod-bar');
+  bar.replaceChildren();
+  if (!entry || !view.root) { renderLodReadout(); return; }
+  const lods = entry.lods || {};
+  const keys = lodKeys(entry);
+  const mode = state.lodMode;
+  const btn = (label, small, title, on, active, onclick) => {
+    const b = el('button', { title }, label, small != null ? el('small', { textContent: small }) : null);
+    b.classList.toggle('on', on);
+    b.classList.toggle('active', active && !on);
+    b.onclick = onclick;
+    bar.append(b);
+    return b;
+  };
+  if (keys.length >= 2) {
+    btn('auto', null, 'pick the LOD by screen coverage (a); ⚙ sets the switch points', mode === 'auto', false, () => setMode('auto'));
+  }
+  if (entry.files.hi) {
+    const loading = view.rawPromise && !view.raw;
+    btn('RAW', loading ? 'loading…' : kfmt(entry.hi_faces),
+      `${entry.files.hi}: undecimated high-poly, ${Number(entry.hi_faces || 0).toLocaleString()} tris, ` +
+      `${fmt((entry.files.hi_bytes || 0) / 1048576, 1)} MB${entry.files.hi_textured ? '' : ', no texture (clay)'}; loaded on demand`,
+      mode === 'raw', view.showRaw, () => setMode('raw'));
+  }
+  if (keys.length >= 2) {
+    for (const k of keys) {
+      const ready = !!view.lodGeoms[k];
+      const b = btn(`LOD${k}`, Number(lods[k].tris).toLocaleString(), `${lods[k].file} (ratio ${lods[k].ratio})${ready ? '' : ', loading'}`,
+        mode === k, !view.showRaw && view.lod === k, () => setMode(k));
+      if (!ready) b.classList.add('pending');
+    }
+  }
+  if (keys.length >= 2) {
+    const g = el('button', { title: 'auto LOD switch points', className: 'gear', textContent: '⚙' });
+    g.onclick = (e) => { e.stopPropagation(); $('lod-settings').classList.toggle('hidden'); renderLodSettings(); };
+    bar.append(g);
+  }
+  renderLodReadout();
+}
+
+// Settings popover: global switch points (localStorage) + hysteresis; a monster's
+// lod_screen_ratios override is shown and takes precedence.
+function renderLodSettings() {
+  const box = $('lod-settings');
+  if (box.classList.contains('hidden')) return;
+  box.replaceChildren();
+  box.append(el('div', { className: 'hd', textContent: 'auto LOD switch points' }),
+    el('div', { className: 'muted', textContent: '% of viewport height covered by the bounding sphere' }));
+  const inputs = [];
+  const save = () => {
+    const r = inputs.slice(0, 3).map((i) => Number(i.value) / 100);
+    const h = Number(inputs[3].value) / 100;
+    const ok = validRatios(r) && h >= 0 && h < 0.5;
+    msg.textContent = ok ? '' : 'need decreasing values in (0, 400] and hysteresis 0-49';
+    if (!ok) return;
+    state.lodRatios = r; state.lodHyst = h;
+    LS.set('lodRatios', r); LS.set('lodHyst', h);
+    view.autoLevel = null;
+  };
+  const row = (label, val) => {
+    const i = el('input', { type: 'number', min: 0, max: 400, step: 1, value: String(Math.round(val * 1000) / 10) });
+    i.oninput = save;
+    inputs.push(i);
+    box.append(el('label', {}, el('span', { textContent: label }), i, '%'));
+  };
+  state.lodRatios.forEach((x, k) => row(`LOD${k} above`, x));
+  box.append(el('div', { className: 'muted', textContent: `LOD3 below LOD2's point; RAW only by hand` }));
+  row('hysteresis ±', state.lodHyst);
+  const msg = el('div', { className: 'err' });
+  const reset = el('button', { textContent: 'reset' });
+  reset.onclick = () => {
+    state.lodRatios = [...DEFAULT_LOD_RATIOS]; state.lodHyst = DEFAULT_LOD_HYST;
+    LS.set('lodRatios', state.lodRatios); LS.set('lodHyst', state.lodHyst);
+    view.autoLevel = null;
+    renderLodSettings();
+  };
+  box.append(msg, el('div', { className: 'row' }, reset));
+  const mr = monsterRatios();
+  if (mr) {
+    box.append(el('div', { className: 'note', textContent:
+      `${state.selId}: lod_screen_ratios ${mr.join(', ')} (overrides file) takes precedence` }));
+  }
+}
+document.addEventListener('click', (e) => {
+  const box = $('lod-settings');
+  if (!box.classList.contains('hidden') && !e.composedPath().includes(box)) box.classList.add('hidden');
+});
+
+// Wireframe on shaded: a line overlay sharing the visible mesh's geometry. three.js builds
+// the wireframe index lazily on first draw, so nothing is built until this is switched on.
+const overlayMat = new THREE.MeshBasicMaterial({ color: 0x0d1018, wireframe: true, transparent: true, opacity: 0.35, depthWrite: false });
+function clearWireOverlay() {
+  for (const o of view.overlays) o.parent?.remove(o);
+  view.overlays = [];
+}
+function updateWireOverlay() {
+  clearWireOverlay();
+  const on = $('t-wireo').checked;
+  const roots = [view.root, view.raw?.group].filter(Boolean);
+  for (const r of roots) {
+    r.traverse((o) => {
+      if (!o.isMesh || o.userData.overlay) return;
+      for (const m of [].concat(o.material)) { m.polygonOffset = on; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 1; }
+    });
+  }
+  if (!on) return;
+  const target = view.showRaw ? view.raw?.group : view.root;
+  const meshes = [];
+  target?.traverse((o) => { if (o.isMesh && !o.isSkinnedMesh && !o.userData.overlay) meshes.push(o); });
+  for (const m of meshes) {
+    const w = new THREE.Mesh(m.geometry, overlayMat);
+    w.userData.overlay = true;
+    w.renderOrder = 1;
+    w.raycast = () => {};
+    m.add(w);
+    view.overlays.push(w);
+  }
+}
+
+// Albedo toggle (paint stage): with textures/base_color_painted.png and _voxel.png both
+// present, swap the base colour map on LOD0's material (shared by LOD1-3).
+const texLoader = new THREE.TextureLoader();
+async function applyAlbedo(entry, token = state.loadToken) {
+  const f = entry.files;
+  const both = !!(f.base_color_painted && f.base_color_voxel);
+  const bar = $('albedo-bar');
+  bar.classList.toggle('hidden', !both);
+  if (!both || !view.root) return;
+  bar.replaceChildren(el('span', { className: 'muted', textContent: 'albedo' }));
+  for (const w of ['painted', 'voxel']) {
+    const b = el('button', { textContent: w, title: f['base_color_' + w] });
+    b.classList.toggle('on', state.albedo === w);
+    b.onclick = () => { state.albedo = w; LS.set('albedo', w); applyAlbedo(entry); };
+    bar.append(b);
+  }
+  const which = state.albedo;
+  let tex = view.albedoTex[which];
+  if (!tex) {
+    try { tex = await texLoader.loadAsync(entry.dir + f['base_color_' + which]); } catch (err) {
+      $('hud-stats').textContent += `\nalbedo ${which}: ${err.message || err}`;
+      return;
+    }
+    if (token !== state.loadToken) { tex.dispose(); return; }
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.flipY = false;  // glTF UV convention
+    view.albedoTex[which] = tex;
+  }
+  if (state.albedo !== which) return;
+  view.root.traverse((o) => {
+    if (!o.isMesh) return;
+    for (const m of [].concat(o.material)) {
+      if (!('origMap' in m.userData)) m.userData.origMap = m.userData.maps.map || null;
+      const orig = m.userData.origMap;
+      if (!orig) continue;
+      tex.wrapS = orig.wrapS; tex.wrapT = orig.wrapT; tex.channel = orig.channel;
+      tex.anisotropy = orig.anisotropy; tex.minFilter = orig.minFilter; tex.magFilter = orig.magFilter;
+      m.userData.maps.map = tex;
+    }
+  });
+  applyMaterialToggles();
 }
 
 function setHud(entry, info) {
@@ -405,7 +824,7 @@ function setHud(entry, info) {
   const lines = [`${entry.body_plan} · ${entry.size} · CR ${entry.cr} · scale_m ${entry.scale_m}`];
   if (info) {
     const s = info.size;
-    lines.push(`${info.file} · ${info.tris.toLocaleString()} tris`);
+    lines.push(`${info.file} · ${info.tris.toLocaleString()} tris${view.showRaw && !view.raw?.textured ? ' (clay: no texture)' : ''}`);
     lines.push(`bounds W ${fmt(s.x)} × H ${fmt(s.y)} × L ${fmt(s.z)} m   (grid 1 m)`);
     let rig = info.skinned ? `skeleton: ${info.bones} bones` : 'no skeleton';
     if (info.skinned && !entry.stages.rig) rig += '  (manifest has no rig stage)';
@@ -566,7 +985,7 @@ async function renderSide(entry) {
 }
 
 // ------------------------------------------------------------------ sidebar
-const STAGE_COLORS = { ref: 'var(--ref)', mesh: 'var(--mesh)', qa: 'var(--qa)', lod: 'var(--lod)', rig: 'var(--rig)', anim: 'var(--anim)' };
+const STAGE_COLORS = { ref: 'var(--ref)', mesh: 'var(--mesh)', qa: 'var(--qa)', paint: 'var(--paint)', lod: 'var(--lod)', rig: 'var(--rig)', anim: 'var(--anim)' };
 
 function renderProgress(idx) {
   $('source').textContent = idx.source;
@@ -699,11 +1118,15 @@ async function refreshIndex() {
 for (const id of ['f-plan', 'f-size', 'f-stage']) $(id).onchange = applyFilters;
 $('search').oninput = applyFilters;
 $('t-wire').onchange = applyMaterialToggles;
+$('t-wireo').onchange = updateWireOverlay;
 $('t-tex').onchange = applyMaterialToggles;
 $('t-env').onchange = () => { scene.environment = $('t-env').checked ? envTex : null; };
 $('t-skel').onchange = () => { if (view.skelHelper) view.skelHelper.visible = $('t-skel').checked; };
 $('t-ref').onchange = () => { scaleRef.visible = $('t-ref').checked; frameCamera(); };
-$('t-rotate').onchange = () => { if (!$('t-rotate').checked && view.root) view.root.rotation.y = 0; };
+$('t-rotate').onchange = () => {
+  if (!$('t-rotate').checked && view.root) view.root.rotation.y = 0;
+  if (view.raw) view.raw.group.rotation.y = view.root?.rotation.y ?? 0;
+};
 $('b-frame').onclick = frameCamera;
 $('b-play').onclick = togglePlay;
 $('b-next').onclick = () => nextClip();
@@ -727,7 +1150,7 @@ $('lightbox').onclick = () => $('lightbox').classList.add('hidden');
 
 document.addEventListener('keydown', (e) => {
   const typing = e.target.matches('input, select, textarea');
-  if (e.key === 'Escape') { $('lightbox').classList.add('hidden'); if (typing) e.target.blur(); return; }
+  if (e.key === 'Escape') { $('lightbox').classList.add('hidden'); $('lod-settings').classList.add('hidden'); if (typing) e.target.blur(); return; }
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key;
   if (k === 'j' || k === 'ArrowDown') move(1);
@@ -737,6 +1160,8 @@ document.addEventListener('keydown', (e) => {
   else if (k === 'N') nextClip(-1);
   else if (k === 'c') $('b-cycle').click();
   else if (k === 'w') { $('t-wire').checked = !$('t-wire').checked; applyMaterialToggles(); }
+  else if (k === 'W') { $('t-wireo').checked = !$('t-wireo').checked; updateWireOverlay(); }
+  else if (k === 'a') setMode('auto');
   else if (k === 't') { $('t-tex').checked = !$('t-tex').checked; applyMaterialToggles(); }
   else if (k === 'f') frameCamera();
   else if (k === 'l') cycleLod();
@@ -744,7 +1169,7 @@ document.addEventListener('keydown', (e) => {
   else return;
   e.preventDefault();
 });
-window.addEventListener('hashchange', () => { const id = location.hash.slice(1); if (id && id !== state.selId) select(id); });
+window.addEventListener('hashchange', () => { const id = decodeURIComponent(location.hash.slice(1)); if (state.index && id && id !== state.selId) select(id); });
 // Pick up new forge output without a reload when the tab regains focus.
 window.addEventListener('focus', async () => {
   if (!state.index) return;
@@ -765,22 +1190,24 @@ const FIELD_UI = {
   style: { type: 'text' }, seed_ref: { type: 'int' },
   yaw: { type: 'float', step: 1 }, forward: { type: 'choice', opts: ['-Z', '+Z'] },
   level: { type: 'choice', opts: [true, false] }, level_tilt: { type: 'float', step: 1 },
-  lod_ratios: { type: 'list' }, notes: { type: 'text', area: true },
+  lod_ratios: { type: 'list' }, lod_screen_ratios: { type: 'list' }, paint: { type: 'json', area: true }, notes: { type: 'text', area: true },
 };
-const RUN_ORDER = ['ref', 'mesh', 'qa', 'lod'];
-const show = (v) => (v == null || v === '' ? '–' : Array.isArray(v) ? v.join(', ') : String(v));
+const RUN_ORDER = ['ref', 'mesh', 'qa', 'paint', 'lod'];
+const show = (v) => (v == null || v === '' ? '–' : Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? JSON.stringify(v) : String(v));
 
 function toInput(k, v) {
   if (v == null) return '';
-  return FIELD_UI[k].type === 'list' ? v.join(', ') : String(v);
+  const t = FIELD_UI[k]?.type;
+  return t === 'list' ? v.join(', ') : t === 'json' || typeof v === 'object' ? JSON.stringify(v) : String(v);
 }
 function fromInput(k, raw) {
-  const ui = FIELD_UI[k];
+  const ui = FIELD_UI[k] || { type: 'text' };
   raw = raw.trim();
   if (raw === '') return null;
   if (ui.type === 'int') return Number.isInteger(Number(raw)) ? Number(raw) : NaN;
   if (ui.type === 'float') return Number(raw);
   if (ui.type === 'list') return raw.split(/[\s,]+/).filter(Boolean).map(Number);
+  if (ui.type === 'json') { try { return JSON.parse(raw); } catch { return undefined; } }
   if (ui.type === 'choice') return ui.opts.find((o) => String(o) === raw) ?? raw;
   return raw;
 }
@@ -797,6 +1224,8 @@ async function loadOverrides(id) {
   if (state.selId !== id) return;
   state.ov = ov;
   renderOverrides();
+  renderLodSettings();
+  view.autoLevel = null;
 }
 
 function renderOverrides() {
@@ -830,7 +1259,7 @@ function renderOverrides() {
   const box = $('run-stages');
   if (!box.children.length) {
     for (const st of RUN_ORDER) {
-      box.append(el('label', {}, el('input', { type: 'checkbox', id: `run-${st}`, checked: st === 'qa' || st === 'lod' }), st));
+      box.append(el('label', {}, el('input', { type: 'checkbox', id: `run-${st}`, checked: st === 'qa' || st === 'paint' || st === 'lod' }), st));
     }
   }
 }
@@ -842,6 +1271,7 @@ async function saveOverrides() {
     const k = input.dataset.k, v = fromInput(k, input.value);
     if (typeof v === 'number' && Number.isNaN(v)) { $('ov-status').textContent = `${k}: not a number`; return; }
     if (Array.isArray(v) && v.some(Number.isNaN)) { $('ov-status').textContent = `${k}: not numbers`; return; }
+    if (v === undefined) { $('ov-status').textContent = `${k}: not valid JSON`; return; }
     body[k] = v;
     if (input.value !== input.dataset.saved) changed.push(k);
   }
@@ -853,6 +1283,8 @@ async function saveOverrides() {
   if (state.selId !== id) return;
   state.ov = res;
   renderOverrides();
+  renderLodSettings();
+  view.autoLevel = null;  // re-pick with the new per-monster switch points
   // Tick the stages the changed fields need: the earliest affected stage and everything after.
   const first = Math.min(...changed.map((k) => RUN_ORDER.indexOf(res.fields[k]?.stage)).filter((i) => i >= 0));
   if (Number.isFinite(first)) RUN_ORDER.forEach((st, i) => { $(`run-${st}`).checked = i >= first; });
