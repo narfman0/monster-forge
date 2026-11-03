@@ -1,0 +1,7 @@
+{
+  "owlbear": {
+    "prompt": "single creature, centered, full body side view of an owlbear walking on all fours, (four-legged bear body:1.2) with brown fur and big claws, (owl head with feathered face, round yellow eyes and hooked beak:1.25), feathered neck and shoulders. Large fantasy monstrosity. Low-poly game asset, whole body in frame, legs and paws visible, plain gray background, clean silhouette, flat even lighting.",
+    "negative_append": "close-up, portrait, head only, bear head, bear snout, bear ears, wings, perched bird",
+    "note": "SDXL draws either a plain owl or a plain bear from the registry prompt; weight the owl head and forbid the bear head"
+  }
+}

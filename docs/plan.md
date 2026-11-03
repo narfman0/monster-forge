@@ -48,7 +48,7 @@ before re-rolls; rigging/animation unmeasured.
 ## Milestones
 
 - M0 (done): registry, taxonomy, research.
-- M1 Pilot: download models (about 15 GB), run 6 monsters spanning body plans
+- M1 Pilot (done, see `pilot-report.md`): download models (20.8 GB), run 6 monsters spanning body plans
   (goblin, wolf, owlbear, giant spider, harpy, young red dragon) through stages 1-6,
   review in Blender, tune remesh/decimate/bake settings.
 - M2 Batch SRD meshes: `tools/forge.py` job runner with resume, per-monster manifest,

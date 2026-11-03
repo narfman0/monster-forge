@@ -1,0 +1,86 @@
+{
+ "ckpt": {
+  "class_type": "CheckpointLoaderSimple",
+  "inputs": {
+   "ckpt_name": "juggernautXL_v9.safetensors"
+  }
+ },
+ "pos": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "clip": [
+    "ckpt",
+    1
+   ],
+   "text": "PROMPT"
+  }
+ },
+ "neg": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "clip": [
+    "ckpt",
+    1
+   ],
+   "text": "multiple creatures, crowd, group, duplicate, scenery, landscape, environment, ground clutter, rocks, grass, props, cropped, out of frame, cut off limbs, partial body, text, watermark, signature, logo, caption, frame, border, dramatic lighting, harsh shadows, cast shadow, rim light, dark background, gradient background, depth of field, blurry, lowres, deformed, extra limbs, missing limbs, photo of a person, human rider, nsfw, nude, naked, cleavage"
+  }
+ },
+ "latent": {
+  "class_type": "EmptyLatentImage",
+  "inputs": {
+   "width": 1024,
+   "height": 1024,
+   "batch_size": 1
+  }
+ },
+ "sample": {
+  "class_type": "KSampler",
+  "inputs": {
+   "model": [
+    "ckpt",
+    0
+   ],
+   "positive": [
+    "pos",
+    0
+   ],
+   "negative": [
+    "neg",
+    0
+   ],
+   "latent_image": [
+    "latent",
+    0
+   ],
+   "seed": 1,
+   "steps": 30,
+   "cfg": 5.5,
+   "sampler_name": "dpmpp_2m",
+   "scheduler": "karras",
+   "denoise": 1.0
+  }
+ },
+ "decode": {
+  "class_type": "VAEDecode",
+  "inputs": {
+   "samples": [
+    "sample",
+    0
+   ],
+   "vae": [
+    "ckpt",
+    2
+   ]
+  }
+ },
+ "save": {
+  "class_type": "SaveImage",
+  "inputs": {
+   "images": [
+    "decode",
+    0
+   ],
+   "filename_prefix": "monster-forge/ref"
+  }
+ }
+}

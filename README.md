@@ -25,3 +25,12 @@ renamed analogues.
 
 RTX 5070 Ti 16 GB, ComfyUI at `../ComfyUI` (Python 3.12, torch 2.14 cu130, port 8188),
 Blender 5.2.2 LTS. Rigging and motion tools each get their own `uv` venv under `tools/`.
+
+## Running the pipeline
+
+```sh
+python3 -I tools/forge.py run <id>...          # ref -> mesh -> qa, resumable (--force to redo)
+python3 -I tools/forge.py contact <id>... --name batch1
+```
+
+Needs the ComfyUI server on 8188 with the models listed in `docs/pilot-report.md`.

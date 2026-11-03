@@ -1,0 +1,59 @@
+{
+  "load_image": {"class_type": "LoadImage", "inputs": {"image": "INPUT.png"}},
+  "bg_model": {"class_type": "LoadBackgroundRemovalModel", "inputs": {"bg_removal_name": "birefnet.safetensors"}},
+  "bg_remove": {"class_type": "RemoveBackground", "inputs": {"bg_removal_model": ["bg_model", 0], "image": ["load_image", 0]}},
+  "crop": {"class_type": "ImageCropToMask", "inputs": {"images": ["load_image", 0], "masks": ["bg_remove", 0], "width": 1024, "height": 1024, "pad_factor": 1.1, "grow_mask": 0, "background": "#000000"}},
+  "save_crop": {"class_type": "SaveImage", "inputs": {"images": ["crop", 0], "filename_prefix": "monster-forge/crop"}},
+
+  "moge_model": {"class_type": "LoadMoGeModel", "inputs": {"model_name": "moge_2_vitl_normal_fp16.safetensors"}},
+  "moge": {"class_type": "MoGeInference", "inputs": {"moge_model": ["moge_model", 0], "image": ["crop", 0], "resolution_level": 9, "fov_x_degrees": 0.0, "batch_size": 4, "force_projection": true, "apply_mask": true}},
+  "fov": {"class_type": "MoGeGeometryToFOV", "inputs": {"moge_geometry": ["moge", 0], "axis": "horizontal", "unit": "degrees"}},
+  "dino": {"class_type": "CLIPVisionLoader", "inputs": {"clip_name": "dino_v3_L_naf_fp32.safetensors"}},
+  "cond": {"class_type": "Pixal3DConditioning", "inputs": {"clip_vision_model": ["dino", 0], "image": ["crop", 0], "camera_angle_x": ["fov", 0]}},
+
+  "unet": {"class_type": "UNETLoader", "inputs": {"unet_name": "pixal3d_int8_convrot.safetensors", "weight_dtype": "default"}},
+  "shape_vae": {"class_type": "VAELoader", "inputs": {"vae_name": "trellis_2_shape_vae_bf16.safetensors"}},
+  "tex_vae": {"class_type": "VAELoader", "inputs": {"vae_name": "trellis_2_texture_vae_bf16.safetensors"}},
+
+  "ss_cfgo": {"class_type": "CFGOverride", "inputs": {"model": ["unet", 0], "cfg": 1.0, "start_percent": 0.667, "end_percent": 1.0}},
+  "ss_rescale": {"class_type": "RescaleCFG", "inputs": {"model": ["ss_cfgo", 0], "multiplier": 0.7}},
+  "ss_shift": {"class_type": "ModelSamplingSD3", "inputs": {"model": ["ss_rescale", 0], "shift": 5.0}},
+  "ss_latent": {"class_type": "EmptyTrellis2LatentStructure", "inputs": {"batch_size": 1}},
+  "ss_sample": {"class_type": "KSampler", "inputs": {"model": ["ss_shift", 0], "positive": ["cond", 0], "negative": ["cond", 1], "latent_image": ["ss_latent", 0], "seed": 56, "steps": 12, "cfg": 7.5, "sampler_name": "euler", "scheduler": "normal", "denoise": 1.0}},
+  "ss_decode": {"class_type": "VaeDecodeStructureTrellis2", "inputs": {"samples": ["ss_sample", 0], "vae": ["shape_vae", 0], "resolution": "32"}},
+
+  "shape_cfgo": {"class_type": "CFGOverride", "inputs": {"model": ["unet", 0], "cfg": 1.0, "start_percent": 0.769, "end_percent": 1.0}},
+  "shape_rescale": {"class_type": "RescaleCFG", "inputs": {"model": ["shape_cfgo", 0], "multiplier": 0.5}},
+  "shape_stage": {"class_type": "Trellis2ShapeStage", "inputs": {"positive": ["cond", 0], "negative": ["cond", 1], "voxel": ["ss_decode", 0]}},
+  "shape_sample": {"class_type": "KSampler", "inputs": {"model": ["shape_rescale", 0], "positive": ["shape_stage", 0], "negative": ["shape_stage", 1], "latent_image": ["shape_stage", 2], "seed": 42, "steps": 20, "cfg": 7.5, "sampler_name": "euler", "scheduler": "normal", "denoise": 1.0}},
+  "shape_decode": {"class_type": "VaeDecodeShapeTrellis", "inputs": {"samples": ["shape_sample", 0], "vae": ["shape_vae", 0]}},
+  "mesh_info": {"class_type": "GetMeshInfo", "inputs": {"mesh": ["shape_decode", 0]}},
+
+  "tex_stage": {"class_type": "Trellis2TextureStage", "inputs": {"positive": ["shape_stage", 0], "negative": ["shape_stage", 1], "shape_latent": ["shape_sample", 0]}},
+  "tex_sample": {"class_type": "KSampler", "inputs": {"model": ["unet", 0], "positive": ["tex_stage", 0], "negative": ["tex_stage", 1], "latent_image": ["tex_stage", 2], "seed": 43, "steps": 12, "cfg": 1.0, "sampler_name": "euler", "scheduler": "normal", "denoise": 1.0}},
+  "tex_decode": {"class_type": "VaeDecodeTextureTrellis", "inputs": {"samples": ["tex_sample", 0], "vae": ["tex_vae", 0], "shape_subdivides": ["shape_decode", 1]}},
+
+  "remesh": {"class_type": "RemeshMesh", "inputs": {"mesh": ["mesh_info", 0], "resolution": 256, "sign_mode": "udf", "sign_mode.qef": false, "sign_mode.drop_inverted_components": true, "sign_mode.drop_enclosed_components": true, "band": 1.0, "project_back": 0.0, "fix_poles": true, "smooth_iters": 2, "drop_small_components": 0.01, "precluster_max_verts": 4000000}},
+  "remesh_info": {"class_type": "GetMeshInfo", "inputs": {"mesh": ["remesh", 0]}},
+  "decimate": {"class_type": "DecimateMesh", "inputs": {"mesh": ["remesh_info", 0], "target_face_count": 3000, "placement_mode": "qem", "placement_mode.line_quadric_weight": 0.0, "placement_mode.feature_edge_quadric_weight": 0.0, "placement_mode.feature_edge_min_dihedral_deg": 30.0, "placement_mode.clamp_v_to_edge": true}},
+  "smooth": {"class_type": "MeshSmoothNormals", "inputs": {"mesh": ["decimate", 0], "crease_angle": 180.0}},
+  "unwrap": {"class_type": "UnwrapMesh", "inputs": {"mesh": ["smooth", 0], "segmenter": "pec", "resolution": 1024, "padding": 2, "weld_distance": 0.0002}},
+  "lowpoly_info": {"class_type": "GetMeshInfo", "inputs": {"mesh": ["unwrap", 0]}},
+
+  "bake_pbr": {"class_type": "BakeTextureFromVoxel", "inputs": {"mesh": ["lowpoly_info", 0], "voxel_colors": ["tex_decode", 0], "reference_mesh": ["shape_decode", 0], "texture_size": 1024}},
+  "bake_normal": {"class_type": "BakeNormalMapFromMesh", "inputs": {"low_poly": ["lowpoly_info", 0], "high_poly": ["remesh", 0], "resolution": 1024, "cage_distance": 0.05, "ignore_backfaces": true}},
+  "bake_ao": {"class_type": "BakeAmbientOcclusion", "inputs": {"low_poly": ["lowpoly_info", 0], "high_poly": ["remesh", 0], "resolution": 1024, "samples": 64, "max_distance": 0.15, "strength": 1.0, "bias": 0.01}},
+  "apply": {"class_type": "ApplyTextureToMesh", "inputs": {"mesh": ["lowpoly_info", 0], "base_color": ["bake_pbr", 0], "metallic": ["bake_pbr", 1], "roughness": ["bake_pbr", 2], "occlusion": ["bake_ao", 0], "normal_map": ["bake_normal", 0]}},
+  "final_smooth": {"class_type": "MeshSmoothNormals", "inputs": {"mesh": ["apply", 0], "crease_angle": 180.0}},
+  "save_glb": {"class_type": "SaveGLB", "inputs": {"mesh": ["final_smooth", 0], "filename_prefix": "monster-forge/model"}},
+
+  "info_hi": {"class_type": "PreviewAny", "inputs": {"source": ["mesh_info", 1]}},
+  "info_remesh": {"class_type": "PreviewAny", "inputs": {"source": ["remesh_info", 1]}},
+  "info_low": {"class_type": "PreviewAny", "inputs": {"source": ["lowpoly_info", 1]}},
+
+  "save_base": {"class_type": "SaveImage", "inputs": {"images": ["bake_pbr", 0], "filename_prefix": "monster-forge/base_color"}},
+  "save_metal": {"class_type": "SaveImage", "inputs": {"images": ["bake_pbr", 1], "filename_prefix": "monster-forge/metallic"}},
+  "save_rough": {"class_type": "SaveImage", "inputs": {"images": ["bake_pbr", 2], "filename_prefix": "monster-forge/roughness"}},
+  "save_normal": {"class_type": "SaveImage", "inputs": {"images": ["bake_normal", 0], "filename_prefix": "monster-forge/normal"}},
+  "save_ao": {"class_type": "SaveImage", "inputs": {"images": ["bake_ao", 0], "filename_prefix": "monster-forge/ao"}}
+}
