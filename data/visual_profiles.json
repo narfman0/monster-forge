@@ -1,0 +1,1322 @@
+{
+ "aboleth": {
+  "desc": "primordial eel-like fish with a long finned tail, three slit eyes stacked on its head, four long tentacles, slimy gray-green hide with mucus sheen",
+  "scale_m": 6
+ },
+ "adult-black-dragon": {
+  "desc": "four-legged winged swamp-dwelling dragon with glossy black scales, skull-like face with forward-curving horns, acid dripping from jaws, fully grown and powerful",
+  "scale_m": 10.8
+ },
+ "adult-blue-dragon": {
+  "desc": "four-legged winged desert dragon with deep blue scales, a single large horn on its snout, frilled ears, crackling lightning, fully grown and powerful",
+  "scale_m": 12.6
+ },
+ "adult-brass-dragon": {
+  "desc": "four-legged winged desert metallic dragon with brass-gold scales and a broad blade-shaped head crest, fully grown and powerful",
+  "scale_m": 10.8
+ },
+ "adult-bronze-dragon": {
+  "desc": "four-legged winged coastal metallic dragon with bronze scales, ridged fin-like frill and webbed claws, fully grown and powerful",
+  "scale_m": 12.6
+ },
+ "adult-copper-dragon": {
+  "desc": "four-legged winged metallic dragon with copper scales, segmented back-swept horns and a lean agile build, fully grown and powerful",
+  "scale_m": 11.4
+ },
+ "adult-gold-dragon": {
+  "desc": "four-legged winged regal sinuous metallic dragon with gold scales, whisker-like barbels and sail-like wings, fully grown and powerful",
+  "scale_m": 12.6
+ },
+ "adult-green-dragon": {
+  "desc": "four-legged winged forest dragon with emerald scales and a tall crest frill running from head down the spine, fully grown and powerful",
+  "scale_m": 12.0
+ },
+ "adult-red-dragon": {
+  "desc": "four-legged winged volcanic dragon with crimson scales, massive swept-back horns and smoke wisping from its nostrils, fully grown and powerful",
+  "scale_m": 12.6
+ },
+ "adult-silver-dragon": {
+  "desc": "four-legged winged metallic dragon with gleaming silver scales, smooth head frill and a beak-like chin spike, fully grown and powerful",
+  "scale_m": 12.0
+ },
+ "adult-white-dragon": {
+  "desc": "four-legged winged arctic dragon with icy white scales, sharp beaked head and spiny crest, fully grown and powerful",
+  "scale_m": 10.2
+ },
+ "air-elemental": {
+  "desc": "swirling whirlwind of pale gray air with a vague humanoid face and arms in the vortex, dust and debris caught inside",
+  "scale_m": 4
+ },
+ "allosaurus": {
+  "desc": "large bipedal predatory dinosaur with short arms, sharp teeth, ridged head and long tail",
+  "scale_m": 9
+ },
+ "ancient-black-dragon": {
+  "desc": "four-legged winged swamp-dwelling dragon with glossy black scales, skull-like face with forward-curving horns, acid dripping from jaws, colossal, battle-scarred, with elaborate horns",
+  "scale_m": 18.0
+ },
+ "ancient-blue-dragon": {
+  "desc": "four-legged winged desert dragon with deep blue scales, a single large horn on its snout, frilled ears, crackling lightning, colossal, battle-scarred, with elaborate horns",
+  "scale_m": 21.0
+ },
+ "ancient-brass-dragon": {
+  "desc": "four-legged winged desert metallic dragon with brass-gold scales and a broad blade-shaped head crest, colossal, battle-scarred, with elaborate horns",
+  "scale_m": 18.0
+ },
+ "ancient-bronze-dragon": {
+  "desc": "four-legged winged coastal metallic dragon with bronze scales, ridged fin-like frill and webbed claws, colossal, battle-scarred, with elaborate horns",
+  "scale_m": 21.0
+ },
+ "ancient-copper-dragon": {
+  "desc": "four-legged winged metallic dragon with copper scales, segmented back-swept horns and a lean agile build, colossal, battle-scarred, with elaborate horns",
+  "scale_m": 19.0
+ },
+ "ancient-gold-dragon": {
+  "desc": "four-legged winged regal sinuous metallic dragon with gold scales, whisker-like barbels and sail-like wings, colossal, battle-scarred, with elaborate horns",
+  "scale_m": 21.0
+ },
+ "ancient-green-dragon": {
+  "desc": "four-legged winged forest dragon with emerald scales and a tall crest frill running from head down the spine, colossal, battle-scarred, with elaborate horns",
+  "scale_m": 20.0
+ },
+ "ancient-red-dragon": {
+  "desc": "four-legged winged volcanic dragon with crimson scales, massive swept-back horns and smoke wisping from its nostrils, colossal, battle-scarred, with elaborate horns",
+  "scale_m": 21.0
+ },
+ "ancient-silver-dragon": {
+  "desc": "four-legged winged metallic dragon with gleaming silver scales, smooth head frill and a beak-like chin spike, colossal, battle-scarred, with elaborate horns",
+  "scale_m": 20.0
+ },
+ "ancient-white-dragon": {
+  "desc": "four-legged winged arctic dragon with icy white scales, sharp beaked head and spiny crest, colossal, battle-scarred, with elaborate horns",
+  "scale_m": 17.0
+ },
+ "animated-armor": {
+  "desc": "empty suit of dented plate armor moving on its own, open visor showing darkness, longsword-less gauntlets",
+  "scale_m": 1.8
+ },
+ "animated-flying-sword": {
+  "desc": "hovering enchanted longsword with a faint magical glow, crossguard and leather-wrapped grip",
+  "scale_m": 1.2
+ },
+ "animated-rug-of-smothering": {
+  "desc": "ornate woven rug with tasseled edges, rippling and partially folded as if alive",
+  "scale_m": 3
+ },
+ "ankheg": {
+  "desc": "giant burrowing insect with chitinous brown carapace, six legs, large mandibles and antennae",
+  "scale_m": 4.5
+ },
+ "ankylosaurus": {
+  "desc": "armored quadruped dinosaur with plated back, side spikes and a heavy tail club",
+  "scale_m": 7
+ },
+ "ape": {
+  "desc": "gorilla-like great ape with dark fur and long powerful arms",
+  "scale_m": 1.7
+ },
+ "archelon": {
+  "desc": "giant prehistoric sea turtle with a leathery shell and broad front flippers",
+  "scale_m": 4.5
+ },
+ "archmage": {
+  "desc": "elder wizard in elaborate rune-embroidered robes with a glowing staff",
+  "scale_m": 1.8
+ },
+ "assassin": {
+  "desc": "lean hooded assassin in dark leather armor, face mask, short sword and hand crossbow",
+  "scale_m": 1.8
+ },
+ "awakened-shrub": {
+  "desc": "small leafy shrub with twiggy branch arms and root feet, two knot-hole eyes",
+  "scale_m": 1.0
+ },
+ "awakened-tree": {
+  "desc": "oak tree walking on gnarled roots, branches as limbs, bark with knot-like features",
+  "scale_m": 6
+ },
+ "axe-beak": {
+  "desc": "tall flightless bird with a huge axe-shaped hooked beak, long strong legs, stubby wings, ostrich-like build",
+  "scale_m": 2.7
+ },
+ "azer-sentinel": {
+  "desc": "stocky dwarf-like humanoid of polished bronze skin with hair and beard of living flame, kilt and warhammer",
+  "scale_m": 1.5
+ },
+ "baboon": {
+  "desc": "baboon with olive-brown fur, dog-like muzzle and long tail",
+  "scale_m": 1.0
+ },
+ "badger": {
+  "desc": "small badger with gray-black fur and white face stripe",
+  "scale_m": 0.6
+ },
+ "balor": {
+  "desc": "towering demon with red skin, huge bat wings, ram horns, fiery whip and flaming sword, wreathed in flame",
+  "scale_m": 3.7
+ },
+ "bandit": {
+  "desc": "scruffy outlaw in patched leather armor with scimitar and light crossbow, bandana over face",
+  "scale_m": 1.8
+ },
+ "bandit-captain": {
+  "desc": "swaggering bandit leader in studded leather and long coat, scimitar and dagger",
+  "scale_m": 1.8
+ },
+ "barbed-devil": {
+  "desc": "gaunt humanoid devil covered in sharp barbs and spines, long clawed fingers, whip-like tail, red-brown skin",
+  "scale_m": 1.9
+ },
+ "basilisk": {
+  "desc": "heavy eight-legged reptile with dull brown scales, spiny back ridge, toothy jaws and glowing green eyes",
+  "scale_m": 3
+ },
+ "bat": {
+  "desc": "small brown bat with leathery wings",
+  "scale_m": 0.3
+ },
+ "bearded-devil": {
+  "desc": "humanoid devil with a writhing beard of snake-like tendrils, pointed ears, clawed hands, wielding a saw-toothed glaive",
+  "scale_m": 1.8
+ },
+ "behir": {
+  "desc": "long serpentine monster with twelve short legs, cobalt blue scales, horned crocodilian head crackling with lightning",
+  "scale_m": 12
+ },
+ "berserker": {
+  "desc": "muscular warrior in furs and hide armor with greataxe, wild hair, war paint",
+  "scale_m": 1.9
+ },
+ "black-bear": {
+  "desc": "black bear with glossy black fur",
+  "scale_m": 1.8
+ },
+ "black-dragon-wyrmling": {
+  "desc": "four-legged winged swamp-dwelling dragon with glossy black scales, skull-like face with forward-curving horns, acid dripping from jaws, hatchling proportions with oversized head and eyes",
+  "scale_m": 2.2
+ },
+ "black-pudding": {
+  "desc": "glossy black ooze puddle with a rounded rising mass, tar-like and dripping",
+  "scale_m": 2.5
+ },
+ "blink-dog": {
+  "desc": "lean yellowish-brown hound with large ears and clever eyes, faint teleport shimmer",
+  "scale_m": 1.5
+ },
+ "blood-hawk": {
+  "desc": "hawk with crimson feathers and a sharp hooked beak",
+  "scale_m": 0.6
+ },
+ "blue-dragon-wyrmling": {
+  "desc": "four-legged winged desert dragon with deep blue scales, a single large horn on its snout, frilled ears, crackling lightning, hatchling proportions with oversized head and eyes",
+  "scale_m": 2.6
+ },
+ "boar": {
+  "desc": "wild boar with bristly dark fur and sharp tusks",
+  "scale_m": 1.5
+ },
+ "bone-devil": {
+  "desc": "skeletal gaunt devil with dried skin stretched over bones, tattered bat wings, scorpion stinger tail, skull-like head",
+  "scale_m": 2.7
+ },
+ "brass-dragon-wyrmling": {
+  "desc": "four-legged winged desert metallic dragon with brass-gold scales and a broad blade-shaped head crest, hatchling proportions with oversized head and eyes",
+  "scale_m": 2.2
+ },
+ "bronze-dragon-wyrmling": {
+  "desc": "four-legged winged coastal metallic dragon with bronze scales, ridged fin-like frill and webbed claws, hatchling proportions with oversized head and eyes",
+  "scale_m": 2.6
+ },
+ "brown-bear": {
+  "desc": "large brown bear with shaggy fur, powerful shoulders and claws",
+  "scale_m": 2.7
+ },
+ "bugbear-stalker": {
+  "desc": "hairy goblinoid with bear-like features, long arms, hooded dark leathers, javelins and morningstar",
+  "scale_m": 2.1
+ },
+ "bugbear-warrior": {
+  "desc": "tall hairy goblinoid with bear-like snout and long arms, hide armor, morningstar and javelins",
+  "scale_m": 2.1
+ },
+ "bulette": {
+  "desc": "armored land-shark with a dorsal crest, gray-blue plated shell, four stubby clawed legs, huge jaws",
+  "scale_m": 3.5
+ },
+ "camel": {
+  "desc": "dromedary camel with single hump and saddle blanket",
+  "scale_m": 3
+ },
+ "cat": {
+  "desc": "domestic cat with tabby fur",
+  "scale_m": 0.5
+ },
+ "centaur-trooper": {
+  "desc": "centaur with a human torso on a horse body, leather armor, pike and longbow",
+  "scale_m": 2.4
+ },
+ "chain-devil": {
+  "desc": "humanoid devil wrapped in barbed chains like a burial shroud, hooked chains trailing from its body",
+  "scale_m": 1.8
+ },
+ "chimera": {
+  "desc": "lion-bodied beast with three heads (lion, goat, red dragon), leathery dragon wings and serpent tail",
+  "scale_m": 3.5
+ },
+ "chuul": {
+  "desc": "lobster-like crustacean with large pincers, multiple legs, armored carapace and a cluster of writhing tentacles around its mouth",
+  "scale_m": 2.7
+ },
+ "clay-golem": {
+  "desc": "hulking crude humanoid sculpted from reddish clay, cracked surface, inscriptions on chest",
+  "scale_m": 2.4
+ },
+ "cloaker": {
+  "desc": "manta-ray-like creature resembling a black leather cloak, pale ivory claws at its edges, red eyes, whip tail",
+  "scale_m": 2.5
+ },
+ "cloud-giant": {
+  "desc": "towering giant with pale blue-white skin, silver hair, fine robes and jewelry, morningstar",
+  "scale_m": 7.3
+ },
+ "cockatrice": {
+  "desc": "rooster-like creature with leathery bat wings, scaly lizard tail and sharp beak",
+  "scale_m": 0.9
+ },
+ "commoner": {
+  "desc": "ordinary villager in simple tunic and trousers holding a club",
+  "scale_m": 1.8
+ },
+ "constrictor-snake": {
+  "desc": "large constrictor snake with patterned brown scales",
+  "scale_m": 4
+ },
+ "copper-dragon-wyrmling": {
+  "desc": "four-legged winged metallic dragon with copper scales, segmented back-swept horns and a lean agile build, hatchling proportions with oversized head and eyes",
+  "scale_m": 2.4
+ },
+ "couatl": {
+  "desc": "feathered serpent with iridescent rainbow plumage, a pair of feathered wings, golden eyes",
+  "scale_m": 6
+ },
+ "crab": {
+  "desc": "small crab with orange shell and pincers",
+  "scale_m": 0.3
+ },
+ "crocodile": {
+  "desc": "crocodile with armored olive-green scales and long toothy snout",
+  "scale_m": 4
+ },
+ "cultist": {
+  "desc": "robed cultist in dark hooded vestments with ritual dagger and occult symbol",
+  "scale_m": 1.8
+ },
+ "cultist-fanatic": {
+  "desc": "zealous cult leader in ornate dark robes with ritual dagger and glowing sigil",
+  "scale_m": 1.8
+ },
+ "darkmantle": {
+  "desc": "small squid-like creature with a fleshy hooded body and webbed tentacles, dark stony coloring",
+  "scale_m": 1.2
+ },
+ "death-dog": {
+  "desc": "gaunt two-headed hound with mangy black fur, red eyes and snarling jaws",
+  "scale_m": 1.6
+ },
+ "deer": {
+  "desc": "deer with tawny coat and small antlers",
+  "scale_m": 1.7
+ },
+ "deva": {
+  "desc": "radiant angel with silver skin, feathered white wings, flowing robes and a heavenly mace",
+  "scale_m": 1.9
+ },
+ "dire-wolf": {
+  "desc": "huge shaggy prehistoric wolf with dark fur",
+  "scale_m": 2.4
+ },
+ "djinni": {
+  "desc": "towering blue-skinned genie with muscular torso, turban and jewelry, lower body a swirling whirlwind, scimitar",
+  "scale_m": 3.6
+ },
+ "doppelganger": {
+  "desc": "gaunt gray humanoid with smooth featureless face, large blank eyes and long fingers",
+  "scale_m": 1.8
+ },
+ "draft-horse": {
+  "desc": "heavy draft horse with feathered hooves and harness",
+  "scale_m": 2.7
+ },
+ "dragon-turtle": {
+  "desc": "colossal sea turtle with a draconic head, spiked shell like a coral-crusted island, webbed clawed feet",
+  "scale_m": 20
+ },
+ "dretch": {
+  "desc": "small pot-bellied demon with spindly limbs, pale gray-green skin and toothy grin",
+  "scale_m": 1.0
+ },
+ "drider": {
+  "desc": "dark elf torso fused to a giant black spider body with eight legs, longsword and longbow",
+  "scale_m": 3
+ },
+ "druid": {
+  "desc": "druid in hide and leaf-woven robes with wooden staff, bone and feather trinkets",
+  "scale_m": 1.8
+ },
+ "dryad": {
+  "desc": "graceful fey woman with bark-textured skin, hair of leaves and flowers, simple vine garments",
+  "scale_m": 1.7
+ },
+ "dust-mephit": {
+  "desc": "small winged imp-like elemental made of dust with gray skin and dusty wings",
+  "scale_m": 1.2
+ },
+ "eagle": {
+  "desc": "eagle with brown plumage, white head and hooked beak",
+  "scale_m": 0.9
+ },
+ "earth-elemental": {
+  "desc": "hulking humanoid of rock and earth with glowing gem eyes, boulder fists",
+  "scale_m": 3
+ },
+ "efreeti": {
+  "desc": "huge red-skinned genie with muscular build, flame-crowned head, brass armor and scimitar",
+  "scale_m": 3.6
+ },
+ "elephant": {
+  "desc": "elephant with gray hide, large ears and ivory tusks",
+  "scale_m": 6
+ },
+ "elk": {
+  "desc": "elk with tawny coat and broad branching antlers",
+  "scale_m": 2.4
+ },
+ "erinyes": {
+  "desc": "beautiful but grim fallen-angel devil with black feathered wings, plate armor, longsword and rope of entanglement",
+  "scale_m": 1.9
+ },
+ "ettercap": {
+  "desc": "hunched spider-like humanoid with purple-black chitinous hide, mandibles, long clawed fingers",
+  "scale_m": 1.8
+ },
+ "ettin": {
+  "desc": "two-headed ogre-like giant in crude hides, each head with its own ugly face, morningstar and battleaxe",
+  "scale_m": 4
+ },
+ "fire-elemental": {
+  "desc": "roaring column of living flame with a vague humanoid upper body and arms, ember sparks",
+  "scale_m": 3
+ },
+ "fire-giant": {
+  "desc": "massive giant with coal-black skin, flaming red-orange hair and beard, heavy blackened iron plate armor, greatsword",
+  "scale_m": 5.5
+ },
+ "flesh-golem": {
+  "desc": "stitched-together humanoid corpse giant, mismatched limbs, iron bolts and crude sutures",
+  "scale_m": 2.4
+ },
+ "flying-snake": {
+  "desc": "small brightly colored snake with feathered wings",
+  "scale_m": 0.6
+ },
+ "frog": {
+  "desc": "small green frog",
+  "scale_m": 0.15
+ },
+ "frost-giant": {
+  "desc": "huge giant with pale icy-blue skin, white hair and beard braided with frost, fur and mail armor, greataxe",
+  "scale_m": 6.4
+ },
+ "gargoyle": {
+  "desc": "stone-skinned winged fiend resembling a grotesque statue, horns, bat wings, clawed feet",
+  "scale_m": 1.9
+ },
+ "gelatinous-cube": {
+  "desc": "transparent green gelatinous cube with bones, coins and debris suspended inside",
+  "scale_m": 3
+ },
+ "ghast": {
+  "desc": "emaciated undead with gray mottled skin, long tongue, sharp claws and putrid aura",
+  "scale_m": 1.8
+ },
+ "ghost": {
+  "desc": "translucent spectral humanoid in tattered clothes, lower body fading into mist",
+  "scale_m": 1.8
+ },
+ "ghoul": {
+  "desc": "emaciated undead humanoid with gray skin, long clawed hands, sharp teeth, hunched posture",
+  "scale_m": 1.8
+ },
+ "giant-ape": {
+  "desc": "enormous gorilla-like ape with dark fur and massive arms",
+  "scale_m": 6
+ },
+ "giant-badger": {
+  "desc": "large badger with gray-black fur, white face stripe and digging claws",
+  "scale_m": 1.5
+ },
+ "giant-bat": {
+  "desc": "large bat with dark leathery wings and big ears",
+  "scale_m": 2.4
+ },
+ "giant-boar": {
+  "desc": "huge wild boar with bristly fur and massive tusks",
+  "scale_m": 3
+ },
+ "giant-centipede": {
+  "desc": "giant segmented centipede with reddish-brown chitin and many legs",
+  "scale_m": 1.5
+ },
+ "giant-constrictor-snake": {
+  "desc": "huge constrictor snake with patterned green-brown scales",
+  "scale_m": 9
+ },
+ "giant-crab": {
+  "desc": "large crab with blue-gray shell and big pincers",
+  "scale_m": 1.5
+ },
+ "giant-crocodile": {
+  "desc": "enormous crocodile with armored dark scales and huge jaws",
+  "scale_m": 9
+ },
+ "giant-eagle": {
+  "desc": "huge noble eagle with golden-brown plumage",
+  "scale_m": 3
+ },
+ "giant-elk": {
+  "desc": "majestic huge elk with enormous antlers and silver-white coat",
+  "scale_m": 5
+ },
+ "giant-fire-beetle": {
+  "desc": "large beetle with dark carapace and two glowing orange glands above its eyes",
+  "scale_m": 0.9
+ },
+ "giant-frog": {
+  "desc": "large green-brown frog with a long sticky tongue",
+  "scale_m": 1.2
+ },
+ "giant-goat": {
+  "desc": "large mountain goat with thick white fur and curled horns",
+  "scale_m": 2.4
+ },
+ "giant-hyena": {
+  "desc": "large hyena with spotted fur and powerful jaws",
+  "scale_m": 2.4
+ },
+ "giant-lizard": {
+  "desc": "large lizard with scaly green-brown hide",
+  "scale_m": 3
+ },
+ "giant-octopus": {
+  "desc": "giant octopus with reddish skin and eight long tentacles",
+  "scale_m": 4
+ },
+ "giant-owl": {
+  "desc": "huge owl with soft brown-gray feathers and large intelligent eyes",
+  "scale_m": 2.4
+ },
+ "giant-rat": {
+  "desc": "dog-sized rat with mangy fur and long tail",
+  "scale_m": 0.9
+ },
+ "giant-scorpion": {
+  "desc": "huge scorpion with black-brown chitin, large pincers and venomous stinger",
+  "scale_m": 3
+ },
+ "giant-seahorse": {
+  "desc": "large seahorse with ridged scales and fin crest",
+  "scale_m": 2.7
+ },
+ "giant-shark": {
+  "desc": "enormous shark with gray skin and gaping toothy maw",
+  "scale_m": 12
+ },
+ "giant-spider": {
+  "desc": "huge black hairy spider with eight legs and fangs",
+  "scale_m": 3
+ },
+ "giant-toad": {
+  "desc": "huge warty brown toad",
+  "scale_m": 2.4
+ },
+ "giant-venomous-snake": {
+  "desc": "large venomous snake with banded scales and fangs",
+  "scale_m": 3
+ },
+ "giant-vulture": {
+  "desc": "large vulture with dark feathers and bald red head",
+  "scale_m": 2.4
+ },
+ "giant-wasp": {
+  "desc": "giant wasp with black-and-yellow striped body, translucent wings and stinger",
+  "scale_m": 1.5
+ },
+ "giant-weasel": {
+  "desc": "large weasel with sleek brown fur",
+  "scale_m": 1.5
+ },
+ "giant-wolf-spider": {
+  "desc": "large brown hairy wolf spider with eight legs",
+  "scale_m": 1.5
+ },
+ "gibbering-mouther": {
+  "desc": "amorphous mass of flesh covered in countless eyes and toothy mouths",
+  "scale_m": 1.5
+ },
+ "glabrezu": {
+  "desc": "towering demon with dog-like horned head, four arms including two massive pincers, red-brown skin",
+  "scale_m": 4.5
+ },
+ "gladiator": {
+  "desc": "arena fighter in mismatched armor with spear and shield, crested helm",
+  "scale_m": 1.8
+ },
+ "gnoll-warrior": {
+  "desc": "hyena-headed humanoid with spotted fur, crude armor, spear and longbow",
+  "scale_m": 2.1
+ },
+ "goat": {
+  "desc": "goat with short horns",
+  "scale_m": 1.2
+ },
+ "goblin-boss": {
+  "desc": "small goblin chieftain in mismatched chain armor and crude crown, scimitar",
+  "scale_m": 1.1
+ },
+ "goblin-minion": {
+  "desc": "small green-skinned goblin with pointed ears, ragged leather, dagger",
+  "scale_m": 1.0
+ },
+ "goblin-warrior": {
+  "desc": "small goblin in scrap leather armor with scimitar and shortbow",
+  "scale_m": 1.0
+ },
+ "gold-dragon-wyrmling": {
+  "desc": "four-legged winged regal sinuous metallic dragon with gold scales, whisker-like barbels and sail-like wings, hatchling proportions with oversized head and eyes",
+  "scale_m": 2.6
+ },
+ "gorgon": {
+  "desc": "bull-like construct covered in iron plates, metallic horns, steam venting from nostrils",
+  "scale_m": 3
+ },
+ "grayooze": {
+  "desc": "puddle of gray ooze resembling wet stone, oily sheen",
+  "scale_m": 1
+ },
+ "green-dragon-wyrmling": {
+  "desc": "four-legged winged forest dragon with emerald scales and a tall crest frill running from head down the spine, hatchling proportions with oversized head and eyes",
+  "scale_m": 2.5
+ },
+ "green-hag": {
+  "desc": "hideous hag with green skin, long tangled black hair, crooked nose, ragged dress and long claws",
+  "scale_m": 1.8
+ },
+ "grick": {
+  "desc": "worm-like creature with rubbery gray-green hide and four barbed tentacles around a beak",
+  "scale_m": 2.4
+ },
+ "griffon": {
+  "desc": "eagle head, forelegs and wings on a lion's body, tawny fur and golden feathers",
+  "scale_m": 3
+ },
+ "grimlock": {
+  "desc": "eyeless gray-skinned humanoid with smooth face over empty sockets, primitive bone club",
+  "scale_m": 1.7
+ },
+ "guard": {
+  "desc": "town guard in chain shirt and helmet with spear and shield",
+  "scale_m": 1.8
+ },
+ "guard-captain": {
+  "desc": "seasoned guard captain in breastplate and cloak with longsword and javelins",
+  "scale_m": 1.8
+ },
+ "guardian-naga": {
+  "desc": "huge serpent with a serene human-like face, golden-green scales and frilled crest",
+  "scale_m": 6
+ },
+ "half-dragon": {
+  "desc": "humanoid with draconic features: scaled skin, horned reptilian head, clawed hands and tail, plate armor",
+  "scale_m": 2.0
+ },
+ "harpy": {
+  "desc": "woman's upper body with grotesque features, vulture wings for arms-and-wings, bird legs with talons, matted hair",
+  "scale_m": 1.7
+ },
+ "hawk": {
+  "desc": "small hawk with brown feathers",
+  "scale_m": 0.4
+ },
+ "hell-hound": {
+  "desc": "large black hound with smoldering red eyes and flames dripping from its jaws",
+  "scale_m": 1.8
+ },
+ "hezrou": {
+  "desc": "bloated toad-like humanoid demon with warty green-brown skin, wide mouth of teeth, spiny back",
+  "scale_m": 3
+ },
+ "hill-giant": {
+  "desc": "huge dim-witted giant with tan skin, crude hides and furs, pot belly, tree-trunk greatclub",
+  "scale_m": 4.9
+ },
+ "hippogriff": {
+  "desc": "eagle head, forelegs and wings on a horse's body, brown feathers and coat",
+  "scale_m": 3
+ },
+ "hippopotamus": {
+  "desc": "hippopotamus with gray-brown hide and massive jaws",
+  "scale_m": 4
+ },
+ "hobgoblin-captain": {
+  "desc": "hobgoblin officer in polished plate-and-lamellar armor with greatsword and banner sash",
+  "scale_m": 1.8
+ },
+ "hobgoblin-warrior": {
+  "desc": "disciplined goblinoid soldier with orange-red skin, lamellar armor, longsword and longbow",
+  "scale_m": 1.8
+ },
+ "homunculus": {
+  "desc": "tiny winged humanoid construct with leathery bat wings, gray-green skin, pointed ears and a stinger tail",
+  "scale_m": 0.45
+ },
+ "horned-devil": {
+  "desc": "towering devil with leathery bat wings, curved horns, spiked tail, red scales, wielding a fork",
+  "scale_m": 2.7
+ },
+ "hunter-shark": {
+  "desc": "large shark with gray skin and rows of sharp teeth",
+  "scale_m": 4.5
+ },
+ "hydra": {
+  "desc": "massive reptile with five long serpentine necks and snapping heads, dark green scales",
+  "scale_m": 6
+ },
+ "hyena": {
+  "desc": "hyena with spotted fur",
+  "scale_m": 1.3
+ },
+ "ice-devil": {
+  "desc": "towering insectoid devil with pale blue chitin, bulbous eyes, mandibles, long spiked tail, ice spear",
+  "scale_m": 3.6
+ },
+ "ice-mephit": {
+  "desc": "small winged imp-like elemental with crystalline icy blue skin and jagged frost wings",
+  "scale_m": 1.2
+ },
+ "imp": {
+  "desc": "tiny red-skinned devil with bat wings, horns and a barbed scorpion-like tail",
+  "scale_m": 0.6
+ },
+ "incubus": {
+  "desc": "charming humanoid fiend with bat wings, small horns, slender tail and fine clothing",
+  "scale_m": 1.8
+ },
+ "invisible-stalker": {
+  "desc": "translucent vortex of air faintly outlining a tall humanoid shape",
+  "scale_m": 2.7
+ },
+ "iron-golem": {
+  "desc": "towering humanoid of riveted black iron with a crested helm-like head and huge iron sword",
+  "scale_m": 3.6
+ },
+ "jackal": {
+  "desc": "jackal with tan fur and pointed ears",
+  "scale_m": 0.9
+ },
+ "killer-whale": {
+  "desc": "orca with black-and-white markings",
+  "scale_m": 7
+ },
+ "knight": {
+  "desc": "armored knight in full plate with greatsword and heraldic tabard",
+  "scale_m": 1.8
+ },
+ "kobold-warrior": {
+  "desc": "small reptilian humanoid with rust-red scales, dog-like snout, crude leather, spear and sling",
+  "scale_m": 0.9
+ },
+ "kraken": {
+  "desc": "colossal squid-like titan with ten immense tentacles, armored beak and glowing eyes",
+  "scale_m": 30
+ },
+ "lamia": {
+  "desc": "beautiful woman's upper body joined to a lion's lower body, golden jewelry, clawed hands",
+  "scale_m": 2.7
+ },
+ "lemure": {
+  "desc": "shapeless molten blob of pinkish flesh with a vaguely humanoid head and torso",
+  "scale_m": 1.2
+ },
+ "lich": {
+  "desc": "undead wizard with skeletal face, glowing pinpoint eyes, ornate tattered robes and crown, staff",
+  "scale_m": 1.8
+ },
+ "lion": {
+  "desc": "lion with golden fur and thick mane",
+  "scale_m": 2.4
+ },
+ "lizard": {
+  "desc": "small lizard",
+  "scale_m": 0.3
+ },
+ "mage": {
+  "desc": "wizard in flowing robes with a staff and spellbook, arcane runes",
+  "scale_m": 1.8
+ },
+ "magma-mephit": {
+  "desc": "small winged imp-like elemental of molten rock with glowing cracks and fiery wings",
+  "scale_m": 1.2
+ },
+ "magmin": {
+  "desc": "small humanoid of cooling magma with cracked dark crust and glowing orange seams, flickering flames",
+  "scale_m": 1.0
+ },
+ "mammoth": {
+  "desc": "woolly mammoth with shaggy brown fur and long curved tusks",
+  "scale_m": 7
+ },
+ "manticore": {
+  "desc": "lion body with a horned human-like head, bat wings and a tail bristling with iron spikes",
+  "scale_m": 3.5
+ },
+ "marilith": {
+  "desc": "six-armed demon with a woman's upper body and a huge serpent lower body, a longsword in each hand",
+  "scale_m": 4.5
+ },
+ "mastiff": {
+  "desc": "large mastiff dog with short fawn coat and collar",
+  "scale_m": 1.2
+ },
+ "medusa": {
+  "desc": "woman with snakes for hair, scaled green skin, longbow and short sword, flowing robes",
+  "scale_m": 1.8
+ },
+ "merfolk-skirmisher": {
+  "desc": "merfolk with human upper body and blue-green fish tail, coral jewelry, trident and javelins",
+  "scale_m": 1.8
+ },
+ "merrow": {
+  "desc": "brutish merfolk with warty green skin, sharp teeth, clawed hands, fish tail, harpoon",
+  "scale_m": 3
+ },
+ "mimic": {
+  "desc": "wooden treasure chest with teeth lining its lid, a long tongue and sticky pseudopods",
+  "scale_m": 1.2
+ },
+ "minotaur-of-baphomet": {
+  "desc": "massive bull-headed humanoid with great horns, shaggy fur and huge greataxe",
+  "scale_m": 2.7
+ },
+ "minotaur-skeleton": {
+  "desc": "skeletal bull-headed giant humanoid with great horns and a greataxe",
+  "scale_m": 2.7
+ },
+ "mule": {
+  "desc": "mule with saddlebags",
+  "scale_m": 2.1
+ },
+ "mummy": {
+  "desc": "undead humanoid wrapped in decaying linen bandages, withered skin, glowing eyes",
+  "scale_m": 1.8
+ },
+ "mummy-lord": {
+  "desc": "mummified priest-king in gilded funerary wrappings and jeweled headdress, ankh amulet",
+  "scale_m": 1.8
+ },
+ "nalfeshnee": {
+  "desc": "obese boar-headed demon with ape-like body, tiny feathered wings and tusks",
+  "scale_m": 4
+ },
+ "night-hag": {
+  "desc": "hag with blue-black skin, white wild hair, horns, burning eyes and long black claws, tattered robes",
+  "scale_m": 1.8
+ },
+ "nightmare": {
+  "desc": "black horse with a fiery mane and tail, flaming hooves and red glowing eyes",
+  "scale_m": 2.6
+ },
+ "noble": {
+  "desc": "well-dressed noble in fine doublet and cape with rapier",
+  "scale_m": 1.8
+ },
+ "ochre-jelly": {
+  "desc": "yellow-orange translucent jelly that spreads like a slime puddle with a raised center",
+  "scale_m": 2.5
+ },
+ "octopus": {
+  "desc": "small octopus with reddish skin",
+  "scale_m": 0.6
+ },
+ "ogre": {
+  "desc": "brutish large humanoid with dull skin, pot belly, crude hides and greatclub",
+  "scale_m": 2.9
+ },
+ "ogre-zombie": {
+  "desc": "rotting undead ogre with exposed bones and torn hides, morningstar",
+  "scale_m": 2.9
+ },
+ "oni": {
+  "desc": "ogre-like fiend with blue skin, horns, tusks, ornate samurai-like armor and glaive",
+  "scale_m": 3
+ },
+ "otyugh": {
+  "desc": "bloated bulbous creature on three stout legs with two toothed tentacles and an eye stalk, gaping maw",
+  "scale_m": 2.5
+ },
+ "owl": {
+  "desc": "small owl with brown feathers",
+  "scale_m": 0.3
+ },
+ "owlbear": {
+  "desc": "bear body with an owl head and beak, brown feathers blending into fur, sharp claws",
+  "scale_m": 2.8
+ },
+ "panther": {
+  "desc": "black panther with sleek fur",
+  "scale_m": 1.8
+ },
+ "pegasus": {
+  "desc": "white winged horse with large feathered wings",
+  "scale_m": 2.6
+ },
+ "phase-spider": {
+  "desc": "large spider with blue-violet iridescent carapace, eight legs, slightly shimmering ethereal outline",
+  "scale_m": 3
+ },
+ "piranha": {
+  "desc": "small piranha with silver body and red belly, sharp teeth",
+  "scale_m": 0.3
+ },
+ "pirate": {
+  "desc": "weathered pirate in loose shirt, sash and bandana with cutlass and pistol",
+  "scale_m": 1.8
+ },
+ "pirate-captain": {
+  "desc": "flamboyant pirate captain in long coat and tricorne hat with rapier and pistol",
+  "scale_m": 1.8
+ },
+ "pit-fiend": {
+  "desc": "huge devil with crimson scales, enormous bat wings, horns, fanged maw and spiked mace, armored hide",
+  "scale_m": 3.7
+ },
+ "planetar": {
+  "desc": "tall muscular angel with emerald-green skin, white feathered wings, bald head, greatsword",
+  "scale_m": 2.7
+ },
+ "plesiosaurus": {
+  "desc": "long-necked marine reptile with four flippers and small toothy head",
+  "scale_m": 6
+ },
+ "polar-bear": {
+  "desc": "polar bear with thick white fur",
+  "scale_m": 2.6
+ },
+ "pony": {
+  "desc": "small pony with shaggy mane",
+  "scale_m": 2
+ },
+ "priest": {
+  "desc": "temple priest in ornate vestments with holy symbol and mace",
+  "scale_m": 1.8
+ },
+ "priest-acolyte": {
+  "desc": "young temple acolyte in simple vestments with holy symbol and mace",
+  "scale_m": 1.8
+ },
+ "pseudodragon": {
+  "desc": "tiny dragon with red-brown scales, bat wings, horned head and barbed tail",
+  "scale_m": 0.5
+ },
+ "pteranodon": {
+  "desc": "flying reptile with leathery wings and long crested head",
+  "scale_m": 2
+ },
+ "purple-worm": {
+  "desc": "colossal purple segmented worm with a cavernous toothed maw and a poison stinger tail",
+  "scale_m": 25
+ },
+ "quasit": {
+  "desc": "tiny green-skinned demon with horns, clawed hands and barbed tail, impish grin",
+  "scale_m": 0.6
+ },
+ "rakshasa": {
+  "desc": "tiger-headed humanoid fiend with backward-facing hands, rich silk robes and jewelry",
+  "scale_m": 1.9
+ },
+ "rat": {
+  "desc": "common brown rat",
+  "scale_m": 0.25
+ },
+ "raven": {
+  "desc": "black raven",
+  "scale_m": 0.4
+ },
+ "red-dragon-wyrmling": {
+  "desc": "four-legged winged volcanic dragon with crimson scales, massive swept-back horns and smoke wisping from its nostrils, hatchling proportions with oversized head and eyes",
+  "scale_m": 2.6
+ },
+ "reef-shark": {
+  "desc": "reef shark with gray-brown skin",
+  "scale_m": 2
+ },
+ "remorhaz": {
+  "desc": "long centipede-like polar beast with many legs, chitinous blue-white plating glowing red-hot along its back, flaring wing-like fins behind its head",
+  "scale_m": 9
+ },
+ "rhinoceros": {
+  "desc": "rhinoceros with thick gray hide and large nose horn",
+  "scale_m": 4
+ },
+ "riding-horse": {
+  "desc": "riding horse with saddle and bridle",
+  "scale_m": 2.4
+ },
+ "roc": {
+  "desc": "enormous eagle-like raptor with brown plumage, hooked beak and giant talons",
+  "scale_m": 15
+ },
+ "roper": {
+  "desc": "stalagmite-like cone of rocky gray hide with a single eye, a toothy mouth and six long tendrils",
+  "scale_m": 2.7
+ },
+ "rust-monster": {
+  "desc": "insect-like quadruped with rusty-colored hide, feathery antennae, armored tail ending in a propeller-like fin",
+  "scale_m": 1.5
+ },
+ "saber-toothed-tiger": {
+  "desc": "prehistoric big cat with long saber fangs and tawny fur",
+  "scale_m": 3
+ },
+ "sahuagin-warrior": {
+  "desc": "shark-like fish-man with green scales, webbed claws, fin crest, trident",
+  "scale_m": 1.8
+ },
+ "salamander": {
+  "desc": "serpentine lower body with a humanoid torso of fiery red-orange scales, spined head, flaming spear",
+  "scale_m": 4.5
+ },
+ "satyr": {
+  "desc": "fey humanoid with goat legs and hooves, small horns, panpipes and shortbow",
+  "scale_m": 1.7
+ },
+ "scorpion": {
+  "desc": "small scorpion",
+  "scale_m": 0.2
+ },
+ "scout": {
+  "desc": "ranger-like scout in leather armor and green cloak with longbow and shortsword",
+  "scale_m": 1.8
+ },
+ "sea-hag": {
+  "desc": "hag with slimy pale green skin, seaweed-like hair, bulging eyes and webbed clawed hands",
+  "scale_m": 1.8
+ },
+ "seahorse": {
+  "desc": "small seahorse",
+  "scale_m": 0.15
+ },
+ "shadow": {
+  "desc": "flat living shadow in the shape of a humanoid, smoky edges, faint glowing eyes",
+  "scale_m": 1.8
+ },
+ "shambling-mound": {
+  "desc": "hulking heap of rotting vines, moss and vegetation in a rough humanoid shape",
+  "scale_m": 2.7
+ },
+ "shield-guardian": {
+  "desc": "large construct of stone and iron in a vaguely knight-like shape with a shield arm and amulet socket",
+  "scale_m": 3
+ },
+ "shrieker-fungus": {
+  "desc": "human-sized purple-gray mushroom with a broad cap and thick stalk",
+  "scale_m": 1.8
+ },
+ "silver-dragon-wyrmling": {
+  "desc": "four-legged winged metallic dragon with gleaming silver scales, smooth head frill and a beak-like chin spike, hatchling proportions with oversized head and eyes",
+  "scale_m": 2.5
+ },
+ "skeleton": {
+  "desc": "humanoid skeleton in scraps of armor with shortsword and shortbow",
+  "scale_m": 1.8
+ },
+ "solar": {
+  "desc": "majestic angel with golden skin, shining feathered wings, radiant eyes, greatsword and longbow",
+  "scale_m": 2.9
+ },
+ "specter": {
+  "desc": "dark translucent humanoid apparition with no features but glowing eyes, lower body dissolving",
+  "scale_m": 1.8
+ },
+ "sphinx-of-lore": {
+  "desc": "winged lion body with a wise woman's head and elaborate headdress, feathered wings",
+  "scale_m": 3.5
+ },
+ "sphinx-of-valor": {
+  "desc": "winged lion body with a stern bearded human head and pharaonic headdress, golden fur",
+  "scale_m": 3.8
+ },
+ "sphinx-of-wonder": {
+  "desc": "tiny winged lion-bodied sphinx with a feathered mane and golden fur",
+  "scale_m": 0.6
+ },
+ "spider": {
+  "desc": "small spider",
+  "scale_m": 0.1
+ },
+ "spirit-naga": {
+  "desc": "huge black-and-red serpent with a malevolent human-like face and stringy black hair",
+  "scale_m": 6
+ },
+ "sprite": {
+  "desc": "tiny fey humanoid with dragonfly wings, leafy garments, tiny longsword and shortbow",
+  "scale_m": 0.3
+ },
+ "spy": {
+  "desc": "nondescript agent in a dark hooded cloak and leather, shortsword and hand crossbow",
+  "scale_m": 1.8
+ },
+ "steam-mephit": {
+  "desc": "small winged imp-like elemental of scalding water and hissing steam with wispy wings",
+  "scale_m": 1.2
+ },
+ "stirge": {
+  "desc": "bat-winged bloodsucking creature with a long needle proboscis and clinging insect legs",
+  "scale_m": 0.4
+ },
+ "stone-giant": {
+  "desc": "tall lean giant with smooth gray stone-like skin, bald head, bare chest, greatclub and boulders",
+  "scale_m": 5.5
+ },
+ "stone-golem": {
+  "desc": "massive humanoid statue of carved stone with blocky features and glowing runes",
+  "scale_m": 3
+ },
+ "storm-giant": {
+  "desc": "colossal giant with violet-gray skin, silver hair, regal armor and greatsword crackling with lightning",
+  "scale_m": 7.9
+ },
+ "succubus": {
+  "desc": "alluring humanoid fiend with bat wings, small horns and slender tail, elegant attire",
+  "scale_m": 1.8
+ },
+ "swarm-of-bats": {
+  "desc": "cluster of small brown bats with leathery wings",
+  "scale_m": 1.5
+ },
+ "swarm-of-crawling-claws": {
+  "desc": "mass of severed undead hands crawling on their fingers, pale withered skin",
+  "scale_m": 1.5
+ },
+ "swarm-of-insects": {
+  "desc": "cloud of beetles and wasps",
+  "scale_m": 1.5
+ },
+ "swarm-of-piranhas": {
+  "desc": "school of silver-and-red piranhas",
+  "scale_m": 1.5
+ },
+ "swarm-of-rats": {
+  "desc": "pack of brown rats",
+  "scale_m": 1.5
+ },
+ "swarm-of-ravens": {
+  "desc": "flock of black ravens",
+  "scale_m": 1.5
+ },
+ "swarm-of-venomous-snakes": {
+  "desc": "tangle of small venomous snakes",
+  "scale_m": 1.5
+ },
+ "tarrasque": {
+  "desc": "colossal reptilian kaiju with an armored carapace, two forward-pointing horns, massive jaws and a long spiked tail",
+  "scale_m": 15
+ },
+ "tiger": {
+  "desc": "tiger with orange fur and black stripes",
+  "scale_m": 2.7
+ },
+ "tough": {
+  "desc": "burly thug in leather armor with mace and heavy crossbow",
+  "scale_m": 1.8
+ },
+ "tough-boss": {
+  "desc": "hulking gang boss in chain shirt with warhammer and heavy crossbow",
+  "scale_m": 1.9
+ },
+ "treant": {
+  "desc": "huge tree-like humanoid with bark skin, a gnarled face in the trunk, branch arms and root legs",
+  "scale_m": 9
+ },
+ "triceratops": {
+  "desc": "horned dinosaur with three facial horns and bony frill",
+  "scale_m": 9
+ },
+ "troll": {
+  "desc": "tall gangly green-skinned troll with long arms, warty hide, hooked nose and wild hair",
+  "scale_m": 2.7
+ },
+ "troll-limb": {
+  "desc": "severed green troll arm crawling on its clawed fingers, regenerating stump",
+  "scale_m": 0.8
+ },
+ "tyrannosaurus-rex": {
+  "desc": "massive bipedal tyrannosaur with huge jaws, tiny arms and long tail",
+  "scale_m": 12
+ },
+ "unicorn": {
+  "desc": "white horse with a single spiraling horn, flowing silver mane and cloven hooves",
+  "scale_m": 2.6
+ },
+ "vampire": {
+  "desc": "aristocratic vampire with pale skin, fangs and red eyes, high-collared cloak and fine clothes",
+  "scale_m": 1.8
+ },
+ "vampire-familiar": {
+  "desc": "pale gaunt human servant in dark clothes with dagger and hand crossbow",
+  "scale_m": 1.8
+ },
+ "vampire-spawn": {
+  "desc": "pale undead humanoid with fangs, bloodshot eyes and clawed hands, tattered clothes",
+  "scale_m": 1.8
+ },
+ "venomous-snake": {
+  "desc": "small venomous snake with banded scales",
+  "scale_m": 1
+ },
+ "violet-fungus": {
+  "desc": "human-sized violet mushroom with four whip-like tendrils sprouting from its stalk",
+  "scale_m": 1.8
+ },
+ "vrock": {
+  "desc": "vulture-headed demon with a lanky humanoid body, feathered wings and talons",
+  "scale_m": 2.7
+ },
+ "vulture": {
+  "desc": "vulture with dark feathers and bald head",
+  "scale_m": 0.8
+ },
+ "warhorse": {
+  "desc": "armored warhorse with barding",
+  "scale_m": 2.6
+ },
+ "warhorse-skeleton": {
+  "desc": "skeletal warhorse with tattered barding",
+  "scale_m": 2.6
+ },
+ "warrior-infantry": {
+  "desc": "foot soldier in chain shirt with spear and shield",
+  "scale_m": 1.8
+ },
+ "warrior-veteran": {
+  "desc": "grizzled veteran soldier in splint armor with longsword and heavy crossbow",
+  "scale_m": 1.8
+ },
+ "water-elemental": {
+  "desc": "surging wave of water forming a vague humanoid upper body with arms",
+  "scale_m": 3
+ },
+ "weasel": {
+  "desc": "small weasel",
+  "scale_m": 0.3
+ },
+ "werebear": {
+  "desc": "hybrid bear-humanoid with brown fur, bear head and huge clawed hands, tattered clothing",
+  "scale_m": 2.4
+ },
+ "wereboar": {
+  "desc": "hybrid boar-humanoid with bristly fur, tusked boar head and maul",
+  "scale_m": 2.0
+ },
+ "wererat": {
+  "desc": "hybrid rat-humanoid with gray fur, rat head and tail, hand crossbow",
+  "scale_m": 1.7
+ },
+ "weretiger": {
+  "desc": "hybrid tiger-humanoid with striped orange fur, tiger head and scimitar",
+  "scale_m": 2.0
+ },
+ "werewolf": {
+  "desc": "hybrid wolf-humanoid with gray fur, wolf head, clawed hands and tattered clothing",
+  "scale_m": 2.0
+ },
+ "white-dragon-wyrmling": {
+  "desc": "four-legged winged arctic dragon with icy white scales, sharp beaked head and spiny crest, hatchling proportions with oversized head and eyes",
+  "scale_m": 2.1
+ },
+ "wight": {
+  "desc": "undead warrior with dried gray skin, glowing eyes, corroded armor, longsword and longbow",
+  "scale_m": 1.8
+ },
+ "will-o-wisp": {
+  "desc": "small floating orb of flickering pale-blue light with a faint ghostly glow",
+  "scale_m": 0.3
+ },
+ "winter-wolf": {
+  "desc": "large wolf with white-blue frosty fur and icy breath",
+  "scale_m": 2.4
+ },
+ "wolf": {
+  "desc": "gray wolf",
+  "scale_m": 1.5
+ },
+ "worg": {
+  "desc": "huge evil wolf with dark gray fur and glowing eyes",
+  "scale_m": 2.4
+ },
+ "wraith": {
+  "desc": "floating hooded figure of black tattered shadow-robes with glowing eyes and no legs",
+  "scale_m": 1.8
+ },
+ "wyvern": {
+  "desc": "dragon-like creature with two legs, bat wings as forelimbs, long neck and a venomous scorpion-like tail stinger, brown-green scales",
+  "scale_m": 6
+ },
+ "xorn": {
+  "desc": "barrel-shaped stone-skinned creature with three thick legs, three clawed arms, three eyes and a wide mouth on top",
+  "scale_m": 1.5
+ },
+ "young-black-dragon": {
+  "desc": "four-legged winged swamp-dwelling dragon with glossy black scales, skull-like face with forward-curving horns, acid dripping from jaws, lean adolescent build",
+  "scale_m": 5.4
+ },
+ "young-blue-dragon": {
+  "desc": "four-legged winged desert dragon with deep blue scales, a single large horn on its snout, frilled ears, crackling lightning, lean adolescent build",
+  "scale_m": 6.3
+ },
+ "young-brass-dragon": {
+  "desc": "four-legged winged desert metallic dragon with brass-gold scales and a broad blade-shaped head crest, lean adolescent build",
+  "scale_m": 5.4
+ },
+ "young-bronze-dragon": {
+  "desc": "four-legged winged coastal metallic dragon with bronze scales, ridged fin-like frill and webbed claws, lean adolescent build",
+  "scale_m": 6.3
+ },
+ "young-copper-dragon": {
+  "desc": "four-legged winged metallic dragon with copper scales, segmented back-swept horns and a lean agile build, lean adolescent build",
+  "scale_m": 5.7
+ },
+ "young-gold-dragon": {
+  "desc": "four-legged winged regal sinuous metallic dragon with gold scales, whisker-like barbels and sail-like wings, lean adolescent build",
+  "scale_m": 6.3
+ },
+ "young-green-dragon": {
+  "desc": "four-legged winged forest dragon with emerald scales and a tall crest frill running from head down the spine, lean adolescent build",
+  "scale_m": 6.0
+ },
+ "young-red-dragon": {
+  "desc": "four-legged winged volcanic dragon with crimson scales, massive swept-back horns and smoke wisping from its nostrils, lean adolescent build",
+  "scale_m": 6.3
+ },
+ "young-silver-dragon": {
+  "desc": "four-legged winged metallic dragon with gleaming silver scales, smooth head frill and a beak-like chin spike, lean adolescent build",
+  "scale_m": 6.0
+ },
+ "young-white-dragon": {
+  "desc": "four-legged winged arctic dragon with icy white scales, sharp beaked head and spiny crest, lean adolescent build",
+  "scale_m": 5.1
+ },
+ "zombie": {
+  "desc": "shambling rotting human corpse with torn clothing and gray-green skin",
+  "scale_m": 1.8
+ }
+}

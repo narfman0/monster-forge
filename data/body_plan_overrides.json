@@ -1,0 +1,909 @@
+{
+ "aboleth": {
+  "body_plan": "tentacled",
+  "confidence": 0.85,
+  "note": "fish-like body with a tail and four long tentacles"
+ },
+ "air-elemental": {
+  "body_plan": "floating",
+  "confidence": 0.9,
+  "rig_template": "custom.elemental_column"
+ },
+ "allosaurus": {
+  "body_plan": "avian",
+  "confidence": 0.8,
+  "rig_template": "custom.theropod",
+  "note": "theropod: bird-like hind legs and horizontal spine, vestigial arms, heavy tail; uses the avian locomotion class without wings"
+ },
+ "animated-armor": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "animated-flying-sword": {
+  "body_plan": "plant_object",
+  "confidence": 0.9,
+  "rig_template": "custom.rigid_prop",
+  "note": "inanimate object; hovers"
+ },
+ "animated-rug-of-smothering": {
+  "body_plan": "plant_object",
+  "confidence": 0.9,
+  "rig_template": "custom.cloth_grid"
+ },
+ "ankheg": {
+  "body_plan": "insectoid",
+  "confidence": 1.0,
+  "rig_template": "custom.hexapod"
+ },
+ "ape": {
+  "body_plan": "biped",
+  "confidence": 0.75,
+  "note": "knuckle-walking great ape; human rig with long arms covers walk + chest-beat"
+ },
+ "archelon": {
+  "body_plan": "aquatic",
+  "confidence": 0.9,
+  "rig_template": "custom.flipper",
+  "note": "four flippers, no walking legs"
+ },
+ "awakened-shrub": {
+  "body_plan": "plant_object",
+  "confidence": 0.7,
+  "rig_template": "custom.tree_roots",
+  "note": "shrub shuffling on roots"
+ },
+ "awakened-tree": {
+  "body_plan": "plant_object",
+  "confidence": 0.75,
+  "rig_template": "custom.tree_roots",
+  "note": "tree walking on roots; unlike the treant it has no humanoid face/limbs"
+ },
+ "axe-beak": {
+  "body_plan": "avian",
+  "confidence": 1.0,
+  "rig_template": "rigify.bird",
+  "note": "flightless bird"
+ },
+ "azer-sentinel": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "baboon": {
+  "body_plan": "quadruped",
+  "confidence": 0.7,
+  "note": "moves on all fours; could share the ape biped rig"
+ },
+ "balor": {
+  "body_plan": "winged_biped",
+  "confidence": 1.0
+ },
+ "barbed-devil": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "basilisk": {
+  "body_plan": "insectoid",
+  "confidence": 0.6,
+  "rig_template": "custom.multileg_reptile",
+  "note": "eight-legged reptile; leg count drives the rig, texture is reptilian"
+ },
+ "bat": {
+  "body_plan": "avian",
+  "confidence": 0.9,
+  "rig_template": "custom.bat_wing",
+  "note": "membrane wings as forelimbs, two legs; bird-class rig with finger bones"
+ },
+ "bearded-devil": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "behir": {
+  "body_plan": "serpentine",
+  "confidence": 0.7,
+  "rig_template": "custom.serpent_multileg",
+  "note": "serpentine body with twelve short legs; serpent spine chain plus leg pairs"
+ },
+ "blink-dog": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.wolf"
+ },
+ "bone-devil": {
+  "body_plan": "winged_biped",
+  "confidence": 0.9,
+  "note": "skeletal humanoid with bat wings and scorpion tail"
+ },
+ "bugbear-stalker": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "bugbear-warrior": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "bulette": {
+  "body_plan": "quadruped",
+  "confidence": 0.9
+ },
+ "centaur-trooper": {
+  "body_plan": "centauroid",
+  "confidence": 1.0,
+  "rig_template": "custom.centaur"
+ },
+ "chain-devil": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "chimera": {
+  "body_plan": "winged_quadruped",
+  "confidence": 1.0,
+  "rig_template": "custom.quadruped_winged"
+ },
+ "chuul": {
+  "body_plan": "insectoid",
+  "confidence": 0.75,
+  "rig_template": "custom.decapod",
+  "note": "lobster-like crustacean aberration with pincers and face tentacles"
+ },
+ "clay-golem": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "cloaker": {
+  "body_plan": "floating",
+  "confidence": 0.7,
+  "rig_template": "custom.membrane",
+  "note": "manta-ray/cloak-shaped flyer; membrane grid rig"
+ },
+ "cockatrice": {
+  "body_plan": "avian",
+  "confidence": 0.9,
+  "rig_template": "rigify.bird",
+  "note": "rooster-like with bat-ish wings and lizard tail"
+ },
+ "couatl": {
+  "body_plan": "serpentine",
+  "confidence": 0.85,
+  "rig_template": "custom.spine_chain_winged",
+  "note": "feathered serpent with a pair of feathered wings"
+ },
+ "crab": {
+  "body_plan": "insectoid",
+  "confidence": 1.0,
+  "rig_template": "custom.decapod"
+ },
+ "crocodile": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.basic_quadruped"
+ },
+ "darkmantle": {
+  "body_plan": "tentacled",
+  "confidence": 0.8,
+  "note": "squid-like ambusher that levitates"
+ },
+ "death-dog": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.wolf"
+ },
+ "deva": {
+  "body_plan": "winged_biped",
+  "confidence": 1.0
+ },
+ "djinni": {
+  "body_plan": "floating",
+  "confidence": 0.7,
+  "rig_template": "custom.elemental_column",
+  "note": "humanoid torso over a whirlwind lower body"
+ },
+ "doppelganger": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "dragon-turtle": {
+  "body_plan": "quadruped",
+  "confidence": 0.85,
+  "rig_template": "custom.turtle",
+  "note": "huge legged sea turtle with dragon head; walks and swims, no wings"
+ },
+ "dretch": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "drider": {
+  "body_plan": "centauroid",
+  "confidence": 0.85,
+  "rig_template": "custom.drider",
+  "note": "humanoid torso on an 8-legged spider body; centauroid layout with arachnid lower half"
+ },
+ "dryad": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "dust-mephit": {
+  "body_plan": "winged_biped",
+  "confidence": 0.95
+ },
+ "earth-elemental": {
+  "body_plan": "biped",
+  "confidence": 0.85,
+  "note": "hulking rock humanoid; some art shows a legless rock torso rising from the ground"
+ },
+ "efreeti": {
+  "body_plan": "biped",
+  "confidence": 0.8,
+  "note": "2024 art shows legs; some editions give a smoke-column lower body like the djinni"
+ },
+ "erinyes": {
+  "body_plan": "winged_biped",
+  "confidence": 1.0
+ },
+ "ettercap": {
+  "body_plan": "biped",
+  "confidence": 0.9
+ },
+ "fire-elemental": {
+  "body_plan": "floating",
+  "confidence": 0.7,
+  "rig_template": "custom.elemental_column",
+  "note": "legless column (flame / wave) with arms; walk speed only but no legs"
+ },
+ "flesh-golem": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "frog": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.basic_quadruped"
+ },
+ "gargoyle": {
+  "body_plan": "winged_biped",
+  "confidence": 1.0
+ },
+ "ghast": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "ghost": {
+  "body_plan": "floating",
+  "confidence": 1.0
+ },
+ "ghoul": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "giant-ape": {
+  "body_plan": "biped",
+  "confidence": 0.8,
+  "note": "knuckle-walking great ape; human rig with long arms"
+ },
+ "giant-bat": {
+  "body_plan": "avian",
+  "confidence": 0.9,
+  "rig_template": "custom.bat_wing",
+  "note": "membrane wings as forelimbs, two legs; bird-class rig with finger bones"
+ },
+ "giant-centipede": {
+  "body_plan": "insectoid",
+  "confidence": 1.0,
+  "rig_template": "custom.myriapod"
+ },
+ "giant-crab": {
+  "body_plan": "insectoid",
+  "confidence": 1.0,
+  "rig_template": "custom.decapod"
+ },
+ "giant-crocodile": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.basic_quadruped"
+ },
+ "giant-eagle": {
+  "body_plan": "avian",
+  "confidence": 1.0,
+  "rig_template": "rigify.bird"
+ },
+ "giant-elk": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.horse"
+ },
+ "giant-fire-beetle": {
+  "body_plan": "insectoid",
+  "confidence": 1.0,
+  "rig_template": "custom.hexapod"
+ },
+ "giant-frog": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.basic_quadruped"
+ },
+ "giant-lizard": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.basic_quadruped"
+ },
+ "giant-octopus": {
+  "body_plan": "tentacled",
+  "confidence": 1.0
+ },
+ "giant-owl": {
+  "body_plan": "avian",
+  "confidence": 1.0,
+  "rig_template": "rigify.bird"
+ },
+ "giant-scorpion": {
+  "body_plan": "insectoid",
+  "confidence": 1.0,
+  "rig_template": "custom.arachnid"
+ },
+ "giant-seahorse": {
+  "body_plan": "aquatic",
+  "confidence": 1.0,
+  "rig_template": "custom.spine_chain"
+ },
+ "giant-spider": {
+  "body_plan": "insectoid",
+  "confidence": 1.0,
+  "rig_template": "custom.arachnid"
+ },
+ "giant-toad": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.basic_quadruped"
+ },
+ "giant-vulture": {
+  "body_plan": "avian",
+  "confidence": 1.0,
+  "rig_template": "rigify.bird"
+ },
+ "giant-wasp": {
+  "body_plan": "insectoid",
+  "confidence": 1.0,
+  "rig_template": "custom.hexapod_winged"
+ },
+ "giant-wolf-spider": {
+  "body_plan": "insectoid",
+  "confidence": 1.0,
+  "rig_template": "custom.arachnid"
+ },
+ "gibbering-mouther": {
+  "body_plan": "amorphous",
+  "confidence": 1.0
+ },
+ "glabrezu": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "gnoll-warrior": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "goblin-boss": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "goblin-minion": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "goblin-warrior": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "gorgon": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.horse"
+ },
+ "green-hag": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "grick": {
+  "body_plan": "serpentine",
+  "confidence": 0.7,
+  "note": "worm-like body with four tentacles around a beak; tentacle crown as extra chains"
+ },
+ "griffon": {
+  "body_plan": "winged_quadruped",
+  "confidence": 1.0,
+  "rig_template": "custom.quadruped_winged"
+ },
+ "grimlock": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "guardian-naga": {
+  "body_plan": "serpentine",
+  "confidence": 1.0
+ },
+ "half-dragon": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "harpy": {
+  "body_plan": "winged_biped",
+  "confidence": 1.0
+ },
+ "hell-hound": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.wolf"
+ },
+ "hezrou": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "hippogriff": {
+  "body_plan": "winged_quadruped",
+  "confidence": 1.0,
+  "rig_template": "custom.quadruped_winged"
+ },
+ "hobgoblin-captain": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "hobgoblin-warrior": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "homunculus": {
+  "body_plan": "winged_biped",
+  "confidence": 0.95
+ },
+ "horned-devil": {
+  "body_plan": "winged_biped",
+  "confidence": 1.0
+ },
+ "hydra": {
+  "body_plan": "quadruped",
+  "confidence": 0.95,
+  "rig_template": "custom.hydra",
+  "note": "quadruped body with five (regrowing) neck chains"
+ },
+ "ice-devil": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "ice-mephit": {
+  "body_plan": "winged_biped",
+  "confidence": 0.95
+ },
+ "imp": {
+  "body_plan": "winged_biped",
+  "confidence": 1.0
+ },
+ "incubus": {
+  "body_plan": "winged_biped",
+  "confidence": 0.9,
+  "note": "bat-winged humanoid (wings can be hidden in disguise)"
+ },
+ "invisible-stalker": {
+  "body_plan": "floating",
+  "confidence": 0.6,
+  "rig_template": "custom.elemental_column",
+  "note": "invisible; visualised as a translucent vaguely humanoid vortex"
+ },
+ "iron-golem": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "killer-whale": {
+  "body_plan": "aquatic",
+  "confidence": 1.0,
+  "rig_template": "rigify.shark"
+ },
+ "kobold-warrior": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "kraken": {
+  "body_plan": "tentacled",
+  "confidence": 1.0
+ },
+ "lamia": {
+  "body_plan": "centauroid",
+  "confidence": 0.55,
+  "rig_template": "custom.centaur",
+  "note": "classically a woman's torso on a lion body; some depictions use a serpent lower body (merfolk_naga)"
+ },
+ "lemure": {
+  "body_plan": "amorphous",
+  "confidence": 0.6,
+  "rig_template": "custom.blob_torso",
+  "note": "molten blob of flesh with a vaguely humanoid head and torso"
+ },
+ "lich": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "lizard": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.basic_quadruped"
+ },
+ "magma-mephit": {
+  "body_plan": "winged_biped",
+  "confidence": 0.95
+ },
+ "magmin": {
+  "body_plan": "biped",
+  "confidence": 0.9
+ },
+ "manticore": {
+  "body_plan": "winged_quadruped",
+  "confidence": 1.0,
+  "rig_template": "custom.quadruped_winged"
+ },
+ "marilith": {
+  "body_plan": "merfolk_naga",
+  "confidence": 1.0,
+  "note": "six arms"
+ },
+ "medusa": {
+  "body_plan": "biped",
+  "confidence": 0.9
+ },
+ "merfolk-skirmisher": {
+  "body_plan": "merfolk_naga",
+  "confidence": 1.0
+ },
+ "merrow": {
+  "body_plan": "merfolk_naga",
+  "confidence": 0.85,
+  "note": "brutish fish-tailed merfolk"
+ },
+ "mimic": {
+  "body_plan": "amorphous",
+  "confidence": 0.85,
+  "note": "shapechanger; modelled in treasure-chest form with pseudopods"
+ },
+ "minotaur-of-baphomet": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "minotaur-skeleton": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "mummy": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "mummy-lord": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "nalfeshnee": {
+  "body_plan": "winged_biped",
+  "confidence": 1.0
+ },
+ "night-hag": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "nightmare": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.horse"
+ },
+ "octopus": {
+  "body_plan": "tentacled",
+  "confidence": 1.0
+ },
+ "ogre-zombie": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "oni": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "otyugh": {
+  "body_plan": "tentacled",
+  "confidence": 0.85,
+  "note": "bloated body on three legs with two toothed tentacles and an eye stalk"
+ },
+ "owlbear": {
+  "body_plan": "quadruped",
+  "confidence": 0.9,
+  "note": "bear body with owl head; rears up to attack but moves on four legs"
+ },
+ "pegasus": {
+  "body_plan": "winged_quadruped",
+  "confidence": 1.0,
+  "rig_template": "custom.horse_winged"
+ },
+ "phase-spider": {
+  "body_plan": "insectoid",
+  "confidence": 1.0,
+  "rig_template": "custom.arachnid"
+ },
+ "pit-fiend": {
+  "body_plan": "winged_biped",
+  "confidence": 1.0
+ },
+ "planetar": {
+  "body_plan": "winged_biped",
+  "confidence": 1.0
+ },
+ "plesiosaurus": {
+  "body_plan": "aquatic",
+  "confidence": 0.9,
+  "rig_template": "custom.flipper",
+  "note": "four flippers, no walking legs"
+ },
+ "pseudodragon": {
+  "body_plan": "winged_quadruped",
+  "confidence": 1.0,
+  "rig_template": "custom.dragon"
+ },
+ "pteranodon": {
+  "body_plan": "avian",
+  "confidence": 0.9,
+  "rig_template": "custom.bat_wing"
+ },
+ "purple-worm": {
+  "body_plan": "serpentine",
+  "confidence": 1.0
+ },
+ "quasit": {
+  "body_plan": "biped",
+  "confidence": 0.9
+ },
+ "rakshasa": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "remorhaz": {
+  "body_plan": "insectoid",
+  "confidence": 0.85,
+  "rig_template": "custom.myriapod",
+  "note": "many-legged centipede-like polar worm"
+ },
+ "roc": {
+  "body_plan": "avian",
+  "confidence": 1.0,
+  "rig_template": "rigify.bird"
+ },
+ "roper": {
+  "body_plan": "tentacled",
+  "confidence": 1.0
+ },
+ "rust-monster": {
+  "body_plan": "quadruped",
+  "confidence": 0.9
+ },
+ "sahuagin-warrior": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "salamander": {
+  "body_plan": "merfolk_naga",
+  "confidence": 1.0
+ },
+ "satyr": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "scorpion": {
+  "body_plan": "insectoid",
+  "confidence": 1.0,
+  "rig_template": "custom.arachnid"
+ },
+ "sea-hag": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "seahorse": {
+  "body_plan": "aquatic",
+  "confidence": 1.0,
+  "rig_template": "custom.spine_chain"
+ },
+ "shadow": {
+  "body_plan": "biped",
+  "confidence": 0.75,
+  "rig_template": "custom.ghost",
+  "note": "flat shadowy humanoid; walks (no fly speed) so biped, but can share the ghost rig"
+ },
+ "shambling-mound": {
+  "body_plan": "biped",
+  "confidence": 0.85,
+  "note": "roughly humanoid heap of vines and rot"
+ },
+ "shield-guardian": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "shrieker-fungus": {
+  "body_plan": "plant_object",
+  "confidence": 0.95,
+  "rig_template": "custom.stalk"
+ },
+ "skeleton": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "solar": {
+  "body_plan": "winged_biped",
+  "confidence": 1.0
+ },
+ "specter": {
+  "body_plan": "floating",
+  "confidence": 1.0
+ },
+ "sphinx-of-lore": {
+  "body_plan": "winged_quadruped",
+  "confidence": 1.0,
+  "rig_template": "custom.quadruped_winged"
+ },
+ "sphinx-of-valor": {
+  "body_plan": "winged_quadruped",
+  "confidence": 1.0,
+  "rig_template": "custom.quadruped_winged"
+ },
+ "sphinx-of-wonder": {
+  "body_plan": "winged_quadruped",
+  "confidence": 0.9,
+  "rig_template": "custom.quadruped_winged",
+  "note": "tiny winged lion-like sphinx"
+ },
+ "spider": {
+  "body_plan": "insectoid",
+  "confidence": 1.0,
+  "rig_template": "custom.arachnid"
+ },
+ "spirit-naga": {
+  "body_plan": "serpentine",
+  "confidence": 1.0
+ },
+ "sprite": {
+  "body_plan": "winged_biped",
+  "confidence": 1.0
+ },
+ "steam-mephit": {
+  "body_plan": "winged_biped",
+  "confidence": 0.95
+ },
+ "stirge": {
+  "body_plan": "avian",
+  "confidence": 0.6,
+  "rig_template": "custom.bat_wing",
+  "note": "bat-winged bloodsucker with mosquito proboscis and small clinging legs; could also be treated as winged insectoid"
+ },
+ "stone-golem": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "succubus": {
+  "body_plan": "winged_biped",
+  "confidence": 0.9,
+  "note": "bat-winged humanoid (wings can be hidden in disguise)"
+ },
+ "tarrasque": {
+  "body_plan": "biped",
+  "confidence": 0.7,
+  "rig_template": "custom.kaiju_tail",
+  "note": "upright kaiju with huge tail and carapace; some art is near-quadrupedal"
+ },
+ "treant": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "troll": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "troll-limb": {
+  "body_plan": "plant_object",
+  "confidence": 0.5,
+  "rig_template": "custom.limb_chain",
+  "note": "severed crawling troll arm; a body part rather than a body plan"
+ },
+ "tyrannosaurus-rex": {
+  "body_plan": "avian",
+  "confidence": 0.8,
+  "rig_template": "custom.theropod",
+  "note": "theropod: bird-like hind legs and horizontal spine, vestigial arms, heavy tail; uses the avian locomotion class without wings"
+ },
+ "unicorn": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.horse"
+ },
+ "vampire": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "vampire-spawn": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "violet-fungus": {
+  "body_plan": "plant_object",
+  "confidence": 0.95,
+  "rig_template": "custom.stalk"
+ },
+ "vrock": {
+  "body_plan": "winged_biped",
+  "confidence": 1.0
+ },
+ "warhorse-skeleton": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.horse"
+ },
+ "water-elemental": {
+  "body_plan": "floating",
+  "confidence": 0.7,
+  "rig_template": "custom.elemental_column",
+  "note": "legless column (flame / wave) with arms; walk speed only but no legs"
+ },
+ "werebear": {
+  "body_plan": "biped",
+  "confidence": 0.9,
+  "note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset"
+ },
+ "wereboar": {
+  "body_plan": "biped",
+  "confidence": 0.9,
+  "note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset"
+ },
+ "wererat": {
+  "body_plan": "biped",
+  "confidence": 0.9,
+  "note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset"
+ },
+ "weretiger": {
+  "body_plan": "biped",
+  "confidence": 0.9,
+  "note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset"
+ },
+ "werewolf": {
+  "body_plan": "biped",
+  "confidence": 0.9,
+  "note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset"
+ },
+ "wight": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ },
+ "will-o-wisp": {
+  "body_plan": "floating",
+  "confidence": 1.0,
+  "rig_template": "custom.wisp"
+ },
+ "winter-wolf": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.wolf"
+ },
+ "worg": {
+  "body_plan": "quadruped",
+  "confidence": 1.0,
+  "rig_template": "rigify.wolf"
+ },
+ "wraith": {
+  "body_plan": "floating",
+  "confidence": 0.9
+ },
+ "wyvern": {
+  "body_plan": "avian",
+  "confidence": 0.7,
+  "rig_template": "custom.wyvern",
+  "note": "two legs + wings-as-forelimbs (bat/pterosaur layout), long stinger tail; NOT a four-legged dragon"
+ },
+ "xorn": {
+  "body_plan": "radial",
+  "confidence": 0.9,
+  "rig_template": "custom.radial_tripod",
+  "note": "radially symmetric: three legs, three arms, top mouth"
+ },
+ "zombie": {
+  "body_plan": "biped",
+  "confidence": 1.0
+ }
+}
