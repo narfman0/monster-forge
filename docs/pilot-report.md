@@ -109,12 +109,17 @@ other, the model is assumed to face the camera. This was right for all 6, but on
 
 ## Recommended defaults for M2
 
-1. **Raise the small tri budgets:** tiny 2500, small 4000, medium 4000, large 5000,
-   huge 6500, gargantuan 8000. At the current 2000, small armed humanoids are the one clearly
-   failing case. Large and up looked fine at the brief's numbers.
-2. Keep Pixal3D 512, remesh 256, qem decimate with retargeting, and 1K bakes. Use 2K bakes plus
-   `--upsample 1024` for huge/gargantuan and named "hero" monsters: +20 s, a modest but visible
-   gain on horns and texture crispness.
+1. **Done (see `docs/lowpoly-density.md`): higher budgets and importance-weighted
+   decimation.** Budgets are now tiny 3000, small 5000, medium 7000, large 9000,
+   huge 12000 and gargantuan 15000. Medium and up get 2K textures, and the normal cage is
+   0.015. Blender decimation weighted by curvature, a face prior and an extremity prior
+   replaces the uniform GPU DecimateMesh (`--decimator comfy` keeps the old path). QA
+   writes `thumb_head.png`, which the viewer shows. All 6 pilots have been regenerated
+   with these defaults.
+2. Keep Pixal3D 512 and remesh 256. Use `--upsample 1024` for huge/gargantuan and named
+   "hero" monsters: it adds about 20 s and visibly sharpens horns and textures. The face
+   texture softness left after the density fix comes from the voxel colour resolution, so
+   this is the remaining lever.
 3. **Replace juggernaut for references, or add pose control.** It ignores "A-pose" and "side
    view", produces Yoda-like goblins, and fails on hybrids. Download Z-Image-Turbo int8 or
    FLUX.2-klein-4B before the batch. Otherwise use controlnet-union openpose/depth with
@@ -126,7 +131,9 @@ other, the model is assumed to face the camera. This was right for all 6, but on
 5. Drop "Low-poly game asset" from the reference prompt template, or make it per-style. It
    bakes faceted shading into the albedo.
 6. Add a manifold cleanup step (Blender `remove_doubles` plus fill holes) before rigging (M3),
-   and keep tri counts after cleanup.
+   and keep tri counts after cleanup. This matters more now: un-pinching the remesh for
+   weighted decimation leaves touching sheets (3-90 loose parts and 21-375 non-manifold
+   edges after the QA weld).
 7. Godot note: Godot's `MODEL_FRONT` convention is +Z. Exports face -Z per the plan;
    `forge.py qa --forward +Z` flips it if the rig/animation stage prefers +Z.
 

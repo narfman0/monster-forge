@@ -74,6 +74,7 @@ def stage_status(d: Path, man: dict) -> dict:
         "embedded_clips": embedded,
         "files": {
             "model": model, "thumb": "thumb.png" if has("thumb.png") else None,
+            "thumb_head": "thumb_head.png" if has("thumb_head.png") else None,
             "crop": "crop.png" if has("crop.png") else None,
             "ref": "ref.png" if has("ref.png") else None, "refs": refs,
             "manifest": "manifest.json" if has("manifest.json") else None,

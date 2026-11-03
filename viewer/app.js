@@ -462,6 +462,7 @@ async function renderSide(entry) {
   if (!entry.files.refs.length && entry.files.ref) fig(entry.files.ref, 'ref');
   if (entry.files.crop) fig(entry.files.crop, 'crop');
   if (entry.files.thumb) fig(entry.files.thumb, 'thumb (QA strip)', '', true);
+  if (entry.files.thumb_head) fig(entry.files.thumb_head, 'head close-up (shaded / wireframe)', '', true);
   if (!imgs.children.length) imgs.append(el('div', { className: 'muted', textContent: 'no images yet', style: 'grid-column: 1 / -1' }));
 
   const rows = [

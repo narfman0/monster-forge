@@ -204,12 +204,127 @@ for i, ang in enumerate((0, 90, 180, 270)):
     bpy.data.images.remove(img)
     os.remove(path)
 
-strip = np.concatenate(tiles, axis=1)
-out = bpy.data.images.new("thumb", width=strip.shape[1], height=strip.shape[0], alpha=True)
-out.pixels[:] = strip.ravel()
-out.filepath_raw = job["thumb"]
-out.file_format = "PNG"
-out.save()
+
+
+def save_strip(tiles, path):
+    strip = np.concatenate(tiles, axis=1)
+    out = bpy.data.images.new("strip", width=strip.shape[1], height=strip.shape[0], alpha=True)
+    out.pixels[:] = strip.ravel()
+    out.filepath_raw = path
+    out.file_format = "PNG"
+    out.save()
+    bpy.data.images.remove(out)
+
+
+def render_tile(path):
+    scene.render.filepath = path
+    bpy.ops.render.render(write_still=True)
+    img = bpy.data.images.load(path)
+    px = np.array(img.pixels[:], dtype=np.float32).reshape(img.size[1], img.size[0], 4)
+    bpy.data.images.remove(img)
+    os.remove(path)
+    return px
+
+
+save_strip(tiles, job["thumb"])
+
+# ---- head close-up (thumb_head.png): shaded + wireframe overlay, so face density and
+# texture sharpness are visible per monster. The head region is a heuristic per plan.
+HEAD_END = {"quadruped", "winged_quadruped", "insectoid", "avian", "serpentine", "aquatic"}
+
+
+def head_region():
+    """Locate the face: the front-most surface (nose / snout) in the upper body.
+
+    Upright plans: within the top 30% of the height, near the body column. Plans with a
+    head end: the bounding box of the front 30% along the facing axis, above 30% of the
+    height (returned directly). Others: the
+    top 30%. The close-up window is a cube centred just behind that point; its side is
+    0.24-0.45 x height for upright plans (1.25 x the head width) and 0.3 x max(height, length) otherwise. Returns the
+    window centre, side, view direction, rule name and the tri count inside it.
+    """
+    nt = len(me.polygons)  # all triangles (DecimateMesh / Decimate output)
+    cen = np.empty(nt * 3)
+    me.polygons.foreach_get("center", cen)
+    cen = cen.reshape(-1, 3)
+    area = np.empty(nt)
+    me.polygons.foreach_get("area", area)
+    H = mx[2] - mn[2]
+    L = float(np.dot(mx - mn, np.abs(np.array(front[:]))))
+    plan = job.get("body_plan", "")
+    fwd = np.array(front[:])
+    t = cen @ fwd
+    if plan in HEAD_END:
+        # Snouts, beaks and spider fronts vary too much for a nose rule: frame the bounding
+        # box of the front 30% of the length above the feet, seen from 35 degrees off-axis.
+        sel = (t > t.max() - 0.3 * (t.max() - t.min())) & (cen[:, 2] > mn[2] + 0.3 * H)
+        if not sel.any():
+            sel = t > t.max() - 0.3 * (t.max() - t.min())
+        lo, hi = cen[sel].min(0), cen[sel].max(0)
+        center = (lo + hi) / 2
+        side_ax = np.cross(fwd, (0.0, 0.0, 1.0))
+        ext = max(float(hi[2] - lo[2]), float(np.ptp(cen[sel] @ side_ax)), float(np.ptp(t[sel])))
+        win = min(1.1 * ext, 0.6 * max(H, L))
+        view = np.array((Matrix.Rotation(math.radians(35), 3, "Z") @ Vector(fwd))[:])
+        inside = np.all(np.abs(cen - center) < win / 2, axis=1)
+        return center, win, view, "front_end_box", int(inside.sum())
+    else:
+        band = cen[:, 2] > mn[2] + 0.7 * H
+        c = np.average(cen[band, :2], axis=0, weights=area[band])
+        sel = band & (np.hypot(cen[:, 0] - c[0], cen[:, 1] - c[1]) < 0.15 * H)
+        view, win, rule = fwd, 0.24 * H, "upright_front_top30"
+    if not sel.any():
+        sel = np.ones(nt, bool)
+    # front-most 1% of the candidate area, area-weighted -> nose / snout
+    ts = t[sel]
+    tip_sel = ts >= np.percentile(ts, 99)
+    tip = np.average(cen[sel][tip_sel], axis=0, weights=area[sel][tip_sel])
+    center = tip - fwd * (0.4 * win)
+    if rule.startswith("upright"):
+        # widen the window for big heads (goblins): head width at nose height, capped
+        side = np.cross(fwd, (0.0, 0.0, 1.0))
+        sl = band & (np.abs(cen[:, 2] - tip[2]) < 0.03 * H) & \
+            (np.hypot(cen[:, 0] - c[0], cen[:, 1] - c[1]) < 0.25 * H)
+        if sl.any():
+            # contiguous run of the slice around the nose (stops at gaps: arms, wings)
+            u = np.sort(cen[sl] @ side)
+            u0 = float(tip @ side)
+            gap = 0.02 * H
+            k = int(np.clip(np.searchsorted(u, u0), 0, len(u) - 1))
+            lo_i = hi_i = k
+            while lo_i > 0 and u[lo_i] - u[lo_i - 1] < gap:
+                lo_i -= 1
+            while hi_i < len(u) - 1 and u[hi_i + 1] - u[hi_i] < gap:
+                hi_i += 1
+            win = float(np.clip(1.25 * (u[hi_i] - u[lo_i]), 0.24 * H, 0.45 * H))
+            center = tip - fwd * (0.4 * win)
+        center[2] = tip[2] + 0.03 * H  # eyes sit above the nose
+    inside = np.all(np.abs(cen - center) < win / 2, axis=1)
+    return center, win, view, rule, int(inside.sum())
+
+
+hc, win, hview, hrule, head_tris = head_region()
+if job.get("head_box"):  # fixed framing, for side-by-side comparisons
+    hc, win = np.array(job["head_box"]["center"]), float(job["head_box"]["side"])
+report["head_region"] = {"rule": hrule, "center": [round(float(x), 3) for x in hc],
+                         "side": round(float(win), 3), "tris": head_tris}
+cam_data.ortho_scale = float(win)
+d = Vector((hview[0], hview[1], 0.12)).normalized()
+cam.location = Vector(hc.tolist()) + d * dist
+cam.rotation_euler = (-d).to_track_quat("-Z", "Y").to_euler()
+scene.eevee.taa_render_samples = 32
+head_tiles = [render_tile(job["thumb"] + ".head0.png")]
+wire = obj.modifiers.new("wire", "WIREFRAME")
+wire.thickness = float(win) * 0.0025
+wire.use_replace = False
+wire.use_even_offset = False
+wmat = bpy.data.materials.new("wire")
+wmat.use_nodes = True
+wmat.node_tree.nodes["Principled BSDF"].inputs[0].default_value = (0.0, 0.0, 0.0, 1.0)
+me.materials.append(wmat)
+wire.material_offset = len(me.materials) - 1
+head_tiles.append(render_tile(job["thumb"] + ".head1.png"))
+save_strip(head_tiles, job.get("thumb_head", os.path.join(os.path.dirname(job["thumb"]), "thumb_head.png")))
 
 with open(job["report"], "w") as f:
     json.dump(report, f, indent=2)

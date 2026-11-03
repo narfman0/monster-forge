@@ -36,9 +36,9 @@ PIL_PYTHON = os.environ.get("PIL_PYTHON", str(Path.home() / "workspace/ComfyUI/.
 COMFY = os.environ.get("COMFY_URL", "http://127.0.0.1:8188")
 CLIENT_ID = f"monster-forge-{uuid.uuid4().hex[:8]}"
 
-# Low-poly budget by size category (triangles).
-DECIMATE_BY_SIZE = {"tiny": 2000, "small": 2000, "medium": 3000, "large": 5000,
-                    "huge": 6500, "gargantuan": 8000}
+# Low-poly budget by size category (triangles). See docs/lowpoly-density.md.
+DECIMATE_BY_SIZE = {"tiny": 3000, "small": 5000, "medium": 7000, "large": 9000,
+                    "huge": 12000, "gargantuan": 15000}
 # Body plans whose scale_m is a standing height; everything else is nose-to-tail length.
 UPRIGHT_PLANS = {"biped", "winged_biped", "centauroid", "merfolk_naga"}
 # Plans whose reference prompt asks for a front view (model already faces the camera).
@@ -51,9 +51,16 @@ DEFAULT_MESH = {
     "texture_size": 1024,
     "uv_resolution": 1024,
     "ao_samples": 64,
-    "normal_cage": 0.05,
+    "normal_cage": 0.015,  # fraction of the bbox diagonal; 0.05 grabbed across features
     "upsample": 0,  # 0 = pure 512 pipeline; 1024 = Trellis2UpsampleStage cascade
+    # importance-weighted decimation (tools/blender_decimate.py)
+    "vg_factor": 0.5,
+    "w_curv": 0.6,
+    "w_head": 0.7,
+    "w_ext": 0.35,
 }
+# Sizes that get 2048 textures/UV atlas instead of 1024.
+BIG_TEXTURE_SIZES = {"medium", "large", "huge", "gargantuan"}
 
 
 # ---------------------------------------------------------------- helpers
@@ -66,9 +73,19 @@ def load_registry(source: str) -> dict[str, dict]:
     return {m["id"]: m for m in data["monsters"]}
 
 
-def out_dir(source: str, mid: str) -> Path:
-    d = OUT_ROOT / source / mid
+def out_dir(source: str, mid: str, suffix: str = "") -> Path:
+    """out/<source>/<id><suffix>/. A suffixed (experiment) dir is seeded with the base
+    dir's reference images and manifest so `mesh` can run without redoing `ref`."""
+    d = OUT_ROOT / source / (mid + suffix)
     d.mkdir(parents=True, exist_ok=True)
+    base = OUT_ROOT / source / mid
+    if suffix and base.is_dir() and not (d / "ref.png").exists():
+        for p in base.glob("ref*.png"):
+            shutil.copyfile(p, d / p.name)
+        if (base / "manifest.json").exists() and not (d / "manifest.json").exists():
+            man = load_manifest(base)
+            save_manifest(d, {k: man[k] for k in ("id", "name", "source", "size", "body_plan",
+                                                  "scale_m", "ref", "timings") if k in man})
     return d
 
 
@@ -112,14 +129,16 @@ def wait_idle(poll: float = 5.0) -> None:
         time.sleep(poll)
 
 
-def upload_image(path: Path, subfolder: str) -> str:
+def upload_file(path: Path, subfolder: str, name: str | None = None,
+                content_type: str = "image/png") -> str:
+    """Upload into ComfyUI's input dir (any file type; /upload/image does not check)."""
     boundary = uuid.uuid4().hex
     parts = []
     for name, val in (("subfolder", subfolder), ("type", "input"), ("overwrite", "true")):
         parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{val}\r\n".encode())
     parts.append(
-        f"--{boundary}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"{path.name}\"\r\n"
-        f"Content-Type: image/png\r\n\r\n".encode() + path.read_bytes() + b"\r\n")
+        f"--{boundary}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"{name or path.name}\"\r\n"
+        f"Content-Type: {content_type}\r\n\r\n".encode() + path.read_bytes() + b"\r\n")
     parts.append(f"--{boundary}--\r\n".encode())
     res = json.loads(http("POST", "/upload/image", b"".join(parts),
                           {"Content-Type": f"multipart/form-data; boundary={boundary}"}))
@@ -209,7 +228,7 @@ def stage_ref(mon: dict, d: Path, args) -> None:
     log(f"{mon['id']}: ref done in {dt}s ({len(images)} candidates, picked {pick})")
 
 
-def build_mesh_graph(mon: dict, image_name: str, seed: int, settings: dict) -> dict:
+def build_mesh_graph(mon: dict, image_name: str, seed: int, settings: dict, dirname: str = "") -> dict:
     wf = load_workflow("image_to_lowpoly.api.json")
     wf["load_image"]["inputs"]["image"] = image_name
     wf["ss_sample"]["inputs"]["seed"] = seed
@@ -237,7 +256,7 @@ def build_mesh_graph(mon: dict, image_name: str, seed: int, settings: dict) -> d
         wf["shape_decode"]["inputs"]["samples"] = ["up_sample", 0]
         wf["tex_stage"]["inputs"].update({"positive": ["up_stage", 0], "negative": ["up_stage", 1],
                                           "shape_latent": ["up_sample", 0]})
-    prefix = f"monster-forge/{mon['source']}/{mon['id']}"
+    prefix = f"monster-forge/{mon['source']}/{dirname or mon['id']}"
     for nid, node in wf.items():
         fp = node["inputs"].get("filename_prefix")
         if fp is not None:
@@ -253,6 +272,74 @@ def lowpoly_faces(outputs: dict) -> int | None:
     return None
 
 
+OUTPUT_NODES = ("save_glb", "save_base", "save_metal", "save_rough", "save_normal", "save_ao",
+                "save_crop", "info_hi", "info_remesh", "info_low")
+
+
+def prune_graph(wf: dict, outputs) -> dict:
+    """Keep only the nodes the given output nodes depend on."""
+    keep, stack = set(), [o for o in outputs if o in wf]
+    while stack:
+        nid = stack.pop()
+        if nid in keep:
+            continue
+        keep.add(nid)
+        for v in wf[nid]["inputs"].values():
+            if isinstance(v, list) and len(v) == 2 and isinstance(v[0], str) and v[0] in wf:
+                stack.append(v[0])
+    return {k: v for k, v in wf.items() if k in keep}
+
+
+def hi_poly_graph(wf: dict) -> dict:
+    """Pass 1 of the weighted path: generation + remesh, saving the remeshed high-poly."""
+    g = copy.deepcopy(wf)
+    prefix = g["save_glb"]["inputs"]["filename_prefix"].rsplit("/", 1)[0]
+    g["save_hi"] = {"class_type": "SaveGLB", "inputs": {"mesh": ["remesh", 0], "filename_prefix": prefix + "/hi"}}
+    return prune_graph(g, ("save_hi", "save_crop", "info_hi", "info_remesh"))
+
+
+def bake_from_file_graph(wf: dict, lo_name: str) -> dict:
+    """Pass 2: the same graph with DecimateMesh replaced by a GLB loaded from ComfyUI's input
+    dir. Every node upstream of the remesh has identical inputs, so ComfyUI serves it from
+    cache and only unwrap + bakes run."""
+    g = copy.deepcopy(wf)
+    g["load_lo"] = {"class_type": "Load3DAdvanced", "inputs": {
+        "model_file": lo_name, "viewport_state": {}, "width": 1024, "height": 1024}}
+    g["lo_mesh"] = {"class_type": "Get3DComponents", "inputs": {"model_3d": ["load_lo", 0]}}
+    g["smooth"]["inputs"]["mesh"] = ["lo_mesh", 0]
+    del g["decimate"]
+    return prune_graph(g, OUTPUT_NODES)
+
+
+def blender_decimate(mon: dict, d: Path, settings: dict) -> dict:
+    job = {"src": str(d / "model_hi.glb"), "dst": str(d / "model_lo.glb"), "report": str(d / "decimate.json"),
+           "target_tris": settings["target_tris"], "body_plan": mon["body_plan"],
+           "vg_factor": settings["vg_factor"], "w_curv": settings["w_curv"], "w_head": settings["w_head"],
+           "w_ext": settings["w_ext"], "heatmap": str(d / "importance.png"), "topo": True}
+    (d / "decimate.json").unlink(missing_ok=True)
+    proc = subprocess.run([BLENDER, "-b", "--factory-startup", "-P", str(ROOT / "tools" / "blender_decimate.py"),
+                           "--", json.dumps(job)], capture_output=True, text=True, timeout=900)
+    if proc.returncode != 0 or not (d / "decimate.json").exists():
+        sys.stderr.write(proc.stdout[-4000:] + proc.stderr[-4000:])
+        raise RuntimeError(f"{mon['id']}: blender decimate failed (rc={proc.returncode})")
+    return json.loads((d / "decimate.json").read_text())
+
+
+def mesh_settings(mon: dict, args) -> dict:
+    settings = dict(DEFAULT_MESH)
+    settings["decimator"] = args.decimator
+    settings["target_tris"] = args.tris or DECIMATE_BY_SIZE[mon["size"]]
+    if mon["size"] in BIG_TEXTURE_SIZES:
+        settings["texture_size"] = settings["uv_resolution"] = 2048
+    for k in ("remesh_resolution", "texture_size", "uv_resolution", "normal_cage", "upsample", "vg_factor"):
+        v = getattr(args, k, None)
+        if v is not None:
+            settings[k] = v
+    if args.texture_size is not None and args.uv_resolution is None:
+        settings["uv_resolution"] = args.texture_size
+    return settings
+
+
 def stage_mesh(mon: dict, d: Path, args) -> None:
     if (d / "model_raw.glb").exists() and not args.force:
         log(f"{mon['id']}: mesh exists, skip")
@@ -263,53 +350,82 @@ def stage_mesh(mon: dict, d: Path, args) -> None:
     if not ref.exists():
         raise RuntimeError(f"{mon['id']}: no ref.png; run `ref` first")
     man = load_manifest(d)
-    settings = dict(DEFAULT_MESH)
-    settings["target_tris"] = args.tris or DECIMATE_BY_SIZE[mon["size"]]
-    for k in ("remesh_resolution", "texture_size", "upsample"):
-        v = getattr(args, k, None)
-        if v is not None:
-            settings[k] = v
+    settings = mesh_settings(mon, args)
     seed = args.seed if args.seed is not None else base_seed(mon["id"]) % 100000
-    name = upload_image(ref, f"monster-forge/{mon['source']}/{mon['id']}")
-    wf = build_mesh_graph(mon, name, seed, settings)
-    (d / "mesh.api.json").write_text(json.dumps(wf, indent=1))
-    t0 = time.time()
-    outputs = run_prompt(wf, f"{mon['id']} mesh")
-    # DecimateMesh collapses edges in parallel batches and overshoots non-linearly.
-    # Re-run with a corrected target; ComfyUI caches everything upstream of decimate.
+    sub = f"monster-forge/{mon['source']}/{d.name}"
+    name = upload_file(ref, sub)
+    wf = build_mesh_graph(mon, name, seed, settings, d.name)
     target = settings["target_tris"]
-    attempts = []
-    for _ in range(3):
-        faces = lowpoly_faces(outputs)
-        attempts.append([wf["decimate"]["inputs"]["target_face_count"], faces])
-        if faces is None or 0.85 * target <= faces <= 1.05 * target:
-            break
-        wf["decimate"]["inputs"]["target_face_count"] = int(
-            wf["decimate"]["inputs"]["target_face_count"] * target / max(faces, 1) * 0.98)
-        outputs = run_prompt(wf, f"{mon['id']} mesh retarget")
+    attempts, times = [], {}
+    t0 = time.time()
+    dec, hi_out, used = None, {}, settings["decimator"]
+    if settings["decimator"] == "weighted":
+        hi_out = run_prompt(hi_poly_graph(wf), f"{mon['id']} mesh (hi-poly)")
+        fetch_output(hi_out["save_hi"]["3d"][0], d / "model_hi.glb")
+        times["generate"] = round(time.time() - t0, 1)
+        t1 = time.time()
+        dec = blender_decimate(mon, d, settings)
+        times["decimate"] = round(time.time() - t1, 1)
+        if dec.get("fallback"):
+            used = "comfy (fallback: target below 1.6 x topology floor %d)" % dec["topology_floor"]
+            log(f"{mon['id']}: {used}")
+        else:
+            log(f"{mon['id']}: decimated {dec['faces_in']} -> {dec['faces_out']} faces "
+                f"(floor {dec['topology_floor']}), non-manifold edges lo {dec['topo_lo']['multi']}")
+            t1 = time.time()
+            lo = d / "model_lo.glb"
+            digest = zlib.crc32(lo.read_bytes()) & 0xFFFFFFFF  # Load3D has no change check: new name per mesh
+            lo_name = upload_file(lo, "3d/" + sub, f"lo_{digest:08x}.glb", "model/gltf-binary")
+            wf = bake_from_file_graph(wf, lo_name)
+            (d / "mesh.api.json").write_text(json.dumps(wf, indent=1))
+            outputs = run_prompt(wf, f"{mon['id']} mesh (bake)")
+            times["bake"] = round(time.time() - t1, 1)
+            attempts.append([target, lowpoly_faces(outputs)])
+            lo.unlink(missing_ok=True)
+    if not used.startswith("weighted"):
+        (d / "mesh.api.json").write_text(json.dumps(wf, indent=1))
+        outputs = run_prompt(wf, f"{mon['id']} mesh")
+        # DecimateMesh collapses edges in parallel batches and overshoots non-linearly.
+        # Re-run with a corrected target; ComfyUI caches everything upstream of decimate.
+        for _ in range(3):
+            faces = lowpoly_faces(outputs)
+            attempts.append([wf["decimate"]["inputs"]["target_face_count"], faces])
+            if faces is None or 0.85 * target <= faces <= 1.05 * target:
+                break
+            wf["decimate"]["inputs"]["target_face_count"] = int(
+                wf["decimate"]["inputs"]["target_face_count"] * target / max(faces, 1) * 0.98)
+            outputs = run_prompt(wf, f"{mon['id']} mesh retarget")
     dt = round(time.time() - t0, 1)
     fetch_output(outputs["save_glb"]["3d"][0], d / "model_raw.glb")
     tex = d / "textures"
     tex.mkdir(exist_ok=True)
     for nid, fname in (("save_base", "base_color"), ("save_metal", "metallic"), ("save_rough", "roughness"),
                        ("save_normal", "normal"), ("save_ao", "ao"), ("save_crop", "crop")):
-        if nid in outputs:
-            fetch_output(outputs[nid]["images"][0], (d if fname == "crop" else tex) / f"{fname}.png")
-    info = {nid: outputs[nid]["text"][0] for nid in ("info_hi", "info_remesh", "info_low")
-            if nid in outputs and outputs[nid].get("text")}
+        src = outputs.get(nid) or hi_out.get(nid)
+        if src:
+            fetch_output(src["images"][0], (d if fname == "crop" else tex) / f"{fname}.png")
+    info = {}
+    for nid in ("info_hi", "info_remesh", "info_low"):
+        src = outputs.get(nid) or hi_out.get(nid)
+        if src and src.get("text"):
+            info[nid] = src["text"][0]
     man["mesh"] = {"model": wf["unet"]["inputs"]["unet_name"], "seed": seed, "settings": settings,
                    "decimate_attempts": attempts, "mesh_info": info, "seconds": dt,
                    "ref_picked": (args.pick if args.pick is not None else man.get("ref", {}).get("picked"))}
+    man["mesh"]["decimator_used"] = used
+    if dec is not None:
+        man["mesh"]["weighted_decimate"] = dec
+        man["mesh"]["phase_seconds"] = times
     man.setdefault("timings", {})["mesh"] = dt
     man.pop("qa", None)
     save_manifest(d, man)
-    for stale in ("model.glb", "thumb.png"):
+    for stale in ("model.glb", "thumb.png", "thumb_head.png"):
         (d / stale).unlink(missing_ok=True)
-    log(f"{mon['id']}: mesh done in {dt}s")
+    log(f"{mon['id']}: mesh done in {dt}s ({used}, {attempts[-1][1]} faces)")
 
 
 def stage_qa(mon: dict, d: Path, args) -> None:
-    if (d / "thumb.png").exists() and (d / "model.glb").exists() and not args.force:
+    if all((d / f).exists() for f in ("thumb.png", "thumb_head.png", "model.glb")) and not args.force:
         log(f"{mon['id']}: qa exists, skip")
         return
     if not (d / "model_raw.glb").exists():
@@ -318,6 +434,7 @@ def stage_qa(mon: dict, d: Path, args) -> None:
     yaw = args.yaw if args.yaw is not None else man.get("qa", {}).get("yaw_override")
     job = {
         "src": str(d / "model_raw.glb"), "dst": str(d / "model.glb"), "thumb": str(d / "thumb.png"),
+        "thumb_head": str(d / "thumb_head.png"), "body_plan": mon["body_plan"],
         "report": str(d / "qa.json"), "scale_m": mon["scale_m"],
         "scale_axis": "height" if mon["body_plan"] in UPRIGHT_PLANS else "length",
         "front_view": mon["body_plan"] in FRONT_VIEW_PLANS, "yaw_override": yaw,
@@ -357,7 +474,15 @@ def main() -> int:
     ap.add_argument("--tris", type=int, help="override the decimate target")
     ap.add_argument("--remesh-resolution", dest="remesh_resolution", type=int)
     ap.add_argument("--texture-size", dest="texture_size", type=int)
+    ap.add_argument("--uv-resolution", dest="uv_resolution", type=int)
+    ap.add_argument("--normal-cage", dest="normal_cage", type=float,
+                    help="BakeNormalMapFromMesh search band, fraction of the bbox diagonal")
     ap.add_argument("--upsample", type=int, help="0 = 512 only, 1024 = cascade upsample")
+    ap.add_argument("--decimator", default="weighted", choices=["weighted", "comfy"],
+                    help="weighted: Blender importance-weighted collapse; comfy: uniform GPU DecimateMesh")
+    ap.add_argument("--vg-factor", dest="vg_factor", type=float, help="weighted: vertex_group_factor")
+    ap.add_argument("--out-suffix", dest="out_suffix", default="",
+                    help="write to out/<source>/<id><suffix>/ (experiments); refs are copied from <id>/")
     ap.add_argument("--yaw", type=float, help="QA: degrees to rotate about up (overrides auto facing)")
     ap.add_argument("--name", default="contact", help="contact: sheet name (_<name>.png)")
     ap.add_argument("--forward", default="-Z", choices=["-Z", "+Z"], help="glTF facing direction")
@@ -366,7 +491,7 @@ def main() -> int:
     reg = load_registry(args.source)
     if args.cmd == "contact":
         dst = OUT_ROOT / args.source / f"_{args.name}.png"
-        dirs = [str(OUT_ROOT / args.source / mid) for mid in args.ids]
+        dirs = [str(OUT_ROOT / args.source / (mid + args.out_suffix)) for mid in args.ids]
         return subprocess.run([PIL_PYTHON, "-I", str(ROOT / "tools" / "contact_sheet.py"), str(dst), *dirs]).returncode
     stages = ["ref", "mesh", "qa"] if args.cmd == "run" else [args.cmd]
     failures = []
@@ -376,7 +501,7 @@ def main() -> int:
             failures.append(mid)
             continue
         mon = reg[mid]
-        d = out_dir(args.source, mid)
+        d = out_dir(args.source, mid, args.out_suffix)
         for st in stages:
             try:
                 STAGES[st](mon, d, args)
