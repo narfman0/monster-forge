@@ -100,6 +100,7 @@ Images (git-ignored): `out/srd-5.2.1/_lowpoly_cmp/{harpy,goblin}_4up_head.png`,
 |---|---|---|
 | decimator | GPU `DecimateMesh` (uniform) | Blender importance-weighted (`--decimator comfy` for old) |
 | tris tiny / small / medium / large / huge / gargantuan | 2000 / 2000 / 3000 / 5000 / 6500 / 8000 | 3000 / 5000 / 7000 / 9000 / 12000 / 15000 |
+| LOD0 tris (later, with the LOD chain; `docs/lods.md`) | 3000 ... 15000 | 5000 / 8000 / 12000 / 15000 / 20000 / 25000 |
 | texture + UV atlas | 1024 | 2048 for medium and up, 1024 tiny/small |
 | normal cage | 0.05 | 0.015 |
 | vertex_group_factor | — | 0.5 |

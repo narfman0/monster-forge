@@ -1,0 +1,4 @@
+{
+  "upsample": 1024,
+  "notes": "Face texture stays soft at 2K with the 512 pipeline: the voxel colour is the limit, so pin the 1024 cascade (also the default since the LOD chain)."
+}

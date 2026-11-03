@@ -8,6 +8,11 @@ Blender headless for QA. Every stage is skipped when its outputs exist (use --fo
     python3 -I tools/forge.py ref owlbear --n 3
     python3 -I tools/forge.py mesh owlbear --pick 2 --force
     python3 -I tools/forge.py qa owlbear --yaw 180 --force
+    python3 -I tools/forge.py run harpy --stages mesh,qa,lod --force
+    python3 -I tools/forge.py lod wolf
+
+Per-monster settings live in data/overrides/<source>/<id>.json (tools/overrides.py);
+command-line flags win over them.
 """
 from __future__ import annotations
 
@@ -18,6 +23,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -25,6 +31,9 @@ import urllib.request
 import uuid
 import zlib
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import overrides  # noqa: E402  (tools/overrides.py: per-monster overrides, budgets)
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / "workflows"
@@ -36,9 +45,8 @@ PIL_PYTHON = os.environ.get("PIL_PYTHON", str(Path.home() / "workspace/ComfyUI/.
 COMFY = os.environ.get("COMFY_URL", "http://127.0.0.1:8188")
 CLIENT_ID = f"monster-forge-{uuid.uuid4().hex[:8]}"
 
-# Low-poly budget by size category (triangles). See docs/lowpoly-density.md.
-DECIMATE_BY_SIZE = {"tiny": 3000, "small": 5000, "medium": 7000, "large": 9000,
-                    "huge": 12000, "gargantuan": 15000}
+# LOD0 budget by size category (triangles). See docs/lowpoly-density.md and docs/lods.md.
+DECIMATE_BY_SIZE = overrides.TRI_BUDGET_BY_SIZE
 # Body plans whose scale_m is a standing height; everything else is nose-to-tail length.
 UPRIGHT_PLANS = {"biped", "winged_biped", "centauroid", "merfolk_naga"}
 # Plans whose reference prompt asks for a front view (model already faces the camera).
@@ -52,7 +60,9 @@ DEFAULT_MESH = {
     "uv_resolution": 1024,
     "ao_samples": 64,
     "normal_cage": 0.015,  # fraction of the bbox diagonal; 0.05 grabbed across features
-    "upsample": 0,  # 0 = pure 512 pipeline; 1024 = Trellis2UpsampleStage cascade
+    # 1024 = Trellis2UpsampleStage cascade (default: LOD0 quality, sharper voxel colour on
+    # faces); 0 = pure 512 pipeline, the automatic fallback when a 1024 run fails.
+    "upsample": 1024,
     # importance-weighted decimation (tools/blender_decimate.py)
     "vg_factor": 0.5,
     "w_curv": 0.6,
@@ -60,7 +70,23 @@ DEFAULT_MESH = {
     "w_ext": 0.35,
 }
 # Sizes that get 2048 textures/UV atlas instead of 1024.
-BIG_TEXTURE_SIZES = {"medium", "large", "huge", "gargantuan"}
+BIG_TEXTURE_SIZES = overrides.BIG_TEXTURE_SIZES
+LOD_FILES = ("lods.json", "model_lod1.glb", "model_lod2.glb", "model_lod3.glb")
+
+
+def ov_for(mon: dict) -> dict:
+    """data/overrides/<source>/<id>.json, validated (a bad file fails the stage loudly)."""
+    ov = overrides.load(mon["source"], mon["id"])
+    errs = overrides.validate(ov)
+    if errs:
+        raise RuntimeError(f"{overrides.path_for(mon['source'], mon['id'])}: {'; '.join(errs)}")
+    return ov
+
+
+def clear_lods(d: Path) -> None:
+    for f in d.glob("model_lod*.glb"):
+        f.unlink()
+    (d / "lods.json").unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------- helpers
@@ -127,6 +153,72 @@ def wait_idle(poll: float = 5.0) -> None:
             log("ComfyUI queue busy; waiting for it to drain")
             announced = True
         time.sleep(poll)
+
+
+class ResourceSampler:
+    """Peak system RAM, swap, ComfyUI RSS and VRAM while a stage runs (1 s polling).
+    RAM/swap from /proc/meminfo, VRAM from ComfyUI's /system_stats (whole device, so other
+    GPU users are included), RSS of the process listening as ComfyUI (main.py)."""
+
+    def __init__(self, interval: float = 1.0):
+        self.interval, self.peak, self._stop = interval, {}, threading.Event()
+        self.comfy_pid = self._find_comfy()
+        self.thread = threading.Thread(target=self._run, daemon=True)
+
+    @staticmethod
+    def _find_comfy() -> int | None:
+        for p in Path("/proc").iterdir():
+            if not p.name.isdigit():
+                continue
+            try:
+                cmd = (p / "cmdline").read_bytes().split(b"\0")
+            except OSError:
+                continue
+            if any(c.endswith(b"main.py") for c in cmd) and b"8188" in b" ".join(cmd):
+                return int(p.name)
+        return None
+
+    def sample(self) -> dict:
+        out = {}
+        try:
+            mi = {l.split(":")[0]: int(l.split()[1]) * 1024 for l in Path("/proc/meminfo").read_text().splitlines()}
+            out["ram_used_gb"] = (mi["MemTotal"] - mi["MemAvailable"]) / 2**30
+            out["swap_used_gb"] = (mi["SwapTotal"] - mi["SwapFree"]) / 2**30
+            out["ram_total_gb"] = mi["MemTotal"] / 2**30
+        except (OSError, KeyError, ValueError):
+            pass
+        if self.comfy_pid:
+            try:
+                for l in Path(f"/proc/{self.comfy_pid}/status").read_text().splitlines():
+                    if l.startswith("VmRSS:"):
+                        out["comfy_rss_gb"] = int(l.split()[1]) * 1024 / 2**30
+            except OSError:
+                pass
+        try:
+            dev = get_json("/system_stats")["devices"][0]
+            out["vram_used_gb"] = (dev["vram_total"] - dev["vram_free"]) / 2**30
+            out["vram_total_gb"] = dev["vram_total"] / 2**30
+        except Exception:
+            pass
+        return out
+
+    def _run(self):
+        while not self._stop.is_set():
+            for k, v in self.sample().items():
+                self.peak[k] = max(self.peak.get(k, 0.0), v)
+            self._stop.wait(self.interval)
+
+    def __enter__(self):
+        self.t0 = time.time()
+        self.thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        self._stop.set()
+        self.thread.join(timeout=5)
+        self.result = {"peak_" + k if not k.endswith("total_gb") else k: round(v, 2) for k, v in self.peak.items()}
+        self.result["seconds"] = round(time.time() - self.t0, 1)
+        return False
 
 
 def upload_file(path: Path, subfolder: str, name: str | None = None,
@@ -243,6 +335,22 @@ def apply_style(wf: dict, style: dict, prompt: str, mon: dict) -> str:
     return prompt
 
 
+def resolve_style(name: str | None) -> str:
+    """Style CLI/override value -> path for load_style: None = the house style
+    (data/style.json), 'none' = unstyled, a .json path, or a style name (data/styles/<name>.json,
+    or the house style's own "name")."""
+    if not name:
+        return "data/style.json"
+    if name.lower() == "none" or name.endswith(".json"):
+        return name
+    if (ROOT / "data" / "styles" / f"{name}.json").exists():
+        return f"data/styles/{name}.json"
+    house = ROOT / "data" / "style.json"
+    if house.exists() and json.loads(house.read_text()).get("name") == name:
+        return "data/style.json"
+    raise RuntimeError(f"unknown style {name!r} (no data/styles/{name}.json)")
+
+
 def stage_ref(mon: dict, d: Path, args) -> None:
     man = load_manifest(d)
     refs = sorted(d.glob("ref_*.png"))
@@ -254,12 +362,17 @@ def stage_ref(mon: dict, d: Path, args) -> None:
     wf = load_workflow("ref_image.api.json")
     tweak = load_prompt_tweaks().get(mon["id"], {})
     prompt = tweak.get("prompt") or (tweak.get("prepend", "") + REF_PROMPT_PREFIX + mon["reference_prompt"])
-    style = load_style(args.style)
+    ov = ov_for(mon)
+    if ov.get("prompt_extra"):
+        prompt = prompt.rstrip(" ,.") + ", " + ov["prompt_extra"]
+    style = load_style(resolve_style(args.style or ov.get("style")))
     if style:
         prompt = apply_style(wf, style, prompt, mon)
     if tweak.get("negative_append"):
         wf["neg"]["inputs"]["text"] += ", " + tweak["negative_append"]
-    seed0 = args.seed if args.seed is not None else base_seed(mon["id"])
+    if ov.get("negative_extra"):
+        wf["neg"]["inputs"]["text"] += ", " + ov["negative_extra"]
+    seed0 = args.seed if args.seed is not None else ov.get("seed_ref", base_seed(mon["id"]))
     wf["pos"]["inputs"]["text"] = prompt
     wf["sample"]["inputs"]["seed"] = seed0
     wf["latent"]["inputs"]["batch_size"] = args.n
@@ -269,7 +382,7 @@ def stage_ref(mon: dict, d: Path, args) -> None:
     images = outputs["save"]["images"]
     for i, img in enumerate(images):
         fetch_output(img, d / f"ref_{i}.png")
-    pick = min(args.pick or 0, len(images) - 1)
+    pick = min(args.pick if args.pick is not None else ov.get("ref_pick", 0), len(images) - 1)
     shutil.copyfile(d / f"ref_{pick}.png", d / "ref.png")
     dt = round(time.time() - t0, 1)
     man.update({"id": mon["id"], "name": mon["name"], "source": mon["source"],
@@ -394,6 +507,15 @@ def mesh_settings(mon: dict, args) -> dict:
     settings["target_tris"] = args.tris or DECIMATE_BY_SIZE[mon["size"]]
     if mon["size"] in BIG_TEXTURE_SIZES:
         settings["texture_size"] = settings["uv_resolution"] = 2048
+    ov = ov_for(mon)
+    if ov.get("tri_budget") and not args.tris:
+        settings["target_tris"] = ov["tri_budget"]
+    for k in ("vg_factor", "upsample", "normal_cage", "texture_size"):
+        if ov.get(k) is not None:
+            settings[k] = ov[k]
+    if ov.get("texture_size"):
+        settings["uv_resolution"] = ov["texture_size"]
+    settings["overrides"] = {k: v for k, v in ov.items() if k != "notes"}
     for k in ("remesh_resolution", "texture_size", "uv_resolution", "normal_cage", "upsample", "vg_factor"):
         v = getattr(args, k, None)
         if v is not None:
@@ -408,13 +530,15 @@ def stage_mesh(mon: dict, d: Path, args) -> None:
         log(f"{mon['id']}: mesh exists, skip")
         return
     ref = d / "ref.png"
-    if args.pick is not None and (d / f"ref_{args.pick}.png").exists():
-        shutil.copyfile(d / f"ref_{args.pick}.png", ref)
+    ov = ov_for(mon)
+    pick = args.pick if args.pick is not None else ov.get("ref_pick")
+    if pick is not None and (d / f"ref_{pick}.png").exists():
+        shutil.copyfile(d / f"ref_{pick}.png", ref)
     if not ref.exists():
         raise RuntimeError(f"{mon['id']}: no ref.png; run `ref` first")
     man = load_manifest(d)
     settings = mesh_settings(mon, args)
-    seed = args.seed if args.seed is not None else base_seed(mon["id"]) % 100000
+    seed = args.seed if args.seed is not None else ov.get("seed_mesh", base_seed(mon["id"]) % 100000)
     sub = f"monster-forge/{mon['source']}/{d.name}"
     name = upload_file(ref, sub)
     wf = build_mesh_graph(mon, name, seed, settings, d.name)
@@ -474,7 +598,7 @@ def stage_mesh(mon: dict, d: Path, args) -> None:
             info[nid] = src["text"][0]
     man["mesh"] = {"model": wf["unet"]["inputs"]["unet_name"], "seed": seed, "settings": settings,
                    "decimate_attempts": attempts, "mesh_info": info, "seconds": dt,
-                   "ref_picked": (args.pick if args.pick is not None else man.get("ref", {}).get("picked"))}
+                   "ref_picked": (pick if pick is not None else man.get("ref", {}).get("picked"))}
     man["mesh"]["decimator_used"] = used
     if dec is not None:
         man["mesh"]["weighted_decimate"] = dec
@@ -482,27 +606,65 @@ def stage_mesh(mon: dict, d: Path, args) -> None:
     man.setdefault("timings", {})["mesh"] = dt
     man.pop("qa", None)
     save_manifest(d, man)
-    for stale in ("model.glb", "thumb.png", "thumb_head.png"):
+    clear_lods(d)
+    for stale in ("model.glb", "thumb.png", "thumb_head.png", "thumb_ground.png"):
         (d / stale).unlink(missing_ok=True)
     log(f"{mon['id']}: mesh done in {dt}s ({used}, {attempts[-1][1]} faces)")
 
 
+def stage_mesh_guarded(mon: dict, d: Path, args) -> None:
+    """stage_mesh with peak RAM/VRAM sampling (manifest mesh.resources) and, when the 1024
+    upsample cascade fails (OOM, ComfyUI error, timeout), one retry at upsample 0
+    (manifest mesh.upsample_fallback). An explicit --upsample is never second-guessed."""
+    if (d / "model_raw.glb").exists() and not args.force:
+        log(f"{mon['id']}: mesh exists, skip")
+        return
+    fallback = None
+    with ResourceSampler() as rs:
+        try:
+            stage_mesh(mon, d, args)
+        except Exception as e:
+            ups = args.upsample if args.upsample is not None else mesh_settings(mon, args).get("upsample")
+            if not ups or args.upsample is not None:
+                raise
+            fallback = {"from": ups, "to": 0, "error": str(e)[:1000]}
+            log(f"{mon['id']}: mesh at upsample {ups} failed ({str(e)[:200]}); retrying at upsample 0")
+            retry = copy.copy(args)
+            retry.upsample, retry.force = 0, True
+            stage_mesh(mon, d, retry)
+    man = load_manifest(d)
+    man.setdefault("mesh", {})["resources"] = rs.result
+    if fallback:
+        man["mesh"]["upsample_fallback"] = fallback
+    save_manifest(d, man)
+    r = rs.result
+    log(f"{mon['id']}: mesh peak RAM {r.get('peak_ram_used_gb')} GB (ComfyUI RSS {r.get('peak_comfy_rss_gb')}), "
+        f"swap {r.get('peak_swap_used_gb')} GB, VRAM {r.get('peak_vram_used_gb')} GB, {r['seconds']} s")
+
+
 def stage_qa(mon: dict, d: Path, args) -> None:
-    if all((d / f).exists() for f in ("thumb.png", "thumb_head.png", "model.glb")) and not args.force:
+    if all((d / f).exists() for f in ("thumb.png", "thumb_head.png", "thumb_ground.png", "model.glb")) \
+            and not args.force:
         log(f"{mon['id']}: qa exists, skip")
         return
     if not (d / "model_raw.glb").exists():
         raise RuntimeError(f"{mon['id']}: no model_raw.glb; run `mesh` first")
     man = load_manifest(d)
-    yaw = args.yaw if args.yaw is not None else man.get("qa", {}).get("yaw_override")
+    ov = ov_for(mon)
+    # yaw: flag > override file > the pin persisted by an earlier `qa --yaw`
+    yaw = args.yaw if args.yaw is not None else ov.get("yaw", man.get("qa", {}).get("yaw_override"))
     job = {
         "src": str(d / "model_raw.glb"), "dst": str(d / "model.glb"), "thumb": str(d / "thumb.png"),
         "thumb_head": str(d / "thumb_head.png"), "body_plan": mon["body_plan"],
         "report": str(d / "qa.json"), "scale_m": mon["scale_m"],
         "scale_axis": "height" if mon["body_plan"] in UPRIGHT_PLANS else "length",
         "front_view": mon["body_plan"] in FRONT_VIEW_PLANS, "yaw_override": yaw,
-        "forward": args.forward, "label": f"{mon['name']} ({mon['body_plan']})",
+        "forward": args.forward or ov.get("forward") or "-Z", "label": f"{mon['name']} ({mon['body_plan']})",
+        "thumb_ground": str(d / "thumb_ground.png"), "id": mon["id"], "source": mon["source"],
+        # stance leveling: flags > override file (read by blender_qa.py) > body-plan defaults
+        "level": False if args.no_level else None, "level_tilt": args.level_tilt,
     }
+    clear_lods(d)  # model.glb changes: the LOD chain is stale
     (d / "qa.json").unlink(missing_ok=True)
     t0 = time.time()
     proc = subprocess.run([BLENDER, "-b", "--factory-startup", "-P", str(ROOT / "tools" / "blender_qa.py"),
@@ -517,24 +679,59 @@ def stage_qa(mon: dict, d: Path, args) -> None:
         rep["yaw_override"] = yaw
     man["qa"] = rep
     man["tri_count"] = rep["tris"]
+    man.pop("lod", None)
     man.setdefault("timings", {})["qa"] = dt
     save_manifest(d, man)
-    log(f"{mon['id']}: qa done in {dt}s, {rep['tris']} tris, dims {rep['dims_m']}")
+    lv = rep.get("level", {})
+    log(f"{mon['id']}: qa done in {dt}s, {rep['tris']} tris, dims {rep['dims_m']}, "
+        f"level {lv.get('method')} tilt {lv.get('tilt_deg')} deg")
 
 
-STAGES = {"ref": stage_ref, "mesh": stage_mesh, "qa": stage_qa}
+def stage_lod(mon: dict, d: Path, args) -> None:
+    """LOD1-3 from model.glb (tools/blender_lods.py); see docs/lods.md."""
+    lods = d / "lods.json"
+    if lods.exists() and not args.force:
+        files = [v.get("file") for v in json.loads(lods.read_text()).get("lods", {}).values()]
+        if all((d / f).exists() for f in files if f):
+            log(f"{mon['id']}: lod exists, skip")
+            return
+    if not (d / "model.glb").exists():
+        raise RuntimeError(f"{mon['id']}: no model.glb; run `qa` first")
+    ov = ov_for(mon)
+    ratios = ov.get("lod_ratios") or overrides.LOD_RATIOS
+    clear_lods(d)
+    job = {"src": str(d / "model.glb"), "out_dir": str(d), "report": str(lods),
+           "ratios": {str(i + 1): r for i, r in enumerate(ratios)}, "min_tris": 300}
+    t0 = time.time()
+    proc = subprocess.run([BLENDER, "-b", "--factory-startup", "-P", str(ROOT / "tools" / "blender_lods.py"),
+                           "--", json.dumps(job)], capture_output=True, text=True, timeout=600)
+    dt = round(time.time() - t0, 1)
+    if proc.returncode != 0 or not lods.exists():
+        sys.stderr.write(proc.stdout[-4000:] + proc.stderr[-4000:])
+        raise RuntimeError(f"{mon['id']}: blender LODs failed (rc={proc.returncode})")
+    rep = json.loads(lods.read_text())
+    man = load_manifest(d)
+    man["lod"] = {"seconds": dt, "ratios": ratios,
+                  "tris": {k: v["tris"] for k, v in rep["lods"].items()}}
+    man.setdefault("timings", {})["lod"] = dt
+    save_manifest(d, man)
+    log(f"{mon['id']}: lod done in {dt}s, tris {man['lod']['tris']}")
+
+
+STAGES = {"ref": stage_ref, "mesh": stage_mesh_guarded, "qa": stage_qa, "lod": stage_lod}
+RUN_ORDER = ["ref", "mesh", "qa", "lod"]
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["ref", "mesh", "qa", "run", "contact"])
+    ap.add_argument("cmd", choices=["ref", "mesh", "qa", "lod", "run", "contact"])
     ap.add_argument("ids", nargs="+", help="monster ids (registry slugs)")
     ap.add_argument("--source", default="srd-5.2.1")
     ap.add_argument("--force", action="store_true", help="redo stages whose outputs exist")
     ap.add_argument("--seed", type=int, help="override the per-monster seed")
     ap.add_argument("--n", type=int, default=1, help="reference candidates to generate")
     ap.add_argument("--pick", type=int, help="which ref_<i>.png feeds the mesh stage")
-    ap.add_argument("--style", default="data/style.json",
+    ap.add_argument("--style", default=None,
                     help="ref: house art style JSON ('none' = unstyled pilot prompts)")
     ap.add_argument("--tris", type=int, help="override the decimate target")
     ap.add_argument("--remesh-resolution", dest="remesh_resolution", type=int)
@@ -542,7 +739,7 @@ def main() -> int:
     ap.add_argument("--uv-resolution", dest="uv_resolution", type=int)
     ap.add_argument("--normal-cage", dest="normal_cage", type=float,
                     help="BakeNormalMapFromMesh search band, fraction of the bbox diagonal")
-    ap.add_argument("--upsample", type=int, help="0 = 512 only, 1024 = cascade upsample")
+    ap.add_argument("--upsample", type=int, help="1024 = cascade upsample (default), 0 = 512 only")
     ap.add_argument("--decimator", default="weighted", choices=["weighted", "comfy"],
                     help="weighted: Blender importance-weighted collapse; comfy: uniform GPU DecimateMesh")
     ap.add_argument("--vg-factor", dest="vg_factor", type=float, help="weighted: vertex_group_factor")
@@ -550,7 +747,12 @@ def main() -> int:
                     help="write to out/<source>/<id><suffix>/ (experiments); refs are copied from <id>/")
     ap.add_argument("--yaw", type=float, help="QA: degrees to rotate about up (overrides auto facing)")
     ap.add_argument("--name", default="contact", help="contact: sheet name (_<name>.png)")
-    ap.add_argument("--forward", default="-Z", choices=["-Z", "+Z"], help="glTF facing direction")
+    ap.add_argument("--forward", default=None, choices=["-Z", "+Z"],
+                    help="glTF facing direction (default -Z, or the override file's)")
+    ap.add_argument("--no-level", dest="no_level", action="store_true", help="QA: no stance leveling")
+    ap.add_argument("--level-tilt", dest="level_tilt", type=float,
+                    help="QA: largest tilt (deg) stance leveling may apply (default 20, insectoid 40)")
+    ap.add_argument("--stages", help="run: comma list of stages (default ref,mesh,qa,lod)")
     args = ap.parse_args()
 
     reg = load_registry(args.source)
@@ -558,7 +760,14 @@ def main() -> int:
         dst = OUT_ROOT / args.source / f"_{args.name}.png"
         dirs = [str(OUT_ROOT / args.source / (mid + args.out_suffix)) for mid in args.ids]
         return subprocess.run([PIL_PYTHON, "-I", str(ROOT / "tools" / "contact_sheet.py"), str(dst), *dirs]).returncode
-    stages = ["ref", "mesh", "qa"] if args.cmd == "run" else [args.cmd]
+    if args.cmd == "run":
+        want = args.stages.split(",") if args.stages else RUN_ORDER
+        bad = [x for x in want if x not in RUN_ORDER]
+        if bad:
+            ap.error(f"--stages: unknown {bad}; choose from {RUN_ORDER}")
+        stages = [x for x in RUN_ORDER if x in want]
+    else:
+        stages = [args.cmd]
     failures = []
     for mid in args.ids:
         if mid not in reg:

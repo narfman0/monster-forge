@@ -29,11 +29,15 @@ Blender 5.2.2 LTS. Rigging and motion tools each get their own `uv` venv under `
 ## Running the pipeline
 
 ```sh
-python3 -I tools/forge.py run <id>...          # ref -> mesh -> qa, resumable (--force to redo)
+python3 -I tools/forge.py run <id>...          # ref -> mesh -> qa -> lod, resumable (--force to redo)
+python3 -I tools/forge.py run <id> --stages qa,lod --force   # redo some stages
 python3 -I tools/forge.py contact <id>... --name batch1
 ```
 
 Needs the ComfyUI server on 8188 with the models listed in `docs/pilot-report.md`.
+Per-monster settings (tri budget, upsample, yaw, leveling, prompt extras, LOD ratios, ...)
+go in `data/overrides/<source>/<id>.json`; QA levels the stance so all feet touch the
+ground, and `lod` writes `model_lod1-3.glb` from `model.glb` (`docs/lods.md`).
 
 ## Viewer
 
@@ -44,5 +48,6 @@ python3 -I tools/viewer.py            # http://127.0.0.1:8787/ (--port, --source
 A local web page (stdlib server, vanilla JS, vendored three.js) for checking progress and
 assets: stage counts per body plan, a filterable monster list, a three.js view of
 `model.glb` with a 1.8 m scale figure, wireframe/texture toggles, and animation playback
-for embedded clips and `anims/<clip>.glb` files. The stage-status rules that `forge.py` has
+for embedded clips and `anims/<clip>.glb` files, an LOD switcher, a per-monster overrides
+form and a re-run job queue (`forge.py run --stages ...` in the background). The stage-status rules that `forge.py` has
 to follow (`rig`, `anim` in `manifest.json`) are in `viewer/README.md`.

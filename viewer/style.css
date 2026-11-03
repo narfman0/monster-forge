@@ -1,7 +1,7 @@
 :root {
   --bg: #121418; --bg2: #191c22; --bg3: #22262e; --line: #2c313a;
   --fg: #d9dde4; --muted: #8a919d; --accent: #6aa8ff;
-  --ref: #8d7cf0; --mesh: #4fb3d9; --qa: #4fcf8f; --rig: #e0b84f; --anim: #ef7a5a;
+  --ref: #8d7cf0; --mesh: #4fb3d9; --qa: #4fcf8f; --lod: #9ad14b; --rig: #e0b84f; --anim: #ef7a5a;
   --off: #343943;
   font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -58,7 +58,7 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); font-weight: 500;
 .dots { display: flex; gap: 3px; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--off); }
 .dot.ref.on { background: var(--ref); } .dot.mesh.on { background: var(--mesh); }
-.dot.qa.on { background: var(--qa); } .dot.rig.on { background: var(--rig); } .dot.anim.on { background: var(--anim); }
+.dot.qa.on { background: var(--qa); } .dot.lod.on { background: var(--lod); } .dot.rig.on { background: var(--rig); } .dot.anim.on { background: var(--anim); }
 
 /* main */
 #stage { position: relative; min-width: 0; }
@@ -104,3 +104,33 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); font-weight: 500;
 #lightbox img { max-width: 90vw; max-height: 90vh; }
 #images figure.wide { grid-column: 1 / -1; }
 #images figure.wide img { aspect-ratio: auto; }
+
+/* LOD selector */
+#lod-bar { display: inline-flex; gap: 4px; }
+#lod-bar button { padding: 2px 6px; font-size: 11px; }
+#lod-bar button small { color: var(--muted); margin-left: 3px; }
+#lod-bar button.on small { color: #0b1220; }
+
+/* job marker in the monster list */
+.job { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-left: 4px; }
+.job.queued { border: 2px solid var(--rig); }
+.job.running { border: 2px solid var(--off); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#list li .nm .ov { color: var(--rig); font-size: 10px; margin-left: 4px; }
+
+/* overrides panel */
+#ov-file { text-transform: none; letter-spacing: 0; font-weight: 400; }
+#ov-form { display: grid; grid-template-columns: auto 1fr auto; gap: 3px 6px; align-items: center; font-size: 12px; }
+#ov-form label.k { color: var(--muted); display: block; white-space: nowrap; cursor: help; }
+#ov-form label.k.set { color: var(--rig); }
+#ov-form input, #ov-form select, #ov-form textarea { width: 100%; min-width: 0; background: var(--bg3); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 2px 5px; font: inherit; font-size: 12px; }
+#ov-form input[type=checkbox] { width: auto; }
+#ov-form textarea { resize: vertical; min-height: 2.2em; }
+#ov-form .dirty { border-color: var(--accent); }
+#ov-form button.reset { padding: 0 6px; font-size: 11px; visibility: hidden; }
+#ov-form button.reset.show { visibility: visible; }
+#ov-form .def { grid-column: 2 / 4; font-size: 10px; color: #6c7380; margin-top: -2px; }
+#run-stages label { font-size: 12px; }
+#job-log { max-height: 180px; overflow: auto; font-size: 10px; background: #0d0f13; border: 1px solid var(--line);
+  border-radius: 4px; padding: 4px 6px; margin: 6px 0 0; white-space: pre-wrap; word-break: break-all; }

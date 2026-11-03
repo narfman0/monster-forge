@@ -55,6 +55,7 @@
     <label><input type="checkbox" id="t-ref" checked> 1.8 m ref</label>
     <label><input type="checkbox" id="t-rotate"> turntable</label>
     <button id="b-frame" title="re-frame camera (f)">frame</button>
+    <span id="lod-bar" title="level of detail (l cycles)"></span>
   </div>
   <div id="empty" class="hidden">
     <div class="big">no mesh yet</div>
@@ -90,6 +91,22 @@
     <h4>expected set</h4>
     <div id="expected"></div>
   </section>
+  <section id="ov-section">
+    <h3>overrides <span id="ov-file" class="muted"></span></h3>
+    <form id="ov-form" autocomplete="off"></form>
+    <div class="row">
+      <button id="ov-save" title="write data/overrides/&lt;source&gt;/&lt;id&gt;.json">save</button>
+      <button id="ov-revert" title="discard unsaved edits">revert</button>
+      <span id="ov-status" class="muted"></span>
+    </div>
+    <h4>re-run <span class="muted">(forge.py run --force)</span></h4>
+    <div class="row" id="run-stages"></div>
+    <div class="row">
+      <button id="run-go">queue re-run</button>
+      <span id="run-status" class="muted"></span>
+    </div>
+    <pre id="job-log" class="hidden"></pre>
+  </section>
   <section>
     <h3>images</h3>
     <div id="images"></div>
@@ -100,7 +117,7 @@
     <a id="manifest-link" target="_blank" class="muted"></a>
   </section>
   <section class="muted keys">
-    j/k ↑/↓ move · space play · n next clip · c cycle · w wire · t textures · f frame · / search
+    j/k ↑/↓ move · space play · n next clip · c cycle · w wire · t textures · l LOD · f frame · / search
   </section>
 </aside>
 

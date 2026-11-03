@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-const STAGES = ['ref', 'mesh', 'qa', 'rig', 'anim'];
+const STAGES = ['ref', 'mesh', 'qa', 'lod', 'rig', 'anim'];
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...kids) => {
   const e = Object.assign(document.createElement(tag), props);
@@ -19,6 +19,10 @@ const state = {
   filtered: [],
   selId: null,
   loadToken: 0,
+  lodPref: 0,          // LOD the user picked; re-applied when the next monster has it
+  jobs: {},            // id -> 'running' | 'queued' (from /api/jobs)
+  jobList: [],
+  ov: null,            // GET /api/override/<id> payload for the selected monster
 };
 
 // ------------------------------------------------------------------ three.js scene
@@ -129,7 +133,7 @@ scene.add(scaleRef);
 const view = {
   root: null, mixer: null, clips: [], action: null, clipIdx: -1,
   skelHelper: null, playing: true, cycle: false, cycleT: 0, box: null,
-  scrubbing: false,
+  scrubbing: false, lod: 0, lodMesh: null, lodGeoms: {}, entry: null,
 };
 const clock = new THREE.Clock();
 const loader = new GLTFLoader();
@@ -163,6 +167,7 @@ requestAnimationFrame(animate);
 function disposeModel() {
   if (view.mixer) { view.mixer.stopAllAction(); view.mixer.uncacheRoot(view.root); }
   if (view.skelHelper) { scene.remove(view.skelHelper); view.skelHelper.dispose?.(); }
+  for (const [k, g] of Object.entries(view.lodGeoms)) if (k !== '0') g.dispose();
   if (view.root) {
     scene.remove(view.root);
     view.root.traverse((o) => {
@@ -174,7 +179,8 @@ function disposeModel() {
       }
     });
   }
-  Object.assign(view, { root: null, mixer: null, clips: [], action: null, clipIdx: -1, skelHelper: null, box: null, cycleT: 0 });
+  Object.assign(view, { root: null, mixer: null, clips: [], action: null, clipIdx: -1, skelHelper: null, box: null, cycleT: 0,
+    lod: 0, lodMesh: null, lodGeoms: {} });
 }
 
 const MAP_KEYS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];
@@ -328,10 +334,70 @@ async function loadModel(entry) {
   frameCamera();
   $('loading').classList.add('hidden');
   view.info = { tris: triCount(root), size, box, skinned, bones, file: entry.files.model };
+  view.entry = entry;
+  const meshes = [];
+  root.traverse((o) => { if (o.isMesh) meshes.push(o); });
+  // LOD swap needs one plain mesh (LOD GLBs are geometry + LOD0's material)
+  if (meshes.length === 1 && !meshes[0].isSkinnedMesh) {
+    view.lodMesh = meshes[0];
+    view.lodGeoms = { 0: meshes[0].geometry };
+  }
+  renderLodBar(entry);
   setHud(entry, view.info);
+  if (state.lodPref && entry.lods?.[state.lodPref]) setLod(state.lodPref, token);
   renderClips(entry);
   const firstOk = view.clips.findIndex((c) => c.ok);
   if (firstOk >= 0) playClip(firstOk);
+}
+
+// ------------------------------------------------------------------ LODs
+// model_lod<k>.glb share LOD0's UVs and material; only the geometry is swapped in, so the
+// loaded LOD0 material (with its textures) is reused, as an engine would.
+function renderLodBar(entry) {
+  const bar = $('lod-bar');
+  bar.replaceChildren();
+  const lods = entry.lods || {};
+  const keys = Object.keys(lods).sort();
+  if (!view.lodMesh || keys.length < 2) return;
+  for (const k of keys) {
+    const b = el('button', { title: `${lods[k].file} (ratio ${lods[k].ratio})` },
+      `LOD${k}`, el('small', { textContent: Number(lods[k].tris).toLocaleString() }));
+    b.classList.toggle('on', Number(k) === view.lod);
+    b.onclick = () => { state.lodPref = Number(k); setLod(Number(k)); };
+    bar.append(b);
+  }
+}
+
+async function setLod(k, token = state.loadToken) {
+  const entry = view.entry;
+  if (!view.lodMesh || !entry?.lods?.[k]) return;
+  let geo = view.lodGeoms[k];
+  if (!geo) {
+    try {
+      const g = await loadGLB(entry.dir + entry.lods[k].file);
+      if (token !== state.loadToken) return;
+      g.scene.traverse((o) => { if (o.isMesh && !geo) geo = o.geometry; });
+    } catch (err) {
+      $('hud-stats').textContent += `\nLOD${k}: ${err.message}`;
+      return;
+    }
+    if (!geo) return;
+    view.lodGeoms[k] = geo;
+  }
+  view.lodMesh.geometry = geo;
+  view.lod = k;
+  view.info.tris = triCount(view.root);
+  view.info.file = k ? entry.lods[k].file : entry.files.model;
+  setHud(entry, view.info);
+  renderLodBar(entry);
+}
+
+function cycleLod() {
+  const keys = Object.keys(view.entry?.lods || {}).map(Number).sort();
+  if (keys.length < 2 || !view.lodMesh) return;
+  const next = keys[(keys.indexOf(view.lod) + 1) % keys.length];
+  state.lodPref = next;
+  setLod(next);
 }
 
 function setHud(entry, info) {
@@ -463,6 +529,7 @@ async function renderSide(entry) {
   if (entry.files.crop) fig(entry.files.crop, 'crop');
   if (entry.files.thumb) fig(entry.files.thumb, 'thumb (QA strip)', '', true);
   if (entry.files.thumb_head) fig(entry.files.thumb_head, 'head close-up (shaded / wireframe)', '', true);
+  if (entry.files.thumb_ground) fig(entry.files.thumb_ground, 'ground contact (side / front, level camera; red = feet used)', '', true);
   if (!imgs.children.length) imgs.append(el('div', { className: 'muted', textContent: 'no images yet', style: 'grid-column: 1 / -1' }));
 
   const rows = [
@@ -477,6 +544,11 @@ async function renderSide(entry) {
   if (man.qa?.dims_m) rows.push(['dims m', man.qa.dims_m.map((v) => fmt(v)).join(' × ')]);
   if (man.qa) rows.push(['non-manifold', `${man.qa.non_manifold_edges} edges, ${man.qa.loose_parts} part(s)`]);
   if (man.qa?.facing_method) rows.push(['facing', `${man.qa.facing_method}, yaw ${fmt(man.qa.yaw_deg, 1)}°`]);
+  if (man.qa?.level) {
+    const L = man.qa.level;
+    rows.push(['stance', `${L.method}, tilt ${fmt(L.tilt_deg, 1)}° (cap ${L.tilt_cap_deg}°), feet gaps m ${(L.foot_gaps_m || []).map((g) => fmt(g, 3)).join(' ')}`]);
+  }
+  if (entry.lods && Object.keys(entry.lods).length) rows.push(['LODs', Object.entries(entry.lods).map(([k, v]) => `${k}: ${v.tris}`).join(' · ')]);
   if (man.timings) rows.push(['timings s', Object.entries(man.timings).map(([k, v]) => `${k} ${v}`).join(', ')]);
   if (man.ref) rows.push(['ref seed', `${man.ref.seed} (${man.ref.model}, ${man.ref.n} cand.)`]);
   if (man.mesh) rows.push(['mesh seed', `${man.mesh.seed} (${man.mesh.model})`]);
@@ -494,7 +566,7 @@ async function renderSide(entry) {
 }
 
 // ------------------------------------------------------------------ sidebar
-const STAGE_COLORS = { ref: 'var(--ref)', mesh: 'var(--mesh)', qa: 'var(--qa)', rig: 'var(--rig)', anim: 'var(--anim)' };
+const STAGE_COLORS = { ref: 'var(--ref)', mesh: 'var(--mesh)', qa: 'var(--qa)', lod: 'var(--lod)', rig: 'var(--rig)', anim: 'var(--anim)' };
 
 function renderProgress(idx) {
   $('source').textContent = idx.source;
@@ -576,8 +648,12 @@ function applyFilters() {
     const th = m.files.thumb ? el('img', { className: 'th', loading: 'lazy', src: m.dir + m.files.thumb, alt: '' }) : el('div', { className: 'th' });
     const dots = el('div', { className: 'dots' });
     for (const s of STAGES) dots.append(el('span', { className: `dot ${s}${m.stages[s] ? ' on' : ''}`, title: s }));
+    const nm = el('div', { className: 'nm', textContent: m.name });
+    if (m.has_override) nm.append(el('span', { className: 'ov', textContent: '✎', title: 'has overrides' }));
+    const js = state.jobs[m.id] || m.job;
+    if (js) nm.append(el('span', { className: `job ${js}`, title: `re-run ${js}` }));
     const li = el('li', { className: m.id === state.selId ? 'sel' : '' }, th,
-      el('div', {}, el('div', { className: 'nm', textContent: m.name }),
+      el('div', {}, nm,
         el('div', { className: 'sub', textContent: `${m.body_plan} · ${m.size} · CR ${m.cr}` })), dots);
     li.dataset.id = m.id;
     li.onclick = () => select(m.id);
@@ -598,6 +674,8 @@ function select(id) {
   }
   loadModel(entry);
   renderSide(entry);
+  loadOverrides(entry.id);
+  renderJob();
 }
 
 function move(step) {
@@ -648,7 +726,7 @@ $('scrub').oninput = () => {
 $('lightbox').onclick = () => $('lightbox').classList.add('hidden');
 
 document.addEventListener('keydown', (e) => {
-  const typing = e.target.matches('input[type=search], input[type=number], select');
+  const typing = e.target.matches('input, select, textarea');
   if (e.key === 'Escape') { $('lightbox').classList.add('hidden'); if (typing) e.target.blur(); return; }
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key;
@@ -661,6 +739,7 @@ document.addEventListener('keydown', (e) => {
   else if (k === 'w') { $('t-wire').checked = !$('t-wire').checked; applyMaterialToggles(); }
   else if (k === 't') { $('t-tex').checked = !$('t-tex').checked; applyMaterialToggles(); }
   else if (k === 'f') frameCamera();
+  else if (k === 'l') cycleLod();
   else if (k === '/') { $('search').focus(); }
   else return;
   e.preventDefault();
@@ -675,10 +754,182 @@ window.addEventListener('focus', async () => {
   if (after && JSON.stringify(after) !== before) select(after.id);
 });
 
+// ------------------------------------------------------------------ overrides panel
+// data/overrides/<source>/<id>.json through GET/POST /api/override/<id>. An empty input
+// means "use the default"; the default is shown under each field.
+const FIELD_UI = {
+  tri_budget: { type: 'int' }, vg_factor: { type: 'float', step: 0.05 },
+  upsample: { type: 'choice', opts: [0, 1024] }, texture_size: { type: 'choice', opts: [512, 1024, 2048, 4096] },
+  normal_cage: { type: 'float', step: 0.001 }, ref_pick: { type: 'int' }, seed_mesh: { type: 'int' },
+  prompt_extra: { type: 'text', area: true }, negative_extra: { type: 'text', area: true },
+  style: { type: 'text' }, seed_ref: { type: 'int' },
+  yaw: { type: 'float', step: 1 }, forward: { type: 'choice', opts: ['-Z', '+Z'] },
+  level: { type: 'choice', opts: [true, false] }, level_tilt: { type: 'float', step: 1 },
+  lod_ratios: { type: 'list' }, notes: { type: 'text', area: true },
+};
+const RUN_ORDER = ['ref', 'mesh', 'qa', 'lod'];
+const show = (v) => (v == null || v === '' ? '–' : Array.isArray(v) ? v.join(', ') : String(v));
+
+function toInput(k, v) {
+  if (v == null) return '';
+  return FIELD_UI[k].type === 'list' ? v.join(', ') : String(v);
+}
+function fromInput(k, raw) {
+  const ui = FIELD_UI[k];
+  raw = raw.trim();
+  if (raw === '') return null;
+  if (ui.type === 'int') return Number.isInteger(Number(raw)) ? Number(raw) : NaN;
+  if (ui.type === 'float') return Number(raw);
+  if (ui.type === 'list') return raw.split(/[\s,]+/).filter(Boolean).map(Number);
+  if (ui.type === 'choice') return ui.opts.find((o) => String(o) === raw) ?? raw;
+  return raw;
+}
+
+async function loadOverrides(id) {
+  $('ov-form').replaceChildren();
+  $('ov-status').textContent = '';
+  let ov;
+  try {
+    const r = await fetch(`/api/override/${encodeURIComponent(id)}`, { cache: 'no-store' });
+    ov = await r.json();
+    if (!r.ok) throw new Error(ov.error || r.status);
+  } catch (err) { $('ov-status').textContent = 'overrides unavailable: ' + err.message; return; }
+  if (state.selId !== id) return;
+  state.ov = ov;
+  renderOverrides();
+}
+
+function renderOverrides() {
+  const ov = state.ov, form = $('ov-form');
+  form.replaceChildren();
+  $('ov-file').textContent = ov.exists ? ov.file.replace(/^data\//, '') : '(defaults)';
+  for (const [k, f] of Object.entries(ov.fields)) {
+    const ui = FIELD_UI[k] || { type: 'text' };
+    let input;
+    if (ui.type === 'choice') {
+      input = el('select', {}, el('option', { value: '', textContent: `default (${show(f.default)})` }),
+        ...ui.opts.map((o) => el('option', { value: String(o), textContent: String(o) })));
+    } else if (ui.area) {
+      input = el('textarea', { rows: 1, placeholder: show(f.default) });
+    } else {
+      input = el('input', { type: ui.type === 'int' || ui.type === 'float' ? 'number' : 'text', placeholder: show(f.default) });
+      if (ui.step) input.step = ui.step;
+    }
+    input.value = toInput(k, f.override);
+    input.dataset.k = k;
+    input.dataset.saved = input.value;
+    input.oninput = input.onchange = () => input.classList.toggle('dirty', input.value !== input.dataset.saved);
+    const reset = el('button', { type: 'button', className: 'reset' + (f.override != null ? ' show' : ''), textContent: '×',
+      title: `reset to default (${show(f.default)}) and save` });
+    reset.onclick = () => { input.value = ''; saveOverrides(); };
+    const label = el('label', { className: 'k' + (f.override != null ? ' set' : ''), textContent: k,
+      title: `${f.help}${f.stage ? ` (re-run from: ${f.stage})` : ''}` });
+    form.append(label, input, reset);
+    if (f.override != null && k !== 'notes') form.append(el('div'), el('div', { className: 'def', textContent: `default ${show(f.default)}` }));
+  }
+  const box = $('run-stages');
+  if (!box.children.length) {
+    for (const st of RUN_ORDER) {
+      box.append(el('label', {}, el('input', { type: 'checkbox', id: `run-${st}`, checked: st === 'qa' || st === 'lod' }), st));
+    }
+  }
+}
+
+async function saveOverrides() {
+  const id = state.selId, body = {};
+  const changed = [];
+  for (const input of $('ov-form').querySelectorAll('[data-k]')) {
+    const k = input.dataset.k, v = fromInput(k, input.value);
+    if (typeof v === 'number' && Number.isNaN(v)) { $('ov-status').textContent = `${k}: not a number`; return; }
+    if (Array.isArray(v) && v.some(Number.isNaN)) { $('ov-status').textContent = `${k}: not numbers`; return; }
+    body[k] = v;
+    if (input.value !== input.dataset.saved) changed.push(k);
+  }
+  $('ov-status').textContent = 'saving…';
+  const r = await fetch(`/api/override/${encodeURIComponent(id)}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const res = await r.json();
+  if (!r.ok) { $('ov-status').textContent = (res.details || [res.error]).join('; '); return; }
+  if (state.selId !== id) return;
+  state.ov = res;
+  renderOverrides();
+  // Tick the stages the changed fields need: the earliest affected stage and everything after.
+  const first = Math.min(...changed.map((k) => RUN_ORDER.indexOf(res.fields[k]?.stage)).filter((i) => i >= 0));
+  if (Number.isFinite(first)) RUN_ORDER.forEach((st, i) => { $(`run-${st}`).checked = i >= first; });
+  $('ov-status').textContent = changed.length ? `saved (${changed.join(', ')})` : 'saved';
+  const m = state.index.monsters.find((x) => x.id === id);
+  if (m) { m.has_override = res.exists; applyFilters(); }
+}
+
+$('ov-save').onclick = saveOverrides;
+$('ov-revert').onclick = () => { if (state.ov) renderOverrides(); $('ov-status').textContent = ''; };
+
+// ------------------------------------------------------------------ re-run jobs
+$('run-go').onclick = async () => {
+  const id = state.selId;
+  const stages = RUN_ORDER.filter((st) => $(`run-${st}`)?.checked);
+  if (!id || !stages.length) { $('run-status').textContent = 'pick at least one stage'; return; }
+  const r = await fetch(`/api/run/${encodeURIComponent(id)}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stages, force: true }) });
+  const res = await r.json();
+  $('run-status').textContent = r.ok ? `job #${res.id} ${res.status}` : res.error;
+  pollJobs(true);
+};
+
+let pollTimer = null;
+async function pollJobs(soon = false) {
+  clearTimeout(pollTimer);
+  let snap;
+  try { snap = await (await fetch('/api/jobs?tail=60', { cache: 'no-store' })).json(); } catch { snap = null; }
+  if (snap) {
+    const prev = state.jobList;
+    state.jobList = snap.jobs;
+    const jobs = {};
+    for (const j of snap.jobs) {
+      if (j.status === 'running' || j.status === 'cancelling') jobs[j.mid] = 'running';
+      else if (j.status === 'queued' && !jobs[j.mid]) jobs[j.mid] = 'queued';
+    }
+    const changedMarkers = JSON.stringify(jobs) !== JSON.stringify(state.jobs);
+    state.jobs = jobs;
+    if (state.index && changedMarkers) {
+      // a job finished since the last poll: pick up its output
+      const finished = prev.filter((p) => (p.status === 'running' || p.status === 'queued')
+        && snap.jobs.find((j) => j.id === p.id && !['running', 'queued', 'cancelling'].includes(j.status)));
+      if (finished.length) {
+        const before = state.selId;
+        await refreshIndex();
+        if (finished.some((f) => f.mid === before)) { select(before); }
+      } else applyFilters();
+    }
+    renderJob();
+  }
+  const active = Object.keys(state.jobs).length > 0;
+  pollTimer = setTimeout(pollJobs, active || soon ? 2000 : 15000);
+}
+
+function renderJob() {
+  const j = state.jobList.find((x) => x.mid === state.selId);
+  const pre = $('job-log');
+  if (!j) { pre.classList.add('hidden'); $('run-status').textContent = ''; return; }
+  pre.classList.remove('hidden');
+  const t = j.ended_at ? ` in ${Math.round(j.ended_at - j.started_at)} s` : j.started_at ? ` ${Math.round(Date.now() / 1000 - j.started_at)} s` : '';
+  const queuedAhead = j.status === 'queued' ? ` (${state.jobList.filter((x) => x.status === 'queued' && x.id < j.id).length} ahead)` : '';
+  $('run-status').replaceChildren(`job #${j.id} [${j.stages.join(',')}] ${j.status}${queuedAhead}${t}${j.rc != null ? ` rc ${j.rc}` : ''} `);
+  if (j.status === 'queued' || j.status === 'running') {
+    const c = el('button', { textContent: 'cancel', title: 'drop from the queue / stop the forge process' });
+    c.onclick = async () => { await fetch(`/api/jobs/${j.id}/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); pollJobs(true); };
+    $('run-status').append(c);
+  }
+  const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 4;
+  pre.textContent = j.log_tail.join('\n') || '(no output yet)';
+  if (atBottom) pre.scrollTop = pre.scrollHeight;
+}
+
 refreshIndex().then((idx) => {
   const want = decodeURIComponent(location.hash.slice(1));
   const first = idx.monsters.find((m) => m.id === want) || idx.monsters.find((m) => m.stages.qa) || idx.monsters[0];
   if (first) select(first.id);
+  pollJobs();
 });
 
-window.__viewer = { THREE, scene, view, state }; // debugging hook
+window.__viewer = { THREE, scene, view, state, camera, controls }; // debugging hook
