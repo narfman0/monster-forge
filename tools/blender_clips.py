@@ -377,8 +377,8 @@ def key_fk(clip: Clip) -> None:
         for f in range(1, clip.frames + 2):
             t = (f - 1) / clip.frames
             q = Quaternion()
-            for ax, fn in layers:
-                q = Quaternion(ax, math.radians(fn(t))) @ q
+            for ax, fn in layers:  # ax None: fn gives the quaternion itself
+                q = (fn(t) if ax is None else Quaternion(ax, math.radians(fn(t)))) @ q
             pb.rotation_quaternion = rest.inverted() @ q @ rest
             pb.keyframe_insert("rotation_quaternion", frame=f)
 
@@ -690,7 +690,8 @@ def hit() -> Clip:
 def death() -> Clip:
     """Collapse and hold the lying pose. Upright: knees buckle, then topple backwards
     pivoting on the heels. Four legs: buckle, then roll onto the right side with the legs
-    going limp and the tail turned back flat. A spider drops on its belly and curls its legs."""
+    going limp and the tail turned back flat. A spider drops on its belly with its legs
+    folded up and in over it."""
     c = Clip("death", 1.8, False)
     c.ground, c.rest_from = "rest", 0.8
     buckle = keys((0, 0), (0.3, 1))
@@ -699,9 +700,12 @@ def death() -> Clip:
         for g in legs:
             fx, fy = g["x"] - cx, g["y"] - leg_y
             ax = Vector((fx, fy, 0)).normalized().cross(AXES["Z"])  # + lifts the leg, - folds it down and in
-            c.rot.setdefault(g["chain"][0], []).append((ax, keys((0, 0), (0.25, -5), (0.75, 25), (0.85, 20), (1, 20))))
+            # every joint folds the leg up and out, so the tips clear the ground and the belly lands
+            c.rot.setdefault(g["chain"][0], []).append((ax, keys((0, 0), (0.25, 5), (0.75, 22), (0.85, 18), (1, 18))))
             for n in g["chain"][1:]:
-                c.rot.setdefault(n, []).append((ax, keys((0, 0), (0.2, -5), (0.75, -60), (0.85, -55), (1, -55))))
+                c.rot.setdefault(n, []).append((ax, keys((0, 0), (0.2, 5), (0.75, 16), (0.85, 13), (1, 13))))
+        for n in fangs:  # tucked forward, so the body rests on its belly, not on them
+            c.turn(n, "X", keys((0, 0), (0.6, 75), (1, 75)))
         c.lift = lambda t: Vector((0, 0, -drop * keys((0, 0), (0.25, 0.3), (0.7, 1.2), (1, 1.2))(t)))
         c.rest_from = 0.7
         return c
@@ -782,27 +786,61 @@ def breath() -> Clip:
     return c
 
 
+def aim_arm(c: Clip, a: dict, upper, fore, w, up=None) -> None:
+    """FK-aim an arm: `upper`/`fore` give the upper arm's and forearm's direction (rest
+    world frame, so a torso turn carries them along) and `w` how far from rest (0-1), all
+    functions of t. `up` (optional) is where the grip bone's +Y (or the hand's) should
+    point: a bow's limbs. Each bone's layer undoes its parent's share, so the arm lands
+    on the directions whatever its rest pose (the goblin's upper arm rests sideways)."""
+    vec = lambda n: Vector(by_name[n]["tail"]) - Vector(by_name[n]["head"])
+    ru, rf = vec(a["upper"]), vec(a["forearm"])
+    hand = a["hand"]
+    grip = next((k for k in kids.get(hand, []) if k.startswith("grip_")), hand) if hand else None
+    rh = arm.data.bones[grip].matrix_local.to_3x3() @ Vector((0, 1, 0)) if grip else None
+    rh = world.to_3x3() @ rh if rh is not None else None
+
+    def solve(t):
+        qu = ru.rotation_difference(upper(t))
+        qf_world = (qu @ rf).rotation_difference(fore(t))
+        qf = qu.inverted() @ qf_world @ qu
+        qh = Quaternion()
+        if up is not None and rh is not None:
+            tot = qu @ qf
+            qh = tot.inverted() @ (tot @ rh).rotation_difference(up(t)) @ tot
+        k = w(t)
+        return [Quaternion().slerp(q, k) for q in (qu, qf, qh)]
+
+    c.rot.setdefault(a["upper"], []).append((None, lambda t: solve(t)[0]))
+    c.rot.setdefault(a["forearm"], []).append((None, lambda t: solve(t)[1]))
+    if up is not None and hand:
+        c.rot.setdefault(hand, []).append((None, lambda t: solve(t)[2]))
+
+
 def attack_ranged() -> Clip:
-    """Bow at hand_l: the torso turns the left shoulder to the target, the left arm comes
-    up and holds the bow out in front, the right hand nocks at the bow, draws back to the
-    cheek, holds, releases (snaps back past the ear), and both arms lower. Wrist paths
-    ride on the chest (arm IK), like the sword cut."""
+    """Bow at hand_l (limbs along grip_l's +Y): the torso turns the left shoulder toward
+    the target, the left arm comes up straight in front at shoulder height with the bow
+    upright, the right hand reaches to the bow to nock, draws back to the cheek (elbow out
+    and back at shoulder height), holds, releases (the hand flies back past the ear), and
+    both arms return to rest. FK-aimed (aim_arm): two-bone IK found odd single-joint
+    solutions on the goblin's L-shaped rest arms."""
     c = Clip("attack_ranged", 1.6, False)
     l, r = arm_by_side["l"], arm_by_side["r"]
-    sh_l, sh_r = Vector(by_name[l["upper"]]["head"]), Vector(by_name[r["upper"]]["head"])
-    L = sum((Vector(by_name[l[k]]["tail"]) - Vector(by_name[l[k]]["head"])).length for k in ("upper", "forearm"))
-    rest_l, rest_r = Vector(by_name[l["forearm"]]["tail"]), Vector(by_name[r["forearm"]]["tail"])
-    bow = sh_l + Vector((0.15 * L, 0.9 * L, 0.05 * L))
-    face = Vector(by_name[head]["head"]) if head else (sh_l + sh_r) / 2 + Vector((0, 0, 0.1 * height))
-    cheek = Vector((sh_r.x * 0.35 + face.x * 0.65, face.y + 0.12 * L, face.z - 0.05 * L))
-    nock = bow + Vector((0.1 * L, -0.15 * L, 0))
-    loose = cheek + Vector((0.2 * L, -0.25 * L, 0.05 * L))
-    c.hands["l"] = vkeys((0, rest_l), (0.25, bow), (0.85, bow), (1, rest_l))
-    c.hands["r"] = vkeys((0, rest_r), (0.25, nock), (0.55, cheek), (0.72, cheek), (0.76, loose), (0.85, loose),
-                         (1, rest_r))
-    c.turn_chain(torso, "Z", keys((0, 0), (0.25, -20), (0.85, -20), (1, 0)))
+    twist = 20.0
+    pre = Quaternion(AXES["Z"], math.radians(twist))  # chest frame: undo the turn so the bow points ahead
+    d = lambda x, y, z: (pre @ Vector((x, y, z))).normalized()
+    bow_u, bow_f = d(-0.15, 1, 0.45), d(0.05, 1, 0.3)
+    raise_l = keys((0, 0), (0.25, 1), (0.85, 1), (1, 0))
+    aim_arm(c, l, lambda t: bow_u, lambda t: bow_f, raise_l, up=lambda t: Vector((0, 0, 1)))
+    # right arm: reach to the bow, draw to the cheek, hold, release back past the ear
+    ru = vkeys((0, d(-0.25, 1, 0.15)), (0.25, d(-0.25, 1, 0.15)), (0.55, d(1, -0.35, 0.3)), (0.72, d(1, -0.35, 0.3)),
+               (0.78, d(1, -0.6, 0.15)), (0.85, d(1, -0.6, 0.15)), (1, d(1, -0.6, 0.15)))
+    rf = vkeys((0, d(-0.3, 1, 0.15)), (0.25, d(-0.3, 1, 0.15)), (0.55, d(-1, 0.6, 0.2)), (0.72, d(-1, 0.6, 0.2)),
+               (0.78, d(0.2, -1, 0.3)), (0.85, d(0.2, -1, 0.3)), (1, d(0.2, -1, 0.3)))
+    raise_r = keys((0, 0), (0.25, 1), (0.85, 1), (1, 0))
+    aim_arm(c, r, lambda t: ru(t).normalized(), lambda t: rf(t).normalized(), raise_r)
+    c.turn_chain(torso, "Z", keys((0, 0), (0.25, -twist), (0.85, -twist), (1, 0)))
     c.turn(skull, "Z", keys((0, 0), (0.25, 15), (0.85, 15), (1, 0)))  # look along the arrow
-    c.info = {"bow_socket": "hand_l"}
+    c.info = {"bow_socket": "grip_l" if "grip_l" in by_name else "hand_l"}
     return c
 
 
