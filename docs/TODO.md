@@ -77,8 +77,34 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
 - [ ] Bake to NLA actions -> glTF with separate animations; `anims/<clip>.glb` per viewer/README.md.
 
 ### E. Godot import test
-- [ ] godot-dnd has no 3D scenes yet (Godot 4.7): add a test scene first.
-- [ ] Load each pilot: AnimationPlayer with the 5 clips, LOD switch.
+- [x] godot-dnd has no 3D scenes yet (Godot 4.7): add a test scene first.
+      (2026-11-04) godot-dnd now has `tools/sync_monsters.py`, which copies
+      `out/<source>/<id>/` into `assets/monsters/`, plus `scenes/monster_lab.tscn`,
+      `tools/check_monsters.gd` (headless import test) and `docs/monsters.md`.
+- [ ] Load each pilot: AnimationPlayer with the 5 clips, LOD switch. All six pilots load and
+      play walk, and the LOD switch works. Re-run when the other clips land:
+      `python3 -I tools/sync_monsters.py --all && godot --headless -s res://tools/check_monsters.gd`
+      (in godot-dnd). Findings from Godot 4.7.1:
+  - Holds: metres, feet at y=0, +Y up, faces **-Z** (all six; `look_at` works with
+    `use_model_front=false`), creature's right = +X, `scale_m` = longest body axis.
+    Rigged LODs share bone names, order, bind poses and skin with LOD0. Clip tracks
+    bind 100% by bone name. Walk clips are in place.
+  - Socket != grip: a `BoneAttachment3D` on `hand_r` puts the prop's grip at the wrist,
+    with +Y along wrist -> fingers. On the goblin the sword hangs down along the fingers.
+    `equipment.md` needs a grip frame: `grip_r`/`grip_l` bones in prop space (origin at
+    the fist centre, +Y across the palm), or a documented hand -> grip offset.
+  - The harpy's `hand_*` are added bones at the hand bone's tail, 8-9 cm off the mesh,
+    while the goblin's are the renamed hand bones (at the wrist). Harpy rig: the skeleton
+    is offset +6.8 cm in x, and bone_18/bone_19 (right forearm/hand) have no vertex with
+    weight > 0.5, because the right arm is skinned to the wing chain bone_11/bone_12.
+  - Walk dips below the ground: lowest vertex over a cycle is owlbear -0.19 m (bone_25),
+    dragon -0.10 (tail bone_64), harpy -0.10 (bone_0), wolf -0.05 (foot bone_26).
+  - The rigged LOD files' material is named `Material_0.001`, not `Material_0` as lods.md
+    says. Harmless in Godot, which applies LOD0's material.
+  - Goblin 16:02 build: `textures/base_color_painted.png` is about 60% black (mean RGB
+    39/32/20, `paint.painted_fraction` 0.39). Texels no view painted look unfilled
+    instead of falling back to the voxel colour, so the goblin renders almost black. The
+    15:47 build looked right.
 
 ## Later
 - **Public SRD viewer (static GitHub Pages repo, e.g. `monster-forge-viewer`).** Gated on

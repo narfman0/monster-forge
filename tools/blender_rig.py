@@ -9,7 +9,8 @@ base_color, lods {k: path}, out_dir, report, hands, sockets):
 - model_rigged.glb: the rig with the current albedo, so a later paint needs no new rig.
   Sockets (docs/equipment.md) are added first: the hand bones are renamed hand_r/hand_l
   (or a small hand bone is added at the wrist when the arm ends at the forearm), the head
-  bone becomes `head`, and `back`, `hip_l`, `hip_r` are new non-deforming bones on the
+  bone becomes `head`, `grip_r`/`grip_l` are new non-deforming bones at the centre of each
+  fist in the prop frame, and `back`, `hip_l`, `hip_r` are new non-deforming bones on the
   upper spine and pelvis. SkinTokens names bones bone_<n>, so without this a game has no
   way to find a hand;
 - model_rigged_lod<k>.glb: each LOD with skin weights transferred from LOD0 by nearest
@@ -86,6 +87,8 @@ def transfer(lod_path: str, dst: Path) -> None:
     before = set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=lod_path)
     lod = next(o for o in bpy.data.objects if o not in before and o.type == "MESH")
+    for i in range(min(len(lod.data.materials), len(me.data.materials))):
+        lod.data.materials[i] = me.data.materials[i]  # LOD0's material, so the name matches (docs/lods.md)
     select(me, lod)
     bpy.context.view_layer.objects.active = me
     bpy.ops.object.data_transfer(data_type="VGROUP_WEIGHTS", use_create=True, vert_mapping="POLYINTERP_NEAREST",
@@ -117,13 +120,23 @@ def add_sockets() -> dict:
     bpy.ops.object.mode_set(mode="EDIT")
     eb = arm.data.edit_bones
 
-    def new_bone(name: str, parent: str, head, length: float, direction=(0, 0, 1)) -> None:
+    def new_bone(name: str, parent: str, head, length: float, direction=(0, 0, 1), roll_to=None) -> None:
         b = eb.new(name)
         b.head = inv @ Vector(head)
         b.tail = inv @ (Vector(head) + Vector(direction).normalized() * length)
+        if roll_to is not None:  # local +Z of the bone toward this world direction
+            b.align_roll(inv.to_3x3() @ Vector(roll_to))
         b.parent = eb[parent]
         b.use_deform = False
         found[name] = parent
+
+    def grip(side: str, hand: str, head, tail) -> None:
+        """grip_<side>: the prop frame (docs/equipment.md) as a bone. Origin at the centre
+        of the fist, +Y forward (the blade or shaft at rest, before a clip turns the hand),
+        +Z up so a prop's edge (-Z) hangs down. A BoneAttachment3D on it needs no offset.
+        `hand` is the bone's current name, head/tail its world ends."""
+        hh, ht = Vector(head), Vector(tail)
+        new_bone(f"grip_{side}", hand, hh + (ht - hh) * 0.5, 0.05 * height, (0, 1, 0), (0, 0, 1))
 
     if job.get("hands"):
         for a in rig_topology.find_arms(bones, height, legs):
@@ -131,9 +144,11 @@ def add_sockets() -> dict:
             if a["hand"]:
                 eb[a["hand"]].name = name
                 found[name] = a["hand"]
+                grip(a["side"], name, by_name[a["hand"]]["head"], by_name[a["hand"]]["tail"])
             else:
                 fa = by_name[a["forearm"]]  # continue the forearm: a prop's +Y then runs out of the fist
                 new_bone(name, a["forearm"], fa["tail"], 0.04 * height, Vector(fa["tail"]) - Vector(fa["head"]))
+                grip(a["side"], name, arm.matrix_world @ eb[name].head, arm.matrix_world @ eb[name].tail)
     if "head" in want:
         h = rig_topology.find_head(bones, height, legs)
         if h:

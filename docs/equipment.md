@@ -55,7 +55,8 @@ Each socket is a bone in the exported skeleton. Godot attaches a prop with a
 
 | socket | bone | used for |
 |---|---|---|
-| `hand_r`, `hand_l` | the deform hand bone, renamed at export (Rigify `DEF-hand.R` becomes `hand_r`). Its head is at the wrist. | held props. Weapons default to `hand_r`. Bows and shields default to `hand_l`. |
+| `hand_r`, `hand_l` | the deform hand bone, renamed at export (Rigify `DEF-hand.R` becomes `hand_r`; SkinTokens: the bone after the forearm, or a short bone added at the wrist when the arm ends there). Its head is at the wrist. | finger/hand VFX and IK targets. Weapons go on `grip_r`. Bows and shields default to `hand_l`. |
+| `grip_r`, `grip_l` | non-deforming child of the hand bone at the centre of the fist, **in prop space**: +Y forward at rest (along the blade or shaft), +Z up, so a prop's edge (-Z) hangs down | held props: a `BoneAttachment3D` on `grip_r` needs no offset. `hand_r`'s own frame runs wrist-to-fingers, which is not the grip direction |
 | `hand_r1..n`, `hand_l1..n` | as above, top pair first | multi-armed wielders (marilith: 1-3) |
 | `back` | non-deforming bone parented to the upper spine, between the shoulder blades | stowed bows, two-handed weapons, polearms, shields |
 | `hip_l`, `hip_r` | non-deforming bones parented to the pelvis at the belt | stowed one-handed weapons (swords on the left hip, for a right-hand draw) |
