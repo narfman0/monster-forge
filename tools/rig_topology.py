@@ -149,9 +149,10 @@ def path_to_root(name: str, bones: list[dict]) -> list[str]:
     return out
 
 
-def find_tail(bones: list[dict], height: float, legs: list[dict]) -> list[str]:
+def find_tail(bones: list[dict], height: float, legs: list[dict], min_bones: int = 4) -> list[str]:
     """Longest chain that leaves the hips backwards, stays low and is not a leg (forward is
-    +Y). Only meaningful for horizontal bodies: on an upright plan that test matches an arm."""
+    +Y). Only meaningful for horizontal bodies: on an upright plan that test matches an arm.
+    `min_bones` 4 for the clips (a stub is not worth swaying); roll scoring counts shorter."""
     by_name = {b["name"]: b for b in bones}
     kids = _children(bones)
     leg_bones = {n for g in legs for n in g["chain"]}
@@ -163,7 +164,7 @@ def find_tail(bones: list[dict], height: float, legs: list[dict]) -> list[str]:
         if b["name"] in leg_bones or not b["parent"] or len(kids[b["parent"]]) < 2:
             continue  # starts at a branch, so the spine above the tail is not part of it
         chain = longest_chain(b["name"], kids)
-        if len(chain) < 4 or any(n in leg_bones for n in chain):
+        if len(chain) < min_bones or any(n in leg_bones for n in chain):
             continue
         h0, h1 = by_name[chain[0]]["head"], by_name[chain[-1]]["head"]
         if h1[1] < hip_y - 0.05 * height and h1[2] < h0[2] + 0.2 * height and len(chain) > len(best):
@@ -223,3 +224,77 @@ def find_snout(bones: list[dict], height: float, legs: list[dict]) -> str | None
     if not kids[top["name"]] and p and len(kids[p]) > 1 and all(not kids[c] for c in kids[p]):
         return p
     return top["name"]
+
+
+# --- skeleton quality (roll scoring, blender_rig.py "score") -----------------------------
+
+def common_ancestor(names: list[str], bones: list[dict]) -> str | None:
+    """Deepest bone that every name descends from (or is)."""
+    paths = [path_to_root(n, bones) for n in names]
+    if not paths:
+        return None
+    out = None
+    for level in zip(*paths):
+        if any(x != level[0] for x in level):
+            break
+        out = level[0]
+    return out
+
+
+def path_between(a: str, b: str, bones: list[dict]) -> list[str]:
+    """[a ... b] through the tree (up from a to the common ancestor, down to b); [] if the
+    two are in different trees."""
+    pa, pb = path_to_root(a, bones), path_to_root(b, bones)
+    if pa[0] != pb[0]:
+        return []
+    k = 0
+    while k < min(len(pa), len(pb)) and pa[k] == pb[k]:
+        k += 1
+    return pa[k - 1:][::-1] + pb[k:]
+
+
+def leg_sides(bones: list[dict], legs: list[dict], cx: float, height: float) -> dict:
+    """Feet per side of the centre line x = cx (+X is the right) and how far the feet are
+    from mirrored pairs: mean distance from each foot's mirror image to the nearest foot on
+    the other side, as a fraction of the height (0 = every foot has a twin)."""
+    by_name = {b["name"]: b for b in bones}
+    feet = [by_name[g["foot"]]["head"] for g in legs]
+    r = [p for p in feet if p[0] >= cx]
+    l = [p for p in feet if p[0] < cx]
+    errs = []
+    for mine, other in ((r, l), (l, r)):
+        for p in mine:
+            m = (2 * cx - p[0], p[1], p[2])
+            errs.append(min((_dist(m, q) for q in other), default=height) / height)
+    return {"r": len(r), "l": len(l), "mirror": sum(errs) / len(errs) if errs else 1.0}
+
+
+def find_spine(bones: list[dict], height: float, legs: list[dict], arms: list[dict] = (),
+               head: str | None = None, upright: bool = False) -> dict:
+    """The trunk between the limbs. hip: where the hind legs (upright: the legs) branch off,
+    the common ancestor of their first bones' parents; shoulder: the same for the front
+    legs (upright: the arms). torso: the bones on the path hip -> shoulder (both ends
+    included, so a skeleton whose legs all hang off one root bone has a torso of 1); neck:
+    the head's ancestors below the shoulder, down to the head. A good SkinTokens quadruped has 3-5 torso bones (wolf), the owlbear's
+    spineless roll has 1. Forward is +Y. Keys are None when a part is missing."""
+    by_name = {b["name"]: b for b in bones}
+
+    def branch(chains: list[list[str]]) -> str | None:
+        parents = [by_name[c[0]]["parent"] for c in chains if by_name[c[0]]["parent"]]
+        return common_ancestor(parents, bones) if parents else None
+
+    if upright:
+        hind, front = [g["chain"] for g in legs], [a["chain"] for a in arms]
+    else:
+        ys = [by_name[g["foot"]]["head"][1] for g in legs]
+        mid = sum(ys) / len(ys) if ys else 0.0
+        hind = [g["chain"] for g, y in zip(legs, ys) if y < mid]
+        front = [g["chain"] for g, y in zip(legs, ys) if y >= mid]
+    hip, shoulder = branch(hind), branch(front)
+    torso = path_between(hip, shoulder, bones) if hip and shoulder else []
+    top = shoulder or hip
+    # only the part of the head's own path below the trunk: a head hung off the root
+    # beside the trunk (the owlbear) has a neck of its own bones, not the trunk's
+    neck = [n for n in path_to_root(head, bones) if n not in path_to_root(top, bones)] if top and head else []
+    return {"hip": hip, "shoulder": shoulder, "torso": torso, "neck": neck,
+            "torso_length": sum(_dist(by_name[a]["head"], by_name[b]["head"]) for a, b in zip(torso, torso[1:])) / height}

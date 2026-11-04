@@ -68,11 +68,25 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
 - [x] `forge.py rig`: N rolls, retry, score, keep the winner, rigged LODs, manifest `rig` key.
 - [ ] Add wing chains and wing weights to the stage (harpy is by hand; other winged bipeds will
       hit the same gap). The dragon's came from SkinTokens.
-- [ ] Facing check before rigging (see Rig findings).
-- [ ] The roll score is symmetry and leg count only: it picked a 22-joint wolf over a 28-joint
-      one, and it cannot see a missing spine or tail. Add an automated pose test in `tools/`
-      and a weights-heatmap thumb.
-- [ ] Owlbear: check yaw, re-roll for a spine. Wolf: no tail chain.
+- [x] Facing check before rigging (see Rig findings). (2026-11-04) Mirror-plane body axis +
+      head-end cue on `model.glb`, `manifest.rig.facing`; refuses to roll past 30 degrees at
+      confidence >= 0.5 (`rig_facing_check` override to skip). All 6 pilots pass (0-6.5
+      degrees); the dragon turned back to QA's auto-yaw error measures 58.5 and is refused;
+      the old curled dragon warns (15 degrees, confidence 0.38, twisted pose). `docs/rig-anim.md`.
+      Viewer: `viewer/app.js` FIELD_UI needs `rig_facing_check: { type: 'choice', opts: [true, false] }`
+      (it renders as a text box until then), and a HUD for the index's `rig_quality`.
+- [x] Roll score v2 (2026-11-04): spine, head, tail, wing and arm chains per plan, leg count
+      and pairs, joint band, joints outside the mesh, weight bleed, and a pose test (each
+      part bent 30 degrees: torn edges, far vertices moving, skin not following). Terms in
+      `rig/roll_<i>.json`, `manifest.rig.rolls`, `manifest.rig.quality`, index `rig_quality`.
+      On the kept rolls it picks the goblin's and the dragon's current rigs (v1 would have
+      taken dragon roll_2) and owlbear roll_1 over the kept roll_3 (verifier decides).
+      The 22-vs-28-joint wolf rolls are no longer on disk, so that case is untested.
+- [ ] Weights-heatmap thumb per roll (the score's overlay sheets are a scratch script so far).
+- [ ] `find_legs` misses feet that fan into toes from a high ankle (owlbear roll_2): the
+      score then counts missing legs and the anim stage would fail on that roll.
+- [ ] Owlbear: no roll on disk has a spine (all four hang the legs off one root); re-roll,
+      the facing is fine (4 degrees). Wolf: no tail chain (its only roll).
 - [ ] Rigify landmark-fit fallback for biped/quadruped if SkinTokens output is bad.
 
 ### D. M4 Animate (core set: idle, move, attack, hit, death)

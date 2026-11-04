@@ -128,6 +128,7 @@ FIELDS = {
     "level": (_bool, "qa", "stance leveling on/off"),
     "level_tilt": (_num(0, 60), "qa", "max tilt (deg) leveling may apply"),
     "lod_ratios": (_ratios, "lod", "LOD1.. triangle ratios of LOD0"),
+    "rig_facing_check": (_bool, "rig", "refuse to roll a skeleton when model.glb looks misfaced (false = roll anyway)"),
     "paint": (_paint, "paint", "multiview paint: {enabled, views, denoise, ip_weight, cn_strength, ...}"),
     "lod_screen_ratios": (_screen_ratios, None,
                           "viewer auto LOD: LOD0/LOD1/LOD2 when the model covers more than these fractions "
@@ -192,7 +193,7 @@ def defaults(mon: dict, style_name: str | None = None) -> dict:
         "prompt_extra": "", "negative_extra": "", "style": style_name, "seed_ref": None,
         "yaw": None, "forward": "-Z", "level": plan in FEET_BY_PLAN,
         "level_tilt": TILT_CAP_BY_PLAN.get(plan, DEFAULT_TILT_CAP),
-        "lod_ratios": list(LOD_RATIOS), "lod_screen_ratios": None, "notes": "",
+        "lod_ratios": list(LOD_RATIOS), "rig_facing_check": True, "lod_screen_ratios": None, "notes": "",
     }
 
 

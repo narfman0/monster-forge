@@ -6,9 +6,13 @@ of truth: `--force` rebuilds the game files from it (a new albedo, new LODs), on
 `--rig-reroll` rolls again, so a hand-fixed skeleton survives re-runs. model.glb stays the
 static source for paint and lod; the game files are model_rigged.glb and
 model_rigged_lod<k>.glb. Facing matters: a monster that does not point along -Z gets a
-scrambled skeleton (docs/TODO.md), so check `yaw` before blaming the rig.
+scrambled skeleton (docs/TODO.md), so before rolling the stage measures the body axis of
+model.glb on its own (blender_rig.py "facing") and refuses to roll when it is more than
+FACING_MAX_DEG off with good confidence; pin `yaw`, or set the `rig_facing_check`
+override to false for a false alarm. Roll scoring: score() below, docs/rig-anim.md.
 """
 import json
+import math
 import shutil
 import subprocess
 import sys
@@ -55,19 +59,166 @@ def blender(fg, job: dict) -> dict:
     return json.loads(Path(job["report"]).read_text())
 
 
-def score(st: dict, feet: int) -> float:
-    """Higher is better: a mirrored skeleton with all its legs and no dead bones."""
+# Facing check (blender_rig.py "facing"): refuse to roll past this angle when the
+# estimate's confidence is at least FACING_CONF. The rotated pilots are found to within
+# about 1 degree; the dragon left at QA's auto yaw is ~60 degrees off.
+FACING_MAX_DEG = 30.0
+FACING_CONF = 0.5
+
+# What a plan's skeleton should have (docs/body-plans.md). Upright plans have arms and
+# no tail test (find_tail matches an arm there); spiders have no spine to speak of.
+UPRIGHT = {"biped", "winged_biped", "centauroid", "merfolk_naga"}
+TAILED = {"quadruped", "winged_quadruped"}
+WINGED = {"winged_quadruped", "winged_biped"}
+SPINED = {"biped", "winged_biped", "quadruped", "winged_quadruped", "avian", "centauroid", "merfolk_naga"}
+LEG_RANGE = {"insectoid": (6, 10)}  # 8 legs + pedipalps or claws reach the ground too
+# plausible joint counts; SkinTokens gave goblin 29-37, wolf 22-28, owlbear 18-46,
+# dragon 45-80, spider 37, harpy 22-43
+JOINTS = {"biped": (24, 70), "winged_biped": (24, 80), "quadruped": (20, 70), "winged_quadruped": (36, 100),
+          "insectoid": (24, 90), "avian": (18, 80)}
+JOINTS_DEFAULT = (8, 100)
+
+# Penalty weights (score = -sum of the weighted terms). The units: one missing structural
+# part (a leg, an arm side, a wing side, the spine, the tail) costs 0.5, so any one of
+# them outweighs the small-number terms, which rank rolls that have every part. The
+# mesh and pose terms are fractions; their weights put a clearly bad value (a third of
+# the far body moving, a tenth of the moving edges torn) at about one missing part.
+WEIGHTS = {
+    "symmetry": 5.0,        # v1: joint mirror error / height (0.003-0.02 good)
+    "legs": 0.5,            # per leg missing or extra against the plan
+    "leg_pairs": 0.3,       # per leg without a twin on the other side
+    "feet_mirror": 1.0,     # feet mirror error / height
+    "spine": 0.5,           # per torso bone short of 3 (hip, one between, shoulder)
+    "head": 0.5,            # no head found
+    "tail": 0.125,          # per tail bone short of 4, tailed plans
+    "wings": 0.5,           # per wing side missing, winged plans
+    "arms": 0.5,            # per arm side missing, upright plans
+    "joints": 0.02,         # per joint outside the plan's band
+    "dead_bones": 0.02,     # v1: per empty or zero-length bone
+    "outside": 2.0,         # share of joints more than 5% of the height outside the mesh
+    "bleed": 1.0,           # share of weight far from its bone + side bones' weight across the centre
+    "torn": 10.0,           # pose test: mean share of moving edges stretched past 2x
+    "stretch": 0.25,        # pose test: log2 of the worst edge stretch past 8x
+    "stray": 2.0,           # pose test: mean share of far vertices that moved
+    "follow": 0.5,          # pose test: per bend, how much of the part's own skin stays behind
+}
+
+
+def score_v1(st: dict, feet: int) -> float:
+    """The first score (kept for comparison): a mirrored skeleton with all its legs and no
+    dead bones. It picked a 22-joint wolf over a 28-joint one and cannot see a spine."""
     if st["unweighted_verts"]:
         return -10.0
     return -5.0 * st["symmetry"] - 0.5 * max(0, feet - st["legs"]) \
         - 0.02 * st["empty_bones"] - 0.02 * st["zero_length_bones"]
 
 
+def score_terms(st: dict, plan: str, hands: bool = False) -> dict:
+    """Weighted penalties per term (all >= 0) from blender_rig.py's score report."""
+    w = WEIGHTS
+    t = {"symmetry": w["symmetry"] * st["symmetry"],
+         "dead_bones": w["dead_bones"] * (st["empty_bones"] + st["zero_length_bones"])}
+    if plan in FEET:
+        lo, hi = LEG_RANGE.get(plan, (FEET[plan], FEET[plan]))
+        t["legs"] = w["legs"] * (max(0, lo - st["legs"]) + max(0, st["legs"] - hi))
+        t["leg_pairs"] = w["leg_pairs"] * abs(st["legs_r"] - st["legs_l"])
+        t["feet_mirror"] = w["feet_mirror"] * min(st["feet_mirror"], 1.0)
+    if plan in SPINED:
+        t["spine"] = w["spine"] * max(0, 3 - st["torso_bones"])
+    if plan != "insectoid":
+        t["head"] = w["head"] * (st["head"] is None)
+    if plan in TAILED:
+        t["tail"] = w["tail"] * max(0, 4 - st["tail_bones"])
+    if plan in WINGED:
+        t["wings"] = w["wings"] * max(0, 2 - st["wings"])
+    if plan in UPRIGHT and hands:
+        t["arms"] = w["arms"] * max(0, 2 - st["arms"])
+    lo, hi = JOINTS.get(plan, JOINTS_DEFAULT)
+    t["joints"] = w["joints"] * (max(0, lo - st["joints"]) + max(0, st["joints"] - hi))
+    t["outside"] = w["outside"] * st["outside"]
+    t["bleed"] = w["bleed"] * (st["bleed_far"] + st["bleed_cross"])
+    pose = st.get("pose") or []
+    if pose:
+        t["torn"] = w["torn"] * sum(b["torn"] for b in pose) / len(pose)
+        t["stretch"] = w["stretch"] * max(0.0, math.log2(max(b["stretch_max"] for b in pose) / 8))
+        t["stray"] = w["stray"] * sum(b["stray"] for b in pose) / len(pose)
+        t["follow"] = w["follow"] * sum(max(0.0, 1 - b["follow"]) for b in pose)
+    return {k: round(v, 4) for k, v in t.items()}
+
+
+def score(st: dict, plan: str, hands: bool = False) -> float:
+    """Higher is better (0 is a perfect roll). Falls back to score_v1 for an old report
+    without the quality terms."""
+    if st["unweighted_verts"]:
+        return -10.0
+    if "torso_bones" not in st:
+        return score_v1(st, FEET.get(plan, 0))
+    return -sum(score_terms(st, plan, hands).values())
+
+
+# Terms that mean a part the plan needs is missing or doubled: the anim stage cannot build
+# that part's motion, so the stage logs them loudly and the viewer can flag the monster.
+STRUCTURE = ("legs", "leg_pairs", "spine", "head", "tail", "wings", "arms")
+
+
+def scored(st: dict, plan: str, hands: bool) -> dict:
+    """st plus score, score_v1, terms and problems (what roll_<i>.json and manifest
+    rig.rolls keep)."""
+    st["score"] = round(score(st, plan, hands), 3)
+    st["score_v1"] = round(score_v1(st, FEET.get(plan, 0)), 3)
+    if "torso_bones" in st:
+        st["terms"] = score_terms(st, plan, hands)
+        st["problems"] = [k for k in STRUCTURE if st["terms"].get(k, 0) > 0]
+    return st
+
+
+def summary(st: dict) -> dict:
+    """A roll report without the per-bone lists, for the manifest."""
+    out = {k: v for k, v in st.items() if k not in ("parts", "pose")}
+    if st.get("pose"):
+        out["pose"] = [{k: b[k] for k in ("part", "bone", "torn", "stray", "follow")} for b in st["pose"]]
+    return out
+
+
+def score_job(mon: dict, src: Path, report: Path) -> dict:
+    plan = mon["body_plan"]
+    return {"mode": "score", "src": str(src), "report": str(report), "sprawl": plan in SPRAWLED,
+            "upright": plan in UPRIGHT, "plan": plan}
+
+
+def facing_check(fg, mon: dict, d: Path) -> dict:
+    """Body axis of model.glb vs +Y (blender_rig.py "facing"), before any roll."""
+    (d / "rig").mkdir(exist_ok=True)
+    man = fg.load_manifest(d)
+    rep = blender(fg, {"mode": "facing", "src": str(d / "model.glb"), "report": str(d / "rig" / "facing.json"),
+                       "plan": mon["body_plan"], "head_region": (man.get("qa") or {}).get("head_region"),
+                       "forward": overrides.load(mon["source"], mon["id"]).get("forward") or "-Z"})
+    bad = rep["angle_deg"] > FACING_MAX_DEG
+    out = {"method": "mirror_plane" + ("+" + rep["sign_rule"] if rep["head_known"] else ""),
+           "angle_deg": rep["angle_deg"], "confidence": rep["confidence"],
+           "ok": not (bad and rep["confidence"] >= FACING_CONF),
+           "head_known": rep["head_known"], "bearing_deg": rep["bearing_deg"],
+           "symmetry_error": rep["symmetry_error"], "symmetry_contrast": rep["symmetry_contrast"]}
+    for k in ("footprint_axis_deg", "footprint_elongation", "head_region_bearing_deg"):
+        if k in rep:
+            out[k] = rep[k]
+    yaw = (man.get("qa") or {}).get("yaw_deg")
+    if yaw is not None:  # QA turns by yaw about +Z; adding the bearing lands the estimate on +Y
+        out["suggested_yaw"] = round(((yaw + rep["bearing_deg"] + 180) % 360) - 180, 1)
+    if bad or out["confidence"] < FACING_CONF:
+        fg.log(f"{mon['id']}: WARNING rig facing: body axis {out['angle_deg']} deg off +Y "
+               f"(confidence {out['confidence']}{', head end unknown' if not rep['head_known'] else ''})"
+               + (f"; pin `yaw` (about {out.get('suggested_yaw')}) in data/overrides and re-run qa" if bad else
+                  "; low confidence (asymmetric pose?), rolling anyway"))
+    else:
+        fg.log(f"{mon['id']}: rig facing ok: {out['angle_deg']} deg off +Y, confidence {out['confidence']}")
+    return out
+
+
 def roll(fg, mon: dict, d: Path, rolls: int) -> dict:
     rdir = d / "rig"
     rdir.mkdir(exist_ok=True)
-    feet = FEET.get(mon["body_plan"], 0)
-    sprawl = mon["body_plan"] in SPRAWLED
+    plan, hands = mon["body_plan"], bool(mon.get("hands"))
     fg.wait_idle()
     paint.free_comfy(fg)  # SkinTokens needs ~14 GB
     results = []
@@ -79,18 +230,21 @@ def roll(fg, mon: dict, d: Path, rolls: int) -> dict:
         if proc.returncode != 0 or not out.exists():
             fg.log(f"{mon['id']}: rig roll {i} failed ({proc.stderr.strip().splitlines()[-1][:120] if proc.stderr else proc.returncode})")
             continue
-        st = blender(fg, {"mode": "score", "src": str(out), "report": str(rdir / f"roll_{i}.json"),
-                          "sprawl": sprawl})
-        st["score"] = round(score(st, feet), 3)
+        st = scored(blender(fg, score_job(mon, out, rdir / f"roll_{i}.json")), plan, hands)
         st["file"] = out.name
+        (rdir / f"roll_{i}.json").write_text(json.dumps(st, indent=1))
+        worst = sorted(st.get("terms", {}).items(), key=lambda kv: -kv[1])[:3]
         fg.log(f"{mon['id']}: rig roll {i}: {st['joints']} joints, {st['legs']} legs, "
-               f"symmetry {st['symmetry']}, score {st['score']}")
+               f"score {st['score']} (v1 {st['score_v1']}), worst {worst}")
         results.append(st)
     if not results:
         raise RuntimeError(f"{mon['id']}: all {rolls} SkinTokens rolls failed")
     best = max(results, key=lambda r: r["score"])
+    if best.get("problems"):
+        fg.log(f"{mon['id']}: WARNING best rig roll {best['file']} still has problems {best['problems']} "
+               f"(terms {best['terms']}); consider --rig-reroll or a hand fix")
     shutil.copyfile(rdir / best["file"], rdir / "chosen.glb")
-    return {"rolls": results, "picked": best["file"]}
+    return {"rolls": [summary(r) for r in results], "picked": best["file"]}
 
 
 def stage_rig(fg, mon: dict, d: Path, args) -> None:
@@ -106,7 +260,17 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
     t0 = time.time()
     chosen = d / "rig" / "chosen.glb"
     info = {}
-    if args.rig_reroll or not chosen.exists():
+    rolling = args.rig_reroll or not chosen.exists()
+    facing = facing_check(fg, mon, d)
+    check = overrides.load(mon["source"], mon["id"]).get("rig_facing_check")
+    if rolling and not facing["ok"] and check is not False:
+        man = fg.load_manifest(d)
+        man.setdefault("rig", {"error": "facing check failed"})["facing"] = facing
+        fg.save_manifest(d, man)
+        raise RuntimeError(f"{mon['id']}: model.glb faces {facing['angle_deg']} deg off +Y (confidence "
+                           f"{facing['confidence']}): SkinTokens scrambles misfaced meshes. Pin `yaw` "
+                           f"(about {facing.get('suggested_yaw')}) and re-run qa, or set rig_facing_check false")
+    if rolling:
         info = roll(fg, mon, d, args.rig_rolls or ROLLS)
     else:
         fg.log(f"{mon['id']}: rig uses the kept skeleton rig/chosen.glb")
@@ -117,6 +281,9 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
                        "lods": lod_paths, "out_dir": str(d), "report": str(d / "rig.json"),
                        "sprawl": mon["body_plan"] in SPRAWLED, "hands": bool(mon.get("hands")),
                        "sockets": mon.get("sockets") or []})
+    # the kept skeleton's quality terms, also when it was not rolled now (a hand-fixed rig)
+    q = scored(blender(fg, score_job(mon, chosen, d / "rig" / "chosen.json")), mon["body_plan"], bool(mon.get("hands")))
+    (d / "rig" / "chosen.json").write_text(json.dumps(q, indent=1))
     man = fg.load_manifest(d)
     missing = [s for s in (mon.get("sockets") or []) if s not in rep["sockets"]]
     if missing:
@@ -124,7 +291,9 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
     man["rig"] = {"tool": "skintokens", "joints": rep["joints"], "legs": rep["legs"], "symmetry": rep["symmetry"],
                   "sockets": rep["sockets"], "sockets_missing": missing,
                   "empty_bones": rep["empty_bones"], "seconds": round(time.time() - t0, 1),
-                  **({"picked": info["picked"], "rolls": info["rolls"]} if info else {"picked": (man.get("rig") or {}).get("picked", "chosen.glb")})}
+                  "facing": facing, "quality": summary(q),
+                  **({"picked": info["picked"], "rolls": info["rolls"]} if info else
+                     {k: v for k, v in (man.get("rig") or {}).items() if k in ("picked", "rolls")} or {"picked": "chosen.glb"})}
     man.setdefault("timings", {})["rig"] = man["rig"]["seconds"]
     fg.save_manifest(d, man)
     fg.log(f"{mon['id']}: rig done in {man['rig']['seconds']}s, {rep['joints']} joints, {rep['legs']} legs, "

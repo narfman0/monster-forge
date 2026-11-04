@@ -164,6 +164,23 @@ def stage_status(d: Path, man: dict) -> dict:
     }
 
 
+def rig_quality(rig_m: dict) -> dict | None:
+    """The rig stage's checks for the HUD (tools/rig.py, docs/rig-anim.md): the facing check
+    on model.glb (`facing`: angle_deg off +Y, confidence, ok) and the kept skeleton's score
+    (`score`, the v1 `score_v1`, weighted penalty `terms`, `problems`: missing or doubled
+    parts) plus the picked roll and every roll's score. None before the stage has run."""
+    q = rig_m.get("quality") if isinstance(rig_m.get("quality"), dict) else {}
+    facing = rig_m.get("facing") if isinstance(rig_m.get("facing"), dict) else None
+    if not q and not facing:
+        return None
+    rolls = rig_m.get("rolls") if isinstance(rig_m.get("rolls"), list) else []
+    return {"facing": facing, "score": q.get("score"), "score_v1": q.get("score_v1"),
+            "terms": q.get("terms"), "problems": q.get("problems"), "joints": q.get("joints"),
+            "picked": rig_m.get("picked"),
+            "rolls": [{"file": r.get("file"), "score": r.get("score"), "score_v1": r.get("score_v1"),
+                       "joints": r.get("joints"), "problems": r.get("problems")} for r in rolls if isinstance(r, dict)]}
+
+
 def build_index(source: str) -> dict:
     reg = load_json(REGISTRY_DIR / f"{source}.json")
     monsters = reg.get("monsters", [])
@@ -189,6 +206,7 @@ def build_index(source: str) -> dict:
         placed = rig_m.get("sockets") if isinstance(rig_m.get("sockets"), dict) else {}
         entry["rig_sockets"] = dict(placed) if st["stages"]["rig"] else None
         entry["sockets_missing"] = [s for s in entry["sockets"] if s not in placed] if st["stages"]["rig"] else None
+        entry["rig_quality"] = rig_quality(rig_m)
         entry["tri_count"] = man.get("tri_count")
         entry["dir"] = f"/out/{source}/{rec['id']}/"
         entry["errors"] = len(man.get("errors", []) or [])
