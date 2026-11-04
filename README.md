@@ -54,7 +54,8 @@ A local web page (stdlib server, vanilla JS, vendored three.js) for checking pro
 assets: stage counts per body plan, a filterable monster list, a three.js view of
 `model.glb` with a 1.8 m scale figure, wireframe/texture toggles, and animation playback
 for embedded clips and `anims/<clip>.glb` files with a clip selector, an LOD switcher, a per-monster overrides
-form and a re-run job queue (`forge.py run --stages ...` in the background). The stage-status rules that `forge.py` has
+form and a re-run job queue (`forge.py run --stages ...` in the background). On rigged models it can show the
+skeleton, socket markers and placeholder sword and bow props following the clip. The stage-status rules that `forge.py` has
 to follow (`rig`, `anim` in `manifest.json`) are in `viewer/README.md`.
 
 ## License and attribution

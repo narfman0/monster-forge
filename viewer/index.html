@@ -52,7 +52,9 @@
     <label title="wireframe drawn over the shaded mesh (W)"><input type="checkbox" id="t-wireo"> wire on shaded</label>
     <label><input type="checkbox" id="t-tex" checked> textures</label>
     <label><input type="checkbox" id="t-env" checked> env light</label>
-    <label><input type="checkbox" id="t-skel"> skeleton</label>
+    <label title="bones of the rigged model, following the clip"><input type="checkbox" id="t-skel"> skeleton</label>
+    <label title="socket bones with their name and prop-space axes: green +Y (blade), blue -Z (edge / arrow), red +X (s)"><input type="checkbox" id="t-sockets"> sockets</label>
+    <label title="placeholder sword on hand_r, bow on hand_l (p)"><input type="checkbox" id="t-prop"> prop</label>
     <label><input type="checkbox" id="t-ref" checked> 1.8 m ref</label>
     <label><input type="checkbox" id="t-rotate"> turntable</label>
     <button id="b-frame" title="re-frame camera (f)">frame</button>
@@ -122,7 +124,7 @@
     <a id="manifest-link" target="_blank" class="muted"></a>
   </section>
   <section class="muted keys">
-    j/k ↑/↓ move · space play · n next clip · 1-9 pick clip · 0 rest · c cycle · w wire · W wire on shaded · t textures · a auto LOD · l pin next LOD · f frame · / search
+    j/k ↑/↓ move · space play · n next clip · 1-9 pick clip · 0 rest · c cycle · w wire · W wire on shaded · s sockets · p prop · t textures · a auto LOD · l pin next LOD · f frame · / search
   </section>
 </aside>
 

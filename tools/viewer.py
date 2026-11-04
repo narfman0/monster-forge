@@ -42,7 +42,7 @@ REGISTRY_DIR = ROOT / "data" / "registry"
 STAGES = ("ref", "mesh", "qa", "paint", "lod", "rig", "anim")
 RUN_STAGES = ("ref", "mesh", "qa", "paint", "lod", "rig", "anim")  # what a re-run job may redo
 RECORD_KEYS = ("id", "name", "source", "size", "type", "tags", "cr", "body_plan",
-               "body_plan_confidence", "rig_template", "animation_set", "scale_m", "speeds")
+               "body_plan_confidence", "rig_template", "animation_set", "scale_m", "speeds", "sockets")
 
 
 def load_json(p: Path) -> dict:
@@ -182,6 +182,13 @@ def build_index(source: str) -> dict:
         entry["expected_clips"] = expected
         entry["missing_clips"] = missing
         entry["anim_complete"] = bool(expected) and not missing
+        # Sockets: what the registry asks for vs what the rig stage placed ({socket: original
+        # bone}, manifest rig.sockets). Both rig fields are null until the monster is rigged.
+        entry["sockets"] = list(rec.get("sockets") or [])
+        rig_m = man.get("rig") if isinstance(man.get("rig"), dict) else {}
+        placed = rig_m.get("sockets") if isinstance(rig_m.get("sockets"), dict) else {}
+        entry["rig_sockets"] = dict(placed) if st["stages"]["rig"] else None
+        entry["sockets_missing"] = [s for s in entry["sockets"] if s not in placed] if st["stages"]["rig"] else None
         entry["tri_count"] = man.get("tri_count")
         entry["dir"] = f"/out/{source}/{rec['id']}/"
         entry["errors"] = len(man.get("errors", []) or [])

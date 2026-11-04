@@ -117,10 +117,10 @@ def add_sockets() -> dict:
     bpy.ops.object.mode_set(mode="EDIT")
     eb = arm.data.edit_bones
 
-    def new_bone(name: str, parent: str, head, length: float) -> None:
+    def new_bone(name: str, parent: str, head, length: float, direction=(0, 0, 1)) -> None:
         b = eb.new(name)
         b.head = inv @ Vector(head)
-        b.tail = inv @ (Vector(head) + Vector((0, 0, length)))
+        b.tail = inv @ (Vector(head) + Vector(direction).normalized() * length)
         b.parent = eb[parent]
         b.use_deform = False
         found[name] = parent
@@ -132,8 +132,8 @@ def add_sockets() -> dict:
                 eb[a["hand"]].name = name
                 found[name] = a["hand"]
             else:
-                fa = by_name[a["forearm"]]
-                new_bone(name, a["forearm"], fa["tail"], 0.04 * height)
+                fa = by_name[a["forearm"]]  # continue the forearm: a prop's +Y then runs out of the fist
+                new_bone(name, a["forearm"], fa["tail"], 0.04 * height, Vector(fa["tail"]) - Vector(fa["head"]))
     if "head" in want:
         h = rig_topology.find_head(bones, height, legs)
         if h:

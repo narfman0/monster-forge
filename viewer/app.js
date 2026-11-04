@@ -156,6 +156,8 @@ const view = {
   raw: null, rawPromise: null, showRaw: false,
   coverage: null, coveragePx: 0, autoLevel: null, autoT: 0,
   overlays: [], albedoTex: {},
+  socketBones: [],     // [{name, bone}] socket bones of the loaded skeleton (not bone_<n>)
+  markers: [], props: [],
 };
 const clock = new THREE.Clock();
 const loader = new GLTFLoader();
@@ -174,6 +176,7 @@ resize();
 function animate() {
   const dt = clock.getDelta();
   if (view.mixer && view.playing && !view.scrubbing) view.mixer.update(dt);
+  updateSocketMarkers();
   if (view.cycle && view.clips.length > 1 && view.playing) {
     view.cycleT += dt;
     if (view.cycleT >= Number($('cycle-secs').value || 4)) { view.cycleT = 0; nextClip(); }
@@ -194,6 +197,8 @@ function disposeModel() {
   if (view.skelHelper) { scene.remove(view.skelHelper); view.skelHelper.dispose?.(); }
   for (const [k, g] of Object.entries(view.lodGeoms)) if (k !== '0') g.dispose();
   clearWireOverlay();
+  clearSocketMarkers();
+  clearProps();
   if (view.raw) { scene.remove(view.raw.group); disposeTree(view.raw.group); }
   for (const t of Object.values(view.albedoTex)) t.dispose();
   if (view.root) {
@@ -210,7 +215,7 @@ function disposeModel() {
   }
   Object.assign(view, { root: null, mixer: null, clips: [], action: null, clipIdx: -1, skelHelper: null, box: null, cycleT: 0,
     lod: 0, lodMesh: null, lodGeoms: {}, raw: null, rawPromise: null, showRaw: false, autoLevel: null, overlays: [],
-    albedoTex: {} });
+    albedoTex: {}, socketBones: [], markers: [], props: [] });
 }
 
 function disposeTree(root) {
@@ -282,7 +287,7 @@ function placeLights(box) {
 function triCount(root) {
   let n = 0;
   root.traverse((o) => {
-    if (!o.isMesh) return;
+    if (!o.isMesh || o.userData.overlay) return;
     const g = o.geometry;
     n += (g.index ? g.index.count : g.attributes.position.count) / 3;
   });
@@ -366,10 +371,14 @@ async function loadModel(entry) {
   const box = new THREE.Box3().setFromObject(root, true);
   view.box = box;
   if (skinned) {
+    // Added after root, so scene.updateMatrixWorld has posed the bones before the helper
+    // reads them (it draws parent-to-child lines from the bones' world matrices).
     view.skelHelper = new THREE.SkeletonHelper(root);
+    view.skelHelper.setColors(new THREE.Color(0xffb347), new THREE.Color(0x7dffb0));
     view.skelHelper.visible = $('t-skel').checked;
     scene.add(view.skelHelper);
   }
+  view.socketBones = findSocketBones(root);
   const size = box.getSize(new THREE.Vector3());
   setGrid(Math.max(size.x, size.z, 2));
   placeLights(box);
@@ -391,6 +400,8 @@ async function loadModel(entry) {
   renderLodBar(entry);
   setHud(entry, view.info);
   updateWireOverlay();
+  updateSocketMarkers(true);
+  updateProps();
   applyAlbedo(entry, token);
   preloadLods(entry, token).then(() => { if (token === state.loadToken) applyMode(); });
   applyMode();
@@ -449,6 +460,7 @@ async function setLod(k, token = state.loadToken) {
   view.showRaw = false;
   view.root.visible = true;
   if (view.raw) view.raw.group.visible = false;
+  syncRigHelpers();
   view.info.tris = triCount(view.root);
   view.info.file = k ? entry.lods[k].file : view.info.lod0.file;
   if (changed) { setHud(entry, view.info); updateWireOverlay(); }
@@ -558,6 +570,7 @@ async function showRaw(token = state.loadToken) {
   view.showRaw = true;
   raw.group.visible = true;
   view.root.visible = false;
+  syncRigHelpers();
   view.info.tris = raw.faces;
   view.info.file = raw.file + (raw.aligned === 'as-is' ? '' : ` (aligned: ${raw.aligned})`);
   setHud(entry, view.info);
@@ -748,6 +761,8 @@ document.addEventListener('click', (e) => {
 
 // Wireframe on shaded: a line overlay sharing the visible mesh's geometry. three.js builds
 // the wireframe index lazily on first draw, so nothing is built until this is switched on.
+// A skinned mesh gets a SkinnedMesh overlay bound to the same skeleton and bind matrix, so
+// the lines deform with the clip (a plain Mesh would draw the bind pose).
 const overlayMat = new THREE.MeshBasicMaterial({ color: 0x0d1018, wireframe: true, transparent: true, opacity: 0.35, depthWrite: false });
 function clearWireOverlay() {
   for (const o of view.overlays) o.parent?.remove(o);
@@ -766,9 +781,19 @@ function updateWireOverlay() {
   if (!on) return;
   const target = view.showRaw ? view.raw?.group : view.root;
   const meshes = [];
-  target?.traverse((o) => { if (o.isMesh && !o.isSkinnedMesh && !o.userData.overlay) meshes.push(o); });
+  target?.traverse((o) => { if (o.isMesh && !o.userData.overlay) meshes.push(o); });
   for (const m of meshes) {
-    const w = new THREE.Mesh(m.geometry, overlayMat);
+    let w;
+    if (m.isSkinnedMesh) {
+      // Child of the skinned mesh in 'attached' mode: its own matrixWorld cancels out in the
+      // skinning shader, so only the shared skeleton and bind matrix decide the pose.
+      w = new THREE.SkinnedMesh(m.geometry, overlayMat);
+      w.bindMode = m.bindMode;
+      w.bind(m.skeleton, m.bindMatrix);
+      w.frustumCulled = false;  // the bind-pose bounds do not follow the clip
+    } else {
+      w = new THREE.Mesh(m.geometry, overlayMat);
+    }
     w.userData.overlay = true;
     w.renderOrder = 1;
     w.raycast = () => {};
@@ -807,7 +832,7 @@ async function applyAlbedo(entry, token = state.loadToken) {
   }
   if (state.albedo !== which) return;
   view.root.traverse((o) => {
-    if (!o.isMesh) return;
+    if (!o.isMesh || o.userData.overlay) return;
     for (const m of [].concat(o.material)) {
       if (!('origMap' in m.userData)) m.userData.origMap = m.userData.maps.map || null;
       const orig = m.userData.origMap;
@@ -831,6 +856,8 @@ function setHud(entry, info) {
     if (info.skinned && !entry.stages.rig) rig += '  (manifest has no rig stage)';
     if (!info.skinned && entry.stages.rig) rig += '  (manifest says rigged!)';
     lines.push(rig);
+    const sk = socketSummary(entry, info.skinned);
+    if (sk) lines.push(sk);
   }
   $('hud-stats').textContent = lines.join('\n');
 }
@@ -971,6 +998,171 @@ function renderClips(entry) {
   }
 }
 
+// ------------------------------------------------------------------ sockets and props
+// Socket bones (docs/equipment.md) are the bones the rig stage renamed or added; SkinTokens
+// bones are all bone_<n>, so any other bone name is a socket. The manifest's rig.sockets
+// (index rig_sockets) names the same set; the HUD flags any disagreement.
+const SKIN_BONE = /^bone_\d+$/;
+function findSocketBones(root) {
+  const out = [];
+  root.traverse((o) => { if (o.isBone && !SKIN_BONE.test(o.name)) out.push({ name: o.name, bone: o }); });
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function socketSummary(entry, skinned) {
+  const inGlb = view.socketBones.map((s) => s.name);
+  const want = entry.sockets || [];
+  if (!inGlb.length && !want.length) return '';
+  if (!skinned) return `sockets wanted: ${want.join(' ')}   (not rigged)`;
+  const missing = want.filter((s) => !inGlb.includes(s));
+  let line = `sockets: ${inGlb.join(' ') || 'none'}`;
+  if (missing.length) line += `   missing: ${missing.join(' ')}`;
+  const man = Object.keys(entry.rig_sockets || {});
+  const off = man.filter((s) => !inGlb.includes(s));
+  if (off.length) line += `   (manifest only: ${off.join(' ')})`;
+  return line;
+}
+
+// Model height scales the marker and label sizes, so they read the same on a goblin and a dragon.
+const modelHeight = () => (view.box ? Math.max(view.box.max.y - view.box.min.y, 0.3) : 1.8);
+
+function labelSprite(text, height) {
+  const c = document.createElement('canvas');
+  const ctx = c.getContext('2d');
+  const font = '600 40px system-ui, sans-serif';
+  ctx.font = font;
+  c.width = Math.ceil(ctx.measureText(text).width) + 24;
+  c.height = 56;
+  ctx.font = font;
+  ctx.fillStyle = 'rgba(12,14,18,0.78)';
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = '#ffd36a';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 12, c.height / 2 + 2);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false, toneMapped: false }));
+  sp.scale.set(height * c.width / c.height, height, 1);
+  sp.center.set(0, 0);  // bottom-left corner at the anchor
+  return sp;
+}
+
+// Gizmo in the bone's frame, in prop-space terms: green +Y (along the blade, toward the
+// tip), blue -Z (the edge / the way an arrow points), short red +X.
+function makeSocketMarker(name, size) {
+  const g = new THREE.Group();
+  const arrow = (x, y, z, color, len) => new THREE.ArrowHelper(new THREE.Vector3(x, y, z), new THREE.Vector3(), len, color, len * 0.25, len * 0.12);
+  g.add(arrow(0, 1, 0, 0x5ee07a, size), arrow(0, 0, -1, 0x4fa8ff, size * 0.7), arrow(1, 0, 0, 0xff5a5a, size * 0.35));
+  const label = labelSprite(name, size * 0.32);
+  label.position.set(0, size * 0.15, 0);
+  label.userData.label = true;
+  g.add(label);
+  g.traverse((o) => {
+    o.renderOrder = 20;
+    if (o.material) { o.material.depthTest = false; o.material.depthWrite = false; o.material.transparent = true; }
+  });
+  return g;
+}
+
+function clearSocketMarkers() {
+  for (const m of view.markers) {
+    scene.remove(m.obj);
+    m.obj.traverse((o) => { o.material?.map?.dispose(); o.material?.dispose(); });
+  }
+  view.markers = [];
+}
+
+// Markers live in the scene (not under the bones, which may carry scale) and copy each
+// socket bone's world position and rotation every frame, after the mixer has posed it.
+const _mp = new THREE.Vector3(), _mq = new THREE.Quaternion(), _ms = new THREE.Vector3();
+function updateSocketMarkers(rebuild = false) {
+  const on = $('t-sockets').checked && !!view.root;
+  if (rebuild || !on) {
+    clearSocketMarkers();
+    if (!on) return;
+    const size = THREE.MathUtils.clamp(modelHeight() * 0.12, 0.06, 0.6);
+    for (const s of view.socketBones) {
+      const obj = makeSocketMarker(s.name, size);
+      scene.add(obj);
+      view.markers.push({ obj, bone: s.bone });
+    }
+  }
+  if (!view.markers.length) return;
+  view.root.updateMatrixWorld(true);
+  for (const m of view.markers) {
+    m.bone.matrixWorld.decompose(_mp, _mq, _ms);
+    m.obj.position.copy(_mp);
+    m.obj.quaternion.copy(_mq);
+    m.obj.visible = !view.showRaw;
+  }
+}
+
+// Placeholder props, built in prop space (origin at the grip, +Y toward the tip, -Z the edge
+// or arrow direction) for a 1.8 m wielder, scaled by scale_m / 1.8 like the runtime props,
+// and added as children of the socket bone so they follow it exactly as a Godot
+// BoneAttachment3D would. The bone's own world scale is divided out.
+const propMat = {
+  steel: new THREE.MeshStandardMaterial({ color: 0xc9ced6, metalness: 0.85, roughness: 0.3 }),
+  edge: new THREE.MeshBasicMaterial({ color: 0xff5a5a }),
+  grip: new THREE.MeshStandardMaterial({ color: 0x4a2f1c, roughness: 0.8 }),
+  wood: new THREE.MeshStandardMaterial({ color: 0x8a5a2b, roughness: 0.7 }),
+  string: new THREE.LineBasicMaterial({ color: 0xeeeeee }),
+};
+function makeSword() {
+  const g = new THREE.Group();
+  const add = (geo, mat, y) => { const m = new THREE.Mesh(geo, mat); m.position.y = y; m.castShadow = true; g.add(m); return m; };
+  add(new THREE.BoxGeometry(0.012, 0.72, 0.05), propMat.steel, 0.13 + 0.36);   // blade 0.13-0.85 m, flat in YZ
+  add(new THREE.BoxGeometry(0.016, 0.72, 0.006), propMat.edge, 0.49).position.z = -0.027;  // -Z cutting edge
+  add(new THREE.BoxGeometry(0.03, 0.03, 0.2), propMat.steel, 0.115);           // crossguard
+  add(new THREE.CylinderGeometry(0.016, 0.016, 0.2, 8), propMat.grip, 0.0);     // grip, origin at its middle
+  add(new THREE.SphereGeometry(0.028, 8, 6), propMat.steel, -0.11);             // pommel
+  return g;
+}
+function makeBow() {
+  // Shortbow, ~1.1 m: the stave bows toward -Z (the arrow direction) at the grip, the tips
+  // sweep back toward the archer (+Z), the string joins the tips.
+  const R = 0.8, a = 0.72, pts = [];
+  for (let i = 0; i <= 16; i++) { const t = -a + (2 * a * i) / 16; pts.push(new THREE.Vector3(0, R * Math.sin(t), R * (1 - Math.cos(t)))); }
+  const g = new THREE.Group();
+  const stave = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 32, 0.014, 6), propMat.wood);
+  stave.castShadow = true;
+  const tip = pts[pts.length - 1];
+  const string = new THREE.Line(new THREE.BufferGeometry().setFromPoints([pts[0], tip]), propMat.string);
+  g.add(stave, string);
+  return g;
+}
+const PROPS = [{ socket: 'hand_r', make: makeSword }, { socket: 'hand_l', make: makeBow }];
+
+function clearProps() {
+  for (const p of view.props) {
+    p.parent?.remove(p);
+    p.traverse((o) => o.geometry?.dispose());
+  }
+  view.props = [];
+}
+
+function updateProps() {
+  clearProps();
+  if (!$('t-prop').checked || !view.root) return;
+  const s = (Number(view.entry?.scale_m) || 1.8) / 1.8;
+  view.root.updateMatrixWorld(true);
+  for (const { socket, make } of PROPS) {
+    const bone = view.socketBones.find((b) => b.name === socket)?.bone;
+    if (!bone) continue;
+    const p = make();
+    const ws = bone.getWorldScale(new THREE.Vector3());
+    p.scale.set(s / ws.x, s / ws.y, s / ws.z);
+    p.traverse((o) => { o.userData.overlay = true; });  // not model geometry: skip in toggles, tri counts, albedo
+    bone.add(p);
+    view.props.push(p);
+  }
+}
+
+function syncRigHelpers() {
+  if (view.skelHelper) view.skelHelper.visible = $('t-skel').checked && !view.showRaw;
+  updateSocketMarkers();
+}
+
 // ------------------------------------------------------------------ images + details
 async function renderSide(entry) {
   const imgs = $('images');
@@ -1021,6 +1213,13 @@ async function renderSide(entry) {
   if (man.mesh) rows.push(['mesh seed', `${man.mesh.seed} (${man.mesh.model})`]);
   if (man.rig) rows.push(['rig', JSON.stringify(man.rig)]);
   if (man.anim) rows.push(['anim', JSON.stringify(man.anim)]);
+  if (entry.sockets?.length || (entry.rig_sockets && Object.keys(entry.rig_sockets).length)) {
+    const placed = entry.rig_sockets || {};
+    rows.push(['sockets', Object.keys(placed).length ? Object.entries(placed).map(([k, v]) => `${k} (${v})`).join(', ')
+      : (entry.stages.rig ? 'none placed' : 'not rigged')]);
+    rows.push(['sockets wanted', (entry.sockets || []).join(', ') || '–']);
+    if (entry.sockets_missing?.length) rows.push(['sockets missing', entry.sockets_missing.join(', ')]);
+  }
   if (man.errors?.length) rows.push(['errors', man.errors.map((e) => `${e.stage}: ${e.error}`).join('\n')]);
   if (man.ref?.prompt) rows.push(['prompt', man.ref.prompt, 'long']);
   for (const [k, v, cls] of rows) {
@@ -1169,7 +1368,9 @@ $('t-wire').onchange = applyMaterialToggles;
 $('t-wireo').onchange = updateWireOverlay;
 $('t-tex').onchange = applyMaterialToggles;
 $('t-env').onchange = () => { scene.environment = $('t-env').checked ? envTex : null; };
-$('t-skel').onchange = () => { if (view.skelHelper) view.skelHelper.visible = $('t-skel').checked; };
+$('t-skel').onchange = syncRigHelpers;
+$('t-sockets').onchange = () => updateSocketMarkers(true);
+$('t-prop').onchange = updateProps;
 $('t-ref').onchange = () => { scaleRef.visible = $('t-ref').checked; frameCamera(); };
 $('t-rotate').onchange = () => {
   if (!$('t-rotate').checked && view.root) view.root.rotation.y = 0;
@@ -1197,7 +1398,8 @@ $('scrub').oninput = () => {
 $('lightbox').onclick = () => $('lightbox').classList.add('hidden');
 
 document.addEventListener('keydown', (e) => {
-  const typing = e.target.matches('input, select, textarea');
+  // A focused toolbar checkbox or slider must not swallow the shortcuts; text fields do.
+  const typing = e.target.matches('input:not([type=checkbox]):not([type=range]), select, textarea');
   if (e.key === 'Escape') { $('lightbox').classList.add('hidden'); $('lod-settings').classList.add('hidden'); if (typing) e.target.blur(); return; }
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key;
@@ -1211,6 +1413,8 @@ document.addEventListener('keydown', (e) => {
   else if (k === 'w') { $('t-wire').checked = !$('t-wire').checked; applyMaterialToggles(); }
   else if (k === 'W') { $('t-wireo').checked = !$('t-wireo').checked; updateWireOverlay(); }
   else if (k === 'a') setMode('auto');
+  else if (k === 's') { $('t-sockets').checked = !$('t-sockets').checked; updateSocketMarkers(true); }
+  else if (k === 'p') { $('t-prop').checked = !$('t-prop').checked; updateProps(); }
   else if (k === 't') { $('t-tex').checked = !$('t-tex').checked; applyMaterialToggles(); }
   else if (k === 'f') frameCamera();
   else if (k === 'l') cycleLod();

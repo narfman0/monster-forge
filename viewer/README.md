@@ -76,6 +76,11 @@ the RAW tier), and in `files`: `hi` (`model_hi_tex.glb` or `model_hi.glb`), `hi_
 per file by mtime and size, so the index stays cheap; if the header cannot be read it falls
 back to `manifest.mesh.weighted_decimate.faces_in`.
 
+Socket fields: `sockets` (the registry's list of socket bones the rig must provide),
+`rig_sockets` (`manifest.rig.sockets`, `{socket: original bone}`) and `sockets_missing`
+(registry sockets not in `rig_sockets`). The two rig fields are `null` until the `rig`
+stage is true, then an object and a list (empty when nothing is placed or missing).
+
 ## LODs, RAW tier and auto LOD
 
 `model.glb` (or `model_rigged.glb`) is LOD0; `model_lod<k>.glb` (listed in `lods.json`, see `docs/lods.md`) share
@@ -125,7 +130,9 @@ the readout then shows `✎` and the popover names it.
 
 **Wire on shaded** (`W`) draws a line overlay on the visible level, RAW included. It
 shares the mesh's geometry, and three.js builds the wireframe index only on the first
-draw, so nothing is built until it is switched on. `wireframe` (`w`) is the plain
+draw, so nothing is built until it is switched on. On a skinned mesh the overlay is a
+second `SkinnedMesh` bound to the same skeleton and bind matrix, so the lines deform with
+the clip. `wireframe` (`w`) is the plain
 wireframe material.
 
 **Albedo toggle (paint stage).** When both `textures/base_color_painted.png` and
@@ -192,13 +199,36 @@ then the first usable clip.
 
 The model is picked as `model_rigged.glb`, then `model.glb`, then `model_raw.glb`. With a
 rig the LOD buttons load `model_rigged_lod<k>.glb`: they share LOD0's joint order, so the
-geometry swaps under one skeleton while a clip plays. `wire on shaded` does not follow the
-skeleton yet (the overlay is plain lines); the `wireframe` material does. The HUD flags a
-mismatch when the GLB has a skeleton but the manifest has no rig stage, or the reverse.
+geometry swaps under one skeleton while a clip plays. The HUD flags a mismatch when the
+GLB has a skeleton but the manifest has no rig stage, or the reverse.
+
+## Skeleton, sockets and props
+
+- **skeleton** draws three.js's `SkeletonHelper` for the loaded rigged model: one line
+  from each bone to its parent (orange at the child, green at the parent), drawn through
+  the mesh and following the clip. Hidden in RAW.
+- **sockets** (`s`) marks every socket bone, which is any bone not named `bone_<n>`
+  (SkinTokens' names; the rig stage renames or adds `hand_r`, `hand_l`, `head`, `back`,
+  `hip_l`, `hip_r`, see `docs/equipment.md`). Each marker is a label and three arrows in
+  the bone's frame, in prop-space terms: green +Y (along the blade toward the tip), blue -Z
+  (the cutting edge, or the way an arrow points), short red +X. The markers copy the bone's
+  world position and rotation every frame, so they follow the clip. Sizes scale with the
+  model height.
+- **prop** (`p`) attaches placeholders as children of the socket bones, as Godot's
+  `BoneAttachment3D` would: a 0.9 m sword (grip at the origin, red strip on the -Z edge)
+  on `hand_r` and a 1.1 m shortbow (stave bowed toward -Z, string behind) on `hand_l`, when
+  those bones exist. They are built for a 1.8 m wielder and scaled by `scale_m / 1.8`, with
+  no extra offset, so they show where a prop lands from the bone alone.
+
+The HUD lists the socket bones found in the GLB and the registry sockets missing from it
+(and any socket the manifest names that the GLB lacks). The details panel shows
+`rig_sockets` with their original bones, the wanted list and `sockets_missing`.
 
 ## Keys
 
 `j`/`k` or arrows: next/previous monster · space: play/pause · `n`/`N`: next/previous clip ·
-`1`-`9`: pick clip · `0`: rest pose · `c`: cycle clips · `w`: wireframe · `W`: wire on shaded · `t`: textures · `a`: auto LOD ·
+`1`-`9`: pick clip · `0`: rest pose · `c`: cycle clips · `w`: wireframe · `W`: wire on shaded · `s`: sockets ·
+`p`: placeholder props · `t`: textures · `a`: auto LOD ·
 `l`: pin the next LOD · `f`: frame camera · `/`: search · Esc: leave search / close image or
-LOD settings.
+LOD settings. Shortcuts work while a toolbar checkbox or slider has focus, not in text
+fields.

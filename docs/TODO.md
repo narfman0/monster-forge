@@ -51,7 +51,7 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
 ## Next (in order)
 
 ### B. Pilot hardening
-- [ ] Write `docs/paint-stage.md` (forge.py/paint.py already reference it).
+- [x] Write `docs/paint-stage.md` (forge.py/paint.py already reference it). Rig and anim: `docs/rig-anim.md`.
 - [x] Forward axis: keep -Z (`forge.py` default). Matches Godot node forward; leave
       `use_model_front` off in `look_at()`. Check UniMate's expectation in step E.
 - [ ] Any `qa --force` deletes paint and LODs; `paint` deletes LODs. Use `--stages paint,lod`.
