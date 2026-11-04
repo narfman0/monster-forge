@@ -53,3 +53,18 @@ assets: stage counts per body plan, a filterable monster list, a three.js view o
 for embedded clips and `anims/<clip>.glb` files, an LOD switcher, a per-monster overrides
 form and a re-run job queue (`forge.py run --stages ...` in the background). The stage-status rules that `forge.py` has
 to follow (`rig`, `anim` in `manifest.json`) are in `viewer/README.md`.
+
+## License and attribution
+
+Monster data in `data/registry/srd-5.2.1.json` and the per-monster overrides are derived
+from the SRD 5.2.1 and are redistributed under CC-BY-4.0 with this attribution, which any
+distribution of this repo or of assets generated from it must carry:
+
+> This work includes material from the System Reference Document 5.2.1 ("SRD 5.2.1") by
+> Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is
+> licensed under the Creative Commons Attribution 4.0 International License, available at
+> https://creativecommons.org/licenses/by/4.0/legalcode.
+
+"Dungeons & Dragons" and the D&D logos are trademarks of Wizards of the Coast and are not
+covered by that license; this project is not affiliated with or endorsed by Wizards of the
+Coast. Nothing outside the SRD is included (see `docs/corpus-plan.md`).
