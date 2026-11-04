@@ -67,6 +67,16 @@ form and a re-run job queue (`forge.py run --stages ...` in the background). On 
 skeleton, socket markers and placeholder sword and bow props following the clip. The stage-status rules that `forge.py` has
 to follow (`rig`, `anim` in `manifest.json`) are in `viewer/README.md`.
 
+## Publishing (public viewer)
+
+`python3 -I tools/release.py <id>...` marks a monster released (`"released": true` in its
+manifest; `--unset` takes it back, `--list` shows them). `python3 -I tools/publish.py --dest
+../monster-forge-viewer --clean` then copies the released monsters' game files (rigged LOD
+chain, `anims/*.glb`, preview image, trimmed manifest), the props they wield, the viewer and
+a baked `index.json` into a directory that is a complete static site for GitHub Pages, with
+this CC-BY-4.0 attribution on the page and in its README. The same `viewer/app.js` runs there
+in static mode (no overrides, re-runs or RAW tier); see "Static mode" in `viewer/README.md`.
+
 ## License and attribution
 
 Monster data in `data/registry/srd-5.2.1.json` and the per-monster overrides are derived

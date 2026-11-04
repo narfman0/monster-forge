@@ -275,6 +275,65 @@ The HUD lists the socket bones found in the GLB and the registry sockets missing
 (and any socket the manifest names that the GLB lacks). The details panel shows
 `rig_sockets` with their original bones, the wanted list and `sockets_missing`.
 
+## Static mode (the public copy)
+
+`tools/publish.py` builds a static copy of this page for GitHub Pages from the
+**released** monsters (`"released": true` in `manifest.json`; `python3 -I tools/release.py
+<id>... [--unset | --list]` sets it):
+
+```sh
+python3 -I tools/release.py goblin-warrior wolf            # gate: only these go out
+python3 -I tools/publish.py --dest ../monster-forge-viewer --clean
+python3 -I -m http.server 8797 --directory ../monster-forge-viewer   # check it locally
+```
+
+Layout of the destination: `index.html` (with the static marker below), `app.js`,
+`style.css`, `vendor/`, `index.json`, `props.json`, `<source>/<id>/` (`model_rigged.glb` or
+`model.glb` as LOD0 with embedded textures, `model_rigged_lod1-3.glb`, a `lods.json` naming
+them, `anims/<clip>.glb`, `thumb.png`, a trimmed `manifest.json`), `props/<id>/` (`model.glb`,
+`model_lod1-3.glb`, `lods.json`, a manifest with `prop.grip_offset`) for the props the
+released monsters wield, `README.md` with the CC-BY-4.0 SRD attribution, `.nojekyll`.
+`--clean` empties the destination first but keeps `.git`, `CNAME` and `.github`, and refuses
+a non-empty directory without the `.monster-forge-publish` marker; nothing outside the
+destination is touched. The script prints the size per monster, the total and the biggest
+files, and warns past GitHub's 100 MB per file and ~1 GB per site.
+
+`index.json` is `build_index()` from `tools/viewer.py` (same code as `/api/index.json`)
+cut down to the released monsters, with the same per-entry shape, except:
+
+- `dir` is relative (`srd-5.2.1/<id>/`), so the page works under any Pages sub-path;
+- dropped: `has_override`, `job`, `errors`, `hi_faces`, `files.hi`, `files.hi_textured`,
+  `files.hi_bytes` (no RAW tier); `rig_quality` is `null` (rig-stage diagnostics);
+  `files.base_color_*`, `thumb_head`, `thumb_ground`, `crop`, `ref` are `null` and
+  `files.refs` is `[]` (pipeline images stay home);
+- added per entry: `wields` (the registry's wielded props that were published); top level:
+  `static: true`, `registry_total`, `license`, `attribution` (paragraphs taken from the
+  repo README's "License and attribution" section) and `props` (`props.json`);
+- `summary` counts only the published monsters.
+
+**Detection.** The same `app.js` serves both modes. It is static when the page has
+`<meta name="monster-forge-static" content="index.json">` (publish.py adds it to the copied
+`index.html`), when the URL has `?static=1`, or when `/api/index.json` does not answer with
+JSON (any plain static host). The marker means the public page never requests `/api/`, and
+the dev page never requests a missing `./index.json`, so neither logs a 404.
+
+In static mode the page reads `./index.json` and `./props.json` and loads everything by
+relative path. It hides the stage bars, the body-plan table, the status filter, the stage
+dots, the overrides form, the re-run queue and the job polling, and it never offers RAW (a
+stored `mf.lodMode` of `raw` falls back to auto). It adds type and CR filters (with counts;
+sizes only as present), shows type, size and CR in the list, shows a short details table
+(stat-block facts, dims, LOD tris, joints, clips, sockets, props) and puts the attribution
+footer under the list. Kept as in dev: model view, wireframe, wire on shaded, textures,
+skeleton, sockets, LOD picker with auto LOD, animation selector and playback, `#<id>` links
+and the keys.
+
+**Props in static mode.** The prop toggle starts on. Without a query each hand gets the
+monster's own wielded prop: the first entry of `wields` whose `props.json` `grip_socket` is
+`hand_r` (or `hand_l`), loaded from `props/<id>/model.glb`. The goblin warrior gets the
+scimitar and the shortbow; its shield is published too and shows with `?prop_l=shield`.
+`?prop_r=` / `?prop_l=` work as in dev but only for published props. A hand with nothing
+wielded stays empty: no placeholder sword and bow on a harpy.
+
 ## Keys
 
 `j`/`k` or arrows: next/previous monster · space: play/pause · `n`/`N`: next/previous clip ·

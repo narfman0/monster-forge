@@ -26,6 +26,14 @@ const validRatios = (r) => Array.isArray(r) && r.length === 3 && r.every((x) => 
   && r[0] > r[1] && r[1] > r[2];
 const savedMode = LS.get('lodMode', 'auto');
 
+// Static mode (the public GitHub Pages copy, tools/publish.py): the index is ./index.json,
+// models sit under relative paths, and nothing asks for /api/ or /out/. Detected, not
+// configured: the published index.html carries <meta name="monster-forge-static">, ?static=1
+// forces it, and a page whose host has no /api/index.json falls back to it.
+const staticMeta = document.querySelector('meta[name="monster-forge-static"]');
+let STATIC = new URLSearchParams(location.search).get('static') === '1' || !!staticMeta;
+const STATIC_INDEX = './' + (staticMeta?.content || 'index.json');
+
 // ------------------------------------------------------------------ state
 const state = {
   index: null,
@@ -34,13 +42,14 @@ const state = {
   loadToken: 0,
   // 'auto' | 'raw' | 0..3: auto LOD by screen coverage, or a pinned level (sticks across
   // monsters and reloads)
-  lodMode: savedMode === 'auto' || savedMode === 'raw' || [0, 1, 2, 3].includes(savedMode) ? savedMode : 'auto',
+  lodMode: (savedMode === 'raw' && STATIC) ? 'auto' : savedMode === 'auto' || savedMode === 'raw' || [0, 1, 2, 3].includes(savedMode) ? savedMode : 'auto',
   lodRatios: validRatios(LS.get('lodRatios', null)) ? LS.get('lodRatios', null) : [...DEFAULT_LOD_RATIOS],
   lodHyst: Number.isFinite(LS.get('lodHyst', null)) ? LS.get('lodHyst', null) : DEFAULT_LOD_HYST,
   albedo: LS.get('albedo', 'painted') === 'voxel' ? 'voxel' : 'painted',
   jobs: {},            // id -> 'running' | 'queued' (from /api/jobs)
   jobList: [],
   ov: null,            // GET /api/override/<id> payload for the selected monster
+  props: {},           // static mode: props.json records by id (grip_socket, dir, ...)
 };
 
 // ------------------------------------------------------------------ three.js scene
@@ -1149,10 +1158,18 @@ const PROPS = [{ sockets: ['grip_r', 'hand_r'], make: makeSword, param: 'prop_r'
 // id, cloned per attachment; a missing file falls back to the placeholder.
 const propQuery = new URLSearchParams(location.search);
 const realPropId = (param) => propQuery.get(param) || (param === 'prop_r' ? propQuery.get('prop') : null);
+// Static mode: without a query, each hand gets the monster's own wielded prop for that hand
+// (registry wields, first per grip_socket in props.json) and no placeholder.
+function propIdFor(param) {
+  const q = realPropId(param);
+  if (q || !STATIC) return q;
+  const sock = param === 'prop_r' ? 'hand_r' : 'hand_l';
+  return (view.entry?.wields || []).find((id) => state.props[id]?.grip_socket === sock) || null;
+}
 const realProps = new Map();  // id -> Promise<THREE.Object3D | null>
 function loadRealProp(id) {
   if (!realProps.has(id)) {
-    const dir = `/out/props/${encodeURIComponent(id)}/`;
+    const dir = `${STATIC ? 'props/' : '/out/props/'}${encodeURIComponent(id)}/`;
     realProps.set(id, Promise.all([
       loader.loadAsync(dir + 'model.glb'),
       fetch(dir + 'manifest.json', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({})),
@@ -1185,7 +1202,8 @@ async function updateProps() {
     const bone = sockets.map((n) => view.socketBones.find((b) => b.name === n)?.bone).find(Boolean);
     const onGrip = bone?.name.startsWith('grip');
     if (!bone) continue;
-    const id = realPropId(param);
+    const id = propIdFor(param);
+    if (STATIC && !id) continue;
     const real = id ? await loadRealProp(id) : null;
     if (gen !== propsGen || !view.root) return;
     const p = real ? real.clone(true) : make();
@@ -1228,11 +1246,12 @@ async function renderSide(entry) {
   }
   if (!entry.files.refs.length && entry.files.ref) fig(entry.files.ref, 'ref');
   if (entry.files.crop) fig(entry.files.crop, 'crop');
-  if (entry.files.thumb) fig(entry.files.thumb, 'thumb (QA strip)', '', true);
+  if (entry.files.thumb) fig(entry.files.thumb, STATIC ? 'preview' : 'thumb (QA strip)', '', true);
   if (entry.files.thumb_head) fig(entry.files.thumb_head, 'head close-up (shaded / wireframe)', '', true);
   if (entry.files.thumb_ground) fig(entry.files.thumb_ground, 'ground contact (side / front, level camera; red = feet used)', '', true);
   if (!imgs.children.length) imgs.append(el('div', { className: 'muted', textContent: 'no images yet', style: 'grid-column: 1 / -1' }));
 
+  if (STATIC) { renderStaticDetails(entry, man); return; }
   const rows = [
     ['id', entry.id], ['type', entry.type + (entry.tags?.length ? ` (${entry.tags.join(', ')})` : '')],
     ['size', entry.size], ['CR', entry.cr], ['body plan', `${entry.body_plan} (${fmt(entry.body_plan_confidence)})`],
@@ -1273,11 +1292,30 @@ async function renderSide(entry) {
   }
 }
 
+// Static mode details: the stat-block facts and the game files, no pipeline diagnostics.
+function renderStaticDetails(entry, man) {
+  const rows = [
+    ['id', entry.id], ['type', entry.type + (entry.tags?.length ? ` (${entry.tags.join(', ')})` : '')],
+    ['size', entry.size], ['CR', entry.cr], ['body plan', entry.body_plan], ['scale_m', entry.scale_m],
+    ['speeds', Object.entries(entry.speeds || {}).map(([k, v]) => `${k} ${v} ft`).join(', ')],
+  ];
+  if (man.qa?.dims_m) rows.push(['dims m', man.qa.dims_m.map((v) => fmt(v)).join(' × ')]);
+  if (entry.lods && Object.keys(entry.lods).length) rows.push(['LOD tris', Object.entries(entry.lods).map(([k, v]) => `${k}: ${v.tris}`).join(' · ')]);
+  if (man.rig?.joints) rows.push(['skeleton', `${man.rig.joints} joints`]);
+  rows.push(['clips', (entry.found_clips || []).join(', ') || '–']);
+  if (entry.rig_sockets && Object.keys(entry.rig_sockets).length) rows.push(['sockets', Object.keys(entry.rig_sockets).join(', ')]);
+  if (entry.wields?.length) rows.push(['props', entry.wields.join(', ')]);
+  for (const [k, v] of rows) $('details').append(el('dt', { textContent: k }), el('dd', { textContent: String(v ?? '–') }));
+  $('manifest-link').href = entry.dir + 'manifest.json';
+  $('manifest-link').textContent = 'manifest.json ↗';
+}
+
 // ------------------------------------------------------------------ sidebar
 const STAGE_COLORS = { ref: 'var(--ref)', mesh: 'var(--mesh)', qa: 'var(--qa)', paint: 'var(--paint)', lod: 'var(--lod)', rig: 'var(--rig)', anim: 'var(--anim)' };
 
 function renderProgress(idx) {
   $('source').textContent = idx.source;
+  if (STATIC) { $('source').textContent = `${idx.source} · ${idx.summary.total} monsters`; return; }
   const total = idx.summary.total;
   const bars = $('stage-bars');
   bars.replaceChildren();
@@ -1311,6 +1349,7 @@ function renderProgress(idx) {
   }
 }
 
+const SIZES = ['tiny', 'small', 'medium', 'large', 'huge', 'gargantuan'];
 function fillFilters(idx) {
   const plans = $('f-plan'), sizes = $('f-size'), stage = $('f-stage');
   const keepPlan = plans.value, keepSize = sizes.value, keepStage = stage.value;
@@ -1318,12 +1357,32 @@ function fillFilters(idx) {
   const counts = {};
   for (const m of idx.monsters) counts[m.body_plan] = (counts[m.body_plan] || 0) + 1;
   for (const p of idx.body_plans) if (counts[p]) plans.append(el('option', { value: p, textContent: `${p} (${counts[p]})` }));
-  for (const s of ['tiny', 'small', 'medium', 'large', 'huge', 'gargantuan']) sizes.append(el('option', { value: s, textContent: s }));
+  for (const s of SIZES) sizes.append(el('option', { value: s, textContent: s }));
   for (const s of STAGES) stage.append(el('option', { value: `has:${s}`, textContent: `has ${s}` }));
   for (const s of STAGES) stage.append(el('option', { value: `no:${s}`, textContent: `missing ${s}` }));
   stage.append(el('option', { value: 'anim-incomplete', textContent: 'anim set incomplete' }));
   stage.append(el('option', { value: 'errors', textContent: 'has errors' }));
   plans.value = keepPlan; sizes.value = keepSize; stage.value = keepStage;
+  if (STATIC) fillStaticFilters(idx);
+}
+
+// Static mode: type and CR selects from the registry fields; sizes only as present.
+const crNum = (cr) => { const [a, b] = String(cr).split('/'); return b ? Number(a) / Number(b) : Number(a); };
+function fillStaticFilters(idx) {
+  const fill = (sel, values, label) => {
+    const keep = sel.value;
+    sel.length = 1;
+    const counts = {};
+    for (const m of idx.monsters) counts[m[values]] = (counts[m[values]] || 0) + 1;
+    let keys = Object.keys(counts);
+    keys = values === 'cr' ? keys.sort((a, b) => crNum(a) - crNum(b))
+      : values === 'size' ? SIZES.filter((s) => counts[s]) : keys.sort();
+    for (const k of keys) sel.append(el('option', { value: k, textContent: `${label(k)} (${counts[k]})` }));
+    sel.value = keys.includes(keep) ? keep : '';
+  };
+  fill($('f-type'), 'type', (k) => k);
+  fill($('f-cr'), 'cr', (k) => `CR ${k}`);
+  fill($('f-size'), 'size', (k) => k);
 }
 
 function matches(m) {
@@ -1331,6 +1390,9 @@ function matches(m) {
   const q = $('search').value.trim().toLowerCase();
   if (plan && m.body_plan !== plan) return false;
   if (size && m.size !== size) return false;
+  const type = $('f-type').value, cr = $('f-cr').value;
+  if (type && m.type !== type) return false;
+  if (cr && String(m.cr) !== cr) return false;
   if (st) {
     const [kind, s] = st.split(':');
     if (kind === 'has' && !m.stages[s]) return false;
@@ -1362,7 +1424,7 @@ function applyFilters() {
     if (js) nm.append(el('span', { className: `job ${js}`, title: `re-run ${js}` }));
     const li = el('li', { className: m.id === state.selId ? 'sel' : '' }, th,
       el('div', {}, nm,
-        el('div', { className: 'sub', textContent: `${m.body_plan} · ${m.size} · CR ${m.cr}` })), dots);
+        el('div', { className: 'sub', textContent: `${STATIC ? m.type : m.body_plan} · ${m.size} · CR ${m.cr}` })), dots);
     li.dataset.id = m.id;
     li.onclick = () => select(m.id);
     frag.append(li);
@@ -1394,8 +1456,57 @@ function move(step) {
   select(list[j].id);
 }
 
+// Dev: /api/index.json (rebuilt per request). Static: ./index.json and ./props.json; a host
+// without /api/ (any plain static server) falls back to static mode.
+async function fetchIndex() {
+  if (!STATIC) {
+    try {
+      const r = await fetch('/api/index.json', { cache: 'no-store' });
+      if (r.ok && (r.headers.get('Content-Type') || '').includes('json')) return await r.json();
+    } catch { /* no dev server: static */ }
+    STATIC = true;
+  }
+  enterStatic();
+  const idx = await (await fetch(STATIC_INDEX, { cache: 'no-cache' })).json();
+  try {
+    const p = await (await fetch(new URL(idx.props || 'props.json', new URL(STATIC_INDEX, location.href)), { cache: 'no-cache' })).json();
+    state.props = Object.fromEntries((p.props || []).map((x) => [x.id, x]));
+  } catch { state.props = {}; }
+  renderAttribution(idx.attribution || []);
+  return idx;
+}
+
+// Hide what needs the dev server (overrides form, re-run queue, stage dashboard, RAW).
+let staticReady = false;
+function enterStatic() {
+  if (staticReady) return;
+  staticReady = true;
+  document.body.classList.add('static');
+  document.title = 'monster-forge · SRD monster viewer';
+  if (state.lodMode === 'raw') state.lodMode = 'auto';
+  $('t-prop').checked = true;  // the monster's own weapons, when it wields any
+  $('t-prop').parentElement.title = "the monster's wielded props on its hand sockets (p); ?prop_r=<id>&prop_l=<id> picks others";
+  $('search').placeholder = 'search name / type / CR  ( / )';
+}
+
+const URL_RE = /(https?:\/\/[^\s]+?)(?=[.,;)]?(\s|$))/g;
+function renderAttribution(paras) {
+  const box = $('attribution');
+  box.replaceChildren();
+  for (const p of paras) {
+    const div = el('p');
+    let last = 0;
+    for (const m of p.matchAll(URL_RE)) {
+      div.append(p.slice(last, m.index), el('a', { href: m[1], textContent: m[1], target: '_blank', rel: 'noopener' }));
+      last = m.index + m[1].length;
+    }
+    div.append(p.slice(last));
+    box.append(div);
+  }
+}
+
 async function refreshIndex() {
-  const idx = await (await fetch('/api/index.json', { cache: 'no-store' })).json();
+  const idx = await fetchIndex();
   state.index = idx;
   renderProgress(idx);
   fillFilters(idx);
@@ -1404,7 +1515,7 @@ async function refreshIndex() {
 }
 
 // ------------------------------------------------------------------ wiring
-for (const id of ['f-plan', 'f-size', 'f-stage']) $(id).onchange = applyFilters;
+for (const id of ['f-plan', 'f-size', 'f-stage', 'f-type', 'f-cr']) $(id).onchange = applyFilters;
 $('search').oninput = applyFilters;
 $('t-wire').onchange = applyMaterialToggles;
 $('t-wireo').onchange = updateWireOverlay;
@@ -1467,7 +1578,7 @@ document.addEventListener('keydown', (e) => {
 window.addEventListener('hashchange', () => { const id = decodeURIComponent(location.hash.slice(1)); if (state.index && id && id !== state.selId) select(id); });
 // Pick up new forge output without a reload when the tab regains focus.
 window.addEventListener('focus', async () => {
-  if (!state.index) return;
+  if (!state.index || STATIC) return;  // a published index does not change under the page
   const before = JSON.stringify(state.index.monsters.find((m) => m.id === state.selId));
   await refreshIndex();
   const after = state.index.monsters.find((m) => m.id === state.selId);
@@ -1511,6 +1622,7 @@ function fromInput(k, raw) {
 async function loadOverrides(id) {
   $('ov-form').replaceChildren();
   $('ov-status').textContent = '';
+  if (STATIC) { state.ov = null; return; }
   let ov;
   try {
     const r = await fetch(`/api/override/${encodeURIComponent(id)}`, { cache: 'no-store' });
@@ -1607,6 +1719,7 @@ $('run-go').onclick = async () => {
 let pollTimer = null;
 async function pollJobs(soon = false) {
   clearTimeout(pollTimer);
+  if (STATIC) return;
   let snap;
   try { snap = await (await fetch('/api/jobs?tail=60', { cache: 'no-store' })).json(); } catch { snap = null; }
   if (snap) {

@@ -153,3 +153,12 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); font-weight: 500;
 #run-stages label { font-size: 12px; }
 #job-log { max-height: 180px; overflow: auto; font-size: 10px; background: #0d0f13; border: 1px solid var(--line);
   border-radius: 4px; padding: 4px 6px; margin: 6px 0 0; white-space: pre-wrap; word-break: break-all; }
+
+/* static mode (published copy, tools/publish.py): dev-server-only parts hidden */
+body:not(.static) .static-only { display: none !important; }
+body.static #stage-bars, body.static #plan-details, body.static #f-stage, body.static #ov-section,
+body.static #list .dots { display: none !important; }
+body.static #list li { grid-template-columns: 40px minmax(0, 1fr); }
+#attribution { padding: 6px 12px 8px; border-top: 1px solid var(--line); font-size: 10px; line-height: 1.35; color: var(--muted); }
+#attribution p { margin: 3px 0; }
+#attribution a { color: #9fb8dc; word-break: break-all; }
