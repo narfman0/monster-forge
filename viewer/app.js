@@ -381,8 +381,9 @@ async function loadModel(entry) {
   view.entry = entry;
   const meshes = [];
   root.traverse((o) => { if (o.isMesh) meshes.push(o); });
-  // LOD swap needs one plain mesh (LOD GLBs are geometry + LOD0's material)
-  if (meshes.length === 1 && !meshes[0].isSkinnedMesh) {
+  // LOD swap needs one mesh (LOD GLBs are geometry + LOD0's material). Rigged LODs share
+  // LOD0's joint order, so a skinned mesh swaps the same way under its skeleton.
+  if (meshes.length === 1) {
     view.lodMesh = meshes[0];
     view.lodGeoms = { 0: meshes[0].geometry };
   }
@@ -394,8 +395,8 @@ async function loadModel(entry) {
   preloadLods(entry, token).then(() => { if (token === state.loadToken) applyMode(); });
   applyMode();
   renderClips(entry);
-  const firstOk = view.clips.findIndex((c) => c.ok);
-  if (firstOk >= 0) playClip(firstOk);
+  const first = defaultClip();
+  if (first >= 0) playClip(first);
 }
 
 // ------------------------------------------------------------------ LODs
@@ -853,6 +854,25 @@ function playClip(i) {
   syncPlayButton();
   highlightClip();
 }
+// The clip a monster opens on: walking if it has one, else the first usable clip.
+const DEFAULT_CLIPS = ['walk', 'move', 'fly', 'idle'];
+function defaultClip() {
+  const base = (c) => c.clip.name.split(':').pop().toLowerCase();
+  for (const name of DEFAULT_CLIPS) {
+    const i = view.clips.findIndex((c) => c.ok && base(c) === name);
+    if (i >= 0) return i;
+  }
+  return view.clips.findIndex((c) => c.ok);
+}
+function restPose() {
+  if (view.mixer) view.mixer.stopAllAction();
+  view.action = null;
+  view.clipIdx = -1;
+  view.cycle = false;
+  view.playing = false;
+  syncPlayButton();
+  highlightClip();
+}
 function setLoop(action) {
   if ($('t-loop').checked) { action.setLoop(THREE.LoopRepeat, Infinity); action.clampWhenFinished = false; }
   else { action.setLoop(THREE.LoopOnce, 1); action.clampWhenFinished = true; }
@@ -885,6 +905,33 @@ function updateTimeUI() {
 }
 function highlightClip() {
   [...$('clips').children].forEach((li, i) => li.classList.toggle('sel', i === view.clipIdx));
+  [...$('anim-bar').children].forEach((b) => b.classList.toggle('on', Number(b.dataset.clip) === view.clipIdx));
+}
+
+// Toolbar selector: the animation_set in order (missing clips greyed), then any other clip.
+function renderAnimBar(entry) {
+  const bar = $('anim-bar');
+  bar.replaceChildren();
+  const expected = entry.expected_clips || [];
+  if (!view.clips.length && !expected.length) return;
+  const btn = (label, title, i, extra) => {
+    const b = el('button', { title, textContent: label, className: extra ? 'extra' : '' });
+    b.dataset.clip = i;
+    b.disabled = i === null;
+    if (i !== null) b.onclick = () => (i < 0 ? restPose() : playClip(i));
+    bar.append(b);
+  };
+  const usable = view.clips.some((c) => c.ok);
+  if (usable) btn('rest', 'stop and show the bind pose (0)', -1);
+  const info = (i) => `${fmt(view.clips[i].clip.duration)}s, ${view.clips[i].source}`;
+  for (const name of expected) {
+    const i = view.clips.findIndex((c) => c.ok && c.clip.name === name);
+    btn(name, i >= 0 ? info(i) : `${name}: no clip yet`, i >= 0 ? i : null);
+  }
+  view.clips.forEach((c, i) => {
+    if (!c.ok || expected.includes(c.clip.name)) return;
+    btn(c.clip.name, `${info(i)}; not in animation_set`, i, true);
+  });
 }
 
 function renderClips(entry) {
@@ -898,6 +945,7 @@ function renderClips(entry) {
     li.onclick = () => playClip(i);
     ul.append(li);
   });
+  renderAnimBar(entry);
   highlightClip();
   const usable = view.clips.filter((c) => c.ok).length;
   $('anim-status').textContent = !entry.files.model ? 'no model' :
@@ -1158,6 +1206,7 @@ document.addEventListener('keydown', (e) => {
   else if (k === ' ') togglePlay();
   else if (k === 'n') nextClip(1);
   else if (k === 'N') nextClip(-1);
+  else if (k >= '0' && k <= '9') { const b = $('anim-bar').querySelectorAll('button:not(:disabled)')[Number(k)]; if (b) b.click(); }
   else if (k === 'c') $('b-cycle').click();
   else if (k === 'w') { $('t-wire').checked = !$('t-wire').checked; applyMaterialToggles(); }
   else if (k === 'W') { $('t-wireo').checked = !$('t-wireo').checked; updateWireOverlay(); }

@@ -15,8 +15,8 @@
     "note": "the registry prompt gives nude women or plain vultures in the manga style; clothe her and keep the monstrous face"
   },
   "young-red-dragon": {
-    "prepend": "(crimson red dragon, red scales all over the body:1.3), ",
-    "negative_append": "blue scales, teal scales, black scales, smoke cloud, red mist",
-    "note": "the bold-colour style paints the body teal/black with red wings; force red scales"
+    "prompt": "(crimson red dragon, red scales all over the body:1.3), single creature, centered, four-legged winged dragon standing with all four feet flat on the ground, (wings spread wide out to the sides:1.2), (long straight tail extended behind:1.2), neck raised, massive swept-back horns, lean adolescent build. Large dragon. full body, three-quarter front view",
+    "negative_append": "blue scales, teal scales, black scales, smoke cloud, red mist, coiled tail, curled tail, tail wrapped around body, sitting, crouching, rearing, folded wings",
+    "note": "the bold-colour style paints the body teal/black with red wings, so force red scales. The default pose curls the tail and sits, which SkinTokens cannot rig: force a straight tail, spread wings and a three-quarter view"
   }
 }

@@ -17,7 +17,7 @@ python3 -I tools/viewer.py --port 8790 --no-open --out-root out/_viewtest   # te
 | `/api/index.json` | rebuilt from the registry + `out/` on every request |
 | `GET /api/override/<id>` | effective overrides: per field `default`, `override`, `value`, `stage`, `help` |
 | `POST /api/override/<id>` | JSON object of fields (`null` = unset); validated, written to `data/overrides/<source>/<id>.json` (removed when empty) |
-| `POST /api/run/<id>` | `{"stages": ["qa", "paint", "lod"], "force": true}`: queue `forge.py run <id> --stages ... --force` (stages: ref, mesh, qa, paint, lod) |
+| `POST /api/run/<id>` | `{"stages": ["qa", "paint", "lod"], "force": true}`: queue `forge.py run <id> --stages ... --force` (stages: ref, mesh, qa, paint, lod, rig, anim) |
 | `GET /api/jobs[?id=<id>&tail=N]` | queue and recent jobs: status (`queued`, `running`, `done`, `failed`, `cancelled`), rc, times, log tail |
 | `POST /api/jobs/<n>/cancel` | drop a queued job or terminate the running forge process |
 
@@ -78,7 +78,7 @@ back to `manifest.mesh.weighted_decimate.faces_in`.
 
 ## LODs, RAW tier and auto LOD
 
-`model.glb` is LOD0; `model_lod<k>.glb` (listed in `lods.json`, see `docs/lods.md`) share
+`model.glb` (or `model_rigged.glb`) is LOD0; `model_lod<k>.glb` (listed in `lods.json`, see `docs/lods.md`) share
 its UVs and material and carry no images. The LOD geometry is swapped in under the loaded
 LOD0 material, as an engine would. All LODs of the selected monster are preloaded right
 after LOD0 (they are small), so switching is instant.
@@ -175,6 +175,12 @@ with other ComfyUI clients.
 
 ## Animations in the page
 
+The toolbar's animation selector works like the LOD one: `rest` (key `0`, the bind pose),
+then the registry `animation_set` in order, then any other clip (outlined). Missing clips
+are greyed out, so the bar shows what a monster still needs. Keys `1`-`9` pick the nth
+enabled clip button. A monster opens on `walk` if it has one, else `move`, `fly`, `idle`,
+then the first usable clip.
+
 - Clips embedded in the loaded GLB play directly through an `AnimationMixer`.
 - External `anims/<clip>.glb` files are loaded and their clips bound onto the main
   model by node/bone name: tracks whose target name exists in `model.glb` are kept, the
@@ -184,12 +190,15 @@ with other ComfyUI clients.
 - The expected `animation_set` is shown as chips; missing clips are dashed and grey,
   clips outside the set are outlined in yellow.
 
-The model is picked as `model.glb`, falling back to `model_raw.glb`. The HUD flags a
+The model is picked as `model_rigged.glb`, then `model.glb`, then `model_raw.glb`. With a
+rig the LOD buttons load `model_rigged_lod<k>.glb`: they share LOD0's joint order, so the
+geometry swaps under one skeleton while a clip plays. `wire on shaded` does not follow the
+skeleton yet (the overlay is plain lines); the `wireframe` material does. The HUD flags a
 mismatch when the GLB has a skeleton but the manifest has no rig stage, or the reverse.
 
 ## Keys
 
 `j`/`k` or arrows: next/previous monster · space: play/pause · `n`/`N`: next/previous clip ·
-`c`: cycle clips · `w`: wireframe · `W`: wire on shaded · `t`: textures · `a`: auto LOD ·
+`1`-`9`: pick clip · `0`: rest pose · `c`: cycle clips · `w`: wireframe · `W`: wire on shaded · `t`: textures · `a`: auto LOD ·
 `l`: pin the next LOD · `f`: frame camera · `/`: search · Esc: leave search / close image or
 LOD settings.

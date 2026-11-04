@@ -81,7 +81,7 @@ def _ratios(v):
 
 # Multiview paint stage (tools/paint.py, docs/paint-stage.md): defaults and the keys of
 # the `paint` override. views None = by body plan (6 + top for legged plans, + head views).
-PAINT_DEFAULTS = {"enabled": False, "views": None, "denoise": 0.7, "ip_weight": 0.7, "cn_strength": 0.7,
+PAINT_DEFAULTS = {"enabled": True, "views": None, "denoise": 0.7, "ip_weight": 0.7, "cn_strength": 0.7,
                   "normal_strength": 0.0, "color_match": 0.5, "head_views": True, "seed": None}
 PAINT_KEYS = {
     "enabled": lambda v: _bool(v),

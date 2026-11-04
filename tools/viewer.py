@@ -40,7 +40,7 @@ VIEWER = ROOT / "viewer"
 OUT_ROOT = ROOT / "out"
 REGISTRY_DIR = ROOT / "data" / "registry"
 STAGES = ("ref", "mesh", "qa", "paint", "lod", "rig", "anim")
-RUN_STAGES = ("ref", "mesh", "qa", "paint", "lod")  # what a re-run job may redo
+RUN_STAGES = ("ref", "mesh", "qa", "paint", "lod", "rig", "anim")  # what a re-run job may redo
 RECORD_KEYS = ("id", "name", "source", "size", "type", "tags", "cr", "body_plan",
                "body_plan_confidence", "rig_template", "animation_set", "scale_m", "speeds")
 
@@ -131,6 +131,12 @@ def stage_status(d: Path, man: dict) -> dict:
             and has(v["file"])} if lod else {}
 
     model = "model.glb" if has("model.glb") else ("model_raw.glb" if has("model_raw.glb") else None)
+    if has("model_rigged.glb"):  # the rigged game files replace the static chain in the page
+        model = "model_rigged.glb"
+        for k, v in lods.items():
+            rigged = "model_rigged.glb" if k == "0" else f"model_rigged_lod{k}.glb"
+            if has(rigged):
+                v["file"] = rigged
     # RAW tier: the undecimated remeshed high-poly. A textured one (model_hi_tex.glb) wins.
     hi = "model_hi_tex.glb" if has("model_hi_tex.glb") else ("model_hi.glb" if has("model_hi.glb") else None)
     hi_faces = glb_faces(d / hi) if hi else None

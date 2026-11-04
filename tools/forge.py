@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """monster-forge job runner: reference image -> Pixal3D -> low-poly GLB -> Blender QA
--> (optional) multiview paint -> LOD chain.
+-> multiview paint -> LOD chain -> rig -> walk clip.
 
 Stdlib only. Drives the ComfyUI already running on 8188 over its HTTP API and runs
 Blender headless for QA. Every stage is skipped when its outputs exist (use --force).
@@ -11,6 +11,7 @@ Blender headless for QA. Every stage is skipped when its outputs exist (use --fo
     python3 -I tools/forge.py qa owlbear --yaw 180 --force
     python3 -I tools/forge.py run harpy --stages mesh,qa,lod --force
     python3 -I tools/forge.py lod wolf
+    python3 -I tools/forge.py rig wolf --rig-reroll
     python3 -I tools/forge.py paint harpy --force      # then: lod harpy --force
 
 Per-monster settings live in data/overrides/<source>/<id>.json (tools/overrides.py);
@@ -37,6 +38,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import overrides  # noqa: E402  (tools/overrides.py: per-monster overrides, budgets)
 import paint  # noqa: E402  (tools/paint.py: multiview paint stage)
+import rig  # noqa: E402  (tools/rig.py: SkinTokens rig stage)
+import walk  # noqa: E402  (tools/walk.py: procedural walk clip)
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / "workflows"
@@ -371,6 +374,11 @@ def stage_ref(mon: dict, d: Path, args) -> None:
     style = load_style(resolve_style(args.style or ov.get("style")))
     if style:
         prompt = apply_style(wf, style, prompt, mon)
+    if mon.get("unarmed_reference") and style.get("unarmed_suffix"):
+        # weapons are runtime props (docs/equipment.md): draw empty, open hands
+        prompt = prompt.rstrip(" ,.") + ", " + style["unarmed_suffix"]
+        if style.get("unarmed_negative"):
+            wf["neg"]["inputs"]["text"] += ", " + style["unarmed_negative"]
     if tweak.get("negative_append"):
         wf["neg"]["inputs"]["text"] += ", " + tweak["negative_append"]
     if ov.get("negative_extra"):
@@ -609,6 +617,7 @@ def stage_mesh(mon: dict, d: Path, args) -> None:
     man.setdefault("timings", {})["mesh"] = dt
     man.pop("qa", None)
     paint.clear_paint(d, man)
+    rig.clear_rig(d, man)
     save_manifest(d, man)
     clear_lods(d)
     for stale in ("model.glb", "thumb.png", "thumb_head.png", "thumb_ground.png"):
@@ -670,6 +679,7 @@ def stage_qa(mon: dict, d: Path, args) -> None:
     }
     clear_lods(d)  # model.glb changes: the LOD chain is stale
     paint.clear_paint(d, man)  # ... and QA re-exports the voxel albedo: paint is stale too
+    rig.clear_rig(d, man)  # ... and the skeleton was fitted to the old frame
     (d / "qa.json").unlink(missing_ok=True)
     t0 = time.time()
     proc = subprocess.run([BLENDER, "-b", "--factory-startup", "-P", str(ROOT / "tools" / "blender_qa.py"),
@@ -705,6 +715,7 @@ def stage_lod(mon: dict, d: Path, args) -> None:
     ov = ov_for(mon)
     ratios = ov.get("lod_ratios") or overrides.LOD_RATIOS
     clear_lods(d)
+    rig.clear_rig_outputs(d)
     job = {"src": str(d / "model.glb"), "out_dir": str(d), "report": str(lods),
            "ratios": {str(i + 1): r for i, r in enumerate(ratios)}, "min_tris": 300}
     t0 = time.time()
@@ -728,18 +739,27 @@ def stage_paint(mon: dict, d: Path, args) -> None:
     if getattr(args, "auto_paint", False):  # part of a default `run`: only when enabled
         s = paint.settings(mon, ov_for(mon), args)
         if not s.get("enabled"):
-            log(f"{mon['id']}: paint disabled (override paint.enabled or --stages ...,paint), skip")
+            log(f"{mon['id']}: paint disabled by override paint.enabled, skip")
             return
     paint.stage_paint(sys.modules[__name__], mon, d, args)
 
 
-STAGES = {"ref": stage_ref, "mesh": stage_mesh_guarded, "qa": stage_qa, "paint": stage_paint, "lod": stage_lod}
-RUN_ORDER = ["ref", "mesh", "qa", "paint", "lod"]
+def stage_rig(mon: dict, d: Path, args) -> None:
+    rig.stage_rig(sys.modules[__name__], mon, d, args)
+
+
+def stage_anim(mon: dict, d: Path, args) -> None:
+    walk.stage_anim(sys.modules[__name__], mon, d, args)
+
+
+STAGES = {"ref": stage_ref, "mesh": stage_mesh_guarded, "qa": stage_qa, "paint": stage_paint, "lod": stage_lod,
+          "rig": stage_rig, "anim": stage_anim}
+RUN_ORDER = ["ref", "mesh", "qa", "paint", "lod", "rig", "anim"]
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["ref", "mesh", "qa", "paint", "lod", "run", "contact"])
+    ap.add_argument("cmd", choices=["ref", "mesh", "qa", "paint", "lod", "rig", "anim", "run", "contact"])
     ap.add_argument("ids", nargs="+", help="monster ids (registry slugs)")
     ap.add_argument("--source", default="srd-5.2.1")
     ap.add_argument("--force", action="store_true", help="redo stages whose outputs exist")
@@ -767,13 +787,15 @@ def main() -> int:
     ap.add_argument("--no-level", dest="no_level", action="store_true", help="QA: no stance leveling")
     ap.add_argument("--level-tilt", dest="level_tilt", type=float,
                     help="QA: largest tilt (deg) stance leveling may apply (default 20, insectoid 40)")
-    ap.add_argument("--stages", help="run: comma list of stages (default ref,mesh,qa,paint,lod; paint "
-                    "only runs by default when enabled, an explicit --stages paint always runs it)")
+    ap.add_argument("--stages", help="run: comma list of stages (default ref,mesh,qa,paint,lod,rig,anim; paint "
+                    "is skipped when disabled by override, an explicit --stages paint always runs it)")
     for k, h in (("denoise", "img2img denoise"), ("ip_weight", "IP-Adapter weight"),
                  ("cn_strength", "depth ControlNet strength"), ("normal_strength", "normal ControlNet (0 = off)"),
                  ("color_match", "per-view colour match to the voxel render, 0-1")):
         ap.add_argument("--paint-" + k.replace("_", "-"), dest="paint_" + k, type=float, help="paint: " + h)
     ap.add_argument("--paint-views", dest="paint_views", help="paint: comma list of views")
+    ap.add_argument("--rig-rolls", type=int, default=None, help="rig: SkinTokens rolls to score (default 4)")
+    ap.add_argument("--rig-reroll", action="store_true", help="rig: roll again, replacing rig/chosen.glb")
     args = ap.parse_args()
 
     reg = load_registry(args.source)

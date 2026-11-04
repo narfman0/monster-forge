@@ -283,6 +283,7 @@ def stage_paint(fg, mon: dict, d: Path, args) -> None:
         times["bake"] = round(time.time() - t1, 1)
     bake = json.loads(rep_path.read_text())
     fg.clear_lods(d)  # textures changed: re-run lod (UVs are unchanged)
+    fg.rig.clear_rig_outputs(d)  # ... and rig, which keeps the skeleton
     man = fg.load_manifest(d)
     man["paint"] = {"settings": s, "views": [v["name"] for v in views], "seed": seed,
                     "texture": "textures/base_color_painted.png", "voxel_texture": "textures/base_color_voxel.png",
