@@ -1,0 +1,6 @@
+{
+  "prompt_extra": "a polearm: one long straight wooden pole, four times longer than its blade, with a curved single-edged blade fixed on the top end",
+  "negative_extra": "sword, dagger, short handle, knife",
+  "notes": "first roll drew a long dagger with no pole; ref 2 is a spear-like pole with an ornate collar near the butt; head_end picked the collar: flip_tip",
+  "flip_tip": true
+}

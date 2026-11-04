@@ -1131,28 +1131,62 @@ function makeBow() {
   g.add(stave, string);
   return g;
 }
-const PROPS = [{ socket: 'hand_r', make: makeSword }, { socket: 'hand_l', make: makeBow }];
+// Each prop goes on the grip socket (grip_r/grip_l: centre of the fist, already in prop
+// space, docs/equipment.md) when the rig has one, else on the hand bone (wrist frame).
+const PROPS = [{ sockets: ['grip_r', 'hand_r'], make: makeSword, param: 'prop_r' },
+               { sockets: ['grip_l', 'hand_l'], make: makeBow, param: 'prop_l' }];
 
+// Real props instead of the placeholders: ?prop_r=<id>&prop_l=<id> (?prop=<id> = prop_r)
+// loads out/props/<id>/model.glb (tools/props.py, already in prop space). One load per
+// id, cloned per attachment; a missing file falls back to the placeholder.
+const propQuery = new URLSearchParams(location.search);
+const realPropId = (param) => propQuery.get(param) || (param === 'prop_r' ? propQuery.get('prop') : null);
+const realProps = new Map();  // id -> Promise<THREE.Object3D | null>
+function loadRealProp(id) {
+  if (!realProps.has(id)) {
+    const dir = `/out/props/${encodeURIComponent(id)}/`;
+    realProps.set(id, Promise.all([
+      loader.loadAsync(dir + 'model.glb'),
+      fetch(dir + 'manifest.json', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({})),
+    ]).then(([g, man]) => {
+      // manifest prop.grip_offset: rotation (deg, XYZ) to apply on a grip_* socket
+      // (bows, crossbows, pistols and shields turn 90 deg so -Z points forward)
+      g.scene.userData.gripRot = man.prop?.grip_offset?.rotation_deg_xyz || [0, 0, 0];
+      return g.scene;
+    }).catch((e) => { console.warn('prop', id, e); return null; }));
+  }
+  return realProps.get(id);
+}
+
+let propsGen = 0;  // bumped on every clear: pending real-prop loads of an older call are dropped
 function clearProps() {
+  propsGen++;
   for (const p of view.props) {
     p.parent?.remove(p);
-    p.traverse((o) => o.geometry?.dispose());
+    if (!p.userData.realProp) p.traverse((o) => o.geometry?.dispose());  // clones share the cached geometry
   }
   view.props = [];
 }
 
-function updateProps() {
+async function updateProps() {
   clearProps();
+  const gen = propsGen;
   if (!$('t-prop').checked || !view.root) return;
   const s = (Number(view.entry?.scale_m) || 1.8) / 1.8;
-  view.root.updateMatrixWorld(true);
-  for (const { socket, make } of PROPS) {
-    const bone = view.socketBones.find((b) => b.name === socket)?.bone;
+  for (const { sockets, make, param } of PROPS) {
+    const bone = sockets.map((n) => view.socketBones.find((b) => b.name === n)?.bone).find(Boolean);
+    const onGrip = bone?.name.startsWith('grip');
     if (!bone) continue;
-    const p = make();
+    const id = realPropId(param);
+    const real = id ? await loadRealProp(id) : null;
+    if (gen !== propsGen || !view.root) return;
+    const p = real ? real.clone(true) : make();
+    p.userData.realProp = !!real;
+    if (real && onGrip) p.rotation.set(...real.userData.gripRot.map(THREE.MathUtils.degToRad));
+    view.root.updateMatrixWorld(true);
     const ws = bone.getWorldScale(new THREE.Vector3());
     p.scale.set(s / ws.x, s / ws.y, s / ws.z);
-    p.traverse((o) => { o.userData.overlay = true; });  // not model geometry: skip in toggles, tri counts, albedo
+    p.traverse((o) => { o.userData.overlay = true; o.castShadow = true; });  // not model geometry: skip in toggles, tri counts, albedo
     bone.add(p);
     view.props.push(p);
   }

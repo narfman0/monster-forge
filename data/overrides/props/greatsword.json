@@ -1,0 +1,6 @@
+{
+  "prompt_extra": "a straight symmetric double-edged blade with parallel edges and a pointed tip, long cross-shaped guard",
+  "negative_extra": "curved blade, single edge, katana, sabre, scimitar",
+  "notes": "first roll drew a curved single-edged blade; ref 3 is straight and double-edged",
+  "ref_pick": 3
+}

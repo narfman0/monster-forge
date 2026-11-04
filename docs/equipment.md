@@ -120,16 +120,87 @@ SRD 5.2.1: 32 props. Longbow is the most used (10 monsters), then greatsword and
 
 ### Generating props
 
-Props use the same `ref -> mesh -> qa -> lod` pipeline at a small budget:
+`tools/props.py` runs `ref -> mesh -> qa -> lod` for the entries of `props.json`, using
+`tools/forge.py` as a library (ComfyUI plumbing, house style, workflows, resource
+sampling, the mesh stage and its Blender decimation). There is no paint stage.
 
-- ref: house style with a vertical, flat side view and no hand or character. Thin blades may
-  need `remesh_resolution` 384 so they do not melt.
-- mesh: `tri_budget` 500-1500, texture 512.
-- qa: a props mode. Instead of feet-on-ground leveling, put the origin at the grip and orient
-  the prop along +Y and -Z as above. The grip point is found by heuristic (the narrowest
-  cross-section near the bottom third for bladed weapons, the middle for bows, the arm strap
-  for shields), with an override for exceptions.
-- lod: same chain, with a lower floor (LOD3 is about 150 tris).
+```sh
+python3 -I tools/props.py run longsword shield longbow     # all stages, resumable
+python3 -I tools/props.py run --all                        # stage by stage over all 32
+python3 -I tools/props.py run scimitar --stages qa,lod --force
+python3 -I tools/props.py check longsword                  # re-check model.glb's frame
+python3 -I tools/props.py contact                          # out/props/_contact.png
+```
 
-The prop jobs go under `out/props/<id>/`, and `forge.py` will need a `--registry props`
-switch. None of this is built yet.
+Output: `out/props/<id>/` with `ref_<i>.png` + `ref.png`, `model_hi.glb`, `model_raw.glb`
+(generator frame), `model.glb` (prop frame, LOD0, textures embedded), `model_lod1-3.glb`
++ `lods.json` (no images, they reuse LOD0's material, as for the monsters), `textures/`
+(512 px base colour, normal, roughness, metallic, AO), `thumb.png` (4 views with the axes
+drawn: green +Y, blue -Z, red +X, magenta grip, orange off-hand), `qa.json` and
+`manifest.json` (`ref`, `mesh`, `qa`, `lod` like the monsters, with `resources` = peak
+RAM/swap/VRAM per stage, plus `prop`: grip method, every axis decision with its signal and
+confidence, `orientation_confidence` = the lowest, `offhand_grip`, `length_check`,
+`glb_check` and `grip_offset`). Per-prop overrides: `data/overrides/props/<id>.json`, the
+monster fields of `tools/overrides.py` (`ref_pick`, `prompt_extra`, `tri_budget`, ...)
+plus `view`, `remesh_resolution`, `flip_tip`, `flip_edge`, `grip_frac`, `roll_deg`,
+`tip_rule`, `edge_rule` (registered by `props.py`).
+
+- **ref**: `single object, centered, ` + the registry prompt + the house style. The view
+  phrase is replaced per category: elongated props "lying horizontal, pointing right"
+  (tested on the longsword: SDXL draws a diagonal blade either way, the horizontal prompt
+  reconstructed straighter), shields front on, bows as a bare stave (below). The negative
+  adds hands, people, racks, pairs, scabbards, and drops the base negative's `props`.
+  `--n 3` candidates are scored on the silhouette (largest blob's share of the foreground,
+  -0.15 per extra blob, -0.3 if cut by the frame, -0.25 x |ln(aspect / expected)|) and the
+  best is used; scores are in `manifest.ref.scores`.
+- **mesh**: `forge.stage_mesh_guarded` unchanged: Pixal3D 512 (`upsample` 0), remesh 256,
+  importance-weighted Blender decimation to `tri_budget`, bake at 512. The 1024 cascade
+  plus remesh 384 gave no visible gain on the longsword and pushed ComfyUI to its 16 GB
+  ceiling. Plain collapse (`--vg-factor 0`) and the weighted one gave the same blade.
+  Bows get 1.6 x the budget because QA cuts the string ribbons out afterwards.
+- **qa** (`tools/blender_prop_qa.py`): PCA of area-uniform surface samples gives the long
+  axis (e1), the wide axis (e2) and the thin axis (e3). Category rules then decide:
+
+  | category | +Y (tip) | -Z | grip (origin) |
+  |---|---|---|---|
+  | blades | `thin_end`: the flat end third (thinner along e3) is the blade; the guard (widest bin) votes for the hilt | e2, sign arbitrary for straight blades; scimitar: convex side of the curve | middle of the narrow handle (pommel to guard); two-handed: half a fist above the pommel |
+  | axes, glaive, sickle | `head_end`: larger e2 x e3 section | `extension`: the head reaches farther on the blade side of the haft line | 0.06 + 0.04 x L above the butt |
+  | warhammer, light hammer | `head_end` | `blunt`: the side whose outer third has more surface (face, not spike) | as axes |
+  | maces, clubs, staves, wands, polearms | `head_end` | e2, arbitrary | hafted: as axes; polearms 0.4 L (two-handed 0.28 L, pike 0.22 L), staff 0.35 L |
+  | whip | `thick_handle` (opposite) | arbitrary | as axes |
+  | bows | the generator's up | `stave_forward`: the grip is in front of the tips | mid-length, centre of the stave |
+  | crossbows, pistols | e1 taken level in the generator frame is -Z (prod end: wider span across; pistol: the end without the hanging grip); +Y = generator up | | stock 0.3 L from the butt; pistol and hand crossbow: the grip under the rear |
+  | shields | e3 = face normal, toward the reference camera; +Y = generator up | | back surface at the centre |
+
+  Blades and hafted weapons are then tilted about X so +Y follows the handle's own centre
+  line, scaled so the length axis (+Y; -Z for crossbows and pistols; the larger face side
+  for shields) is `length_m`, and moved so the grip is the origin. Loose islands under 0.5%
+  of the area are dropped. Bows keep only the stave: the reference is drawn without a
+  string (SDXL's strings cross and float; Pixal3D turns them into ribbons), ribbons fused
+  to the stave more than 6 cm behind it are cut, and a straight 3-sided string with its own
+  material joins the limb tips. Two-handed props get an `offhand_grip` empty in model.glb.
+  `props.py` then re-reads model.glb with a stdlib GLB reader and checks, in glTF axes:
+  the length along the axis (2%), the origin inside the bounds, and a -Z test per category
+  (blade: the upper 40% is wider along Z than X; axes: the head reaches farther to -Z;
+  bows: the tips are behind the grip in Z; crossbows: the prod end is at -Z; shields: the
+  body is in front of the strap).
+
+  Where it fails: a reconstruction whose blade is as thick as its grip (the guard then
+  decides, at confidence 0.5); double-bitted axes and symmetric hammers (edge side is
+  arbitrary, confidence near 0); a crossbow whose prod is longer than its stock (e1 is the
+  prod); a whip drawn coiled; weapons with a big pommel or no visible handle narrowing
+  (the grip falls back to 12% of the length); `head_end` on a polearm whose point is
+  slimmer than an ornate butt or collar (first fork, glaive) and on a club with a
+  sword-like guard (greatclub). Fix those with the overrides above; the SRD set needed
+  `flip_tip` on glaive and greatclub and `ref_pick` / prompt extras on ten props.
+- **lod**: `tools/blender_lods.py`, ratios 0.5 / 0.3 / 0.18 of LOD0, floor 100 tris (LOD3
+  ~100-270 tris).
+
+**Attaching in Godot.** The rig's `grip_r` / `grip_l` bones are the fist centre in prop
+space, so melee props attach there with no offset. Bows, crossbows, pistols and shields
+turn +90 degrees about X (prop +Y up, prop -Z forward); `manifest.prop.grip_offset` has
+the rotation per category, and the viewer applies it (`?prop_r=longsword&prop_l=longbow`,
+`viewer/README.md`). Checked on the goblin-warrior: the longsword's handle sits in the
+right fist, blade forward at rest; the longbow stands upright in the left fist, string
+toward the body. Two-handed props also need the off hand IK on `offhand_grip`; a strapped
+(not centre-grip) shield would sit ~0.12 m up the forearm.

@@ -47,6 +47,12 @@ ground, `lod` writes `model_lod1-3.glb` from `model.glb` (`docs/lods.md`), `rig`
 in `tools/skintokens/`), and `anim` writes the procedural clips of the registry's `animation_set` (idle, walk, attack,
 hit, death; fly and breath where expected) to `anims/<clip>.glb`.
 
+Held weapons and shields are separate props (`docs/equipment.md`): `python3 -I tools/props.py
+run --all` turns `data/registry/props.json` into `out/props/<id>/model.glb` (origin at the
+grip, +Y toward the tip, -Z the edge or arrow direction, scaled to `length_m`) plus LODs, a
+4-view axes sheet and a manifest; `tools/props.py contact` makes `out/props/_contact.png`.
+Per-prop overrides go in `data/overrides/props/<id>.json`.
+
 ## Viewer
 
 ```sh

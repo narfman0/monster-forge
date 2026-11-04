@@ -1,0 +1,6 @@
+{
+  "prompt_extra": "a long two-handed club: a narrow grip at the bottom end widening to a thick knotted head at the top end, floating, no base",
+  "negative_extra": "floor, ground, base, slab, log section, stump, shadow, sawn end",
+  "notes": "first roll drew a sawn log lying on a teal slab; the GPU decimator then never reached the budget (189 / 2126 / 182 faces); ref 0 is a club with a sword-like crossguard; head_end picked the guard end: flip_tip",
+  "flip_tip": true
+}

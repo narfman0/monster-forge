@@ -152,6 +152,31 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       swap per clip is the game's job.
 - [ ] Real export (`assets/monsters/*` in the export filter) is untested.
 
+### F. Props (2026-11-04)
+- [x] `tools/props.py` + `tools/blender_prop_qa.py`: all 32 props in `out/props/<id>/` (prop
+      space, LOD0 at `tri_budget`, LOD1-3, axes sheet, manifest `prop` key); every exported
+      GLB passes the length / origin / -Z check. Sheet: `out/props/_contact.png`.
+      Docs: `docs/equipment.md` "Generating props". Viewer: `?prop_r=<id>&prop_l=<id>`.
+- [x] Real longsword + longbow on the goblin-warrior's `grip_r` / `grip_l`: handle in the
+      fist, blade forward; the bow needs the +90 deg X turn in `prop.grip_offset`.
+- [ ] Weak refs, rerolled once with overrides (`data/overrides/props/*.json`) but still
+      off-model: glaive (a spear with a collar, no curved blade), harpoon (hooked blade),
+      fork (one barbed spike, not two prongs), greatclub (club with a crossguard), whip
+      (folded in a U, so `length_m` is spread over the fold: needs a procedural spline
+      whip), heavy crossbow (thin frame with holes). Mace is a spiky flanged head.
+- [ ] Low orientation confidence to eyeball in Godot: shortsword 0.05, harpoon 0.12,
+      quarterstaff 0.22, glaive 0.3 (flip_tip override), greatclub 0.32 (flip_tip),
+      heavy crossbow 0.33, javelin 0.36, warhammer 0.41, pistol 0.48 (barrel pitched up
+      ~20 deg: the stock is taken as level in the generator frame).
+- [ ] Bows: QA cuts string ribbons and adds a straight string, so LOD0 is under budget
+      (shortbow 403 of 800). A separate string mesh or bone chain for the draw.
+- [ ] forge.py comfy-fallback decimation can fail to converge and keep a far-off mesh
+      (first greatclub: 189 / 2126 / 182 faces, kept 2763 tris). Pass the best attempt.
+- [ ] Godot: `BoneAttachment3D` on `grip_r`/`grip_l` + `prop.grip_offset`; off-hand IK to
+      the `offhand_grip` node of two-handed props; stowed props on `back`/`hip_*` need
+      their own per-category offsets (not measured).
+- [ ] Variants (`props.json` `variants`: Flame Sword, Bone Bow, ...) as separate props.
+
 ## Later
 - **Public SRD viewer (static GitHub Pages repo, e.g. `monster-forge-viewer`).** Gated on
   the local iteration above: only "released" monsters go out.

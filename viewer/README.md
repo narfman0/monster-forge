@@ -262,7 +262,9 @@ GLB has a skeleton but the manifest has no rig stage, or the reverse.
   the prop toggle load `out/props/<id>/model.glb` from `tools/props.py` instead of the
   placeholder for that hand, e.g. `/?prop_r=longsword&prop_l=longbow#goblin-warrior`. The
   file is loaded once and cloned per attachment, same sockets and scaling as above; if it
-  is missing, the placeholder is used.
+  is missing, the placeholder is used. On a `grip_*` socket the prop is turned by its
+  manifest's `prop.grip_offset.rotation_deg_xyz` (bows, crossbows, pistols and shields:
+  90 degrees about X so -Z points forward), as Godot would.
 
 The HUD lists the socket bones found in the GLB and the registry sockets missing from it
 (and any socket the manifest names that the GLB lacks). The details panel shows

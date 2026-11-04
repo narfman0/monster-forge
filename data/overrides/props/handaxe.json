@@ -1,0 +1,6 @@
+{
+  "prompt_extra": "a small hatchet: a short straight wooden handle with one flat iron axe blade on the top end",
+  "negative_extra": "hammer, club, mallet, table, wooden floor",
+  "notes": "first roll drew a club-like hammer on a wooden table; ref 1 is the plain hatchet",
+  "ref_pick": 1
+}
