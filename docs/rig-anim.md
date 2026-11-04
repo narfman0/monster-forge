@@ -8,7 +8,7 @@
 python3 -I tools/forge.py rig wolf                 # skip if the rigged files exist
 python3 -I tools/forge.py rig wolf --force         # rebuild the game files from rig/chosen.glb
 python3 -I tools/forge.py rig wolf --rig-reroll    # new SkinTokens rolls (--rig-rolls N, default 4)
-python3 -I tools/forge.py anim wolf --force        # rebuild anims/walk.glb
+python3 -I tools/forge.py anim wolf --force        # rebuild every clip in the animation_set
 ```
 
 ## Rig stage
@@ -96,26 +96,26 @@ placeholder sword on `hand_r` and a bow on `hand_l` (`viewer/README.md`).
 
 Code: `tools/anim.py` (driver), `tools/blender_clips.py` (the gait, headless Blender).
 
-What exists now is one procedural clip: an in-place `walk` for every plan with legs
-(`FEET_BY_PLAN`) whose `animation_set` has `walk`. It needs `model_rigged.glb`. The legs
-come from the skeleton (`rig_topology.find_legs`). Each foot runs a planted cycle on an IK
-target: it slides back along the ground for the stance (62% of the cycle) and lifts forward
-for the swing, held level, so feet neither skate nor tilt. Bipeds alternate, quadrupeds
-use a four-beat walk, more legs ripple along each side. The hips sit low enough to keep
-the knees bent and bob with the steps; biped arms swing opposite their leg and a tail
-sways. The clip stays in place: moving the character is up to the game.
+The stage builds every clip in the monster's `animation_set` that has a procedural
+builder, from the skeleton alone (`rig_topology`: legs, arms, snout, neck/spine, tail,
+wings, fangs). It needs `model_rigged.glb`. The shared framework: foot IK on the foot bone
+(planted cycles, feet held level), chest-parented arm IK for the sword cut and bow draw,
+FK layers about armature axes, and a per-frame measurement of the skinned mesh that lowers
+or raises the body so every vertex stays within 3 cm of the ground and standing feet reach
+their targets (a stride or lunge is rebuilt smaller when they cannot: `stride_scale`,
+`body_scale` in the report). Clips: `idle`, `walk`, `attack_melee` (biped sword cut over the
+right shoulder, quadruped lunge and bite, spider front-leg strike), `attack_ranged` (bow
+draw), `hit`, `death` (bipeds topple backward, quadrupeds roll onto the right side, spider
+legs fold; the last frame lies on the ground and holds), `fly` (hover with wing flap),
+`breath`. Loops start and end on the same pose; all clips start at t=0 and stay in place.
 
-Output: `anims/walk.glb` (armature only, 30 fps),
-`anims/walk.json` (legs, feet bones, phases, arms, tail, cycle seconds), and
-`manifest.anim` (`clips`, `walk`, seconds). The cycle is 1.1-1.5 s on the pilots, and the
-stage takes about 1 s.
+Output: `anims/<clip>.glb` (armature only, one clip per file, 30 fps), `anims/<clip>.json`
+and `anims/clips.json` (reports), `manifest.anim` (`clips`, `missing`, per-clip report,
+`parts`, seconds). All six pilots are `anim_complete`; the stage takes 5-11 s per monster.
+`viewer/README.md` ("Clips the anim stage writes", "Animations in the page") has the file
+convention the viewer and the index follow.
 
-Known limit: loose parts below the hips (owlbear tail feathers, harpy feather tips, the
-dragon's tail) dip up to 0.2 m through the ground, because the crouch lowers them with
-the body.
-
-More clips (idle, attack, hit, death; fly and breath where the set has them) are being
-added. Each is one `anims/<clip>.glb` on the same skeleton, with bone names matching
-`model_rigged.glb`; the file stem is the clip name. `viewer/README.md` ("Stage-status
-convention" and "Animations in the page") has the convention the viewer and the index
-follow.
+Known limits: the owlbear's tail fan is skinned to a hind shin, so its walk and lunge run
+at half stride; the harpy's hip feathers touch the ground at rest, so its body is raised
+about 0.1 m and its wings hide most of the sword cut; the spider's death rests on curled
+legs rather than its belly.
