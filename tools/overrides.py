@@ -79,6 +79,37 @@ def _ratios(v):
     return None
 
 
+# Multiview paint stage (tools/paint.py, docs/paint-stage.md): defaults and the keys of
+# the `paint` override. views None = by body plan (6 + top for legged plans, + head views).
+PAINT_DEFAULTS = {"enabled": False, "views": None, "denoise": 0.7, "ip_weight": 0.7, "cn_strength": 0.7,
+                  "normal_strength": 0.0, "color_match": 0.5, "head_views": True, "seed": None}
+PAINT_KEYS = {
+    "enabled": lambda v: _bool(v),
+    "views": lambda v: None if isinstance(v, list) and v and all(isinstance(x, str) and _NAME.match(x) for x in v)
+    else "must be a non-empty list of view names",
+    "denoise": _num(0.05, 1.0),
+    "ip_weight": _num(0.0, 1.5),
+    "cn_strength": _num(0.0, 2.0),
+    "normal_strength": _num(0.0, 2.0),
+    "color_match": _num(0.0, 1.0),
+    "head_views": lambda v: _bool(v),
+    "seed": _num(0, 2**31 - 1, True),
+}
+
+
+def _paint(v):
+    if not isinstance(v, dict):
+        return "must be an object"
+    for k, x in v.items():
+        if k not in PAINT_KEYS:
+            return f"unknown key {k!r} (allowed: {sorted(PAINT_KEYS)})"
+        if x is not None:
+            e = PAINT_KEYS[k](x)
+            if e:
+                return f"{k} {e}"
+    return None
+
+
 # field -> (validator, stage it affects, help)
 FIELDS = {
     "tri_budget": (_num(300, 200000, True), "mesh", "LOD0 triangle budget"),
@@ -97,6 +128,7 @@ FIELDS = {
     "level": (_bool, "qa", "stance leveling on/off"),
     "level_tilt": (_num(0, 60), "qa", "max tilt (deg) leveling may apply"),
     "lod_ratios": (_ratios, "lod", "LOD1.. triangle ratios of LOD0"),
+    "paint": (_paint, "paint", "multiview paint: {enabled, views, denoise, ip_weight, cn_strength, ...}"),
     "lod_screen_ratios": (_screen_ratios, None,
                           "viewer auto LOD: LOD0/LOD1/LOD2 when the model covers more than these fractions "
                           "of the viewport height (else LOD3); unset = the viewer's settings"),
