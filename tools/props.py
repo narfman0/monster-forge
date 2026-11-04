@@ -387,7 +387,12 @@ _TURN = {"socket": "grip", "rotation_deg_xyz": [90, 0, 0], "translation_m": [0, 
 GRIP_OFFSET = {
     "default": {"socket": "grip", "rotation_deg_xyz": [0, 0, 0], "translation_m": [0, 0, 0],
                 "note": "attach at grip_r/grip_l as is"},
-    "bow": {**_TURN, "note": "bow upright, arrow direction forward"},
+    # A bow's stave runs through the fist along prop +Y exactly like a sword handle, and
+    # the attack_ranged clip turns the wrist so grip_l +Y points up during the draw. The
+    # +90 turn only made a hanging-arm pose look upright and broke every raised pose
+    # (godot-dnd round 3), so bows attach as is.
+    "bow": {"socket": "grip", "rotation_deg_xyz": [0, 0, 0], "translation_m": [0, 0, 0],
+            "note": "stave through the fist; attack_ranged raises it"},
     "crossbow": {**_TURN, "note": "stock forward, prod up-front, +Y (top of the stock) up"},
     "firearm": {**_TURN, "note": "barrel forward, pistol grip in the fist"},
     "shield": {**_TURN, "note": "face forward, top rim up; origin is the back-surface centre (centre-grip "
