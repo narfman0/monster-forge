@@ -64,13 +64,20 @@ def blender(fg, job: dict) -> dict:
 # about 1 degree; the dragon left at QA's auto yaw is ~60 degrees off.
 FACING_MAX_DEG = 30.0
 FACING_CONF = 0.5
+# Plans whose mirror plane says little about where the head points: a snake lying in an
+# S-curve (its best mirror plane cuts across the coils), a blob, a fungus, a swarm cluster,
+# a radial octopus. The check still runs and is recorded, but never refuses to roll.
+FACING_ADVISORY = {"serpentine", "amorphous", "plant_object", "swarm", "tentacled"}
 
 # What a plan's skeleton should have (docs/body-plans.md). Upright plans have arms and
 # no tail test (find_tail matches an arm there); spiders have no spine to speak of.
 UPRIGHT = {"biped", "winged_biped", "centauroid", "merfolk_naga"}
+# floating ghosts and wraiths are upright bodies with arms and no legs: score their arms and head
+UPRIGHT_BODY = UPRIGHT | {"floating"}
 TAILED = {"quadruped", "winged_quadruped"}
 WINGED = {"winged_quadruped", "winged_biped"}
 SPINED = {"biped", "winged_biped", "quadruped", "winged_quadruped", "avian", "centauroid", "merfolk_naga"}
+HEADLESS = {"insectoid", "amorphous", "plant_object", "swarm"}  # no head term: spiders' is in the body, blobs have none
 LEG_RANGE = {"insectoid": (6, 10)}  # 8 legs + pedipalps or claws reach the ground too
 # plausible joint counts; SkinTokens gave goblin 29-37, wolf 22-28, owlbear 18-46,
 # dragon 45-80, spider 37, harpy 22-43
@@ -116,7 +123,8 @@ def score_v1(st: dict, feet: int) -> float:
 def score_terms(st: dict, plan: str, hands: bool = False) -> dict:
     """Weighted penalties per term (all >= 0) from blender_rig.py's score report."""
     w = WEIGHTS
-    t = {"symmetry": w["symmetry"] * st["symmetry"],
+    # a coiled snake, a blob or a radial octopus has no mirror plane to measure joints against
+    t = {"symmetry": 0.0 if plan in FACING_ADVISORY else w["symmetry"] * st["symmetry"],
          "dead_bones": w["dead_bones"] * (st["empty_bones"] + st["zero_length_bones"])}
     if plan in FEET:
         lo, hi = LEG_RANGE.get(plan, (FEET[plan], FEET[plan]))
@@ -125,13 +133,13 @@ def score_terms(st: dict, plan: str, hands: bool = False) -> dict:
         t["feet_mirror"] = w["feet_mirror"] * min(st["feet_mirror"], 1.0)
     if plan in SPINED:
         t["spine"] = w["spine"] * max(0, 3 - st["torso_bones"])
-    if plan != "insectoid":
+    if plan not in HEADLESS:
         t["head"] = w["head"] * (st["head"] is None)
     if plan in TAILED:
         t["tail"] = w["tail"] * max(0, 4 - st["tail_bones"])
-    if plan in WINGED:
+    if plan in WINGED or (plan == "avian" and not st.get("wingless")):  # theropods: no wings
         t["wings"] = w["wings"] * max(0, 2 - st["wings"])
-    if plan in UPRIGHT and hands:
+    if plan in UPRIGHT_BODY and hands:
         t["arms"] = w["arms"] * max(0, 2 - st["arms"])
     lo, hi = JOINTS.get(plan, JOINTS_DEFAULT)
     t["joints"] = w["joints"] * (max(0, lo - st["joints"]) + max(0, st["joints"] - hi))
@@ -183,7 +191,38 @@ def summary(st: dict) -> dict:
 def score_job(mon: dict, src: Path, report: Path) -> dict:
     plan = mon["body_plan"]
     return {"mode": "score", "src": str(src), "report": str(report), "sprawl": plan in SPRAWLED,
-            "upright": plan in UPRIGHT, "plan": plan}
+            "wingless": mon.get("rig_template") == "custom.theropod",
+            "upright": plan in UPRIGHT_BODY, "plan": plan}
+
+
+# How each plan gets its skeleton. "skintokens" rolls (above); anything else is a generated
+# fallback skeleton (blender_rig.py mode "fallback": kind, bones) because SkinTokens gives
+# that plan junk (docs/rig-anim.md "Body plans"). The rolls' scores are still recorded when
+# --rig-reroll is asked for on a fallback plan, so a later SkinTokens can be compared.
+RIG_STRATEGY = {
+    "serpentine": {"kind": "spine_chain", "bones": 16},   # SkinTokens: 7-13 joint star, no chain
+    "amorphous": {"kind": "vertical", "bones": 4},        # a blob: base-to-top chain, squash and stretch
+    "plant_object": {"kind": "vertical", "bones": 5},     # SkinTokens roots a fungus at its cap, stalk hanging down
+    "tentacled": {"kind": "tentacle_hub", "bones": 5},    # root + body + 5-bone chain per tentacle tip
+    "swarm": {"kind": "root"},                            # one cluster on one bone; the game instances units
+}
+
+
+def fallback_rig(fg, mon: dict, d: Path) -> dict:
+    """Generate the plan's fallback skeleton into rig/fallback.glb and keep it as chosen.glb."""
+    rdir = d / "rig"
+    rdir.mkdir(exist_ok=True)
+    spec = RIG_STRATEGY[mon["body_plan"]]
+    out = rdir / "fallback.glb"
+    rep = blender(fg, {"mode": "fallback", "src": str(d / "model.glb"), "dst": str(out),
+                       "report": str(rdir / "fallback_build.json"), "plan": mon["body_plan"], **spec})
+    st = scored(blender(fg, score_job(mon, out, rdir / "fallback.json")), mon["body_plan"], bool(mon.get("hands")))
+    st["file"] = out.name
+    st["build"] = rep
+    (rdir / "fallback.json").write_text(json.dumps(st, indent=1))
+    fg.log(f"{mon['id']}: rig fallback {spec['kind']}: {st['joints']} joints, score {st['score']}, build {rep}")
+    shutil.copyfile(out, rdir / "chosen.glb")
+    return {"rolls": [summary(st)], "picked": out.name, "tool": f"fallback:{spec['kind']}"}
 
 
 def facing_check(fg, mon: dict, d: Path) -> dict:
@@ -194,9 +233,11 @@ def facing_check(fg, mon: dict, d: Path) -> dict:
                        "plan": mon["body_plan"], "head_region": (man.get("qa") or {}).get("head_region"),
                        "forward": overrides.load(mon["source"], mon["id"]).get("forward") or "-Z"})
     bad = rep["angle_deg"] > FACING_MAX_DEG
+    advisory = mon["body_plan"] in FACING_ADVISORY
     out = {"method": "mirror_plane" + ("+" + rep["sign_rule"] if rep["head_known"] else ""),
            "angle_deg": rep["angle_deg"], "confidence": rep["confidence"],
-           "ok": not (bad and rep["confidence"] >= FACING_CONF),
+           "ok": advisory or not (bad and rep["confidence"] >= FACING_CONF),
+           **({"advisory": True} if advisory else {}),
            "head_known": rep["head_known"], "bearing_deg": rep["bearing_deg"],
            "symmetry_error": rep["symmetry_error"], "symmetry_contrast": rep["symmetry_contrast"]}
     for k in ("footprint_axis_deg", "footprint_elongation", "head_region_bearing_deg"):
@@ -208,7 +249,8 @@ def facing_check(fg, mon: dict, d: Path) -> dict:
     if bad or out["confidence"] < FACING_CONF:
         fg.log(f"{mon['id']}: WARNING rig facing: body axis {out['angle_deg']} deg off +Y "
                f"(confidence {out['confidence']}{', head end unknown' if not rep['head_known'] else ''})"
-               + (f"; pin `yaw` (about {out.get('suggested_yaw')}) in data/overrides and re-run qa" if bad else
+               + (f"; advisory only for {mon['body_plan']} (no mirror-plane body axis), rolling anyway" if advisory else
+                  f"; pin `yaw` (about {out.get('suggested_yaw')}) in data/overrides and re-run qa" if bad else
                   "; low confidence (asymmetric pose?), rolling anyway"))
     else:
         fg.log(f"{mon['id']}: rig facing ok: {out['angle_deg']} deg off +Y, confidence {out['confidence']}")
@@ -270,7 +312,16 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
         raise RuntimeError(f"{mon['id']}: model.glb faces {facing['angle_deg']} deg off +Y (confidence "
                            f"{facing['confidence']}): SkinTokens scrambles misfaced meshes. Pin `yaw` "
                            f"(about {facing.get('suggested_yaw')}) and re-run qa, or set rig_facing_check false")
-    if rolling:
+    if rolling and mon["body_plan"] in RIG_STRATEGY:
+        if args.rig_reroll:  # still measure SkinTokens on the plan, for the record
+            try:
+                skt = roll(fg, mon, d, args.rig_rolls or ROLLS)
+                fg.log(f"{mon['id']}: SkinTokens rolls for the record: "
+                       f"{[(r['file'], r['score'], r['joints']) for r in skt['rolls']]}")
+            except RuntimeError as e:
+                fg.log(f"{mon['id']}: SkinTokens rolls failed ({e})")
+        info = fallback_rig(fg, mon, d)
+    elif rolling:
         info = roll(fg, mon, d, args.rig_rolls or ROLLS)
     else:
         fg.log(f"{mon['id']}: rig uses the kept skeleton rig/chosen.glb")
@@ -288,7 +339,9 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
     missing = [s for s in (mon.get("sockets") or []) if s not in rep["sockets"]]
     if missing:
         fg.log(f"{mon['id']}: rig could not place sockets {missing}")
-    man["rig"] = {"tool": "skintokens", "joints": rep["joints"], "legs": rep["legs"], "symmetry": rep["symmetry"],
+    tool = info.get("tool") or (man.get("rig") or {}).get("tool") or \
+        (f"fallback:{RIG_STRATEGY[mon['body_plan']]['kind']}" if mon["body_plan"] in RIG_STRATEGY else "skintokens")
+    man["rig"] = {"tool": tool, "joints": rep["joints"], "legs": rep["legs"], "symmetry": rep["symmetry"],
                   "sockets": rep["sockets"], "sockets_missing": missing,
                   "empty_bones": rep["empty_bones"], "seconds": round(time.time() - t0, 1),
                   "facing": facing, "quality": summary(q),

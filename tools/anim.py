@@ -19,6 +19,11 @@ ROOT = Path(__file__).resolve().parent.parent
 BLENDER_CLIPS = ROOT / "tools" / "blender_clips.py"
 SPRAWLED = {"insectoid"}
 UPRIGHT = {"biped", "winged_biped"}
+# Plans with no walking legs: blender_clips.py's "legless" builders drive their body chain
+# (and arms, tentacles) instead of feet. docs/rig-anim.md "Body plans".
+LEGLESS = {"serpentine", "floating", "amorphous", "plant_object", "tentacled", "aquatic", "merfolk_naga", "swarm"}
+# Plans whose arms the clips drive (when the record has hands), besides the upright ones.
+ARMED = {"centauroid", "merfolk_naga", "floating"}
 
 
 def stage_anim(fg, mon: dict, d: Path, args) -> None:
@@ -29,7 +34,7 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
         fg.log(f"{mon['id']}: clips exist, skip")  # incl. the ones it cannot make (manifest anim.missing)
         return
     plan = mon["body_plan"]
-    if plan not in overrides.FEET_BY_PLAN:
+    if plan not in overrides.FEET_BY_PLAN and plan not in LEGLESS:
         fg.log(f"{mon['id']}: no clips for plan {plan} yet, skip")
         return
     if not (d / "model_rigged.glb").exists():
@@ -38,8 +43,8 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
     report = adir / "clips.json"
     report.unlink(missing_ok=True)
     job = {"src": str(d / "model_rigged.glb"), "out_dir": str(adir), "report": str(report), "clips": want,
-           "feet": overrides.FEET_BY_PLAN[plan], "sprawl": plan in SPRAWLED, "upright": plan in UPRIGHT,
-           "plan": plan}
+           "feet": overrides.FEET_BY_PLAN.get(plan, 0), "sprawl": plan in SPRAWLED, "upright": plan in UPRIGHT,
+           "arms": plan in ARMED and bool(mon.get("hands")), "plan": plan}
     t0 = time.time()
     proc = subprocess.run([fg.BLENDER, "-b", "--factory-startup", "--python-exit-code", "1", "-P", str(BLENDER_CLIPS),
                            "--", json.dumps(job)], capture_output=True, text=True, timeout=1800)
@@ -52,7 +57,8 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
     man = fg.load_manifest(d)
     man["anim"] = {"clips": clips, "missing": [c for c in want if c not in clips], "seconds": dt,
                    **{c: rep["clips"][c] for c in clips},
-                   "parts": {k: rep[k] for k in ("root", "head", "neck", "spine", "tail", "arms", "wings", "legs")}}
+                   "parts": {k: rep[k] for k in ("root", "head", "neck", "spine", "tail", "arms", "wings", "legs", "body",
+                                                     "tentacles") if k in rep}}
     man.setdefault("timings", {})["anim"] = dt
     fg.save_manifest(d, man)
     fg.log(f"{mon['id']}: {len(clips)} clips in {dt}s: {', '.join(clips)}"

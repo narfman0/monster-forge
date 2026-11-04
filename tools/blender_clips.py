@@ -73,6 +73,8 @@ world = arm.matrix_world.copy()
 to_arm = world.inverted()
 z_all = [(o.matrix_world @ v.co).z for o in meshes for v in o.data.vertices]
 height = max(z_all) - min(z_all)
+_y_all = [(o.matrix_world @ v.co).y for o in meshes for v in o.data.vertices]
+mesh_len = max(_y_all) - min(_y_all)  # front-to-back extent of the surface (a blob's bones are all vertical)
 
 
 # --- skeleton -------------------------------------------------------------------------
@@ -81,10 +83,18 @@ bones = [{"name": b.name, "parent": b.parent.name if b.parent else None,
           "head": list((world @ b.head_local)[:]), "tail": list((world @ b.tail_local)[:])} for b in arm.data.bones]
 by_name = {b["name"]: b for b in bones}
 kids = rig_topology._children(bones)
-legs = rig_topology.find_legs(bones, height, 8 if job["sprawl"] else job["feet"], job["sprawl"])
-if len(legs) < job["feet"]:
-    raise SystemExit(f"found {len(legs)} legs, need {job['feet']}")
-drop = max(g["drop"] for g in legs)
+# Plans without walking legs (serpentine, aquatic, floating, amorphous, ...) skip the leg
+# machinery: their clips are the "legless" builders below, on the chains find_body() finds.
+PLAN = job.get("plan", "")
+LEGLESS = {"serpentine", "aquatic", "floating", "amorphous", "plant_object", "tentacled", "swarm", "merfolk_naga"}
+legless = PLAN in LEGLESS
+if legless:
+    legs = []
+else:
+    legs = rig_topology.find_legs(bones, height, 8 if job["sprawl"] else job["feet"], job["sprawl"])
+    if len(legs) < job["feet"]:
+        raise SystemExit(f"found {len(legs)} legs, need {job['feet']}")
+drop = max(g["drop"] for g in legs) if legs else 0.3 * height
 cx = rig_topology.centre_x(bones, legs)
 for g in legs:
     g["x"], g["y"] = by_name[g["foot"]]["head"][:2]
@@ -100,20 +110,20 @@ for g in legs:
         g["ik_bone"] = g["shin"]
 ys = [p[1] for b in bones for p in (b["head"], b["tail"])]
 body_len = max(ys) - min(ys)
-leg_y = sum(g["y"] for g in legs) / len(legs)
+leg_y = sum(g["y"] for g in legs) / len(legs) if legs else sum(b["head"][1] for b in bones) / len(bones)
 front = [g for g in legs if g["y"] >= leg_y] if not job["upright"] else []
 # body turns pivot at the ground under the feet (upright) or at the hind hips (horizontal),
 # so a nose-up lean lifts the front instead of driving the rump and tail into the ground
 hind = [g for g in legs if g["y"] < leg_y] if not job["upright"] else []
 PIVOT = Vector((cx, sum(by_name[g["chain"][0]]["head"][1] for g in hind) / len(hind),
                 sum(by_name[g["chain"][0]]["head"][2] for g in hind) / len(hind))) if hind else Vector((cx, leg_y, 0.0))
-arms = rig_topology.find_arms(bones, height, legs) if job["upright"] else []
+arms = rig_topology.find_arms(bones, height, legs) if job["upright"] or job.get("arms") else []
 arm_by_side = {a["side"]: a for a in arms}
 # upright: the highest bone on the centre line; horizontal: the one reaching farthest forward
-head = rig_topology.find_head(bones, height, legs) if job["upright"] else \
-    None if job["sprawl"] else rig_topology.find_snout(bones, height, legs)
-tail = [] if job["upright"] else rig_topology.find_tail(bones, height, legs)
-wings = [{"side": w[0], "chain": w[1]} for w in job["wings"]] if job.get("wings") else \
+head = rig_topology.find_head(bones, height, legs) if job["upright"] or (legless and arms) or PLAN == "centauroid" else \
+    None if job["sprawl"] or legless else rig_topology.find_snout(bones, height, legs)
+tail = [] if job["upright"] or legless else rig_topology.find_tail(bones, height, legs)
+wings = [{"side": w[0], "chain": w[1]} for w in job["wings"]] if job.get("wings") else [] if legless else \
     rig_topology.find_wings(bones, height, legs, arms, exclude=(head,) if head else ())
 root = next(b["name"] for b in bones if b["parent"] is None)
 # a spider's chelicerae: short non-leg chains off the root that hang down
@@ -247,6 +257,8 @@ class Clip:
         self.rest_from = 0.85                       # rest: from here on the pose lies on the ground
         self.info: dict = {}
         self.targets: list = []                     # (leg, IK empty, rest position)
+        self.scale: dict[str, object] = {}          # bone -> fn(t) -> local scale Vector
+        self.hover = HOVER                          # hover: lowest vertex this high, metres
 
     def turn(self, bone, axis: str, fn) -> None:
         if bone:
@@ -381,6 +393,11 @@ def key_fk(clip: Clip) -> None:
                 q = (fn(t) if ax is None else Quaternion(ax, math.radians(fn(t)))) @ q
             pb.rotation_quaternion = rest.inverted() @ q @ rest
             pb.keyframe_insert("rotation_quaternion", frame=f)
+    for name, fn in clip.scale.items():
+        pb = arm.pose.bones[name]
+        for f in range(1, clip.frames + 2):
+            pb.scale = fn((f - 1) / clip.frames)
+            pb.keyframe_insert("scale", frame=f)
 
 
 def sample(clip: Clip) -> tuple[np.ndarray, np.ndarray, list[np.ndarray]]:
@@ -436,7 +453,9 @@ def correction(clip: Clip, lows: np.ndarray, loose: np.ndarray) -> list[float]:
                 out.append(0.0)
         return out
     if clip.ground == "hover":
-        return [HOVER - float(lows.min())] * n
+        return [clip.hover - float(lows.min())] * n
+    if clip.ground == "contact":  # legless bodies lying on the ground: lowest vertex on it every frame
+        return [-float(z) for z in lows]
     if clip.ground == "rest":
         out = []
         for f in range(n):
@@ -479,7 +498,10 @@ def build(clip: Clip) -> dict:
     corr = zero
     fix = [[0.0] * (clip.frames + 1) for _ in legs]
     tail_up = [0.0] * (clip.frames + 1)
-    if clip.ground != "none":
+    if clip.ground == "lift":  # constant: nothing to settle
+        corr = [clip.hover] * (clip.frames + 1)
+        key_root(clip, corr)
+    elif clip.ground != "none":
         if tail and clip.ground == "floor":
             clip.rot.setdefault(tail[0], []).append((TAIL_AXIS, lambda t: tail_up[round(t * clip.frames)]))
         sole = [min(z, 0.0) for z in rest_foot]
@@ -676,7 +698,7 @@ def hit() -> Clip:
         for a in arms:
             c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, -18 * k(t)))
             c.turn(a["forearm"], "X", lambda t: 25 * k(t))
-    else:
+    elif PLAN != "avian":  # a bird's tail fan rests on the ground: a nose-up tilt drives it through
         c.tilt = lambda t: Quaternion(AXES["X"], math.radians(5 * k(t)))
     c.turn_chain(neck, "X", lambda t: 14 * k(t))
     c.turn(skull, "X", keys((0, 0), (0.22, 12), (1, 0)))
@@ -722,6 +744,22 @@ def death() -> Clip:
             c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, keys((0, 0), (0.3, -10), (0.75, -70), (1, -70))(t)))
             c.turn(a["upper"], "X", keys((0, 0), (0.3, 20), (0.75, 40), (1, 40)))
             c.turn(a["forearm"], "X", keys((0, 0), (0.3, 30), (0.8, 15), (1, 15)))
+        return c
+    if PLAN == "avian":
+        # a bird stands with its legs under it and its wings out: rolling onto the side
+        # props it on a wing tip, so it pitches forward onto its breast and the wings
+        # fold up and back over it
+        front_y = max(g["y"] for g in legs) + 0.1 * body_len
+        c.pivot = Vector((cx, front_y, 0.0))
+        fall = lambda t: -80 * ease_in((t - 0.25) / 0.5) + 5 * math.sin(math.pi * smooth((t - 0.75) / 0.15))
+        c.tilt = lambda t: Quaternion(AXES["X"], math.radians(fall(t)))
+        c.lift = lambda t: Vector((0, 0, -0.25 * drop * buckle(t)))
+        for w in wings:
+            c.turn(w["chain"][0], "Y", lambda t, s=w["side"]: sym(s, keys((0, 0), (0.6, -40), (1, -40))(t)))
+            c.turn(w["chain"][0], "X", keys((0, 0), (0.6, 30), (1, 30)))
+        for g in legs:
+            c.turn(g["chain"][0], "X", keys((0, 0), (0.6, -40), (1, -40)))
+        c.info = {"falls_on": "breast"}
         return c
     down = 1  # onto the right side
     wide = max(abs(g["x"] - cx) for g in legs)
@@ -864,11 +902,801 @@ def plan_clips() -> dict:
     return sets
 
 
-makers = plan_clips()
+# --- legless plans ----------------------------------------------------------------------
+# A body chain from the tail end to the head end (the fallback skeleton's spine_00 ..
+# head, or the two leaves farthest apart along the bones), each bone with the side of its
+# head joint it turns: +1 when its parent is toward the tail (it turns everything ahead),
+# -1 when its parent is toward the head (a bone on the tail side of a mid-body root turns
+# everything behind it). A lateral wave is then a curvature wave: the heading change at
+# joint s is A sin(2 pi (k s + t)) and each bone takes +-that about world Z, so the shape
+# travels from head to tail while the root (mid-body) holds its place and heading.
+
+def find_body() -> dict:
+    names = set(by_name)
+    sp = sorted((n for n in names if n.startswith("spine_")), key=lambda n: int(n.split("_")[1]))
+    if sp and "head" in names and len(sp) >= 3:
+        path = sp + ["head"]
+    else:
+        leaves = [n for n in by_name if not kids[n]]
+        plen = lambda pth: sum(rig_topology._dist(by_name[a]["head"], by_name[b]["head"]) for a, b in zip(pth, pth[1:]))
+        best = max(((a, b) for i, a in enumerate(leaves) for b in leaves[i + 1:]),
+                   key=lambda ab: plen(rig_topology.path_between(ab[0], ab[1], bones)), default=None)
+        path = rig_topology.path_between(best[0], best[1], bones) if best else [root]
+        end = lambda n: Vector(by_name[n]["tail"])
+        if (end(path[0]).z + 0.1 * end(path[0]).y) > (end(path[-1]).z + 0.1 * end(path[-1]).y):
+            path = path[::-1]  # the higher (or forward) end is the head
+    n = len(path)
+    dirs, svals = [], []
+    for i, nm in enumerate(path):
+        par = by_name[nm]["parent"]
+        d = 1 if i > 0 and par == path[i - 1] else -1 if i + 1 < n and par == path[i + 1] else 0
+        dirs.append(d)
+        svals.append((i + (1 if d < 0 else 0)) / n)
+    return {"path": path, "dir": dirs, "s": svals, "head": path[-1]}
+
+
+def bone_dir(nm: str) -> Vector:
+    return Vector(by_name[nm]["tail"]) - Vector(by_name[nm]["head"])
+
+
+def lateral_axis(nm: str, sign: int) -> Vector:
+    """Horizontal axis across a body bone: + turns the head end up (the nose-up of +X for
+    a bone pointing +Y)."""
+    d = bone_dir(nm) * (sign or 1)
+    d.z = 0
+    if d.length < 1e-6:
+        return AXES["X"]
+    return d.normalized().cross(AXES["Z"])
+
+
+BODY = find_body() if PLAN in ("serpentine", "aquatic") else None
+
+
+def body_wave(c: Clip, amp, cycles: float, env=lambda s: 1.0, speed: int = 1, skip_root: bool = True) -> None:
+    """Lateral curvature wave along the body chain (see above); amp(t) or a number, in
+    degrees of heading change per joint."""
+    a = amp if callable(amp) else (lambda t, v=amp: v)
+    for nm, d, sv in zip(BODY["path"], BODY["dir"], BODY["s"]):
+        if d == 0 and skip_root:
+            continue
+        c.turn(nm, "Z", lambda t, d=d, sv=sv: (d or 1) * a(t) * env(sv) * math.sin(2 * math.pi * (cycles * sv + speed * t)))
+
+
+def body_pitch(c: Clip, fn, s_from: float, s_to: float = 1.01) -> list[str]:
+    """Raise (+) or lower (-) the part of the body chain between s_from and s_to: fn(t) is
+    the total pitch in degrees, spread over the head-pointing bones in that span."""
+    part = [(nm, d) for nm, d, sv in zip(BODY["path"], BODY["dir"], BODY["s"]) if s_from <= sv < s_to and d > 0]
+    for nm, d in part:
+        c.rot.setdefault(nm, []).append((lateral_axis(nm, d), lambda t: fn(t) / len(part)))
+    return [nm for nm, _ in part]
+
+
+def head_rise() -> float:
+    """How high the head end sits above the body's lowest point, and the neck's length."""
+    hd = Vector(by_name[BODY["head"]]["head"])
+    return hd.z - min(z_all)
+
+
+# the neck: the front quarter of the chain. A coiled mesh whose coils touch (the pilot
+# snake) has whole loops bound to the bones behind that, so pitching more of the chain
+# lifts coils into the air.
+NECK_S = 0.75
+
+
+def slither(name: str = "walk", seconds: float = 1.6, amp: float = 14.0, cycles: float = 1.5) -> Clip:
+    """In-place slither: a lateral wave runs from head to tail (one period per loop); the
+    head itself is steadied (smaller amplitude at the front), the body stays on the ground."""
+    c = Clip(name, seconds, True)
+    c.ground = "contact"
+    body_wave(c, amp, cycles, env=lambda s: 1.0 - 0.6 * smooth((s - 0.75) / 0.25))
+    c.info = {"chain": BODY["path"], "wave_amp_deg": amp, "wave_cycles": cycles}
+    return c
+
+
+def idle_serpent() -> Clip:
+    c = Clip("idle", 3.0, True)
+    c.ground = "contact"
+    body_wave(c, 3.0, 1.0)
+    body_pitch(c, lambda t: 4 * math.sin(2 * math.pi * t), NECK_S)
+    c.turn(BODY["head"], "Z", wave(8.0, 1, 0.2))
+    c.turn(BODY["head"], "X", wave(4.0, 2, 0.1))
+    return c
+
+
+def strike_serpent() -> Clip:
+    """Rear the front third back and up, strike down and forward, hold the bite, recover."""
+    c = Clip("attack_melee", 1.0, False)
+    c.ground = "contact"
+    neck = body_pitch(c, keys((0, 0), (0.35, 30), (0.5, -25), (0.62, -25), (1, 0)), NECK_S)
+    c.turn(BODY["head"], "X", keys((0, 0), (0.35, 10), (0.5, -10), (0.62, -10), (1, 0)))
+    if neck:
+        hd = bone_dir(neck[0])
+        hd.z = 0
+        fwd = hd.normalized() if hd.length > 1e-6 else AXES["Y"]
+        reach = 0.06 * body_len
+        k = keys((0, 0), (0.35, -0.4), (0.5, 1), (0.62, 1), (1, 0))
+        c.lift = lambda t: fwd * reach * k(t)
+    c.info = {"neck": neck}
+    return c
+
+
+def hit_serpent() -> Clip:
+    c = Clip("hit", 0.5, False)
+    c.ground = "contact"
+    k = keys((0, 0), (0.18, 1), (1, 0))
+    body_pitch(c, lambda t: 20 * k(t), NECK_S)
+    body_wave(c, lambda t: 6 * k(t), 0.5)
+    return c
+
+
+def death_serpent() -> Clip:
+    """The raised front slumps to the ground and the body goes slack with a last twitch;
+    the last frame lies on the ground and holds."""
+    c = Clip("death", 1.8, False)
+    c.ground, c.rest_from = "rest", 0.75
+    neck_part = [(nm, d, sv) for nm, d, sv in zip(BODY["path"], BODY["dir"], BODY["s"]) if sv >= NECK_S and d > 0]
+    # enough pitch for the head to come down to the body's height: asin(rise / neck length)
+    if neck_part:
+        base = Vector(by_name[neck_part[0][0]]["head"])
+        tip = Vector(by_name[BODY["head"]]["tail"])
+        rise = tip.z - min(z_all) - 0.15 * (tip - base).length
+        drop_deg = min(60.0, math.degrees(math.asin(max(0.0, min(1.0, rise / max((tip - base).length, 1e-6))))))
+    else:
+        drop_deg = 0.0
+    fall = keys((0, 0), (0.15, 12), (0.65, -drop_deg - 6), (0.75, -drop_deg), (1, -drop_deg))
+    body_pitch(c, fall, NECK_S)
+    body_wave(c, lambda t: 8 * math.sin(2 * math.pi * 2 * t) * (1 - smooth((t - 0.2) / 0.5)), 1.0)
+    c.info = {"head_drop_deg": round(drop_deg, 1)}
+    return c
+
+
+# floating (ghost, wraith, specter, elementals): a humanoid upper body over a robe or a
+# tail of mist. SkinTokens rigs the ghost like a biped under its robe (legs to the hem);
+# every clip hovers (ground "hover": the lowest vertex FLOAT x height above the ground
+# over the cycle), the hem chains trail and sway, death sinks onto the ground face down.
+FLOAT = 0.1
+hem = rig_topology.find_legs(bones, height, 4, False) if PLAN == "floating" else []
+
+
+def hover_clip(name: str, seconds: float, loop: bool) -> Clip:
+    c = Clip(name, seconds, loop)
+    c.ground, c.hover = "lift", FLOAT * height
+    c.pivot = Vector((cx, leg_y, 0.5 * height))
+    return c
+
+
+def hem_sway(c: Clip, amp: float, back: float = 0.0) -> None:
+    for i, g in enumerate(hem):
+        c.turn(g["chain"][0], "X", lambda t, i=i: -back + amp * math.sin(2 * math.pi * (t - 0.15 - 0.1 * i)))
+        if len(g["chain"]) > 1:
+            c.turn(g["chain"][1], "X", lambda t, i=i: -0.5 * back + 0.6 * amp * math.sin(2 * math.pi * (t - 0.3 - 0.1 * i)))
+
+
+def idle_float() -> Clip:
+    c = hover_clip("idle", 3.0, True)
+    bob = 0.025 * height
+    c.lift = lambda t: Vector((0, 0, bob * math.sin(2 * math.pi * t)))
+    c.turn_chain(torso, "X", wave(3.0, 1, 0.1))
+    c.turn_chain(neck[:-1] or neck, "Z", wave(8.0, 1, 0.1))
+    c.turn(skull, "X", wave(4.0, 2, 0.2))
+    for a in arms:
+        c.turn(a["upper"], "X", wave(5.0, 1, 0.3))
+        c.turn(a["forearm"], "X", lambda t: 4.0 + 4.0 * math.sin(2 * math.pi * (t - 0.4)))
+    hem_sway(c, 4.0)
+    return c
+
+
+def fly_float() -> Clip:
+    """Glide in place: lean into the travel, hem trailing back, a slow bob."""
+    c = hover_clip("fly", 2.0, True)
+    bob = 0.03 * height
+    c.lift = lambda t: Vector((0, 0, bob * math.sin(2 * math.pi * t)))
+    c.tilt = lambda t: Quaternion(AXES["X"], math.radians(-14 + 2 * math.sin(2 * math.pi * (t - 0.2))))
+    c.turn_chain(neck, "X", lambda t: 10.0)
+    for a in arms:
+        c.turn(a["upper"], "X", lambda t: -15 + 4 * math.sin(2 * math.pi * (t - 0.3)))
+    hem_sway(c, 6.0, back=12.0)
+    return c
+
+
+def attack_float() -> Clip:
+    """Lunge with both arms reaching forward, clawing, recover."""
+    c = hover_clip("attack_melee", 1.0, False)
+    k = keys((0, 0), (0.3, -0.3), (0.5, 1), (0.65, 1), (1, 0))
+    c.lift = lambda t: Vector((0, 0.12 * height * k(t), 0.02 * height * k(t)))
+    c.tilt = lambda t: Quaternion(AXES["X"], math.radians(-12 * max(0.0, k(t)) + 6 * min(0.0, k(t)) * -1))
+    reach = keys((0, 0), (0.3, 0.6), (0.5, 1), (0.65, 1), (1, 0))
+    for a in arms:
+        sx = 1 if a["side"] == "r" else -1
+        aim_arm(c, a, lambda t, sx=sx: Vector((0.25 * sx, 1, 0.25)).normalized(),
+                lambda t, sx=sx: Vector((0.05 * sx, 1, 0.0 - 0.3 * reach(t))).normalized(), reach)
+    c.turn(skull, "X", keys((0, 0), (0.3, 10), (0.5, -8), (1, 0)))
+    hem_sway(c, 3.0, back=0.0)
+    for g in hem:
+        c.turn(g["chain"][0], "X", lambda t: -15 * max(0.0, k(t)))
+    return c
+
+
+def hit_float() -> Clip:
+    c = hover_clip("hit", 0.5, False)
+    k = keys((0, 0), (0.18, 1), (1, 0))
+    c.lift = lambda t: Vector((0, -0.05 * height * k(t), 0.02 * height * k(t)))
+    c.tilt = lambda t: Quaternion(AXES["X"], math.radians(10 * k(t)))
+    c.turn_chain(torso, "X", lambda t: 10 * k(t))
+    c.turn_chain(neck, "X", lambda t: 12 * k(t))
+    for a in arms:
+        c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, -15 * k(t)))
+        c.turn(a["forearm"], "X", lambda t: 20 * k(t))
+    for g in hem:
+        c.turn(g["chain"][0], "X", lambda t: 12 * k(t))
+    return c
+
+
+def death_float() -> Clip:
+    """Sag, then sink and fall forward onto the ground, arms limp; holds lying."""
+    c = Clip("death", 2.0, False)
+    c.ground, c.rest_from = "rest", 0.75
+    front_y = max(p[1] for b in bones for p in (b["head"], b["tail"]))
+    c.pivot = Vector((cx, front_y, 0.0))
+    fall = lambda t: -85 * ease_in((t - 0.3) / 0.45) + 5 * math.sin(math.pi * smooth((t - 0.75) / 0.15))
+    c.tilt = lambda t: Quaternion(AXES["X"], math.radians(fall(t)))
+    c.lift = lambda t: Vector((0, 0, 0.15 * height * (1 - smooth(t / 0.3)) - 0.05 * height * smooth((t - 0.2) / 0.4)))
+    c.turn_chain(torso, "X", keys((0, 0), (0.3, -15), (0.7, 5), (1, 5)))
+    c.turn_chain(neck, "X", keys((0, 0), (0.3, -20), (0.8, 15), (1, 15)))
+    for a in arms:
+        c.turn(a["upper"], "X", keys((0, 0), (0.3, 30), (0.8, 60), (1, 60)))
+        c.turn(a["forearm"], "X", keys((0, 0), (0.4, 20), (1, 20)))
+    for g in hem:
+        c.turn(g["chain"][0], "X", keys((0, 0), (0.5, -8), (1, -8)))  # the hem lies flat behind
+    c.info = {"falls": "forward"}
+    return c
+
+
+# amorphous (oozes) and other vertical-chain bodies (blob fallback: spine_00 at the base is
+# the root, the chain runs up the middle). Squash and stretch is the root's scale (local Y
+# is up, so (w, h, w) widens and flattens about the base); leaning is turning the chain
+# about X (- leans forward: a vertical bone's tip goes to +Y). Every clip keeps the lowest
+# vertex on the ground ("contact"); death flattens into a puddle and holds.
+STACK = sorted((n for n in by_name if n.startswith("spine_")), key=lambda n: int(n.split("_")[1])) \
+    if PLAN in ("amorphous",) else []
+
+
+def vscale(name: str, h: float, v: float) -> Vector:
+    """A pose-bone scale (bone-local axes) that is `v` along world up and `h` across it:
+    the glTF importer's bone axes need not have local Y up, so the local axis closest to
+    world Z takes the vertical factor."""
+    m = (world @ arm.data.bones[name].matrix_local).to_3x3()
+    i = max(range(3), key=lambda k: abs(m.col[k].z))
+    out = [h, h, h]
+    out[i] = v
+    return Vector(out)
+
+
+def squash(c: Clip, fn) -> None:
+    """fn(t) -> (stretch): 1 = rest, < 1 squashes (wider, lower), > 1 stretches (narrower, taller)."""
+    def sc(t):
+        k = fn(t)
+        return vscale(STACK[0], k ** -0.3, k)  # less than volume-preserving: a puddle 1.5x wide, not 2x
+    c.scale[STACK[0]] = sc
+
+
+def lean(c: Clip, axis: str, fn, lag: float = 0.0) -> None:
+    c.turn_chain(STACK[1:], axis, fn, lag)
+
+
+def blob_clip(name: str, seconds: float, loop: bool) -> Clip:
+    c = Clip(name, seconds, loop)
+    c.ground = "contact"
+    c.pivot = Vector(by_name[STACK[0]]["head"])
+    return c
+
+
+def idle_blob() -> Clip:
+    c = blob_clip("idle", 2.4, True)
+    squash(c, lambda t: 1 + 0.05 * math.sin(2 * math.pi * t))
+    lean(c, "X", wave(4.0, 1, 0.25), 0.05)
+    lean(c, "Y", wave(3.0, 1, 0.0), 0.05)
+    return c
+
+
+def walk_blob() -> Clip:
+    """Ooze in place: the top surges forward and back over the base twice per loop while
+    the body pulses (stretch as it leans in, squash as it catches up)."""
+    c = blob_clip("walk", 1.6, True)
+    squash(c, lambda t: 1 + 0.08 * math.sin(2 * math.pi * (2 * t)))
+    lean(c, "X", lambda t: -14 * math.sin(2 * math.pi * (2 * t - 0.15)), 0.04)
+    lean(c, "Y", wave(4.0, 1, 0.0), 0.05)
+    c.info = {"chain": STACK}
+    return c
+
+
+def attack_blob() -> Clip:
+    """Engulf: rear up tall and back, surge forward over the target (flattening onto it),
+    hold, recover."""
+    c = blob_clip("attack_melee", 1.2, False)
+    squash(c, keys((0, 1), (0.35, 1.3), (0.55, 0.75), (0.7, 0.75), (1, 1)))
+    lean(c, "X", keys((0, 0), (0.35, 15), (0.55, -45), (0.7, -45), (1, 0)))
+    k = keys((0, 0), (0.35, -0.3), (0.55, 1), (0.7, 1), (1, 0))
+    c.lift = lambda t: Vector((0, 0.12 * mesh_len * k(t), 0))
+    return c
+
+
+def hit_blob() -> Clip:
+    c = blob_clip("hit", 0.5, False)
+    k = keys((0, 0), (0.15, 1), (0.45, -0.4), (1, 0))
+    squash(c, lambda t: 1 - 0.18 * k(t))
+    lean(c, "X", lambda t: 12 * max(0.0, k(t)))
+    return c
+
+
+def death_blob() -> Clip:
+    """Shudder, then slump flat into a puddle; holds."""
+    c = blob_clip("death", 1.8, False)
+    flat = keys((0, 1), (0.2, 1.1), (0.75, 0.22), (0.85, 0.27), (1, 0.25))
+    squash(c, lambda t: flat(t) + 0.04 * math.sin(2 * math.pi * 4 * t) * (1 - smooth(t / 0.3)))
+    lean(c, "X", keys((0, 0), (0.2, 6), (0.75, -10), (1, -8)))
+    return c
+
+
+# plant_object (fungi, shrubs, trees): a stalk from the root to the highest bone near the
+# centre line, and limbs (tendrils, branches) = every other chain hanging off the stalk.
+# Rooted: "contact" keeps the base on the ground; death bends the stalk over and holds.
+def find_plant() -> tuple[list[str], list[list[str]]]:
+    if STACK:
+        return STACK, []
+    central = [b for b in bones if abs((b["head"][0] + b["tail"][0]) / 2 - cx) < 0.15 * height] or bones
+    top = max(central, key=lambda b: b["tail"][2])["name"]
+    stalk = rig_topology.path_to_root(top, bones)
+    on = set(stalk)
+    limbs = []
+    for n in stalk:
+        for k in kids[n]:
+            if k in on:
+                continue
+            ch = rig_topology.longest_chain(k, kids)
+            tip = Vector(by_name[ch[-1]]["tail"])
+            if len(ch) >= 2 or (tip - Vector(by_name[k]["head"])).length > 0.15 * height:
+                limbs.append(ch)
+    return stalk, limbs
+
+
+if PLAN == "plant_object":
+    if not STACK:
+        STACK = sorted((n for n in by_name if n.startswith("spine_")), key=lambda n: int(n.split("_")[1]))
+    STALK, LIMBS = find_plant()
+else:
+    STALK, LIMBS = [], []
+
+
+def limb_out(ch: list[str]) -> Vector:
+    """Horizontal direction a limb points away from the stalk."""
+    d = Vector(by_name[ch[-1]]["tail"]) - Vector(by_name[STALK[0]]["head"])
+    d.z = 0
+    return d.normalized() if d.length > 1e-6 else AXES["Y"]
+
+
+def limb_turn(c: Clip, ch: list[str], fn) -> None:
+    """+ lifts the limb up and out (about the horizontal axis across its direction)."""
+    ax = limb_out(ch).cross(AXES["Z"]) * -1
+    for n in ch:
+        c.rot.setdefault(n, []).append((ax, lambda t: fn(t) / len(ch)))
+
+
+def plant_clip(name: str, seconds: float, loop: bool) -> Clip:
+    c = Clip(name, seconds, loop)
+    c.ground = "contact"
+    c.pivot = Vector(by_name[STALK[0]]["head"])
+    return c
+
+
+def stalk_turn(c: Clip, axis: str, fn, lag: float = 0.04) -> None:
+    c.turn_chain([n for n in STALK if n != root], axis, fn, lag)
+
+
+def idle_plant() -> Clip:
+    c = plant_clip("idle", 3.0, True)
+    stalk_turn(c, "X", wave(4.0, 1, 0.0))
+    stalk_turn(c, "Y", wave(3.0, 1, 0.25))
+    for i, ch in enumerate(LIMBS):
+        limb_turn(c, ch, lambda t, i=i: 10 * math.sin(2 * math.pi * (t - 0.17 * i)))
+    return c
+
+
+def walk_plant() -> Clip:
+    """Shuffle in place: the stalk rocks side to side and nods, limbs drag along."""
+    c = plant_clip("walk", 1.4, True)
+    stalk_turn(c, "Y", wave(7.0, 1, 0.0))
+    stalk_turn(c, "X", lambda t: -4 + 4 * math.sin(2 * math.pi * 2 * t))
+    if STACK and not LIMBS:
+        c.scale[STALK[0]] = lambda t: vscale(STALK[0], 1, 1 + 0.04 * math.sin(2 * math.pi * 2 * t))
+    for i, ch in enumerate(LIMBS):
+        limb_turn(c, ch, lambda t, i=i: 8 * math.sin(2 * math.pi * (t - 0.25 * i)))
+    return c
+
+
+def attack_plant() -> Clip:
+    """Coil back, then whip the stalk and every limb forward; recover."""
+    c = plant_clip("attack_melee", 1.0, False)
+    stalk_turn(c, "X", keys((0, 0), (0.35, 12), (0.5, -25), (0.62, -25), (1, 0)), 0.0)
+    for ch in LIMBS:
+        fwd = limb_out(ch).y
+        limb_turn(c, ch, keys((0, 0), (0.35, 35), (0.5, -20 if fwd > 0 else 40), (0.62, -20 if fwd > 0 else 40), (1, 0)))
+    return c
+
+
+def hit_plant() -> Clip:
+    c = plant_clip("hit", 0.5, False)
+    k = keys((0, 0), (0.18, 1), (0.5, -0.3), (1, 0))
+    stalk_turn(c, "X", lambda t: 14 * k(t), 0.0)
+    for ch in LIMBS:
+        limb_turn(c, ch, lambda t: 15 * k(t))
+    return c
+
+
+def death_plant() -> Clip:
+    """Wilt: the stalk sags, then topples over to its right and lies on the ground; limbs
+    go limp. Holds."""
+    c = plant_clip("death", 2.0, False)
+    c.ground, c.rest_from = "rest", 0.8
+    c.pivot = Vector((cx + 0.2 * height, by_name[STALK[0]]["head"][1], 0))
+    fall = lambda t: 85 * ease_in((t - 0.3) / 0.45) - 4 * math.sin(math.pi * smooth((t - 0.75) / 0.15))
+    c.tilt = lambda t: Quaternion(AXES["Y"], math.radians(fall(t)))
+    stalk_turn(c, "X", keys((0, 0), (0.3, -12), (1, -12)), 0.0)
+    for ch in LIMBS:
+        limb_turn(c, ch, keys((0, 0), (0.5, -25), (1, -25)))
+    c.info = {"falls_on": "right"}
+    return c
+
+
+# tentacled (octopus, kraken, roper, otyugh): the tentacle-hub fallback skeleton, root +
+# body + tent_<j>_<k> chains. A tentacle turns about the horizontal axis across its own
+# direction (+ curls it up and out). Ground-bound clips keep the lowest vertex on the
+# ground; swim hovers FLOAT x height above it with the tentacles pulsing together.
+TENTS = []
+if PLAN == "tentacled":
+    _t: dict[int, list] = {}
+    for n in by_name:
+        if n.startswith("tent_"):
+            _, j, k = n.split("_")
+            _t.setdefault(int(j), []).append((int(k), n))
+    TENTS = [[n for _, n in sorted(v)] for _, v in sorted(_t.items())]
+
+
+def tent_out(ch: list[str]) -> Vector:
+    d = Vector(by_name[ch[-1]]["tail"]) - Vector(by_name[root]["head"])
+    d.z = 0
+    return d.normalized() if d.length > 1e-6 else AXES["Y"]
+
+
+def tent_turn(c: Clip, ch: list[str], fn, lag: float = 0.0) -> None:
+    ax = -tent_out(ch).cross(AXES["Z"])
+    for i, n in enumerate(ch):
+        c.rot.setdefault(n, []).append((ax, (lambda t, i=i: fn(t - lag * i) / len(ch)) if lag else
+                                        (lambda t: fn(t) / len(ch))))
+
+
+def tent_clip(name: str, seconds: float, loop: bool, ground: str = "contact") -> Clip:
+    c = Clip(name, seconds, loop)
+    c.ground = ground
+    c.hover = FLOAT * height
+    c.pivot = Vector(by_name[root]["head"])
+    return c
+
+
+def idle_tent() -> Clip:
+    c = tent_clip("idle", 3.0, True)
+    for i, ch in enumerate(TENTS):
+        tent_turn(c, ch, lambda t, i=i: 14 * math.sin(2 * math.pi * (t - i / max(1, len(TENTS)))), 0.06)
+    c.turn("body", "X", wave(4.0, 1, 0.1))
+    c.scale[root] = lambda t: vscale(root, 1, 1 + 0.04 * math.sin(2 * math.pi * t))
+    return c
+
+
+def swim_tent(name: str = "swim") -> Clip:
+    """Jet in place: tentacles open up and out, then sweep down together; the body bobs."""
+    c = tent_clip(name, 1.6, True, "lift")
+    pulse = lambda t: 22 * math.sin(2 * math.pi * t)
+    for ch in TENTS:
+        tent_turn(c, ch, pulse, 0.05)
+    c.lift = lambda t: Vector((0, 0, 0.04 * height * math.sin(2 * math.pi * (t - 0.25))))
+    c.turn("body", "X", lambda t: -6 * math.sin(2 * math.pi * (t - 0.1)))
+    return c
+
+
+def crawl_tent() -> Clip:
+    """Walk for tentacle crawlers: a travelling wave of curls around the hub."""
+    c = tent_clip("walk", 1.6, True)
+    for i, ch in enumerate(TENTS):
+        tent_turn(c, ch, lambda t, i=i: 18 * math.sin(2 * math.pi * (t - 2 * i / max(1, len(TENTS)))), 0.05)
+    c.turn("body", "Y", wave(4.0, 1, 0.0))
+    return c
+
+
+def front_tents(n: int = 2) -> list:
+    return sorted(TENTS, key=lambda ch: -by_name[ch[-1]]["tail"][1])[:n]
+
+
+def attack_tent() -> Clip:
+    """The two front tentacles rear up and back, then lash forward and down; hold, recover."""
+    c = tent_clip("attack_melee", 1.1, False)
+    for ch in front_tents():
+        tent_turn(c, ch, keys((0, 0), (0.35, 70), (0.5, -35), (0.65, -35), (1, 0)), 0.03)
+    c.turn("body", "X", keys((0, 0), (0.35, 8), (0.5, -10), (0.65, -10), (1, 0)))
+    c.info = {"lash": [ch[0] for ch in front_tents()]}
+    return c
+
+
+def hit_tent() -> Clip:
+    c = tent_clip("hit", 0.5, False)
+    k = keys((0, 0), (0.18, 1), (1, 0))
+    for ch in TENTS:
+        tent_turn(c, ch, lambda t: 20 * k(t))
+    c.turn("body", "X", lambda t: 12 * k(t))
+    c.scale[root] = lambda t: vscale(root, 1 + 0.08 * k(t), 1 - 0.12 * k(t))
+    return c
+
+
+def death_tent() -> Clip:
+    """Tentacles splay out flat, the body slumps and flattens; holds."""
+    c = tent_clip("death", 1.8, False, "rest")
+    c.rest_from = 0.75
+    for i, ch in enumerate(TENTS):
+        tent_turn(c, ch, keys((0, 0), (0.2, 20), (0.7, -12), (1, -12)))
+    c.scale[root] = lambda t: vscale(root, 1 + 0.25 * smooth((t - 0.2) / 0.55), 1 - 0.45 * smooth((t - 0.2) / 0.55))
+    c.turn("body", "X", keys((0, 0), (0.3, 10), (0.8, -25), (1, -25)))
+    return c
+
+
+# aquatic (sharks, whales, fish): the body chain swims with a carangiform wave (small at
+# the head, growing toward the tail), in place and held SWIM_LIFT x height above the
+# ground in every clip ("lift"); death rolls belly-up and sinks onto the ground.
+SWIM_LIFT = 0.25
+
+
+def fish_clip(name: str, seconds: float, loop: bool) -> Clip:
+    c = Clip(name, seconds, loop)
+    c.ground, c.hover = "lift", SWIM_LIFT * height
+    c.pivot = Vector(by_name[root]["head"])
+    return c
+
+
+def tail_env(s: float) -> float:
+    return 0.25 + 0.75 * (1 - s) ** 1.5
+
+
+def swim_fish(name: str = "swim", seconds: float = 1.4, amp: float = 15.0) -> Clip:
+    c = fish_clip(name, seconds, True)
+    body_wave(c, amp, 0.8, env=tail_env)
+    c.lift = lambda t: Vector((0, 0, 0.01 * height * math.sin(2 * math.pi * 2 * t)))
+    c.info = {"chain": BODY["path"], "wave_amp_deg": amp}
+    return c
+
+
+def attack_fish() -> Clip:
+    """Draw back, then dart forward with the head snapping up and down for the bite, a
+    tail kick; hold the bite, recover."""
+    c = fish_clip("attack_melee", 1.0, False)
+    k = keys((0, 0), (0.3, -0.4), (0.48, 1), (0.62, 1), (1, 0))
+    c.lift = lambda t: Vector((0, 0.1 * body_len * k(t), 0))
+    body_pitch(c, keys((0, 0), (0.3, 12), (0.45, 18), (0.52, -10), (0.62, -6), (1, 0)), NECK_S)
+    body_wave(c, lambda t: 10 * keys((0, 0), (0.3, 1), (0.5, -1), (0.7, 0.3), (1, 0))(t), 0.5, env=tail_env)
+    return c
+
+
+def hit_fish() -> Clip:
+    c = fish_clip("hit", 0.5, False)
+    k = keys((0, 0), (0.18, 1), (1, 0))
+    c.lift = lambda t: Vector((0, -0.04 * body_len * k(t), 0.02 * height * k(t)))
+    body_wave(c, lambda t: 8 * k(t), 0.5)
+    body_pitch(c, lambda t: 10 * k(t), NECK_S)
+    return c
+
+
+def death_fish() -> Clip:
+    """Thrash, roll belly-up and sink onto the ground; holds."""
+    c = fish_clip("death", 2.2, False)
+    c.ground, c.rest_from = "rest", 0.8
+    c.pivot = Vector((cx, leg_y, 0.5 * height))
+    roll = lambda t: 175 * smooth((t - 0.2) / 0.5)
+    c.tilt = lambda t: Quaternion(AXES["Y"], math.radians(roll(t)))
+    c.lift = lambda t: Vector((0, 0, SWIM_LIFT * height * (1 - smooth((t - 0.3) / 0.5))))
+    body_wave(c, lambda t: 12 * math.sin(2 * math.pi * 2 * t) * (1 - smooth(t / 0.45)), 0.6, env=tail_env)
+    c.info = {"rolls": "belly-up"}
+    return c
+
+
+# merfolk_naga (merfolk, merrow, salamander, marilith): a humanoid upper body (arms, torso,
+# head as for bipeds) on a tail: the chain from the hips to the lowest leaf. The tail
+# kicks in the body's vertical plane (about X) to swim, and sways sideways (about Z) to
+# crawl; the arms reuse the biped sword cut. The body rests on its tail ("contact").
+def find_fishtail() -> list[str]:
+    taken = {n for a in arms for n in a["chain"]} | set(neck) | ({head} if head else set())
+    leaves = [n for n in by_name if not kids[n] and n not in taken]
+    if not leaves:
+        return []
+    low = min(leaves, key=lambda n: by_name[n]["tail"][2])
+    upper = set(spine) | set(neck)
+    return [n for n in rig_topology.path_to_root(low, bones) if n not in upper]
+
+
+FISHTAIL = find_fishtail() if PLAN == "merfolk_naga" else []
+
+
+def naga_clip(name: str, seconds: float, loop: bool, ground: str = "contact") -> Clip:
+    c = Clip(name, seconds, loop)
+    c.ground, c.hover = ground, FLOAT * height
+    c.pivot = Vector(by_name[root]["head"])
+    return c
+
+
+def tail_kick(c: Clip, amp, axis: str = "X", cycles: float = 0.8, speed: int = 1) -> None:
+    a = amp if callable(amp) else (lambda t, v=amp: v)
+    n = max(1, len(FISHTAIL))
+    for i, nm in enumerate(FISHTAIL):
+        sv = i / n
+        c.turn(nm, axis, lambda t, sv=sv: a(t) * (0.4 + 0.6 * sv) * math.sin(2 * math.pi * (speed * t - cycles * sv)))
+
+
+def idle_naga() -> Clip:
+    c = naga_clip("idle", 3.0, True)
+    tail_kick(c, 4.0, "Z", 0.6)
+    c.turn_chain(torso, "X", wave(2.0, 1, 0.0))
+    c.turn_chain(neck, "Z", wave(6.0, 1, 0.1))
+    for a in arms:
+        c.turn(a["upper"], "X", wave(4.0, 1, 0.3))
+        c.turn(a["forearm"], "X", lambda t: 5 + 4 * math.sin(2 * math.pi * (t - 0.4)))
+    return c
+
+
+def swim_naga() -> Clip:
+    """Swim in place: the body pitches forward toward horizontal, the tail kicks up and
+    down, the arms sweep back along the sides; held above the ground."""
+    c = naga_clip("swim", 1.4, True, "lift")
+    c.pivot = Vector((cx, leg_y, 0.5 * height))
+    c.tilt = lambda t: Quaternion(AXES["X"], math.radians(-55 + 3 * math.sin(2 * math.pi * t)))
+    tail_kick(c, 18.0, "X", 0.8)
+    c.turn_chain(neck, "X", lambda t: 30.0)
+    for a in arms:
+        c.turn(a["upper"], "X", lambda t: -30 + 15 * math.sin(2 * math.pi * (t - 0.2)))
+        c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, 20.0))
+    return c
+
+
+def crawl_naga() -> Clip:
+    """Walk for nagas and salamanders: the tail slithers sideways, the torso counter-sways."""
+    c = naga_clip("walk", 1.6, True)
+    tail_kick(c, 22.0, "Z", 1.2)
+    c.turn_chain(torso, "Z", wave(5.0, 1, 0.5))
+    for a in arms:
+        c.turn(a["upper"], "X", lambda t, s=a["side"]: (1 if s == "r" else -1) * 10 * math.sin(2 * math.pi * t))
+    return c
+
+
+def attack_naga(name: str = "attack_melee") -> Clip:
+    c = attack_biped()
+    c.name, c.ground = name, "contact"
+    tail_kick(c, lambda t: 8 * keys((0, 0), (0.3, 1), (0.6, -1), (1, 0))(t), "Z", 0.5)
+    return c
+
+
+def hit_naga() -> Clip:
+    c = naga_clip("hit", 0.5, False)
+    k = keys((0, 0), (0.18, 1), (1, 0))
+    c.turn_chain(torso, "X", lambda t: 14 * k(t))
+    c.turn_chain(neck, "X", lambda t: 12 * k(t))
+    for a in arms:
+        c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, -18 * k(t)))
+        c.turn(a["forearm"], "X", lambda t: 25 * k(t))
+    tail_kick(c, lambda t: 10 * k(t), "X", 0.5)
+    return c
+
+
+def death_naga() -> Clip:
+    """Sag, then topple onto the right side, arms limp, tail flat; holds."""
+    c = naga_clip("death", 1.8, False, "rest")
+    c.rest_from = 0.78
+    c.pivot = Vector((cx + 0.15 * height, leg_y, 0))
+    fall = lambda t: 85 * ease_in((t - 0.25) / 0.5) - 5 * math.sin(math.pi * smooth((t - 0.75) / 0.15))
+    c.tilt = lambda t: Quaternion(AXES["Y"], math.radians(fall(t)))
+    c.turn_chain(torso, "X", keys((0, 0), (0.3, -12), (1, 6)))
+    for a in arms:
+        c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, keys((0, 0), (0.3, -10), (0.75, -50), (1, -50))(t)))
+        c.turn(a["forearm"], "X", keys((0, 0), (0.4, 25), (1, 25)))
+    return c
+
+
+# swarm: the asset is one cluster mesh on a single root bone; the game spreads units with
+# particles or instances. Clips only move the root: bob, scurry jitter, a surge forward,
+# a flinch, and a collapse flat onto the ground (scale) that holds.
+def swarm_clip(name: str, seconds: float, loop: bool, ground: str = "contact") -> Clip:
+    c = Clip(name, seconds, loop)
+    c.ground, c.hover = ground, FLOAT * height
+    c.pivot = Vector(by_name[root]["head"])
+    return c
+
+
+def idle_swarm() -> Clip:
+    c = swarm_clip("idle", 2.0, True)
+    c.scale[root] = lambda t: vscale(root, 1 + 0.03 * math.sin(2 * math.pi * t), 1 + 0.06 * math.sin(2 * math.pi * 2 * t))
+    c.tilt = lambda t: Quaternion(AXES["Z"], math.radians(4 * math.sin(2 * math.pi * t)))
+    return c
+
+
+def move_swarm(name: str) -> Clip:
+    c = swarm_clip(name, 1.0, True, "lift" if name in ("fly", "swim") else "contact")
+    c.lift = lambda t: Vector((0.02 * height * math.sin(2 * math.pi * 3 * t), 0.03 * height * math.sin(2 * math.pi * 2 * t),
+                               0.05 * height * abs(math.sin(2 * math.pi * 2 * t)) if name == "fly" else 0))
+    c.scale[root] = lambda t: vscale(root, 1, 1 + 0.08 * math.sin(2 * math.pi * 4 * t))
+    return c
+
+
+def attack_swarm() -> Clip:
+    c = swarm_clip("attack_melee", 0.9, False)
+    k = keys((0, 0), (0.3, -0.3), (0.5, 1), (0.65, 1), (1, 0))
+    c.lift = lambda t: Vector((0, 0.25 * mesh_len * k(t), 0))
+    c.scale[root] = lambda t: vscale(root, 1 + 0.1 * max(0, k(t)), 1 + 0.15 * max(0, k(t)))
+    return c
+
+
+def hit_swarm() -> Clip:
+    c = swarm_clip("hit", 0.5, False)
+    k = keys((0, 0), (0.15, 1), (1, 0))
+    c.lift = lambda t: Vector((0, -0.1 * mesh_len * k(t), 0))
+    c.scale[root] = lambda t: vscale(root, 1 + 0.1 * k(t), 1 - 0.15 * k(t))
+    return c
+
+
+def death_swarm() -> Clip:
+    c = swarm_clip("death", 1.5, False)
+    c.scale[root] = lambda t: vscale(root, 1 + 0.3 * smooth(t / 0.7), 1 - 0.85 * smooth(t / 0.7))
+    return c
+
+
+def legless_clips() -> dict:
+    sets = {}
+    if PLAN == "serpentine":
+        sets = {"walk": lambda s: slither("walk"), "swim": lambda s: slither("swim", 2.0, 18.0, 1.0),
+                "idle": lambda s: idle_serpent(), "attack_melee": lambda s: strike_serpent(),
+                "hit": lambda s: hit_serpent(), "death": lambda s: death_serpent()}
+    elif PLAN == "amorphous" and STACK:
+        sets = {"idle": lambda s: idle_blob(), "walk": lambda s: walk_blob(), "attack_melee": lambda s: attack_blob(),
+                "hit": lambda s: hit_blob(), "death": lambda s: death_blob()}
+    elif PLAN == "plant_object" and STALK:
+        sets = {"idle": lambda s: idle_plant(), "walk": lambda s: walk_plant(), "attack_melee": lambda s: attack_plant(),
+                "attack_special": lambda s: attack_plant(),
+                "hit": lambda s: hit_plant(), "death": lambda s: death_plant()}
+    elif PLAN == "tentacled" and TENTS:
+        sets = {"idle": lambda s: idle_tent(), "swim": lambda s: swim_tent(), "fly": lambda s: swim_tent("fly"),
+                "walk": lambda s: crawl_tent(), "attack_melee": lambda s: attack_tent(),
+                "hit": lambda s: hit_tent(), "death": lambda s: death_tent()}
+    elif PLAN == "aquatic" and BODY and len(BODY["path"]) >= 4:
+        sets = {"idle": lambda s: swim_fish("idle", 2.4, 6.0), "swim": lambda s: swim_fish(),
+                "walk": lambda s: swim_fish("walk"), "attack_melee": lambda s: attack_fish(),
+                "attack_special": lambda s: attack_fish(), "hit": lambda s: hit_fish(), "death": lambda s: death_fish()}
+    elif PLAN == "merfolk_naga" and FISHTAIL:
+        sets = {"idle": lambda s: idle_naga(), "swim": lambda s: swim_naga(), "walk": lambda s: crawl_naga(),
+                "hit": lambda s: hit_naga(), "death": lambda s: death_naga()}
+        if arms:
+            sets["attack_melee"] = lambda s: attack_naga()
+            sets["attack_ranged"] = lambda s: attack_naga("attack_ranged")  # a throw: the same overhand arc
+    elif PLAN == "swarm":
+        sets = {"idle": lambda s: idle_swarm(), "walk": lambda s: move_swarm("walk"), "fly": lambda s: move_swarm("fly"),
+                "swim": lambda s: move_swarm("swim"), "attack_melee": lambda s: attack_swarm(),
+                "hit": lambda s: hit_swarm(), "death": lambda s: death_swarm()}
+    elif PLAN == "floating":
+        sets = {"idle": lambda s: idle_float(), "fly": lambda s: fly_float(), "walk": lambda s: fly_float(),
+                "attack_melee": lambda s: attack_float(), "hit": lambda s: hit_float(),
+                "death": lambda s: death_float()}
+    return sets
+
+
+makers = legless_clips() if legless else plan_clips()
 report = {"height": round(height, 3), "drop": round(drop, 3), "root": root, "head": head, "neck": neck,
           "spine": spine, "tail": tail, "arms": {a["side"]: a["chain"] for a in arms},
           "wings": {w["side"]: w["chain"] for w in wings}, "legs": [g["chain"] for g in legs],
-          "clips": {}, "skipped": []}
+          "clips": {}, "skipped": [], **({"body": BODY["path"]} if BODY else {}),
+          **({"tentacles": TENTS} if TENTS else {}), **({"body": STALK, "limbs": LIMBS} if STALK else {}),
+          **({"body": STACK} if STACK and not STALK else {}), **({"tail": FISHTAIL} if FISHTAIL else {})}
 for name in job["clips"]:
     if name not in makers:
         report["skipped"].append(name)

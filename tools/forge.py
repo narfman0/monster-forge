@@ -57,6 +57,9 @@ DECIMATE_BY_SIZE = overrides.TRI_BUDGET_BY_SIZE
 UPRIGHT_PLANS = {"biped", "winged_biped", "centauroid", "merfolk_naga"}
 # Plans whose reference prompt asks for a front view (model already faces the camera).
 FRONT_VIEW_PLANS = UPRIGHT_PLANS | {"floating"}
+# Plans with no standing height or nose-to-tail axis: scale_m is the largest body
+# dimension (the registry's definition). A ghost scaled by its depth came out ~3x too big.
+MAX_SCALE_PLANS = {"floating", "amorphous", "plant_object", "swarm", "tentacled"}
 
 REF_PROMPT_PREFIX = "single creature, centered, "
 DEFAULT_MESH = {
@@ -670,7 +673,8 @@ def stage_qa(mon: dict, d: Path, args) -> None:
         "src": str(d / "model_raw.glb"), "dst": str(d / "model.glb"), "thumb": str(d / "thumb.png"),
         "thumb_head": str(d / "thumb_head.png"), "body_plan": mon["body_plan"],
         "report": str(d / "qa.json"), "scale_m": mon["scale_m"],
-        "scale_axis": "height" if mon["body_plan"] in UPRIGHT_PLANS else "length",
+        "scale_axis": "height" if mon["body_plan"] in UPRIGHT_PLANS else
+                      "max" if mon["body_plan"] in MAX_SCALE_PLANS else "length",
         "front_view": mon["body_plan"] in FRONT_VIEW_PLANS, "yaw_override": yaw,
         "forward": args.forward or ov.get("forward") or "-Z", "label": f"{mon['name']} ({mon['body_plan']})",
         "thumb_ground": str(d / "thumb_ground.png"), "id": mon["id"], "source": mon["source"],

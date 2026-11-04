@@ -343,6 +343,8 @@ v = verts_np()
 dims = v.max(0) - v.min(0)
 if job["scale_axis"] == "height":
     ref = dims[2]
+elif job["scale_axis"] == "max":  # blobs, ghosts, fungi, octopuses: the largest dimension
+    ref = float(dims.max())
 else:
     ref = dims[1]  # forward axis after orientation = nose-to-tail length
 s = job["scale_m"] / max(ref, 1e-6)

@@ -1,0 +1,5 @@
+{
+  "ref_pick": 0,
+  "notes": "centauroid pilot, PROXY ONLY: juggernaut drew a man riding a horse in 8 of 8 candidates over three prompts (data/prompt_tweaks.json), never a centaur. Ref 0 (a rider sitting upright over the withers, side view) stands in to test the rig and clips of four legs plus an upright armed torso. Not shippable: re-reference with a stronger model (Z-Image / FLUX.2-klein) or a pose ControlNet before the batch. Side-view reference on a front-view plan: yaw pinned to 113 (QA's 180 + the facing check's -67 bearing).",
+  "yaw": 113
+}

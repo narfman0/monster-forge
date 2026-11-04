@@ -1,0 +1,6 @@
+{
+  "ref_pick": 2,
+  "level": true,
+  "level_tilt": 60,
+  "notes": "serpentine pilot. SDXL (juggernaut) never draws a stretched-out side-view snake (5 prompt rounds, data/prompt_tweaks.json); ref 2 is a ground-lying S-curve seen three-quarter from above, so the mesh comes out tilted toward the camera: level on (3 lowest contact clusters) with a 60 degree cap lays the body flat."
+}

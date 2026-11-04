@@ -230,3 +230,55 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       20 in 5etools; lycanthropes walk 40 (beast form) vs 30 (humanoid form);
       swarm-of-insects has a climb-or-fly 20 choice the SRD registry drops. Re-check
       against the SRD 5.2.1 PDF.
+
+### H. Body plans (2026-11-04)
+One pilot per uncovered plan through the whole chain. Strategies, numbers and the plan table:
+`docs/rig-anim.md` "Body plans". Sheets (side, 3/4, top x 4 frames per clip, rig overlays) were
+scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
+`forge.MAX_SCALE_PLANS`, `rig.FACING_ADVISORY`/`HEADLESS`/`UPRIGHT_BODY`.
+- [x] serpentine (constrictor-snake): SkinTokens gives a 7-13 joint star (4 of 4), so
+      `fallback:spine_chain` (16 bones along the geodesic centreline) + slither/strike clips.
+      Batch: fallback for all 11. **The reference is the problem**: juggernaut never drew a
+      stretched-out side-view snake in 5 prompt rounds (it draws top-down coils, which mesh as an
+      upright cutout); the pilot uses a ground-lying S seen from above + `level` 60 degrees.
+      Coils that touch fuse the surface: weights are fixed by a nearest-bone pass, but expect
+      some bunching in the slither. Needs a pose ControlNet / better model for snakes.
+- [x] floating (ghost): SkinTokens rigs the robed ghost as a biped under the robe (arms, hands,
+      spine, head). Hover clips at a constant 0.1 x height, death falls onto the ground. Batch:
+      SkinTokens. The registry prompt draws a legged zombie: prompt tweak (legless tapering
+      robe) needed for ghost/specter/wraith. Elementals (column + arms) untested.
+- [x] avian (giant-eagle): legged framework as is; SkinTokens found both wings when the
+      reference spreads them sideways (front view, ref 1). The side-view ref with wings raised
+      back gave one wing that was also taken as the tail. No roll had a spine. Batch: prompt
+      "wings spread wide to the sides"; theropods (`custom.theropod`) are wingless. Open: avian
+      `walk` dips 8.5 cm where a tail fan rests on the ground (as the harpy); `find_tail` only
+      looks for horizontal tails.
+- [x] amorphous (black-pudding): `fallback:vertical` (4 bones) with squash-and-stretch bone
+      scales. Batch: fallback. Ref pick matters: drips under a raised blob meshed as a spider.
+      The lemure (`blob_torso`, arms) will want SkinTokens + arms instead.
+- [x] plant_object (violet-fungus): `fallback:vertical` (5 bones); SkinTokens rooted the fungus
+      at its cap. Batch: fallback for fungi and shrubs; trees with branches, the rug
+      (`cloth_grid`), the flying sword (`fly`, rigid prop) and the troll limb need their own
+      look: the clip code swings limbs off the stalk when the skeleton has them.
+- [x] tentacled (giant-octopus): `fallback:tentacle_hub` found 8 tentacles; SkinTokens rolls also
+      gave a hub (unnamed). Batch: fallback. Reference was a top view (meshes as an upright
+      splayed cutout, still rigs). Otyugh/roper (legs or a column) untested.
+- [x] aquatic (hunter-shark): SkinTokens is clean (spine, fins, tail lobes); carangiform swim
+      held 0.25 x height up, death rolls belly-up onto the ground. Batch: SkinTokens; flippered
+      plesiosaur/archelon untested.
+- [ ] centauroid (centaur-trooper): **no centaur mesh**: juggernaut drew a man riding a horse in
+      8 of 8 over three prompts. A rider proxy (prancing, one hoof up) rigged with both arms,
+      head and spine; the stage refuses its 3 grounded feet. In scratch with feet 3 all six clips
+      build (sword cut and bow draw on the arms). Batch: blocked on references (Z-Image /
+      FLUX.2-klein or a pose ControlNet); a four-hooves-down stance prompt.
+- [x] merfolk_naga (merfolk-skirmisher): SkinTokens (spine, tail, arms); legless builders with the
+      biped sword cut, tail kick swim. The raised right arm is missed (`find_arms` wants the tip
+      below the shoulder): `hand_r` socket missing. Batch: SkinTokens + an A-pose with arms down;
+      the marilith's 6 arms untested.
+- [x] swarm (swarm-of-rats): `fallback:root` + root-only clips. The reference draws a wall of
+      rats (one cluster mesh); the batch should model one unit with the unit's plan and leave
+      the swarm to particles.
+- [ ] Fix found on the way: `blender_rig.add_sockets` renamed the chest to `head` and then
+      failed to parent `back` to it (KeyError), now aliased. `find_head` taking the chest on the
+      merfolk (hair off the centre line) is still open.
+- [ ] Stale `manifest.errors` entries on ghost, merfolk and snake are from runs before the fixes.

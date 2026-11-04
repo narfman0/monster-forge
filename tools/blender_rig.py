@@ -7,6 +7,8 @@ sure that is (job: src, report, plan, head_region, forward); see facing() below.
 mode "score": report joint and weight stats for one SkinTokens roll, the parts
 rig_topology finds, bones outside the mesh, weight bleed and a pose test (job: src,
 report, sprawl, upright, plan); tools/rig.py turns them into the roll score.
+mode "fallback": a generated skeleton for plans SkinTokens cannot rig (job: src = model.glb,
+dst, report, kind, plan); see fallback() below. tools/rig.py RIG_STRATEGY says which plans.
 mode "finalize": from the chosen rig write the game files (job: src, base_color,
 lods {k: path}, out_dir, report, hands, sockets):
 
@@ -39,7 +41,7 @@ job = json.loads(sys.argv[sys.argv.index("--") + 1])
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=job["src"])
 arm = me = None
-if job["mode"] != "facing":
+if job["mode"] not in ("facing", "fallback"):
     arm = next(o for o in bpy.data.objects if o.type == "ARMATURE")
     me = max((o for o in bpy.data.objects if o.type == "MESH"), key=lambda o: len(o.data.vertices))
     for o in list(bpy.data.objects):  # glTF bone display shapes
@@ -144,6 +146,7 @@ def add_sockets() -> dict:
     arm.select_set(True)
     bpy.ops.object.mode_set(mode="EDIT")
     eb = arm.data.edit_bones
+    alias = {}  # original name -> socket name, for bones renamed before a later socket parents to them
 
     def new_bone(name: str, parent: str, head, length: float, direction=(0, 0, 1), roll_to=None) -> None:
         b = eb.new(name)
@@ -151,7 +154,7 @@ def add_sockets() -> dict:
         b.tail = inv @ (Vector(head) + Vector(direction).normalized() * length)
         if roll_to is not None:  # local +Z of the bone toward this world direction
             b.align_roll(inv.to_3x3() @ Vector(roll_to))
-        b.parent = eb[parent]
+        b.parent = eb[alias.get(parent, parent)]
         b.use_deform = False
         found[name] = parent
 
@@ -168,6 +171,7 @@ def add_sockets() -> dict:
             name = f"hand_{a['side']}"
             if a["hand"]:
                 eb[a["hand"]].name = name
+                alias[a["hand"]] = name
                 found[name] = a["hand"]
                 grip(a["side"], name, by_name[a["hand"]]["head"], by_name[a["hand"]]["tail"])
             else:
@@ -177,7 +181,8 @@ def add_sockets() -> dict:
     if "head" in want:
         h = rig_topology.find_head(bones, height, legs)
         if h:
-            eb[h].name = "head"
+            eb[alias.get(h, h)].name = "head"
+            alias[h] = "head"
             found["head"] = h
     arms = rig_topology.find_arms(bones, height, legs)
     if "back" in want and arms:
@@ -342,6 +347,7 @@ def quality() -> dict:
     poses = pose_test(bones, found, height, rest, edges)
     sp = found["spine"]
     return {
+        "wingless": bool(job.get("wingless")),
         "legs_r": found["sides"]["r"], "legs_l": found["sides"]["l"], "feet_mirror": round(found["sides"]["mirror"], 4),
         "arms": len(found["arms"]), "wings": len(found["wings"]), "tail_bones": len(found["tail"]),
         "head": found["head"], "torso_bones": len(sp["torso"]), "torso_length": round(sp["torso_length"], 3),
@@ -367,6 +373,10 @@ def quality() -> dict:
 UPRIGHT = {"biped", "winged_biped", "centauroid", "merfolk_naga", "floating"}
 HORIZONTAL = {"quadruped", "winged_quadruped", "avian", "insectoid", "serpentine", "aquatic"}
 SIGN_MIN = 0.2  # head-end cue below this: report only how far the body axis is off
+# Plans with no head-end cue: a ghost has no feet (its robe train trails behind and reads as
+# toes pointing backwards), and a coiled snake, blob, fungus, swarm or octopus has no end
+# the surface can name. They report only how far the mirror axis is off.
+NO_HEAD_CUE = {"floating", "serpentine", "amorphous", "plant_object", "swarm", "tentacled"}
 
 
 def surface_samples(n: int = 4000):
@@ -455,7 +465,9 @@ def facing() -> dict:
     # head end, per plan
     sign, sign_conf, sign_rule = 1.0, 0.0, "none"
     span = t.max() - t.min()
-    if plan in HORIZONTAL and plan != "insectoid":
+    if plan in NO_HEAD_CUE:
+        pass
+    elif plan in HORIZONTAL and plan != "insectoid":
         # horizontal bodies carry the head high and the tail low: surface in the top 40%
         # of the height, near the centre plane (wings are far out), at each end
         mid = np.abs(side) < 0.15 * span
@@ -498,8 +510,349 @@ def facing() -> dict:
     return out
 
 
+# --- fallback skeletons (mode "fallback", on model.glb, no SkinTokens) --------------------
+# SkinTokens gives a snake a 7-13 joint star (a root with four stubs), which no slither can
+# drive. These skeletons are generated from the surface instead, with weights that follow
+# the body's own length rather than straight-line distance (touching coils of a snake are
+# far apart along the body):
+#
+# - spine_chain (serpentine, aquatic): the two surface points farthest apart along the mesh
+#   (geodesic, over the welded edge graph) are the snout and tail tips. Every vertex gets
+#   u = its geodesic distance from one tip / the tip-to-tip distance; the centroid of each
+#   band of u is a joint, so the chain runs down the middle of the tube however it coils.
+#   The higher end (or the thicker one, when level) is the head. Bones spine_00 (tail) ..
+#   spine_<n-2>, head; the root is the middle bone, the chain runs from it both ways.
+#   Weights: linear in u between the neighbouring bone centres (2 bones per vertex).
+# - vertical (amorphous, plant_object without limbs): a chain of z-slices' centroids from
+#   the base up (spine_00 at the bottom is the root), weights linear in height.
+# - root (swarm): one bone from the base centre up, every vertex weight 1.
+# - tentacle_hub (tentacled): body chain + one chain per tentacle tip (fallback_tentacles).
+
+def _graph():
+    """Welded vertex graph of all meshes: world positions (unique), edges, per original
+    vertex its unique id, and the mesh object."""
+    me = max((o for o in bpy.data.objects if o.type == "MESH"), key=lambda o: len(o.data.vertices))
+    co = np.empty(len(me.data.vertices) * 3)
+    me.data.vertices.foreach_get("co", co)
+    mw = np.array(me.matrix_world)
+    co = co.reshape(-1, 3) @ mw[:3, :3].T + mw[:3, 3]
+    key = np.round(co / 1e-5).astype(np.int64)
+    uniq, first, inv = np.unique(key, axis=0, return_index=True, return_inverse=True)
+    inv = inv.reshape(-1)
+    P = co[first]
+    ed = np.empty(len(me.data.edges) * 2, dtype=np.int64)
+    me.data.edges.foreach_get("vertices", ed)
+    ed = inv[ed.reshape(-1, 2)]
+    ed = ed[ed[:, 0] != ed[:, 1]]
+    ed = np.unique(np.sort(ed, axis=1), axis=0)
+    adj = [[] for _ in range(len(P))]
+    ln = np.linalg.norm(P[ed[:, 0]] - P[ed[:, 1]], axis=1)
+    for (a, b), l in zip(ed.tolist(), ln.tolist()):
+        adj[a].append((b, l))
+        adj[b].append((a, l))
+    return me, P, adj, inv
+
+
+def _dijkstra(adj, srcs, init=None):
+    import heapq
+    n = len(adj)
+    dist = np.full(n, np.inf)
+    pred = np.full(n, -1, dtype=np.int64)
+    h = []
+    for i, s in enumerate(srcs):
+        d0 = init[i] if init is not None else 0.0
+        if d0 < dist[s]:
+            dist[s] = d0
+            heapq.heappush(h, (d0, s))
+    while h:
+        d, a = heapq.heappop(h)
+        if d > dist[a]:
+            continue
+        for b, l in adj[a]:
+            nd = d + l
+            if nd < dist[b]:
+                dist[b] = nd
+                pred[b] = a
+                heapq.heappush(h, (nd, b))
+    return dist, pred
+
+
+def _fill(P, val, ok):
+    """Copy val to the vertices outside ok (loose parts) from the nearest vertex in ok."""
+    if ok.all():
+        return val
+    kd = KDTree(int(ok.sum()))
+    idx = np.nonzero(ok)[0]
+    for j, i in enumerate(idx):
+        kd.insert(P[i], j)
+    kd.balance()
+    out = val.copy()
+    for i in np.nonzero(~ok)[0]:
+        out[i] = val[idx[kd.find(P[i])[1]]]
+    return out
+
+
+def _main_component(adj):
+    d, _ = _dijkstra(adj, [0])
+    best = np.isfinite(d)
+    seen = best.copy()
+    while not seen.all():
+        s = int(np.nonzero(~seen)[0][0])
+        d, _ = _dijkstra(adj, [s])
+        comp = np.isfinite(d)
+        seen |= comp
+        if comp.sum() > best.sum():
+            best = comp
+    return best
+
+
+def _build(me, joints: list, parents: list, names: list, weights: dict) -> None:
+    """Armature from joint pairs [(head, tail)], parents (index or None), names; vertex
+    groups from weights {bone index: per-original-vertex array}."""
+    ad = bpy.data.armatures.new("rig")
+    ao = bpy.data.objects.new("rig", ad)
+    bpy.context.scene.collection.objects.link(ao)
+    bpy.context.view_layer.objects.active = ao
+    bpy.ops.object.mode_set(mode="EDIT")
+    ebs = []
+    for (h, t), nm in zip(joints, names):
+        b = ad.edit_bones.new(nm)
+        b.head, b.tail = Vector(h), Vector(t)
+        ebs.append(b)
+    for b, p in zip(ebs, parents):
+        if p is not None:
+            b.parent = ebs[p]
+            b.use_connect = False
+    bpy.ops.object.mode_set(mode="OBJECT")
+    mw = me.matrix_world.copy()
+    me.parent = ao
+    me.matrix_world = mw
+    for i, nm in enumerate(names):
+        vg = me.vertex_groups.new(name=nm)
+        w = weights.get(i)
+        if w is None:
+            continue
+        for vi in np.nonzero(w > 1e-4)[0].tolist():
+            vg.add([vi], float(w[vi]), "REPLACE")
+    me.modifiers.new("Armature", "ARMATURE").object = ao
+    bpy.ops.object.select_all(action="DESELECT")
+    me.select_set(True)
+    ao.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=job["dst"], export_format="GLB", use_selection=True, export_yup=True)
+
+
+def _lin_weights(x: np.ndarray, nb: int) -> dict:
+    """x in bone units (bone k spans [k, k+1]): linear between neighbouring bone centres."""
+    c = np.clip(x - 0.5, 0, nb - 1)
+    k0 = np.floor(c).astype(int)
+    k0 = np.minimum(k0, nb - 1)
+    fr = c - k0
+    out = {k: np.zeros(len(x)) for k in range(nb)}
+    for k in range(nb):
+        out[k] += np.where(k0 == k, 1 - fr, 0)
+        out[k] += np.where((k0 + 1 == k), fr, 0)
+    return out
+
+
+def fallback_chain(nb: int) -> dict:
+    me, P, adj, inv = _graph()
+    main = _main_component(adj)
+    start = int(np.nonzero(main)[0][0])
+    d0, _ = _dijkstra(adj, [start])
+    a = int(np.argmax(np.where(main, d0, -1)))
+    da, _ = _dijkstra(adj, [a])
+    b = int(np.argmax(np.where(main, da, -1)))
+    L = float(da[b])
+    u = _fill(P, np.where(main, da / L, 0.0), main)
+    h = float(P[:, 2].max() - P[:, 2].min())
+    ends = []
+    for lo, hi in ((0, 0.15), (0.85, 1.0001)):
+        m = (u >= lo) & (u < hi)
+        c = P[m].mean(0)
+        ends.append({"z": float(c[2]), "r": float(np.linalg.norm(P[m] - c, axis=1).mean())})
+    # head: the clearly higher end, else the thicker one (u runs from tip a to tip b)
+    dz = ends[1]["z"] - ends[0]["z"]
+    head_b = dz > 0 if abs(dz) > 0.1 * h else ends[1]["r"] > ends[0]["r"]
+    if not head_b:
+        u = 1 - u
+    pts = []
+    for k in range(nb + 1):
+        m = np.abs(u - k / nb) < 0.5 / nb
+        pts.append(P[m].mean(0) if m.any() else P[np.argmin(np.abs(u - k / nb))])
+    m = nb // 2
+    joints, parents, names = [], [], []
+    for k in range(nb):
+        if k >= m:
+            joints.append((pts[k], pts[k + 1]))
+            parents.append(None if k == m else k - 1)
+        else:
+            joints.append((pts[k + 1], pts[k]))
+            parents.append(k + 1)
+        names.append("head" if k == nb - 1 else f"spine_{k:02d}")
+    x = u * nb
+    # touching coils: the surface is fused where they meet, so the geodesic band runs
+    # across into the next coil. A vertex much farther from its band's bone than the tube
+    # is thick takes the position along the chain of the bone nearest in space instead.
+    segs = [(np.asarray(pts[k]), np.asarray(pts[k + 1])) for k in range(nb)]
+    dist = np.stack([seg_dist(P, a0, b0) for a0, b0 in segs], axis=1)  # (verts, bones)
+    own = np.clip(np.floor(x).astype(int), 0, nb - 1)
+    d_own = dist[np.arange(len(P)), own]
+    r = float(np.median(d_own))
+    far = d_own > 2.5 * r
+    near = np.argmin(dist, axis=1)
+    for i in np.nonzero(far)[0]:
+        k = int(near[i])
+        a0, b0 = segs[k]
+        ab = b0 - a0
+        x[i] = k + float(np.clip((P[i] - a0) @ ab / max(float(ab @ ab), 1e-12), 0, 1))
+    _build(me, joints, parents, names, _lin_weights(x[inv], nb))
+    return {"bones": nb, "length_m": round(L, 3), "root": names[m], "head_end": "b" if head_b else "a",
+            "ends": ends, "loose_verts": int((~main).sum()), "tube_radius_m": round(r, 3),
+            "reassigned_verts": int(far.sum())}
+
+
+def fallback_vertical(nb: int) -> dict:
+    me, P, adj, inv = _graph()
+    z0, z1 = float(P[:, 2].min()), float(P[:, 2].max())
+    H = z1 - z0
+    x = (P[:, 2] - z0) / H * nb
+    # one straight vertical line through the upper body's centroid: slice centroids wander
+    # with a spread-out base (a puddle) and would bend the chain sideways
+    up = P[:, 2] > z0 + 0.3 * H
+    q = P[up] if up.any() else P
+    c = (q.min(0) + q.max(0)) / 2  # bbox centre: splash tips and drips skew a mean
+    pts = [np.array((c[0], c[1], z0 + H * k / nb)) for k in range(nb + 1)]
+    joints = [(pts[k], pts[k + 1]) for k in range(nb)]
+    names = [f"spine_{k:02d}" for k in range(nb)]
+    _build(me, joints, [None] + list(range(nb - 1)), names, _lin_weights(x[inv], nb))
+    return {"bones": nb, "height_m": round(H, 3), "root": names[0]}
+
+
+def fallback_root() -> dict:
+    me, P, adj, inv = _graph()
+    z0, z1 = float(P[:, 2].min()), float(P[:, 2].max())
+    c = P.mean(0)
+    base = np.array((c[0], c[1], z0))
+    _build(me, [(base, base + np.array((0, 0, 0.5 * (z1 - z0))))], [None], ["root"],
+           {0: np.ones(len(inv))})
+    return {"bones": 1, "root": "root"}
+
+
+def fallback_tentacles(job: dict) -> dict:
+    """Body + one chain per tentacle. The hub is the surface point nearest the centroid of
+    the upper half (the mantle or body); tentacle tips are the local maxima of the geodesic
+    distance from it, kept when they reach past half the farthest; each tentacle's joints
+    follow the shortest surface path tip -> hub, pulled to the middle of the tube (the
+    centroid of nearby vertices). Vertices beyond the tentacles' base distance belong to the
+    tentacle whose path is nearest along the surface, weighted along it; the rest to the body."""
+    nb = int(job.get("bones", 5))
+    me, P, adj, inv = _graph()
+    main = _main_component(adj)
+    z0, z1 = float(P[:, 2].min()), float(P[:, 2].max())
+    H = z1 - z0
+    up = main & (P[:, 2] > z0 + 0.5 * H)
+    hub_c = P[up].mean(0) if up.any() else P[main].mean(0)
+    idx = np.nonzero(main)[0]
+    seed = int(idx[np.argmin(np.linalg.norm(P[idx] - hub_c, axis=1))])
+    g, pred = _dijkstra(adj, [seed])
+    g = np.where(main, g, 0.0)
+    gmax = float(g.max())
+    kd = KDTree(len(P))
+    for i, p in enumerate(P):
+        kd.insert(p, i)
+    kd.balance()
+    order = np.argsort(-g)
+    tips = []
+    sup = 0.18 * gmax
+    for i in order:
+        if g[i] < 0.5 * gmax or len(tips) >= int(job.get("max_tentacles", 10)):
+            break
+        if any(np.linalg.norm(P[i] - P[t]) < sup for t in tips):
+            continue
+        # a local maximum within its neighbourhood
+        if all(g[j] <= g[i] + 1e-9 for _, j, _ in kd.find_range(P[i], 0.08 * gmax)):
+            tips.append(int(i))
+    g_base = float(job.get("base", 0.35)) * gmax
+    rr = 0.07 * gmax
+    tent = []
+    for t in tips:
+        path = [t]
+        while pred[path[-1]] >= 0 and g[path[-1]] > g_base:
+            path.append(int(pred[path[-1]]))
+        path = path[::-1]  # base -> tip
+        gp = g[path]
+        pts = []
+        for k in range(nb + 1):
+            target = g_base + (g[t] - g_base) * k / nb
+            pi = path[int(np.argmin(np.abs(gp - target)))]
+            near = [j for _, j, _ in kd.find_range(P[pi], rr)]
+            near = [j for j in near if abs(g[j] - g[pi]) < rr]
+            pts.append(P[near].mean(0) if near else P[pi])
+        tent.append({"tip": t, "path": path, "pts": pts, "g_tip": float(g[t])})
+    # vertices -> nearest tentacle path along the surface (beyond the base)
+    srcs, lab = [], {}
+    for j, tt in enumerate(tent):
+        for v in tt["path"]:
+            if v not in lab:
+                lab[v] = j
+                srcs.append(v)
+    owner = np.full(len(P), -1)
+    if srcs:
+        _, pr = _dijkstra(adj, srcs)
+        for i in np.nonzero(main & (g > g_base))[0]:
+            v = int(i)
+            while v not in lab and pr[v] >= 0:
+                v = int(pr[v])
+            owner[i] = lab.get(v, -1)
+    owner = _fill(P, owner.astype(float), main).astype(int)
+    gg = _fill(P, g, main)
+    base_c = np.array((hub_c[0], hub_c[1], z0 + 0.15 * H))
+    top_c = np.array((hub_c[0], hub_c[1], z1))
+    joints = [(base_c, hub_c), (hub_c, top_c)]
+    parents, names = [None, 0], ["root", "body"]
+    weights = {0: np.zeros(len(P)), 1: np.zeros(len(P))}
+    body_x = np.clip((P[:, 2] - base_c[2]) / max(top_c[2] - base_c[2], 1e-6) * 2, 0, 2)
+    bw = _lin_weights(body_x, 2)
+    for j, tt in enumerate(tent):
+        first = len(joints)
+        for k in range(nb):
+            joints.append((tt["pts"][k], tt["pts"][k + 1]))
+            parents.append(0 if k == 0 else len(joints) - 2)
+            names.append(f"tent_{j}_{k}")
+        mine = owner == j
+        x = np.clip((gg - g_base) / max(tt["g_tip"] - g_base, 1e-6) * nb, 0, nb)
+        lw = _lin_weights(x, nb)
+        blend = np.clip(x / 0.75, 0, 1)  # the base fades into the body
+        for k in range(nb):
+            weights[first + k] = np.where(mine, lw[k] * blend, 0.0)
+    tw = sum((w for k, w in weights.items() if k >= 2), np.zeros(len(P)))
+    weights[0] = bw[0] * (1 - tw)
+    weights[1] = bw[1] * (1 - tw)
+    _build(me, [(a, b) for a, b in joints], parents, names, {k: w[inv] for k, w in weights.items()})
+    return {"bones": len(names), "tentacles": len(tent), "hub_geodesic_max_m": round(gmax, 3),
+            "tip_reach": [round(tt["g_tip"] / gmax, 2) for tt in tent]}
+
+
+def fallback() -> dict:
+    kind = job["kind"]
+    if kind == "spine_chain":
+        rep = fallback_chain(int(job.get("bones", 16)))
+    elif kind == "vertical":
+        rep = fallback_vertical(int(job.get("bones", 4)))
+    elif kind == "root":
+        rep = fallback_root()
+    elif kind == "tentacle_hub":
+        rep = fallback_tentacles(job)
+    else:
+        raise SystemExit(f"unknown fallback kind {kind}")
+    rep["kind"] = kind
+    return rep
+
+
 if job["mode"] == "facing":
     report = facing()
+elif job["mode"] == "fallback":
+    report = fallback()
 else:
     report = stats()
 if job["mode"] == "score" and job.get("quality", True):

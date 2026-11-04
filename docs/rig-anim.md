@@ -200,3 +200,61 @@ Known limits: the owlbear's tail fan is skinned to a hind shin, so its walk and 
 at half stride; the harpy's hip feathers touch the ground at rest, so its body is raised
 about 0.1 m and its wings hide most of the sword cut; the spider's death rests on curled
 legs rather than its belly.
+
+## Body plans (2026-11-04)
+
+One pilot per plan the six pilots did not cover took the whole chain (`forge.py run`, paint
+included). `rig.RIG_STRATEGY` says which plans skip SkinTokens for a generated skeleton
+(`blender_rig.py` mode `fallback`, `manifest.rig.tool` = `fallback:<kind>`, the build report in
+`rig/fallback_build.json`, its measurements in `rig/fallback.json`); `--rig-reroll` on such a
+plan still rolls SkinTokens first and logs the scores for the record. `anim.LEGLESS` plans get the
+"legless" builders in `blender_clips.py` instead of the foot-IK framework; avian and
+centauroid stay on the legged framework (centauroid adds the arms via `anim.ARMED`).
+
+| plan | pilot | rig | clips | result |
+|---|---|---|---|---|
+| serpentine | constrictor-snake | `fallback:spine_chain` (16 bones). SkinTokens: 7-13 joint star, no chain (4 of 4) | `walk`/`swim` slither (curvature wave head -> tail, mid-body root holds place and heading), `idle`, `attack_melee` strike (front quarter rears and strikes), `hit`, `death` (front slumps). Ground `contact` | works; the coiled mesh's touching coils needed a weight fix (below) |
+| floating | ghost | SkinTokens roll 3 (34 joints): a biped under the robe, legs to the hem, both arms, `hand_r/l` | `idle`, `fly` (lean + hem trailing), `attack_melee` (both arms reach, FK-aimed), `hit`, `death` (falls forward onto the ground). All but death `lift`: a constant 0.1 x height above the ground in every clip | works |
+| avian | giant-eagle | SkinTokens roll 3 (32 joints): both wing chains, 2 legs, no spine (`problems` spine, leg_pairs) | legged framework: `idle`, `fly` (both wings flap), `attack_melee` (neck lunge), `hit` (no body tilt for avian), `death` (pitches forward onto its breast, wings fold back) | works; `walk` (not in this record's set) dips 8.5 cm: the tail fan rests on the ground |
+| amorphous | black-pudding | `fallback:vertical` (4 bones, one straight line through the upper body's bbox centre). SkinTokens: 21-24 joints, 0.83-0.88 bleed | squash and stretch = the root's scale (`vscale`: on the bone axis closest to world up), lean = chain about X. `idle` pulse, `walk` ooze, `attack_melee` engulf (rear up, surge and flatten forward), `hit`, `death` (flattens into a puddle 1.5x wide). Ground `contact` | works |
+| plant_object | violet-fungus | `fallback:vertical` (5 bones). SkinTokens roll 3 was clean but rooted at the cap with the stalk hanging down | stalk sway `idle`, `walk` shuffle (rock), `attack_melee`/`attack_special` (coil back, whip forward), `hit`, `death` (topples onto its right side). Limbs (tendrils, branches) found off the stalk swing too when the skeleton has them | works (this mesh has no tendrils) |
+| tentacled | giant-octopus | `fallback:tentacle_hub`: root + body + 8 tentacles x 5 bones (tips = local maxima of geodesic distance from the mantle). SkinTokens rolls 2-3 also gave a usable hub (58-67 joints), but unnamed | `idle` (phase-shifted curls), `swim`/`fly` (all pulse together, `lift`), `walk` (crawl wave), `attack_melee` (two front tentacles rear and lash), `hit`, `death` (splay flat, body flattens) | works |
+| aquatic | hunter-shark | SkinTokens roll 2 (32 joints): spine head to tail, pectoral fins, tail lobes | `swim`/`idle`/`walk` carangiform wave (grows toward the tail), `attack_melee` (dart + head snap), `hit`, `death` (rolls belly-up, sinks to the ground). All but death `lift` 0.25 x height | works |
+| centauroid | centaur-trooper (proxy: a horse and rider) | SkinTokens roll 3 (66 joints): both arms, head, spine; 3 legs (the reference prances, one front hoof lifted) | stage refuses: 3 of 4 feet. Built in scratch with feet 3: all six clips (sword cut and bow draw on the rider's arms, quadruped walk and death) | strategy verified on a proxy; no centaur mesh yet |
+| merfolk_naga | merfolk-skirmisher | SkinTokens (52 joints): spine, tail chain, arms with fingers; the raised right arm is missed by `find_arms` (tip above the shoulder) | `idle`, `swim` (body pitched 55 degrees, tail kicks about X, `lift`), `walk` (tail slithers sideways), `attack_melee`/`attack_ranged` (biped sword cut, also for the throw), `hit`, `death` (topples onto its right side) | works with one arm |
+| swarm | swarm-of-rats | `fallback:root` (1 bone, all weights 1) | root only: `idle` bob, `walk`/`fly`/`swim` scurry (lift for fly/swim), `attack_melee` surge, `hit`, `death` (flattens) | works; the game spreads units |
+
+Fallback skeletons (`blender_rig.py`):
+
+- `spine_chain`: the two surface points farthest apart along the welded edge graph are the tips;
+  joints are the centroids of bands of geodesic distance; the higher (else thicker) end is the
+  head. Bones `spine_00` (tail) .. `head`, the root mid-body. Weights linear along the body.
+  Touching coils fuse the surface, so the geodesic band runs across into the next coil: a vertex
+  farther than 2.5 x the tube radius from its band's bone takes the position along the chain of
+  the bone nearest in space (939 of the snake's vertices). Without that, rearing the head lifted
+  whole coils into the air.
+- `vertical`: a straight chain up from the base through the upper body's bbox centre; weights
+  linear in height. Slice centroids wander with a puddle or drips and bend the chain.
+- `tentacle_hub`: see above; vertices beyond 0.35 x the farthest geodesic distance go to the
+  tentacle whose path is nearest along the surface, blended into the body at the base.
+- `root`: one bone.
+
+The pose score was written for SkinTokens rolls; on fallbacks `bleed` and `outside` count by
+design (a vertical chain owns a whole puddle), so the fallback scores (-0.15 to -3.1) are not
+comparable with roll scores. Symmetry is not scored for the plans with no mirror plane
+(`rig.FACING_ADVISORY`), the head not for `rig.HEADLESS`, wings are scored for avian except
+`custom.theropod`, arms and head for floating (`rig.UPRIGHT_BODY`).
+
+Facing: the check is advisory (recorded, never refuses) for serpentine, amorphous,
+plant_object, swarm and tentacled (`rig.FACING_ADVISORY`), and `blender_rig.NO_HEAD_CUE`
+(those plus floating) reports only the axis: the ghost's robe train trails behind and read as
+toes pointing backwards (175 degrees "off").
+
+QA: `forge.MAX_SCALE_PLANS` (floating, amorphous, plant_object, swarm, tentacled) scale
+`scale_m` to the largest dimension (`blender_qa.py` scale_axis `max`); a ghost scaled by its
+depth came out about 3x too tall.
+
+Ground modes (`Clip.ground`): `floor` (legged), `hover` (fly: lowest vertex `HOVER` above the
+ground, per clip), `rest` (death), `contact` (legless: lowest vertex on the ground every frame),
+`lift` (floating, aquatic, swim: the same constant height in every clip, so clips do not pop
+against each other). Bone scale layers: `Clip.scale`, keyed with the rotations.

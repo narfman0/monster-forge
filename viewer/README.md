@@ -221,6 +221,15 @@ after the clip, 30 fps, starting at t=0) plus `anims/<clip>.json` (its report) a
 | `fly` | when wing chains are found (hover, the lowest vertex 0.32 m+ above the ground) | yes | 1.2-1.6 s |
 | `breath` | winged quadrupeds (rear, thrust, hold ~1 s) | once | 2.2 s |
 
+Legless plans (serpentine, floating, amorphous, plant_object, tentacled, aquatic,
+merfolk_naga, swarm; `anim.LEGLESS`) get the same clip names from the "legless" builders
+in `blender_clips.py`, driven by the body chain, tentacles or arms instead of feet: `walk`
+and `swim` are a slither, ooze, crawl wave, tail kick or scurry, `attack_melee` a strike,
+engulf, whip, lash or surge, `death` a slump, puddle, topple or belly-up roll. Floating,
+aquatic and swim clips hover at one constant height for every clip of the monster (`lift`);
+the other legless clips keep the lowest vertex on the ground (`contact`). Blobs also key
+bone scale (squash and stretch). The plan table is in `docs/rig-anim.md`, "Body plans".
+
 Looping clips have identical first and last frames. Manifest shape:
 
 ```json
