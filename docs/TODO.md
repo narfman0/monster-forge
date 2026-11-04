@@ -45,6 +45,24 @@ young-red-dragon) all the way to rigged + animated Godot-ready GLBs **before** t
 - [ ] Load each pilot in godot-dnd: AnimationPlayer with the 5 clips, LOD switch.
 
 ## Later
+- **Public SRD viewer (static GitHub Pages repo, e.g. `monster-forge-viewer`).** Gated on
+  the local iteration above: only "released" monsters go out.
+  - [ ] Define the release gate (manifest flag, e.g. `released: true`, set once a monster
+        is through rig + anim + Godot import).
+  - [ ] `tools/publish.py`: walk `out/srd-5.2.1/`, copy released monsters (LOD GLBs,
+        preview image, `anims/`), bake `index.json` with the same logic as
+        `tools/viewer.py` `/api/index.json`, write to the viewer repo.
+  - [ ] Viewer `static` mode in `viewer/app.js`: read `./index.json` and relative model
+        paths; hide overrides form, re-run queue and progress dashboard; keep model view,
+        wireframe/texture, LOD picker, animation playback and `#<id>` deep links.
+  - [ ] Public extras: search/filter by type, CR, size from the registry; CC-BY-4.0 SRD
+        attribution footer (text in README).
+  - [ ] Measure real per-monster size before choosing hosting. Pages limits: ~1 GB site,
+        100 MB per file, no Git LFS. If too big: meshopt + KTX2, only LOD1/LOD2, or host
+        models in a bucket (R2) and keep only the viewer on Pages.
+  - [ ] Check generation-model terms (Pixal3D, SDXL, ControlNet, IP-Adapter weights) allow
+        publishing outputs before the repo goes public.
+  - Start with the two painted pilots (harpy, goblin-warrior) as test data.
 - `tools/import_names.py`: 5etools `bestiary-xmm.json` (~/workspace/5etools-src, local use
   only, never vendored) -> `data/registry/mm-2024.json` stubs. 503 blocks, 330 flagged
   `srd52`, 173 MM-only. Also cross-check SRD registry size/type/speed against it.
