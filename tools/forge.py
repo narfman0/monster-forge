@@ -39,7 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import overrides  # noqa: E402  (tools/overrides.py: per-monster overrides, budgets)
 import paint  # noqa: E402  (tools/paint.py: multiview paint stage)
 import rig  # noqa: E402  (tools/rig.py: SkinTokens rig stage)
-import walk  # noqa: E402  (tools/walk.py: procedural walk clip)
+import anim  # noqa: E402  (tools/anim.py: procedural clips)
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / "workflows"
@@ -749,7 +749,7 @@ def stage_rig(mon: dict, d: Path, args) -> None:
 
 
 def stage_anim(mon: dict, d: Path, args) -> None:
-    walk.stage_anim(sys.modules[__name__], mon, d, args)
+    anim.stage_anim(sys.modules[__name__], mon, d, args)
 
 
 STAGES = {"ref": stage_ref, "mesh": stage_mesh_guarded, "qa": stage_qa, "paint": stage_paint, "lod": stage_lod,

@@ -94,7 +94,7 @@ placeholder sword on `hand_r` and a bow on `hand_l` (`viewer/README.md`).
 
 ## Anim stage
 
-Code: `tools/walk.py` (driver), `tools/blender_walk.py` (the gait, headless Blender).
+Code: `tools/anim.py` (driver), `tools/blender_clips.py` (the gait, headless Blender).
 
 What exists now is one procedural clip: an in-place `walk` for every plan with legs
 (`FEET_BY_PLAN`) whose `animation_set` has `walk`. It needs `model_rigged.glb`. The legs

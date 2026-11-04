@@ -68,13 +68,22 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
 - [ ] Rigify landmark-fit fallback for biped/quadruped if SkinTokens output is bad.
 
 ### D. M4 Animate (core set: idle, move, attack, hit, death)
-- [x] Procedural in-place `walk` for all legged plans (`tools/blender_walk.py`, planted IK feet).
-      Loose parts below the hips (owlbear tail feathers, harpy feather tips, dragon tail)
-      dip up to 0.2 m through the ground, because the crouch lowers them with the body.
-- [ ] Remaining clips: idle, attack, hit, death; `fly` and `breath` for the dragon, `fly` for
-      the harpy. A library retarget needs a bone map, since SkinTokens bones are `bone_N`.
+- [x] Procedural in-place `walk` for all legged plans (`tools/blender_clips.py`, planted IK feet).
+      Loose parts below the hips no longer dip: the skinned mesh is measured every frame
+      and the body raised (or a ground-lying tail turned up) to keep every vertex above
+      z = -0.03 m. IK now holds the foot bone itself (position + rest orientation): SkinTokens
+      feet can hang 0.7 m off the shin's tail (dragon), which made them bob.
+- [x] Remaining clips (2026-11-04): idle, attack_melee, hit, death for all 6; `fly` for harpy
+      and dragon (wing chains found by `rig_topology.find_wings`), `breath` for the dragon,
+      `attack_ranged` (bow draw) for the goblin. All 6 pilots `anim_complete` in the viewer.
+      Shape and per-clip numbers in `viewer/README.md` ("Clips the anim stage writes").
+      Known: owlbear tail fan is skinned to its right hind shin, so its walk and lunge run
+      at half size (`stride_scale` 0.5); harpy walk also half stride (hip feathers touch
+      the ground at rest, so the body cannot crouch); harpy wings are clean only to
+      about +/-20 degrees, its arms are mostly hidden by the wings in the sword cut.
+      A library retarget would still need a bone map, since SkinTokens bones are `bone_N`.
 - [ ] UniMate text-to-motion for attacks (own uv venv under tools/).
-- [ ] Bake to NLA actions -> glTF with separate animations; `anims/<clip>.glb` per viewer/README.md.
+- [x] Bake to actions -> one armature-only `anims/<clip>.glb` per clip (viewer/README.md).
 
 ### E. Godot import test
 - [x] godot-dnd has no 3D scenes yet (Godot 4.7): add a test scene first.

@@ -1,6 +1,6 @@
 """Find legs in an unnamed skeleton (SkinTokens bones are just bone_0, bone_1, ...).
 
-Plain Python, shared by blender_rig.py (roll scoring) and blender_walk.py (gait). A bone
+Plain Python, shared by blender_rig.py (roll scoring) and blender_clips.py (clips). A bone
 is a dict: name, parent (name or None), head, tail (xyz, Z up, in metres).
 """
 
@@ -137,4 +137,89 @@ def find_head(bones: list[dict], height: float, legs: list[dict]) -> str | None:
     top = max(central, key=lambda b: b["head"][2] + b["tail"][2])
     if _dist(top["head"], top["tail"]) < 0.07 * height and top["parent"] in {b["name"] for b in central}:
         top = by_name[top["parent"]]
+    return top["name"]
+
+
+def path_to_root(name: str, bones: list[dict]) -> list[str]:
+    """[root ... name], following parents."""
+    by_name = {b["name"]: b for b in bones}
+    out = [name]
+    while by_name[out[0]]["parent"]:
+        out.insert(0, by_name[out[0]]["parent"])
+    return out
+
+
+def find_tail(bones: list[dict], height: float, legs: list[dict]) -> list[str]:
+    """Longest chain that leaves the hips backwards, stays low and is not a leg (forward is
+    +Y). Only meaningful for horizontal bodies: on an upright plan that test matches an arm."""
+    by_name = {b["name"]: b for b in bones}
+    kids = _children(bones)
+    leg_bones = {n for g in legs for n in g["chain"]}
+    if not legs:
+        return []
+    hip_y = sum(by_name[g["chain"][0]]["head"][1] for g in legs) / len(legs)
+    best = []
+    for b in bones:
+        if b["name"] in leg_bones or not b["parent"] or len(kids[b["parent"]]) < 2:
+            continue  # starts at a branch, so the spine above the tail is not part of it
+        chain = longest_chain(b["name"], kids)
+        if len(chain) < 4 or any(n in leg_bones for n in chain):
+            continue
+        h0, h1 = by_name[chain[0]]["head"], by_name[chain[-1]]["head"]
+        if h1[1] < hip_y - 0.05 * height and h1[2] < h0[2] + 0.2 * height and len(chain) > len(best):
+            best = chain
+    return best
+
+
+def find_wings(bones: list[dict], height: float, legs: list[dict], arms: list[dict] = (),
+               exclude: tuple = ()) -> list[dict]:
+    """Per side the chain that leaves the upper body near the centre line and reaches
+    farthest sideways, at least 0.4 x the height (and is not a leg, an arm or an
+    `exclude`d bone such as the head, which rules out a neck that bends sideways):
+    {"side", "chain", "reach"}. Ties go to
+    the shorter chain, so a chain that starts on the spine and only then turns into the
+    wing loses to the wing's own root. Facing +Y, +Z up, the right side is +X."""
+    by_name = {b["name"]: b for b in bones}
+    kids = _children(bones)
+    skip = {n for g in legs for n in g["chain"]} | {n for a in arms for n in a["chain"]} | set(exclude)
+    cx = centre_x(bones, legs)
+    cands = []
+    for b in bones:
+        if b["name"] in skip or not b["parent"] or len(kids[b["parent"]]) < 2:
+            continue
+        if b["head"][2] < 0.25 * height or abs(b["head"][0] - cx) > 0.2 * height:
+            continue
+        chain = longest_chain(b["name"], kids)
+        if len(chain) < 3 or any(n in skip for n in chain):
+            continue
+        tip = max((by_name[n]["tail"] for n in chain), key=lambda p: abs(p[0] - cx))
+        reach = abs(tip[0] - cx)
+        if reach < 0.4 * height:
+            continue
+        cands.append({"side": "r" if tip[0] > cx else "l", "chain": chain, "reach": reach})
+    wings = []
+    for side in ("r", "l"):
+        mine = [c for c in cands if c["side"] == side]
+        if mine:
+            top = max(c["reach"] for c in mine)
+            wings.append(min((c for c in mine if c["reach"] >= 0.95 * top), key=lambda c: len(c["chain"])))
+    return wings
+
+
+def find_snout(bones: list[dict], height: float, legs: list[dict]) -> str | None:
+    """Head of a horizontal body (forward is +Y): the bone reaching farthest forward off
+    the legs and above a third of the height. find_head's highest-bone rule picks a hip
+    or a raised wing there. A leaf whose parent also carries other leaves (a jaw beside an
+    ear) gives way to that parent, the skull."""
+    by_name = {b["name"]: b for b in bones}
+    kids = _children(bones)
+    leg_bones = {n for g in legs for n in g["chain"]}
+    cands = [b for b in bones if b["name"] not in leg_bones and b["parent"]
+             and (b["head"][2] + b["tail"][2]) / 2 > height / 3]
+    if not cands:
+        return None
+    top = max(cands, key=lambda b: max(b["head"][1], b["tail"][1]))
+    p = top["parent"]
+    if not kids[top["name"]] and p and len(kids[p]) > 1 and all(not kids[c] for c in kids[p]):
+        return p
     return top["name"]

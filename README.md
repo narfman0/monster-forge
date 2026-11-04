@@ -42,7 +42,8 @@ Per-monster settings (tri budget, upsample, yaw, leveling, prompt extras, LOD ra
 go in `data/overrides/<source>/<id>.json`; QA levels the stance so all feet touch the
 ground, `lod` writes `model_lod1-3.glb` from `model.glb` (`docs/lods.md`), `rig` writes
 `model_rigged.glb` and `model_rigged_lod1-3.glb` (needs ~14 GB VRAM and the SkinTokens venv
-in `tools/skintokens/`), and `anim` writes a procedural `anims/walk.glb`.
+in `tools/skintokens/`), and `anim` writes the procedural clips of the registry's `animation_set` (idle, walk, attack,
+hit, death; fly and breath where expected) to `anims/<clip>.glb`.
 
 ## Viewer
 

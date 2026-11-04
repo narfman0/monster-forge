@@ -197,6 +197,43 @@ then the first usable clip.
 - The expected `animation_set` is shown as chips; missing clips are dashed and grey,
   clips outside the set are outlined in yellow.
 
+### Clips the anim stage writes
+
+`forge.py anim <id>` (`tools/anim.py` -> `tools/blender_clips.py`, one headless Blender run)
+builds every clip of the registry `animation_set` it can make procedurally from the
+skeleton and writes each as its own armature-only `anims/<clip>.glb` (one Action named
+after the clip, 30 fps, starting at t=0) plus `anims/<clip>.json` (its report) and
+`anims/clips.json` (the whole run, with the parts it found):
+
+| clip | plans | loop | length |
+|---|---|---|---|
+| `idle` | all legged | yes | 2.5 s |
+| `walk` | all legged | yes | 0.7-2 s (from the leg length) |
+| `attack_melee` | biped: sword cut from `hand_r`; quadruped: lunge bite; insectoid: front-leg stab + bite | once | 0.9-1.1 s |
+| `attack_ranged` | two-armed: bow draw (bow at `hand_l`) | once | 1.6 s |
+| `hit` | all legged | once | 0.5 s |
+| `death` | all legged; ends on the lying pose (hold the last frame) | once | 1.8 s |
+| `fly` | when wing chains are found (hover, the lowest vertex 0.32 m+ above the ground) | yes | 1.2-1.6 s |
+| `breath` | winged quadrupeds (rear, thrust, hold ~1 s) | once | 2.2 s |
+
+Looping clips have identical first and last frames. Manifest shape:
+
+```json
+"anim": {"clips": ["idle", "walk", "attack_melee", "hit", "death"], "missing": [], "seconds": 4.7,
+         "walk": {"seconds": 1.13, "frames": 34, "loop": true, "min_z": -0.0013, "loop_delta": 0.0,
+                  "ik_reach_gap": 0.0, "stride_scale": 1.0, "...": "..."},
+         "idle": {"...": "..."},
+         "parts": {"root": "bone_0", "head": "bone_4", "neck": [], "spine": [], "tail": [], "arms": {},
+                   "wings": {}, "legs": [["bone_7", "..."]]}}
+```
+
+`clips` lists the files written, `missing` the `animation_set` entries the stage cannot
+make for this plan; per clip: `min_z` (lowest skinned vertex over the clip, metres; below
+0 is in the ground), `min_z_last` (death: 0 = lying on the ground), `loop_delta` (largest
+vertex distance between the first and last frame), `ik_reach_gap` (how far a standing
+foot falls short of its target), `stride_scale`/`body_scale` (< 1 when the walk or lunge
+was toned down to keep a part out of the ground). `parts` are the bones each clip drives.
+
 The model is picked as `model_rigged.glb`, then `model.glb`, then `model_raw.glb`. With a
 rig the LOD buttons load `model_rigged_lod<k>.glb`: they share LOD0's joint order, so the
 geometry swaps under one skeleton while a clip plays. The HUD flags a mismatch when the
@@ -218,7 +255,14 @@ GLB has a skeleton but the manifest has no rig stage, or the reverse.
   `BoneAttachment3D` would: a 0.9 m sword (grip at the origin, red strip on the -Z edge)
   on `hand_r` and a 1.1 m shortbow (stave bowed toward -Z, string behind) on `hand_l`, when
   those bones exist. They are built for a 1.8 m wielder and scaled by `scale_m / 1.8`, with
-  no extra offset, so they show where a prop lands from the bone alone.
+  no extra offset, so they show where a prop lands from the bone alone. Each goes on the
+  grip socket (`grip_r` / `grip_l`, the fist centre in prop space) when the rig has one,
+  else on `hand_r` / `hand_l` (the wrist).
+- **real props**: `?prop_r=<id>&prop_l=<id>` in the URL (`?prop=<id>` is `prop_r`) makes
+  the prop toggle load `out/props/<id>/model.glb` from `tools/props.py` instead of the
+  placeholder for that hand, e.g. `/?prop_r=longsword&prop_l=longbow#goblin-warrior`. The
+  file is loaded once and cloned per attachment, same sockets and scaling as above; if it
+  is missing, the placeholder is used.
 
 The HUD lists the socket bones found in the GLB and the registry sockets missing from it
 (and any socket the manifest names that the GLB lacks). The details panel shows
