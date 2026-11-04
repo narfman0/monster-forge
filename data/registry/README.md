@@ -113,6 +113,34 @@ for these records.
 Descriptions are written from the creatures' canonical traits. They do not
 describe or imitate any specific piece of published art.
 
+## mm-2024.json
+
+Stubs for the 173 Monster Manual (2024) stat blocks that are not in the SRD
+(no `srd52` flag), same record schema as above, `source: "mm-2024"`. Built by
+
+```sh
+python3 -I tools/import_names.py [--src PATH] [--check-srd PATH]
+```
+
+from a local 5etools checkout (`~/workspace/5etools-src/data/bestiary/bestiary-xmm.json`
+by default; read as data, never vendored). Only name, page, size, type, tags, CR,
+speeds and the names of attacks and gear are used; body plan, rig, animation set,
+wields and sockets come from the `build_registry.py` rules. `--check-srd` also
+writes a table of size/type/speed/CR differences between the `srd52` blocks and
+`srd-5.2.1.json` (report only).
+
+**Unreviewed.** Every record is `body_plan_source: "rule"` (129 below 0.8
+confidence) and `wields` are the raw stat-block words: there are no `mm-2024`
+entries in `data/equipment.json`, `body_plan_reviewed.json` or
+`visual_profiles.json` yet. The reference prompt description is a template
+(lowercased name, the plan's body phrase when confidence >= 0.8, natural weapons
+from attack names, worn gear), not hand-written. A curated `mm-2024` entry in
+those files takes precedence once it exists.
+
+**Licence.** The names and stats are derived from WotC IP (Monster Manual 2024),
+not the CC-BY SRD: personal use only. Do not publish this file or assets
+generated from it.
+
 ## props.json
 
 One entry per distinct held prop (32 for SRD 5.2.1). Each entry has its

@@ -157,7 +157,28 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
   - [ ] Check generation-model terms (Pixal3D, SDXL, ControlNet, IP-Adapter weights) allow
         publishing outputs before the repo goes public.
   - Start with the two painted pilots (harpy, goblin-warrior) as test data.
-- `tools/import_names.py`: 5etools `bestiary-xmm.json` (~/workspace/5etools-src, local use
+- [x] `tools/import_names.py`: 5etools `bestiary-xmm.json` (~/workspace/5etools-src, local use
   only, never vendored) -> `data/registry/mm-2024.json` stubs. 503 blocks, 330 flagged
   `srd52`, 173 MM-only. Also cross-check SRD registry size/type/speed against it.
+  (2026-11-04: 173 records, all `rule`; `--check-srd` found 8 differences, see below.)
 - M2 batch SRD once the pilots are through E.
+
+### G. MM-2024 (personal use only; `data/registry/mm-2024.json`)
+- [ ] Body-plan review: 129 of 173 are rule guesses at 0.5 (128 fall to `biped`). Needs
+      `mm-2024` keys in the curation files: `body_plan_overrides.json` is keyed by bare slug
+      and `build_registry.py` rejects unknown slugs, so it needs a per-source layout first.
+- [ ] Equipment review: 152 records need a `data/equipment.json` `mm-2024` entry (hands
+      default on for every rule `biped`). Prop specs missing for `maul`, `flail`, `trident`,
+      `lance` (dao, elemental-cultist, gnoll-fang-of-yeenoghu, lizardfolk-sovereign,
+      mezzoloth, sahuagin-baron, salamander-inferno-master, thri-kreen-psion).
+- [ ] Hand-written `visual_profiles.json` descriptions, at least for the non-humanoid
+      shapes the A-pose template draws wrong (beholder, spectator, carrion crawler,
+      displacer beast, grell, intellect devourer, ...). kuo-toa-whip: "whip" in the name of
+      an empty-hands reference.
+- [ ] Hand `scale_m` (all 173 are size-category defaults).
+- [ ] Rigs MM needs that the pilots do not cover: floating (beholder family), tentacled,
+      merfolk_naga (yuan-ti), centauroid, serpentine, amorphous, plant_object, swarm.
+- [ ] SRD cross-check (report only, not applied): clay-golem walk 30 in the SRD registry vs
+      20 in 5etools; lycanthropes walk 40 (beast form) vs 30 (humanoid form);
+      swarm-of-insects has a climb-or-fly 20 choice the SRD registry drops. Re-check
+      against the SRD 5.2.1 PDF.

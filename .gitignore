@@ -8,3 +8,6 @@ __pycache__/
 *.jpg
 !workflows/pose/*.png
 tools/skintokens/
+
+# MM-2024 stubs: WotC IP derived locally from 5etools; regenerate with tools/import_names.py
+data/registry/mm-2024.json
