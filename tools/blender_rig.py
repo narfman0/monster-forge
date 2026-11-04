@@ -83,6 +83,22 @@ def set_albedo(path: str) -> None:
             n.image = img
 
 
+def clamp_metallic(materials) -> None:
+    """The Pixal3D metallic bake is noise per monster (all 255 on the goblin and harpy,
+    0 on the wolf), which makes a painted creature read as full metal in any engine
+    without an environment map. Stylised creatures are dielectric: drop the metallic
+    texture, keep roughness."""
+    for mat in materials:
+        if not mat or not mat.use_nodes:
+            continue
+        bsdf = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+        if bsdf is None:
+            continue
+        for link in list(bsdf.inputs["Metallic"].links):
+            mat.node_tree.links.remove(link)
+        bsdf.inputs["Metallic"].default_value = 0.0
+
+
 def transfer(lod_path: str, dst: Path) -> None:
     before = set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=lod_path)
@@ -178,6 +194,7 @@ if job["mode"] == "finalize":
     out = Path(job["out_dir"])
     report["sockets"] = add_sockets()
     set_albedo(job["base_color"])
+    clamp_metallic(me.data.materials)  # same rule as blender_qa.py, for rigs built from older model.glb files
     select(me, arm)
     bpy.ops.export_scene.gltf(filepath=str(out / "model_rigged.glb"), export_format="GLB", use_selection=True,
                               export_yup=True)

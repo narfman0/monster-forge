@@ -20,6 +20,14 @@ young-red-dragon) all the way to rigged + animated Godot-ready GLBs **before** t
   nohup it from a shell.
 - Viewer: `python3 -I tools/viewer.py` -> http://127.0.0.1:8787/
 
+- **Unarmed references need a candidate check.** The empty-hands prompt held in only 2 of 4
+  goblin candidates (one hid a bow, one a dagger in the fist); the auto-pick took an armed
+  one. The batch needs an automatic pick (silhouette/VLM check for held objects) or `--n 4`
+  plus a review step for the 79 `unarmed_reference` monsters.
+- **ComfyUI memory ceiling.** Paint pushes ComfyUI to ~17 GB RSS; with `MemoryHigh=16G` in
+  `comfyui.service.d/memory.conf` and swap full it stalls and stops answering `/queue`
+  (twice on 2026-11-04). Either raise MemoryHigh to ~20G or restart the unit before paint.
+
 ## Rig findings (2026-11-04)
 
 Generation is sampled and unseeded (`do_sample=True`), so every run gives a different
@@ -114,6 +122,21 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
     39/32/20, `paint.painted_fraction` 0.39). Texels no view painted look unfilled
     instead of falling back to the voxel colour, so the goblin renders almost black. The
     15:47 build looked right.
+- [x] Round 2 (2026-11-04): all 36 clips bind 100% of tracks in Godot 4.7.1, LODs follow
+      the one skeleton, one-shots settle to idle and death holds; props sit in the fist on
+      `grip_r`/`grip_l` through the sword cut. godot-dnd commits 8dc462a, 0a13bc6
+      (`tools/sync_monsters.py`, `scripts/monster.gd`, `scenes/monster_lab.tscn`,
+      `tools/check_monsters.gd`, `docs/monsters.md`).
+- [x] Metallic: the Pixal3D metallic bake is noise (255 on goblin and harpy, 0 on wolf), so
+      the goblin read as full metal in Godot. QA and rig exports now clamp metallic to 0.
+- [ ] Harpy: `grip_r` is 12-27 cm from its hand because the right arm is skinned mostly to
+      the wing chain behind it (SkinTokens, and the skeleton sits 7 cm off centre). It
+      wields nothing, so not on the batch path; fix with an arm-aware re-skin or a re-roll.
+- [ ] Bows and shields need a per-prop carry pose: at rest a bow on `grip_l` lies on its
+      side. Options: a `carry` offset per prop in props.json, or stow it on `back`/`hip`
+      outside `attack_ranged`. The lab also keeps the sword out during the shot: loadout
+      swap per clip is the game's job.
+- [ ] Real export (`assets/monsters/*` in the export filter) is untested.
 
 ## Later
 - **Public SRD viewer (static GitHub Pages repo, e.g. `monster-forge-viewer`).** Gated on

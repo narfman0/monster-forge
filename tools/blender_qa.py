@@ -451,6 +451,24 @@ report["textures"] = [{"name": i.name, "size": list(i.size)} for i in imgs]
 report["has_uv"] = len(me.uv_layers) > 0
 
 # ---- export
+
+def clamp_metallic(materials) -> None:
+    """The Pixal3D metallic bake is noise per monster (all 255 on the goblin and harpy,
+    0 on the wolf), which makes a painted creature read as full metal in any engine
+    without an environment map. Stylised creatures are dielectric: drop the metallic
+    texture, keep roughness."""
+    for mat in materials:
+        if not mat or not mat.use_nodes:
+            continue
+        bsdf = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+        if bsdf is None:
+            continue
+        for link in list(bsdf.inputs["Metallic"].links):
+            mat.node_tree.links.remove(link)
+        bsdf.inputs["Metallic"].default_value = 0.0
+
+
+clamp_metallic(me.materials)
 bpy.ops.object.select_all(action="DESELECT")
 obj.select_set(True)
 bpy.ops.export_scene.gltf(filepath=job["dst"], export_format="GLB", use_selection=True,
