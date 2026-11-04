@@ -141,6 +141,11 @@ swaps the base colour map on LOD0's material (so LOD1-3 follow) at runtime, with
 sampler settings of the embedded map. The choice is kept (`mf.albedo`, default painted).
 Without those files nothing changes.
 
+The HUD's last line is the rig stage's verdict from the index `rig_quality` (manifest
+`rig.quality` and `rig.facing`): the kept roll's score, its problem list (missing spine,
+tail, wings, legs...) and how far the mesh faces off -Z. `rig_facing_check` in the
+overrides form (default true) lets the stage roll anyway when the check is wrong.
+
 ## Overrides and re-runs
 
 The right panel's **overrides** section is a form over

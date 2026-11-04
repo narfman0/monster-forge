@@ -858,6 +858,14 @@ function setHud(entry, info) {
     lines.push(rig);
     const sk = socketSummary(entry, info.skinned);
     if (sk) lines.push(sk);
+    // Rig stage verdicts (manifest rig.facing / rig.quality via index rig_quality)
+    const q = entry.rig_quality;
+    if (q) {
+      const f = q.facing || {};
+      const facing = f.angle_deg != null ? `facing ${fmt(f.angle_deg, 1)}° off${f.ok === false ? ' (!)' : ''}` : '';
+      const probs = (q.problems || []).length ? `problems: ${q.problems.join(', ')}` : 'no problems';
+      lines.push(`rig score ${fmt(q.score, 2)} (${q.picked || 'chosen'}) · ${probs}${facing ? ' · ' + facing : ''}`);
+    }
   }
   $('hud-stats').textContent = lines.join('\n');
 }
@@ -1476,6 +1484,7 @@ const FIELD_UI = {
   prompt_extra: { type: 'text', area: true }, negative_extra: { type: 'text', area: true },
   style: { type: 'text' }, seed_ref: { type: 'int' },
   yaw: { type: 'float', step: 1 }, forward: { type: 'choice', opts: ['-Z', '+Z'] },
+  rig_facing_check: { type: 'choice', opts: [true, false] },
   level: { type: 'choice', opts: [true, false] }, level_tilt: { type: 'float', step: 1 },
   lod_ratios: { type: 'list' }, lod_screen_ratios: { type: 'list' }, paint: { type: 'json', area: true }, notes: { type: 'text', area: true },
 };
