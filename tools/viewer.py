@@ -168,17 +168,37 @@ def rig_quality(rig_m: dict) -> dict | None:
     """The rig stage's checks for the HUD (tools/rig.py, docs/rig-anim.md): the facing check
     on model.glb (`facing`: angle_deg off +Y, confidence, ok) and the kept skeleton's score
     (`score`, the v1 `score_v1`, weighted penalty `terms`, `problems`: missing or doubled
-    parts) plus the picked roll and every roll's score. None before the stage has run."""
+    parts) plus the picked roll and every roll's score, and `grounded` (blender_rig.ground_feet:
+    shift_m, turned_deg per chain, feet_low_m, min_z_m; null when the feet already stood on
+    the ground). None before the stage has run."""
     q = rig_m.get("quality") if isinstance(rig_m.get("quality"), dict) else {}
     facing = rig_m.get("facing") if isinstance(rig_m.get("facing"), dict) else None
     if not q and not facing:
         return None
     rolls = rig_m.get("rolls") if isinstance(rig_m.get("rolls"), list) else []
-    return {"facing": facing, "score": q.get("score"), "score_v1": q.get("score_v1"),
+    grounded = rig_m.get("grounded") if isinstance(rig_m.get("grounded"), dict) else None
+    return {"facing": facing, "grounded": grounded, "score": q.get("score"), "score_v1": q.get("score_v1"),
             "terms": q.get("terms"), "problems": q.get("problems"), "joints": q.get("joints"),
             "picked": rig_m.get("picked"),
             "rolls": [{"file": r.get("file"), "score": r.get("score"), "score_v1": r.get("score_v1"),
                        "joints": r.get("joints"), "problems": r.get("problems")} for r in rolls if isinstance(r, dict)]}
+
+
+def ref_unarmed(ref_m: dict) -> dict | None:
+    """The ref stage's unarmed check (docs/references.md) for the candidate strip: score per
+    candidate (ref_<i>.png), which are armed (> threshold), the first empty-handed one and
+    the warnings. None when the check never ran (or failed: `error`)."""
+    u = ref_m.get("unarmed") if isinstance(ref_m.get("unarmed"), dict) else {}
+    scores = ref_m.get("unarmed_scores") or u.get("scores")
+    if not isinstance(scores, list) or not scores:
+        return None
+    thr = u.get("threshold")
+    armed = u.get("armed")
+    if not isinstance(armed, list):
+        armed = [i for i, v in enumerate(scores) if thr is not None and isinstance(v, (int, float)) and v > thr]
+    return {"scores": scores, "armed": armed, "threshold": thr, "best": u.get("best"),
+            "in_use": u.get("in_use"), "warning": u.get("warning"), "warning_pick": u.get("warning_pick"),
+            "picked_by": ref_m.get("picked_by")}
 
 
 def build_index(source: str) -> dict:
@@ -207,6 +227,7 @@ def build_index(source: str) -> dict:
         entry["rig_sockets"] = dict(placed) if st["stages"]["rig"] else None
         entry["sockets_missing"] = [s for s in entry["sockets"] if s not in placed] if st["stages"]["rig"] else None
         entry["rig_quality"] = rig_quality(rig_m)
+        entry["ref_unarmed"] = ref_unarmed(man.get("ref") if isinstance(man.get("ref"), dict) else {})
         entry["tri_count"] = man.get("tri_count")
         entry["dir"] = f"/out/{source}/{rec['id']}/"
         entry["errors"] = len(man.get("errors", []) or [])

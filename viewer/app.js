@@ -873,7 +873,9 @@ function setHud(entry, info) {
       const f = q.facing || {};
       const facing = f.angle_deg != null ? `facing ${fmt(f.angle_deg, 1)}° off${f.ok === false ? ' (!)' : ''}` : '';
       const probs = (q.problems || []).length ? `problems: ${q.problems.join(', ')}` : 'no problems';
-      lines.push(`rig score ${fmt(q.score, 2)} (${q.picked || 'chosen'}) · ${probs}${facing ? ' · ' + facing : ''}`);
+      // feet grounding (manifest rig.grounded): how far the game files were lowered onto the feet
+      const grounded = q.grounded?.shift_m != null ? `grounded ${fmt(q.grounded.shift_m, 3)} m` : '';
+      lines.push(`rig score ${fmt(q.score, 2)} (${q.picked || 'chosen'}) · ${probs}${facing ? ' · ' + facing : ''}${grounded ? ' · ' + grounded : ''}`);
     }
   }
   $('hud-stats').textContent = lines.join('\n');
@@ -1240,9 +1242,18 @@ async function renderSide(entry) {
     img.onclick = () => { $('lightbox').querySelector('img').src = img.src; $('lightbox').classList.remove('hidden'); };
     imgs.append(el('figure', { className: wide ? 'wide' : '' }, img, el('figcaption', { textContent: cap })));
   };
+  // Unarmed check (index ref_unarmed, manifest ref.unarmed): hand score per candidate, armed > threshold.
+  const ua = entry.ref_unarmed || (man.ref?.unarmed_scores ? { scores: man.ref.unarmed_scores, armed: man.ref.unarmed?.armed || [] } : null);
   for (const r of entry.files.refs) {
     const i = Number(r.match(/ref_(\d+)/)?.[1]);
-    fig(r, r.replace('.png', '') + (i === picked ? ' ✓' : ''), i === picked ? 'picked' : '');
+    const sc = ua?.scores?.[i], armed = !!ua?.armed?.includes(i);
+    const score = typeof sc === 'number' ? ` · ${fmt(sc, 2)}${armed ? ' armed' : ''}` : '';
+    fig(r, r.replace('.png', '') + (i === picked ? ' ✓' : '') + score, (i === picked ? 'picked' : '') + (armed ? ' armed' : ''));
+  }
+  if (ua && entry.files.refs.length) {
+    const why = ua.threshold != null ? `unarmed check: hand score, armed > ${ua.threshold}` : 'unarmed check: hand score';
+    imgs.append(el('div', { className: 'ua-note', textContent: why + (ua.picked_by ? ` · picked by ${ua.picked_by}` : '') }));
+    for (const w of [ua.warning, ua.warning_pick].filter(Boolean)) imgs.append(el('div', { className: 'ua-note warn', textContent: '⚠ ' + w }));
   }
   if (!entry.files.refs.length && entry.files.ref) fig(entry.files.ref, 'ref');
   if (entry.files.crop) fig(entry.files.crop, 'crop');
@@ -1598,8 +1609,51 @@ const FIELD_UI = {
   rig_facing_check: { type: 'choice', opts: [true, false] },
   level: { type: 'choice', opts: [true, false] }, level_tilt: { type: 'float', step: 1 },
   lod_ratios: { type: 'list' }, lod_screen_ratios: { type: 'list' }, paint: { type: 'json', area: true }, notes: { type: 'text', area: true },
+  ref_unarmed_check: { type: 'choice', opts: [true, false] },
+  idle_lift: { type: 'lift', opts: ['match_move', 'false'], check: checkIdleLift,
+    help: 'metres (0-20), match_move (swim/fly height) or false (floor)' },
+  rig_reweight: { type: 'json', area: true, rows: 3, check: checkReweight,
+    help: 'list of {bones: [root..tip], reach 0.01-2 m, bias 0.1-10, blend 0.001-0.5 m, strip, fit, hand_room 0-0.5 m, '
+      + 'far 0.02-5 m}; see docs/rig-anim.md' },
 };
-const RUN_ORDER = ['ref', 'mesh', 'qa', 'paint', 'lod'];
+const RUN_ORDER = ['ref', 'mesh', 'qa', 'paint', 'lod', 'rig', 'anim'];
+
+// Client-side mirrors of tools/overrides.py's validators (the server re-checks on save).
+function checkIdleLift(v) {
+  if (v === 'match_move' || v === false) return null;
+  return typeof v === 'number' && v >= 0 && v <= 20 ? null : 'a number of metres in [0, 20], match_move or false';
+}
+const REWEIGHT_KEYS = { bones: null, bias: [0.1, 10], reach: [0.01, 2], blend: [0.001, 0.5], strip: 'bool', fit: 'bool',
+  hand_room: [0, 0.5], far: [0.02, 5] };
+function checkReweight(v) {
+  if (!Array.isArray(v) || v.length < 1 || v.length > 8) return 'must be a list of 1-8 chain objects';
+  for (const [i, c] of v.entries()) {
+    if (!c || typeof c !== 'object' || Array.isArray(c)) return `[${i}] must be an object`;
+    const bad = Object.keys(c).filter((k) => !(k in REWEIGHT_KEYS));
+    if (bad.length) return `[${i}] unknown keys ${bad.join(', ')} (allowed: ${Object.keys(REWEIGHT_KEYS).join(', ')})`;
+    const b = c.bones;
+    if (!Array.isArray(b) || b.length < 1 || b.length > 16 || !b.every((x) => typeof x === 'string' && /^[A-Za-z0-9_.\-/]{1,120}$/.test(x))) {
+      return `[${i}].bones must be a list of 1-16 bone names`;
+    }
+    for (const [k, rule] of Object.entries(REWEIGHT_KEYS)) {
+      if (!rule || !(k in c)) continue;
+      const x = c[k];
+      if (rule === 'bool' ? typeof x !== 'boolean' : typeof x !== 'number' || x < rule[0] || x > rule[1]) {
+        return `[${i}].${k} must be ${rule === 'bool' ? 'true or false' : `a number in [${rule[0]}, ${rule[1]}]`}`;
+      }
+    }
+  }
+  return null;
+}
+// null = valid (or empty = default), else the error text for the status line
+function fieldError(k, raw) {
+  const v = fromInput(k, raw);
+  if (v === null) return null;
+  if (typeof v === 'number' && Number.isNaN(v)) return 'not a number';
+  if (Array.isArray(v) && v.some(Number.isNaN)) return 'not numbers';
+  if (v === undefined) return 'not valid JSON';
+  return FIELD_UI[k]?.check?.(v) ?? null;
+}
 const show = (v) => (v == null || v === '' ? '–' : Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? JSON.stringify(v) : String(v));
 
 function toInput(k, v) {
@@ -1616,6 +1670,7 @@ function fromInput(k, raw) {
   if (ui.type === 'list') return raw.split(/[\s,]+/).filter(Boolean).map(Number);
   if (ui.type === 'json') { try { return JSON.parse(raw); } catch { return undefined; } }
   if (ui.type === 'choice') return ui.opts.find((o) => String(o) === raw) ?? raw;
+  if (ui.type === 'lift') return raw === 'false' ? false : raw === 'match_move' ? raw : /^[-+.\d]/.test(raw) ? Number(raw) : raw;
   return raw;
 }
 
@@ -1647,21 +1702,31 @@ function renderOverrides() {
       input = el('select', {}, el('option', { value: '', textContent: `default (${show(f.default)})` }),
         ...ui.opts.map((o) => el('option', { value: String(o), textContent: String(o) })));
     } else if (ui.area) {
-      input = el('textarea', { rows: 1, placeholder: show(f.default) });
+      input = el('textarea', { rows: ui.rows || 1, placeholder: show(f.default) });
     } else {
       input = el('input', { type: ui.type === 'int' || ui.type === 'float' ? 'number' : 'text', placeholder: show(f.default) });
       if (ui.step) input.step = ui.step;
+      if (ui.type === 'lift') {  // free text with the two keywords offered
+        input.setAttribute('list', 'dl-' + k);
+        form.append(el('datalist', { id: 'dl-' + k }, ...ui.opts.map((o) => el('option', { value: o }))));
+      }
     }
     input.value = toInput(k, f.override);
     input.dataset.k = k;
     input.dataset.saved = input.value;
-    input.oninput = input.onchange = () => input.classList.toggle('dirty', input.value !== input.dataset.saved);
+    input.oninput = input.onchange = () => {
+      input.classList.toggle('dirty', input.value !== input.dataset.saved);
+      const err = ui.check ? fieldError(k, input.value) : null;
+      input.classList.toggle('invalid', !!err);
+      input.title = err ? `${k}: ${err}` : '';
+    };
     const reset = el('button', { type: 'button', className: 'reset' + (f.override != null ? ' show' : ''), textContent: '×',
       title: `reset to default (${show(f.default)}) and save` });
     reset.onclick = () => { input.value = ''; saveOverrides(); };
     const label = el('label', { className: 'k' + (f.override != null ? ' set' : ''), textContent: k,
       title: `${f.help}${f.stage ? ` (re-run from: ${f.stage})` : ''}` });
     form.append(label, input, reset);
+    if (ui.help) form.append(el('div'), el('div', { className: 'def help', textContent: ui.help }));
     if (f.override != null && k !== 'notes') form.append(el('div'), el('div', { className: 'def', textContent: `default ${show(f.default)}` }));
   }
   const box = $('run-stages');
@@ -1677,9 +1742,8 @@ async function saveOverrides() {
   const changed = [];
   for (const input of $('ov-form').querySelectorAll('[data-k]')) {
     const k = input.dataset.k, v = fromInput(k, input.value);
-    if (typeof v === 'number' && Number.isNaN(v)) { $('ov-status').textContent = `${k}: not a number`; return; }
-    if (Array.isArray(v) && v.some(Number.isNaN)) { $('ov-status').textContent = `${k}: not numbers`; return; }
-    if (v === undefined) { $('ov-status').textContent = `${k}: not valid JSON`; return; }
+    const err = fieldError(k, input.value);
+    if (err) { $('ov-status').textContent = `${k}: ${err}`; input.classList.add('invalid'); return; }
     body[k] = v;
     if (input.value !== input.dataset.saved) changed.push(k);
   }

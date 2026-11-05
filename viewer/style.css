@@ -92,7 +92,11 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); font-weight: 500;
 #images { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 #images figure { margin: 0; }
 #images img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; background: var(--bg3); cursor: zoom-in; border: 1px solid var(--line); }
+#images img.armed { border-color: #e05a5a; }
+#images figure:has(img.armed) figcaption { color: #e07a7a; }
 #images img.picked { border-color: var(--accent); }
+#images .ua-note { grid-column: 1 / -1; font-size: 10px; color: var(--muted); }
+#images .ua-note.warn { color: #e07a7a; }
 #images figcaption { font-size: 10px; color: var(--muted); text-align: center; }
 #details { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; font-size: 12px; }
 #details dt { color: var(--muted); }
@@ -147,10 +151,13 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); font-weight: 500;
 #ov-form input[type=checkbox] { width: auto; }
 #ov-form textarea { resize: vertical; min-height: 2.2em; }
 #ov-form .dirty { border-color: var(--accent); }
+#ov-form .invalid, #ov-form .invalid:focus { border-color: #e05a5a; outline: 1px solid #e05a5a; }
+#ov-form .def.help { white-space: normal; overflow-wrap: anywhere; }
 #ov-form button.reset { padding: 0 6px; font-size: 11px; visibility: hidden; }
 #ov-form button.reset.show { visibility: visible; }
 #ov-form .def { grid-column: 2 / 4; font-size: 10px; color: #6c7380; margin-top: -2px; }
-#run-stages label { font-size: 12px; }
+#run-stages { flex-wrap: wrap; gap: 2px 8px; }
+#run-stages label { font-size: 12px; white-space: nowrap; }
 #job-log { max-height: 180px; overflow: auto; font-size: 10px; background: #0d0f13; border: 1px solid var(--line);
   border-radius: 4px; padding: 4px 6px; margin: 6px 0 0; white-space: pre-wrap; word-break: break-all; }
 

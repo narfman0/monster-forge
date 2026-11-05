@@ -81,6 +81,14 @@ Socket fields: `sockets` (the registry's list of socket bones the rig must provi
 (registry sockets not in `rig_sockets`). The two rig fields are `null` until the `rig`
 stage is true, then an object and a list (empty when nothing is placed or missing).
 
+Diagnostics: `rig_quality` (below, with `grounded` = `manifest.rig.grounded`: `shift_m`,
+`turned_deg`, `feet_low_m`, `min_z_m`, or `null` when the feet already stood on the ground)
+and `ref_unarmed`, the ref stage's unarmed check (`docs/references.md`): `scores` (one per
+`ref_<i>.png`, from `manifest.ref.unarmed_scores`), `armed` (indices over `threshold`),
+`best`, `in_use`, `warning` / `warning_pick` (`ref.unarmed.warning`, `.warning_pick`) and
+`picked_by`; `null` when the check never ran. Both are optional: the page shows nothing for
+a missing or `null` value.
+
 ## LODs, RAW tier and auto LOD
 
 `model.glb` (or `model_rigged.glb`) is LOD0; `model_lod<k>.glb` (listed in `lods.json`, see `docs/lods.md`) share
@@ -143,16 +151,28 @@ Without those files nothing changes.
 
 The HUD's last line is the rig stage's verdict from the index `rig_quality` (manifest
 `rig.quality` and `rig.facing`): the kept roll's score, its problem list (missing spine,
-tail, wings, legs...) and how far the mesh faces off -Z. `rig_facing_check` in the
-overrides form (default true) lets the stage roll anyway when the check is wrong.
+tail, wings, legs...), how far the mesh faces off -Z and, when the rig stage lowered the
+game files onto the feet (`rig.grounded`), `grounded <shift_m> m` (giant eagle:
+`grounded 0.355 m`). `rig_facing_check` in the overrides form (default true) lets the
+stage roll anyway when the check is wrong.
+
+**Reference candidates.** The images panel shows every `ref_<i>.png` (the one the mesh was
+made from ticked). For `unarmed_reference` monsters each caption carries the unarmed
+check's hand score, and candidates over the threshold are marked `armed` (red caption and
+border); a note under the strip gives the threshold, `picked_by` and any warning (every
+candidate armed, or the kept pick armed). Goblin warrior: `ref_0 · 3.35 armed`,
+`ref_1 · 3.33 armed`, `ref_2 ✓ · -1.54`, `ref_3 · -0.82`.
 
 ## Overrides and re-runs
 
 The right panel's **overrides** section is a form over
 `data/overrides/<source>/<id>.json`: each field shows the override (yellow label) or, when
 empty, the default as a placeholder. `save` writes the file, `×` resets one field to its
-default and saves, `revert` drops unsaved edits. After a save the re-run checkboxes tick
-the earliest stage the changed fields affect and everything after it.
+default and saves, `revert` drops unsaved edits. After a save the re-run checkboxes (ref,
+mesh, qa, paint, lod, rig, anim) tick the earliest stage the changed fields affect and
+everything after it. Fields with a client-side check (`idle_lift`, `rig_reweight`) get a red
+border and the error as a tooltip while the text is invalid, and `save` refuses with the
+error in the status line (the server validates again with `tools/overrides.py`).
 
 `queue re-run` runs `forge.py run <id> --stages <ticked> --force` as a background
 subprocess of the viewer: one job at a time, FIFO, the log streamed into the panel and
@@ -180,7 +200,11 @@ with other ComfyUI clients.
 | `forward` | `-Z` / `+Z` | qa | glTF facing |
 | `level` | bool | qa | stance leveling (default on for legged plans) |
 | `level_tilt` | float 0-60 | qa | largest tilt leveling may apply (20; insectoid 40) |
+| `ref_unarmed_check` | bool | ref | score the candidates for a held weapon and pick the first empty-handed one unless `ref_pick` is pinned (default true for `unarmed_reference` records; `docs/references.md`) |
 | `lod_ratios` | decreasing floats in (0,1) | lod | LOD1.. ratios of LOD0 (0.5, 0.25, 0.1) |
+| `rig_reweight` | JSON list of 1-8 chains | rig | geometric re-weight before sockets: `[{"bones": [root..tip], "reach", "bias", "blend", "strip", "fit", "hand_room", "far"}]` (textarea, checked against the ranges in `tools/overrides.py`; `docs/rig-anim.md`) |
+| `rig_facing_check` | bool | rig | refuse to roll when `model.glb` looks misfaced (default true) |
+| `idle_lift` | number 0-20, `match_move` or `false` | anim | idle height: metres of lift, where the swim/fly clip holds the body, or the floor (text box offering the two keywords; unset = `match_move` when the `animation_set` has no `walk` but swims or flies, else `false`) |
 | `paint` | object (JSON in the form) | paint | multiview paint settings (`enabled`, `views`, `denoise`, ...; see `tools/overrides.py`) |
 | `lod_screen_ratios` | 3 decreasing floats in (0, 4] | - (viewer only) | auto LOD switch points, fraction of viewport height for LOD0/LOD1/LOD2; unset = viewer settings |
 | `notes` | string | - | why the override exists |
@@ -314,7 +338,8 @@ cut down to the released monsters, with the same per-entry shape, except:
 - dropped: `has_override`, `job`, `errors`, `hi_faces`, `files.hi`, `files.hi_textured`,
   `files.hi_bytes` (no RAW tier); `rig_quality` is `null` (rig-stage diagnostics);
   `files.base_color_*`, `thumb_head`, `thumb_ground`, `crop`, `ref` are `null` and
-  `files.refs` is `[]` (pipeline images stay home);
+  `files.refs` is `[]` (pipeline images stay home), so neither the unarmed scores nor
+  `grounded` show (`ref_unarmed` is copied as is but unused without refs);
 - added per entry: `wields` (the registry's wielded props that were published); top level:
   `static: true`, `registry_total`, `license`, `attribution` (paragraphs taken from the
   repo README's "License and attribution" section) and `props` (`props.json`);
