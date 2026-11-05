@@ -471,3 +471,22 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
       head. Fixed in `find_arms` (C): `back` is on the chest now.
 - [x] Stale `manifest.errors` entries on ghost, merfolk and snake removed (their rig stages
       succeed); rig and anim now clear their own entries on success (C).
+
+### I. Batch (2026-11-04)
+`tools/batch.py` runs the SRD batch (`plan`, `run`, `report`, `audit`); coverage audit, tiers and
+the run book in `docs/batch.md`. 315 monsters, ~33.5 h for tiers 1-3 (278), ~37.4 h with the hold
+tier. Blocking gaps (reference-stage fixes; their records are tier 4 and not run by default):
+- [ ] Avian reference prompt (16: every avian but the eagle and the 2 theropods): front view,
+      wings spread to the sides, as the eagle needed (registry pose in `build_registry.py`, or
+      per-id `prompt_extra`).
+- [ ] Serpentine (10): release once constrictor-snake is through anim with the `serpentine_side`
+      depth template.
+- [ ] Swarms (6): one unit per swarm: unit prompt and unit `scale_m` (`swarm_unit_size` tiny).
+- [ ] Centauroid (3: centaur-trooper, drider, lamia): the centaur-trooper pilot through anim
+      on its new centaur reference.
+- [ ] Specter, wraith (2): the ghost's legless-robe prompt tweak.
+Fixable after the batch (re-run `anim` or `rig,anim` only; counts and lists: `batch.py audit`):
+`cast` 48, `swim` on legged plans 39, `burrow` 18, `breath` 11, `fly` 9, `attack_ranged` 3
+clips; winged_biped wing chains (20); tiny / huge / gargantuan thresholds and budgets; the 31
+untested variants; off-model fork, heavy crossbow, mace props.
+- [ ] First batch run: `batch.py run --tier 1`, `report` after the first 20.

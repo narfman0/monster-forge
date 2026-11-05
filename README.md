@@ -29,6 +29,7 @@ renamed analogues.
 - `docs/plan.md` pipeline design and milestones. `docs/research-*.md` tool research.
 - `tools/` scripts. `workflows/` ComfyUI API workflows. `viewer/` local web viewer.
 - `out/<source>/<id>/` generated assets (git-ignored; never commit art).
+- `out/<source>/_batch.json`, `_batch.md`, `_batch_logs/` the batch runner's progress, report and logs.
 
 ## Environment
 
@@ -54,6 +55,19 @@ ground, `lod` writes `model_lod1-3.glb` from `model.glb` (`docs/lods.md`), `rig`
 `model_rigged.glb` and `model_rigged_lod1-3.glb` (needs ~14 GB VRAM and the SkinTokens venv
 in `tools/skintokens/`), and `anim` writes the procedural clips of the registry's `animation_set` (idle, walk, attack,
 hit, death; fly and breath where expected) to `anims/<clip>.glb`.
+
+The whole SRD goes through `tools/batch.py` (`docs/batch.md`: the coverage audit, tiers and
+what to watch): `plan` prints the ordered work list with the stages still missing and a time
+estimate, `run` drives `forge.py` stage by stage per monster (resumable, `--n 4` for unarmed
+references, a memory gate before mesh and paint, a ComfyUI restart before paint and on a hung
+`/queue`, a facing check before paint, per-stage timeouts, failures recorded and skipped,
+`--dry-run`), and `report` writes `out/<source>/_batch.md`.
+
+```sh
+python3 -I tools/batch.py plan --tier 1
+python3 -I tools/batch.py run --tier 1 --stop-after-failures 10
+python3 -I tools/batch.py report
+```
 
 Held weapons and shields are separate props (`docs/equipment.md`): `python3 -I tools/props.py
 run --all` turns `data/registry/props.json` into `out/props/<id>/model.glb` (origin at the

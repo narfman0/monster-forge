@@ -1,0 +1,320 @@
+# SRD batch (2026-11-04)
+
+The 330-monster SRD 5.2.1 batch: what the pipeline covers (the audit), how to run it with
+`tools/batch.py`, what to watch, and the order. The 15 body-plan pilots (goblin-warrior,
+wolf, owlbear, giant-spider, harpy, young-red-dragon, constrictor-snake, ghost, giant-eagle,
+black-pudding, violet-fungus, giant-octopus, hunter-shark, merfolk-skirmisher,
+swarm-of-rats) are done through anim and are never re-run by the batch.
+
+## Summary
+
+- 315 monsters to make. 146 are **tier 1** (a pilot's body plan and rig template at a
+  pilot size), 101 **tier 2** (same code path as a pilot, a size no pilot had, or the
+  harpy's hand-fixed winged_biped), 31 **tier 3** (a plan variant nobody has run), 37
+  **tier 4 / hold** (the reference stage needs a fix first; running them now means
+  re-running everything later).
+- Estimated time (pilot stage timings): **~33.5 h** for tiers 1-3 (278 monsters: tier 1
+  17.7 h, tier 2 12.4 h, tier 3 3.4 h), ~37.4 h with the hold tier. Paint dominates
+  (160 s + a ComfyUI restart per monster), then the 4 SkinTokens rolls (~140 s) and mesh
+  (~70 s). A monster is ~7.3 min with SkinTokens, ~5 min with a generated skeleton.
+- Blocking gaps (fix before those records run; all are reference-stage fixes): avian
+  prompt (16), serpentine template pilot (10), swarm unit model (6), centauroid pilot (3),
+  specter/wraith ghost prompt (2). Everything else can be fixed after the batch by
+  re-running only `rig` and/or `anim` (or only the props), see "Gaps".
+- Missing clips the batch will leave (no builder makes them; the anim stage records them
+  in `manifest.anim.missing` and the viewer shows `anim_complete` false): `cast` 48,
+  `swim` 39, `burrow` 18, `breath` 11, `fly` 9, `attack_ranged` 3, plus all six on the
+  xorn (radial has no clip builder). 2 `attack_special` records (shrieker, seahorse) are
+  covered by their plan builders.
+
+## Audit
+
+Regenerate the tables with `python3 -I tools/batch.py audit` (the coverage model is
+`classify()`, `buildable_clips()` and `GAPS` in `tools/batch.py`; `buildable_clips()` mirrors
+`blender_clips.py` `plan_clips()` / `legless_clips()`, keep them in sync). How it decides:
+
+- **proven**: the record's `(body_plan, rig_template)` is a pilot's. The code keys on the
+  plan (`rig.RIG_STRATEGY`, `anim.LEGLESS` / `ARMED`, `forge.MAX_SCALE_PLANS`); the rig
+  template is only a label, except `custom.theropod` (the rig score skips wings).
+- **same path**: another template of a pilot's plan whose body the same code handles
+  (horses and cats like the wolf, crabs and beetles like the spider, feathered winged
+  quadrupeds like the dragon). The harpy's winged_biped counts here too: the pilot needed
+  hand-built wing chains, so its 20 siblings are not "proven".
+- **untested**: a plan variant flagged in docs/TODO.md H or docs/body-plans.md that no
+  pilot ran (trees, the rug, the flying sword, the troll limb, elementals, cloaker, wisp,
+  otyugh / roper / aboleth, flippered aquatics and seahorses, the lemure, theropods,
+  wyvern, myriapods, the winged wasp, hydra, dragon turtle, tarrasque, glabrezu and
+  marilith arms, the drider, the xorn).
+- **hold**: the reference is known to come out wrong for the plan today (below).
+- Sizes: the pilots are small to large. Tiny (25), huge (34) and gargantuan (15) records
+  of a proven template are bumped to tier 2 (the "proven" column still counts them).
+
+### Coverage per body plan
+
+| plan | records | pilot | proven | same path | untested | hold | rig | expected missing clips |
+|---|---:|---|---:|---:|---:|---:|---|---|
+| biped | 99 | goblin-warrior | 95 | 1 | 2 | 0 | SkinTokens | cast 17, fly 4, swim 4, burrow 2, breath 2 |
+| quadruped | 61 | owlbear, wolf | 37 | 20 | 2 | 0 | SkinTokens | swim 10, breath 4, burrow 1, fly 1, cast 1 |
+| winged_quadruped | 49 | young-red-dragon | 40 | 8 | 0 | 0 | SkinTokens | swim 20, cast 20, burrow 12, attack_ranged 1 |
+| winged_biped | 21 | harpy | 0 | 20 | 0 | 0 | SkinTokens | cast 4, breath 4 |
+| avian | 19 | giant-eagle | 0 | 0 | 2 | 16 | SkinTokens | cast 1 |
+| insectoid | 15 | giant-spider | 5 | 6 | 3 | 0 | SkinTokens | swim 3, burrow 1, fly 1 |
+| serpentine | 11 | constrictor-snake | 0 | 0 | 0 | 10 | fallback:spine_chain | cast 3, fly 2, breath 1, burrow 1, attack_ranged 1 |
+| floating | 10 | ghost | 0 | 0 | 7 | 2 | SkinTokens | attack_ranged 1, cast 1, swim 1 |
+| aquatic | 9 | hunter-shark | 4 | 0 | 4 | 0 | SkinTokens | - |
+| tentacled | 7 | giant-octopus | 3 | 0 | 3 | 0 | fallback:tentacle_hub | - |
+| plant_object | 7 | violet-fungus | 1 | 0 | 5 | 0 | fallback:vertical | fly 1 |
+| amorphous | 7 | black-pudding | 5 | 0 | 1 | 0 | fallback:vertical | swim 1 |
+| swarm | 7 | swarm-of-rats | 0 | 0 | 0 | 6 | fallback:root | - |
+| merfolk_naga | 4 | merfolk-skirmisher | 2 | 0 | 1 | 0 | SkinTokens | - |
+| centauroid | 3 | - | 0 | 0 | 0 | 3 | SkinTokens | cast 1 |
+| radial | 1 | - | 0 | 0 | 1 | 0 | SkinTokens | idle 1, walk 1, burrow 1, attack_melee 1, hit 1, death 1 |
+
+Pilots are not counted in proven / same path / untested / hold.
+
+### Per rig template
+
+| plan | rig_template | records | status | tier | note |
+|---|---|---:|---|---:|---|
+| biped | rigify.basic_human | 1 | pilot | 0 | goblin-warrior |
+| biped | rigify.basic_human | 86 | proven | 1 | 86 records - as goblin-warrior |
+| biped | rigify.basic_human | 9 | proven | 2 | 9 records - sizes huge, tiny (pilots are small-large) |
+| biped | rigify.basic_human | 1 | untested | 3 | glabrezu - 4 arms (two pincers); find_arms takes one pair |
+| biped | custom.ghost | 1 | same path | 2 | shadow - shadow: SkinTokens biped like the goblin, robed like the ghost |
+| biped | custom.kaiju_tail | 1 | untested | 3 | tarrasque - tarrasque: upright with a heavy ground tail (upright plans have no tail test), gargantuan |
+| quadruped | rigify.basic_quadruped | 1 | pilot | 0 | owlbear |
+| quadruped | rigify.basic_quadruped | 17 | proven | 1 | 17 records - as owlbear |
+| quadruped | rigify.basic_quadruped | 10 | proven | 2 | 10 records - sizes huge, tiny (pilots are small-large) |
+| quadruped | rigify.horse | 15 | same path | 2 | 15 records - SkinTokens + the legged framework, as wolf and owlbear |
+| quadruped | rigify.wolf | 1 | pilot | 0 | wolf |
+| quadruped | rigify.wolf | 10 | proven | 1 | 10 records - as wolf |
+| quadruped | rigify.cat | 5 | same path | 2 | cat, lion, panther, saber-toothed-tiger, tiger - SkinTokens + the legged framework, as wolf and owlbear |
+| quadruped | custom.turtle | 1 | untested | 3 | dragon-turtle - dragon turtle: shell, gargantuan, swims |
+| quadruped | custom.hydra | 1 | untested | 3 | hydra - 5 neck chains; head and neck finders expect one |
+| winged_quadruped | custom.dragon | 1 | pilot | 0 | young-red-dragon |
+| winged_quadruped | custom.dragon | 19 | proven | 1 | 19 records - as young-red-dragon |
+| winged_quadruped | custom.dragon | 21 | proven | 2 | 21 records - sizes gargantuan, huge, tiny (pilots are small-large) |
+| winged_quadruped | custom.quadruped_winged | 7 | same path | 2 | 7 records - as the dragon; feathered wings must come out of SkinTokens (the dragon's did, the harpy's did not) |
+| winged_quadruped | custom.horse_winged | 1 | same path | 2 | pegasus - pegasus: as the dragon, feathered wings |
+| winged_biped | custom.human_winged | 1 | pilot | 0 | harpy |
+| winged_biped | custom.human_winged | 20 | proven (hand-fixed) | 2 | 20 records - harpy pilot: SkinTokens gave no wing bones in 4 of 4 rolls; hand-added wing chains + blender_wing_weights.py + rig_reweight |
+| avian | rigify.bird | 1 | pilot | 0 | giant-eagle |
+| avian | rigify.bird | 11 | hold | 4 | 11 records - avian: the registry prompt (side view, wings partly spread) gave the eagle one wing; the eagle needed a front view with the wings spread to the sides |
+| avian | custom.bat_wing | 4 | hold | 4 | stirge, bat, giant-bat, pteranodon - avian: the registry prompt (side view, wings partly spread) gave the eagle one wing; the eagle needed a front view with the wings spread to the sides |
+| avian | custom.theropod | 2 | untested | 3 | allosaurus, tyrannosaurus-rex - allosaurus, T. rex: wingless avian (rig score skips wings) |
+| avian | custom.wyvern | 1 | hold | 4 | wyvern - avian: the registry prompt (side view, wings partly spread) gave the eagle one wing; the eagle needed a front view with the wings spread to the sides |
+| insectoid | custom.arachnid | 1 | pilot | 0 | giant-spider |
+| insectoid | custom.arachnid | 3 | proven | 1 | phase-spider, giant-scorpion, giant-wolf-spider - as giant-spider |
+| insectoid | custom.arachnid | 2 | proven | 2 | scorpion, spider - sizes tiny (pilots are small-large) |
+| insectoid | custom.decapod | 3 | same path | 2 | chuul, crab, giant-crab - crabs, chuul: 8 legs + claws (claws may count as legs, LEG_RANGE 6-10) |
+| insectoid | custom.hexapod | 2 | same path | 2 | ankheg, giant-fire-beetle - sprawled legged framework; 6 legs is inside LEG_RANGE |
+| insectoid | custom.myriapod | 2 | untested | 3 | remorhaz, giant-centipede - centipede, remorhaz: more legs than LEG_RANGE (6-10) |
+| insectoid | custom.multileg_reptile | 1 | same path | 2 | basilisk - basilisk: 8 legs on the sprawled framework |
+| insectoid | custom.hexapod_winged | 1 | untested | 3 | giant-wasp - giant wasp: fly-only, insect wings vs find_wings |
+| serpentine | custom.spine_chain | 1 | pilot | 0 | constrictor-snake |
+| serpentine | custom.spine_chain | 8 | hold | 4 | 8 records - serpentine: the serpentine_side depth template is new; the constrictor-snake pilot is being re-made with it (paint, rig, anim pending) |
+| serpentine | custom.serpent_multileg | 1 | hold | 4 | behir - serpentine: the serpentine_side depth template is new; the constrictor-snake pilot is being re-made with it (paint, rig, anim pending) |
+| serpentine | custom.spine_chain_winged | 1 | hold | 4 | couatl - serpentine: the serpentine_side depth template is new; the constrictor-snake pilot is being re-made with it (paint, rig, anim pending) |
+| floating | custom.elemental_column | 5 | untested | 3 | air-elemental, djinni, fire-elemental, invisible-stalker, water-elemental - air/fire/water elementals, djinni, invisible stalker: a column with arms (TODO H: untested) |
+| floating | custom.ghost | 1 | pilot | 0 | ghost |
+| floating | custom.ghost | 2 | hold | 4 | specter, wraith - needs the ghost pilot's prompt tweak (legless tapering robe); the registry prompt draws a legged zombie |
+| floating | custom.membrane | 1 | untested | 3 | cloaker - cloaker: a cloak-shaped membrane |
+| floating | custom.wisp | 1 | untested | 3 | will-o-wisp - will-o'-wisp: a ball of light |
+| aquatic | rigify.shark | 1 | pilot | 0 | hunter-shark |
+| aquatic | rigify.shark | 1 | proven | 1 | reef-shark - as hunter-shark |
+| aquatic | rigify.shark | 3 | proven | 2 | giant-shark, killer-whale, piranha - sizes huge, tiny (pilots are small-large) |
+| aquatic | custom.flipper | 2 | untested | 3 | archelon, plesiosaurus - plesiosaurus, archelon: 4 flipper chains (TODO H: untested) |
+| aquatic | custom.spine_chain | 2 | untested | 3 | giant-seahorse, seahorse - seahorses: an upright curled body |
+| amorphous | custom.blob | 1 | pilot | 0 | black-pudding |
+| amorphous | custom.blob | 5 | proven | 1 | gelatinous-cube, gibbering-mouther, grayooze, mimic, ochre-jelly - as black-pudding |
+| amorphous | custom.blob_torso | 1 | untested | 3 | lemure - lemure: blob with a head and arms; the vertical chain ignores the arms |
+| plant_object | custom.tree_roots | 2 | untested | 3 | awakened-shrub, awakened-tree - awakened tree and shrub: branches and root legs on a vertical chain |
+| plant_object | custom.stalk | 1 | pilot | 0 | violet-fungus |
+| plant_object | custom.stalk | 1 | proven | 1 | shrieker-fungus - as violet-fungus |
+| plant_object | custom.rigid_prop | 1 | untested | 3 | animated-flying-sword - flying sword: a rigid prop that flies; no plant_object fly clip |
+| plant_object | custom.cloth_grid | 1 | untested | 3 | animated-rug-of-smothering - rug of smothering: a flat cloth, the vertical chain is wrong |
+| plant_object | custom.limb_chain | 1 | untested | 3 | troll-limb - troll limb: a crawling arm |
+| swarm | custom.swarm | 1 | pilot | 0 | swarm-of-rats |
+| swarm | custom.swarm | 6 | hold | 4 | swarm-of-crawling-claws, swarm-of-bats, swarm-of-insects, swarm-of-piranhas, swarm-of-ravens, swarm-of-venomous-snakes - swarm: model one unit (prompt + unit scale_m), not the wall of rats the pilot got (TODO H) |
+| tentacled | custom.tentacle_hub | 1 | pilot | 0 | giant-octopus |
+| tentacled | custom.tentacle_hub | 2 | proven | 1 | darkmantle, octopus - as giant-octopus |
+| tentacled | custom.tentacle_hub | 1 | proven | 2 | kraken - sizes gargantuan (pilots are small-large) |
+| tentacled | custom.tentacle_hub | 3 | untested | 3 | aboleth, otyugh, roper - fish body with 4 tentacles: tentacle_hub vs a fish spine; tentacled column (TODO H: untested); tentacled on three legs (TODO H: untested) |
+| merfolk_naga | custom.naga | 1 | pilot | 0 | merfolk-skirmisher |
+| merfolk_naga | custom.naga | 2 | proven | 1 | merrow, salamander - as merfolk-skirmisher |
+| merfolk_naga | custom.naga | 1 | untested | 3 | marilith - 6 arms: sockets hand_r1..3 / hand_l1..3, which the rig stage does not place |
+| centauroid | custom.centaur | 2 | hold | 4 | centaur-trooper, lamia - centauroid: the centaur-trooper pilot is not through anim (new centaur_34 reference, mesh re-made) |
+| centauroid | custom.drider | 1 | hold | 4 | drider - centauroid: the centaur-trooper pilot is not through anim (new centaur_34 reference, mesh re-made) |
+| radial | custom.radial_tripod | 1 | untested | 3 | xorn - xorn: no clip builder for the plan (anim stage skips it) |
+
+### Gaps, ranked by records
+
+| # | gap | records | blocks the batch? | re-run after the fix | examples |
+|---:|---|---:|---|---|---|
+| 1 | winged bodies: QA's auto-facing follows the wings (the dragon pilot was 65 deg off); the rig stage refuses past 30 deg | 86 | no (after) | pin `yaw`, then qa, paint, lod, rig, anim | axe-beak, balor, black-dragon-wyrmling, young-black-dragon, adult-black-dragon, ancient-black-dragon, ...; the batch's facing gate stops these after qa, before paint |
+| 2 | unarmed_reference: --n 4 + the unarmed check (thin margin, 2.5 threshold) | 77 | no (after) | ref (re-pick) when a weapon slips through | animated-armor, assassin, azer-sentinel, balor, bandit, bandit-captain, ...; handled by the batch (--n 4); review the candidate strip |
+| 3 | huge / gargantuan: 20-25k tri LOD0 never through SkinTokens; HOVER 0.32 m on 10-30 m bodies; paint views are 1024 px whatever the size | 49 | no (after) | rig (if SkinTokens fails: tri_budget override, then mesh..), anim --force | awakened-tree, balor, behir, adult-black-dragon, ancient-black-dragon, adult-blue-dragon, ... |
+| 4 | `cast` clip: no builder for any plan | 48 | no (after) | anim --force | adult-black-dragon, ancient-black-dragon, adult-blue-dragon, ancient-blue-dragon, adult-brass-dragon, ancient-brass-dragon, ...; a spellcasting gesture: arms for upright plans, a pulse for the rest |
+| 5 | `swim` on a legged plan or floating (legged builders have no swim) | 39 | no (after) | anim --force | black-dragon-wyrmling, young-black-dragon, adult-black-dragon, ancient-black-dragon, bronze-dragon-wyrmling, young-bronze-dragon, ...; crocodiles, crabs, water elemental, ... |
+| 6 | untested plan variant (see the plan table) | 35 | no (after) | rig --rig-reroll, anim --force (mesh only if the shape is wrong) | aboleth, air-elemental, animated-flying-sword, animated-rug-of-smothering, awakened-shrub, awakened-tree, ... |
+| 7 | tiny: anim thresholds are absolute metres (DIP_MAX 0.03, HOVER 0.32 m) on 0.1-0.6 m bodies | 25 | no (after) | anim --force | homunculus, imp, pseudodragon, quasit, sphinx-of-wonder, sprite, ... |
+| 8 | winged_biped wing chains: SkinTokens found none on the harpy (hand-built) | 20 | no (after) | rig --rig-reroll (+ hand chains / wing weights), anim --force | balor, bone-devil, deva, erinyes, gargoyle, homunculus, ...; expect fly missing or torn wings; TODO C has the stage work |
+| 9 | `burrow` clip: no builder | 18 | no (after) | anim --force | blue-dragon-wyrmling, young-blue-dragon, adult-blue-dragon, ancient-blue-dragon, brass-dragon-wyrmling, young-brass-dragon, ... |
+| 10 | avian reference prompt: front view, wings spread to the sides | 16 | **yes** (fix first) | everything (ref) | axe-beak, cockatrice, roc, stirge, wyvern, bat, ...; registry pose or per-id prompt_extra |
+| 11 | `breath` on a plan without a breath builder (only non-upright winged bodies have one) | 11 | no (after) | anim --force | behir, dragon-turtle, gorgon, half-dragon, hell-hound, iron-golem, ...; hell hound, gorgon, mephits, behir, dragon turtle, ... |
+| 12 | serpentine: pilot re-made with the serpentine_side depth template | 10 | **yes** (fix first) | everything (ref) | behir, couatl, grick, guardian-naga, purple-worm, spirit-naga, ...; owned by the pilot stream; release once constrictor-snake is through anim |
+| 13 | wields an off-model prop (fork, heavy crossbow, mace) | 10 | no (after) | props.py only (no monster re-run) | cloud-giant, deva, horned-devil, knight, pit-fiend, priest-acolyte, ... |
+| 14 | `fly` without wings the code can find or a builder for the plan | 9 | no (after) | anim --force | animated-flying-sword, cloud-giant, couatl, efreeti, nightmare, oni, ...; couatl, flying snake, flying sword, giant wasp, ... |
+| 15 | swarms: one unit per swarm (prompt, unit scale_m) | 6 | **yes** (fix first) | everything (ref) | swarm-of-crawling-claws, swarm-of-bats, swarm-of-insects, swarm-of-piranhas, swarm-of-ravens, swarm-of-venomous-snakes; decide the unit model; the pilot is a 1.4 m column of rats |
+| 16 | `attack_ranged` without two arms (spit, tail spikes, rays) | 3 | no (after) | anim --force | djinni, manticore, spirit-naga; floating and serpentine casters, manticore, ... |
+| 17 | centauroid: no centaur pilot through anim yet | 3 | **yes** (fix first) | everything (ref) | centaur-trooper, drider, lamia; centaur-trooper in progress |
+| 18 | specter, wraith: the ghost's legless-robe prompt tweak | 2 | **yes** (fix first) | everything (ref) | specter, wraith; data/prompt_tweaks.json or prompt_extra |
+| 19 | multi-armed wielders: hand_r1..n sockets / more than one arm pair | 2 | no (after) | rig --force, anim --force | glabrezu, marilith; glabrezu, marilith |
+| 20 | other clips with no builder | 1 | no (after) | anim --force | xorn |
+| 21 | a floating wielder: the floating attack is a two-arm reach, not a weapon cut | 1 | no (after) | anim --force | djinni; djinni |
+| 22 | wields something but the plan or record has no hands | 0 | no (after) | registry |  |
+
+Expected missing clips over all records (animation_set clips no builder makes): `cast` 48, `swim` 39, `burrow` 18, `breath` 11, `fly` 9, `attack_ranged` 3, `idle` 1, `walk` 1, `attack_melee` 1, `hit` 1, `death` 1.
+
+Tiers: 0 = 15, 1 = 146, 2 = 101, 3 = 31, 4 = 37.
+
+### Notes on the gaps
+
+- **Blocking** means the fix is in `ref` (prompt, pose template, registry scale), so a
+  record made before it would have to go through every stage again. These records are
+  tier 4 and `batch.py run` leaves them out unless asked (`--tier 4` or `--ids`).
+  - Avian (16, theropods excluded): the registry pose is "side view, wings partly spread";
+    the eagle's side-view reference gave one wing that was also taken as the tail, and it
+    only rigged with a front view, wings spread to the sides (`docs/TODO.md` H). Change the
+    avian pose in `tools/build_registry.py` (or per-id `prompt_extra`) first.
+  - Serpentine (10): the `serpentine_side` depth template (`forge.REF_TEMPLATE_BY_PLAN`)
+    applies to every serpentine record, but the constrictor-snake pilot is still being
+    re-made with it. Release once it is through anim.
+  - Swarms (6): the pilot reference drew a wall of rats; the decision (TODO H) is one unit
+    per swarm with the game doing the swarm. Needs a unit prompt and a unit `scale_m`
+    (`swarm_unit_size` is tiny for all 7).
+  - Centauroid (3): the centaur-trooper pilot has a real centaur reference now
+    (`centaur_34` template) but is not through anim.
+  - Specter, wraith (2): the ghost pilot's prompt tweak (legless tapering robe); the
+    registry prompt draws a legged zombie.
+- **After** means `forge.py run <id> --stages rig,anim --force` (or `anim --force`, or
+  `props.py`) once the code is fixed; the batch's output up to `lod` stays. Biggest ones:
+  - `cast` (48), `swim` on legged plans and floating (39), `burrow` (18), `breath` off the
+    winged quadrupeds (11), `fly` without a builder (9), `attack_ranged` without two arms
+    (3): clip builders in `tools/blender_clips.py`. A legged `swim` could start as the walk
+    cycle lifted, `burrow` as a dive into the ground, `cast` as the arms' raise for upright
+    plans and a pulse for the rest.
+  - Winged bipeds (20): SkinTokens gave the harpy no wing bones in 4 of 4 rolls; expect the
+    same, so `fly` missing or wings tearing (TODO C: wing chains in the stage).
+  - Tiny (25): `blender_clips.py` thresholds in metres (`DIP_MAX` 0.03, `HOVER` 0.32) are
+    30-300% of a 0.1-0.6 m body. Huge and gargantuan (49): 20000-25000 tri LOD0s have never
+    gone through SkinTokens (VRAM, time), `HOVER` 0.32 m is nothing on a 15 m roc, and the
+    paint stage renders every view at 1024 px whatever the 2048 atlas.
+  - Winged bodies (86): QA's PCA auto-facing followed the dragon's wings (65 degrees off).
+    The rig stage refuses to roll past 30 degrees; fixing it is a pinned `yaw` and qa,
+    which deletes the paint. The batch runs the facing check right after qa and stops the
+    monster before paint when it would be refused (`manifest.rig.facing`, an `errors`
+    entry with the suggested yaw), so no paint is wasted.
+  - Props off model (fork, heavy crossbow, mace; 10 wielders): `props.py` re-rolls only.
+  - No record wields a prop without hands. The djinni (floating) wields a scimitar but the
+    floating attack is a two-arm reach.
+- The 77 non-pilot `unarmed_reference` records get `--n 4` and the unarmed check
+  (`docs/references.md`); its empty-hand margin is thin (1.90 against 2.5), so review the
+  candidate strip of every armed-looking one in the viewer.
+
+## Running the batch
+
+```sh
+python3 -I tools/batch.py audit                        # the tables above
+python3 -I tools/batch.py plan                         # ordered work list, pending stages, estimate
+python3 -I tools/batch.py plan --tier 1 --plans biped  # a slice
+python3 -I tools/batch.py run --tier 1 --dry-run       # what it would do, touches nothing
+python3 -I tools/batch.py run --tier 1 --stop-after-failures 10
+python3 -I tools/batch.py run --ids bandit,guard --stages ref,mesh,qa
+python3 -I tools/batch.py report                       # out/<source>/_batch.md + a summary
+```
+
+Selection: `--tier 1`, `1,2` or `1-3` (0 = pilots, 4 = hold), `--plans`, `--ids` (also runs
+hold records), `--include-pilots`. `run` with no `--tier` does tiers 1-3. Order: tier, then
+the plan's record count (biped, quadruped, winged_quadruped, ...), then size (medium,
+large, small, huge, tiny, gargantuan), then id.
+
+What `run` does per monster, stage by stage in `forge.RUN_ORDER` (ref, mesh, qa, paint,
+lod, rig, anim), each as `forge.py <stage> <id> --source <source>` in its own process group:
+
+- **Resumable.** A stage runs only when it reads as not done, by the viewer's rules
+  (`viewer.stage_status`) plus forge's rig rule (the rigged game files exist). The status
+  is re-read after every stage, so what a stage invalidates downstream (paint deletes the
+  LODs and rigged files, qa deletes paint) runs again. Paint disabled by override
+  (`paint.enabled` false) counts as done; anim for a plan with no clip builder (radial) is
+  skipped. A stage that exits 0 but still reads as not done is recorded and the monster
+  is left (re-run it with forge `--force`).
+- `ref --n 3` (the pilots' practice; the viewer shows the candidates for a re-pick), and
+  at least `--n 4` for `unarmed_reference` records (the unarmed check picks the first
+  empty-handed one).
+- **Memory gate** before mesh and paint: waits until MemAvailable (`free`'s "available") is
+  at least 8 GB (`--min-free-gb`), logging every minute; after 5 min it asks ComfyUI to
+  `/free`, after 15 min it restarts the unit.
+- **ComfyUI restart** (`systemctl --user restart comfyui`, then waits for `/system_stats`)
+  before every paint (`--no-restart` to skip): paint pushes ComfyUI to its 16 GB
+  `MemoryHigh` and it stalled twice. Before every ComfyUI stage (ref, mesh, paint, rig)
+  `/queue` must answer within 60 s, else restart. While a stage runs a watchdog polls
+  `/queue` every 10 s; silent for 60 s means a hung ComfyUI: the stage is killed, the unit
+  restarted and the stage retried once.
+- **Facing gate** after qa, before paint, for monsters the rig stage will roll (not the
+  `rig.FACING_ADVISORY` plans, not when `rig_facing_check` is false or `rig/chosen.glb`
+  exists): `rig.facing_check` on `model.glb` (Blender only). Refused = recorded and the
+  monster is left before paint. `--no-facing-gate` turns it off.
+- **Timeouts**: 3x the pilots' slowest run of the stage (`--timeout-scale`), at least
+  120 s (`--timeout-floor`): ref 150 s with 4 candidates, mesh 288, paint 513, rig 465
+  (SkinTokens) or 120. On a timeout the process group is killed (Blender and SkinTokens
+  children too), ComfyUI gets `/interrupt` and the manifest an `errors` entry
+  (`batch: <stage> timed out after ...`).
+- **Failures** never stop the batch: forge records them in `manifest.errors`, the batch
+  in `_batch.json`, and moves on to the next monster. `--stop-after-failures N` stops after
+  N failed stages.
+- Progress: `out/<source>/_batch.json` (or `--batch-dir`), rewritten after every stage:
+  per monster the stage results (status, seconds, error), done and pending stages, rig
+  quality (score, problems, joints, tool, facing, missing sockets), missing clips and the
+  manifest errors; sessions with wall time; events (restarts, hangs, memory waits). Each
+  monster's forge output goes to `out/<source>/_batch_logs/<id>.log`.
+- `report` writes `_batch.md`: totals and wall time, done / pending / skipped / failed per
+  stage, failures by stage with the error text, rig problems by plan, and the monsters
+  needing review sorted by rig score (structural problems, SkinTokens scores below -2,
+  facing warnings, missing sockets or clips, unarmed warnings). It reads every manifest in
+  the registry, pilots included.
+
+## What to watch
+
+- Nothing else may use ComfyUI during a run: the batch restarts the unit before every
+  paint and `/interrupt`s it on a timeout.
+- The first hours: `tail -f out/srd-5.2.1/_batch_logs/<id>.log`, the viewer (the dashboard
+  counts per plan, the candidate strip, the rig HUD), and `batch.py report` every few
+  dozen monsters.
+- `_batch.json` events: repeated memory waits or hangs mean the ComfyUI memory ceiling
+  (TODO "State": raise `MemoryHigh` or keep the restarts).
+- Facing refusals (winged bodies): pin `yaw` from the error's suggested value in
+  `data/overrides/srd-5.2.1/<id>.json` and run the monster again (the batch resumes at qa).
+- Unarmed warnings ("every candidate scores armed"): look and pin `ref_pick`, or re-roll.
+- Rig problems by plan: winged bipeds without wings and quadrupeds without a spine or
+  tail are the pilots' known failure modes; `forge.py rig <id> --rig-reroll` then
+  `anim <id> --force`.
+- Disk: the pilots take 110-200 MB each in `out/` (paint/ intermediates ~64 MB, rig rolls
+  ~26 MB, textures ~25 MB, three ~14 MB GLBs), so ~55 GB for the batch; `/home` has 1.2 TB free.
+
+## Recommended order
+
+1. Tier 1 (146): bipeds first (86, the largest group, proven by the goblin, 57 of them
+   with the unarmed check), then quadrupeds (27), winged quadrupeds (19 dragons), amorphous
+   (5), arachnids (3), tentacled (2), merfolk (2), the shrieker and the reef shark. Stop and
+   look after the first 20 (`report`).
+2. Tier 2 (101): the same plans at tiny / huge / gargantuan sizes, horses, cats, feathered
+   winged quadrupeds, crabs and beetles, and the 20 winged bipeds (expect rig re-rolls or
+   hand wing chains).
+3. Tier 3 (31): the variants one plan at a time, reviewing each in the viewer; most will
+   need a rig or clip fix afterwards (`--stages rig,anim --force`).
+4. Tier 4 (37) as each blocking gap is fixed: `run --tier 4 --plans avian` once the avian
+   prompt is changed, and so on.
+5. After the batch: the clip builders (`cast`, `swim`, `burrow`, `breath`, `fly`), the size
+   thresholds and the winged_biped wings, each followed by `forge.py run <ids> --stages
+   anim --force` (or `rig,anim`) on the records it affects (`batch.py audit` lists them).
