@@ -9,6 +9,11 @@ files in data/ and writes data/registry/srd-5.2.1.json.
   data/visual_profiles.json      slug -> {desc, scale_m?}
   data/equipment.json            prop specs + per-monster hands/wields (hand-reviewed)
 
+Per-source layout: in body_plan_overrides.json and visual_profiles.json the flat
+top-level slugs are srd-5.2.1 (the original layout); other sources go under
+`"sources": {"<source id>": {slug: entry}}` (load_curation). body_plan_reviewed.json
+and equipment.json["monsters"] were already keyed by source.
+
 Also writes data/registry/props.json (one entry per held weapon/shield/implement).
 
 Run:  python3 -I tools/build_registry.py [--src PATH] [--out PATH]
@@ -102,6 +107,50 @@ HELD_WORDS = re.compile(
     r"tridents?|javelins?|lances?|harpoons?|whips?|forks?|staffs?|staves|quarterstaffs?|"
     r"bows?|longbows?|shortbows?|crossbows?|slings?|nets?|pistols?|wands?|shields?|"
     r"weapons?|holding|wielding)\b", re.I)
+
+
+def load_curation(name, source):
+    """data/<name>.json -> {slug: entry} for one source. The flat top-level slugs are
+    srd-5.2.1 (the original layout, kept for backward compatibility); every other source
+    lives under `"sources": {"<source id>": {slug: entry}}`. Keys starting with "_" are
+    comments. A srd-5.2.1 block under `sources` is merged into the flat keys."""
+    table = json.loads((ROOT / "data" / f"{name}.json").read_text())
+    per = table.pop("sources", {})
+    flat = {k: v for k, v in table.items() if not k.startswith("_")}
+    nested = {k: v for k, v in per.get(source, {}).items() if not k.startswith("_")}
+    if source != SOURCE_ID:
+        return nested
+    dupes = sorted(set(flat) & set(nested))
+    if dupes:
+        sys.exit(f"{name}: {dupes} are both flat and under sources[{SOURCE_ID!r}]")
+    return {**flat, **nested}
+
+
+def curation_errors(slugs, overrides, visuals, reviewed, equip, prop_specs, need_visuals):
+    """Errors for one source's curated entries (unknown slugs, bad plans, missing props)."""
+    errors = []
+    for s in sorted(reviewed & set(overrides)):
+        errors.append(f"body_plan_reviewed: {s} is also overridden; drop one")
+    for name, table in (("body_plan_overrides", overrides), ("visual_profiles", visuals),
+                        ("body_plan_reviewed", dict.fromkeys(reviewed))):
+        for s in sorted(set(table) - slugs):
+            errors.append(f"{name}: unknown slug {s}")
+    for s, ov in overrides.items():
+        if ov["body_plan"] not in BODY_PLANS:
+            errors.append(f"body_plan_overrides: {s}: bad body_plan {ov['body_plan']}")
+    if need_visuals:
+        for s in sorted(slugs - set(visuals)):
+            errors.append(f"visual_profiles: missing slug {s}")
+    for s in sorted(set(equip) - slugs):
+        errors.append(f"equipment: unknown slug {s}")
+    for s, e in equip.items():
+        for w in e.get("wields", []):
+            if w not in prop_specs:
+                errors.append(f"equipment: {s}: wields {w!r} has no entry in props")
+        for w in e.get("aka", {}):
+            if w not in e.get("wields", []):
+                errors.append(f"equipment: {s}: aka for {w!r}, which it does not wield")
+    return errors
 
 
 def tokens(slug):
@@ -326,35 +375,15 @@ def main():
     args = ap.parse_args()
 
     monsters = json.loads(args.src.read_text())
-    overrides = json.loads((ROOT / "data/body_plan_overrides.json").read_text())
-    visuals = json.loads((ROOT / "data/visual_profiles.json").read_text())
+    overrides = load_curation("body_plan_overrides", SOURCE_ID)
+    visuals = load_curation("visual_profiles", SOURCE_ID)
     reviewed = set(json.loads((ROOT / "data/body_plan_reviewed.json").read_text()).get(SOURCE_ID, []))
     equipment = json.loads((ROOT / "data/equipment.json").read_text())
     prop_specs = equipment["props"]
     equip = equipment["monsters"].get(SOURCE_ID, {})
     slugs = {m["slug"] for m in monsters}
 
-    errors = []
-    for s in sorted(reviewed & set(overrides)):
-        errors.append(f"body_plan_reviewed: {s} is also overridden; drop one")
-    for name, table in (("body_plan_overrides", overrides), ("visual_profiles", visuals),
-                        ("body_plan_reviewed", dict.fromkeys(reviewed))):
-        for s in sorted(set(table) - slugs):
-            errors.append(f"{name}: unknown slug {s}")
-    for s, ov in overrides.items():
-        if ov["body_plan"] not in BODY_PLANS:
-            errors.append(f"body_plan_overrides: {s}: bad body_plan {ov['body_plan']}")
-    for s in sorted(slugs - set(visuals)):
-        errors.append(f"visual_profiles: missing slug {s}")
-    for s in sorted(set(equip) - slugs):
-        errors.append(f"equipment: unknown slug {s}")
-    for s, e in equip.items():
-        for w in e.get("wields", []):
-            if w not in prop_specs:
-                errors.append(f"equipment: {s}: wields {w!r} has no entry in props")
-        for w in e.get("aka", {}):
-            if w not in e.get("wields", []):
-                errors.append(f"equipment: {s}: aka for {w!r}, which it does not wield")
+    errors = curation_errors(slugs, overrides, visuals, reviewed, equip, prop_specs, need_visuals=True)
     if errors:
         sys.exit("\n".join(errors))
 

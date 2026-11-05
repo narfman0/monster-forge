@@ -11,9 +11,9 @@ python3 -I tools/build_registry.py
 | file | role |
 |---|---|
 | `~/workspace/godot-srd-addon/addons/srd/data/srd-5.2.1/monsters.json` | Source stat blocks (read-only). Override the path with `--src`. |
-| `data/body_plan_overrides.json` | Hand-curated `slug -> {body_plan, confidence, rig_template?, note?}` |
+| `data/body_plan_overrides.json` | Hand-curated `slug -> {body_plan, confidence, rig_template?, note?}`. Flat keys are srd-5.2.1; other sources under `sources: {source_id: {slug: ...}}` (`docs/body-plans.md`) |
 | `data/body_plan_reviewed.json` | `{source_id: [slug, ...]}`: slugs whose rule-based plan was checked by hand (confidence becomes 1.0) |
-| `data/visual_profiles.json` | `slug -> {desc, scale_m?}`: visual description for the reference prompt, plus an optional scale override |
+| `data/visual_profiles.json` | `slug -> {desc, scale_m?}`: visual description for the reference prompt, plus an optional scale override. Same per-source layout as the overrides; an mm-2024 entry may hold only `scale_m` |
 | `data/equipment.json` | `props`: one spec per held prop. `monsters`: `source -> slug -> {wields, hands?, arms?, armed_look?, aka?, note?}`, hand-reviewed against each stat block (`docs/equipment.md`) |
 
 The build fails if any curated slug is unknown, if a monster has no visual
@@ -129,13 +129,14 @@ wields and sockets come from the `build_registry.py` rules. `--check-srd` also
 writes a table of size/type/speed/CR differences between the `srd52` blocks and
 `srd-5.2.1.json` (report only).
 
-**Unreviewed.** Every record is `body_plan_source: "rule"` (129 below 0.8
-confidence) and `wields` are the raw stat-block words: there are no `mm-2024`
-entries in `data/equipment.json`, `body_plan_reviewed.json` or
-`visual_profiles.json` yet. The reference prompt description is a template
-(lowercased name, the plan's body phrase when confidence >= 0.8, natural weapons
-from attack names, worn gear), not hand-written. A curated `mm-2024` entry in
-those files takes precedence once it exists.
+**Curation.** The `mm-2024` entries in `body_plan_overrides.json` and
+`visual_profiles.json` (under `sources`), `body_plan_reviewed.json` and
+`equipment.json["monsters"]` cover the records: 92 overrides, 77 reviewed rule
+results and 4 rule guesses left at 0.5, every hand or weapon record reviewed for
+equipment, 146 hand-written descriptions and 162 hand scales. Records without a
+description use a template (lowercased name, the plan's body phrase when
+confidence >= 0.8, natural weapons from attack names, worn gear). The importer
+prints what is still on rule guesses, templates or size-default scales.
 
 **Licence.** The names and stats are derived from WotC IP (Monster Manual 2024),
 not the CC-BY SRD: personal use only. Do not publish this file or assets

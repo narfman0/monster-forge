@@ -1,0 +1,4 @@
+{
+ "negative_extra": "whip, lash, coiled rope, chain",
+ "notes": "'whip' is the kuo-toa priest rank, not a weapon: the visual_profiles desc keeps it out of the reference prompt and this keeps a whip out of the empty hands. Its Pincer Staff is the fork prop."
+}

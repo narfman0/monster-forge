@@ -373,24 +373,46 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
 - M2 batch SRD once the pilots are through E.
 
 ### G. MM-2024 (personal use only; `data/registry/mm-2024.json`)
-- [ ] Body-plan review: 129 of 173 are rule guesses at 0.5 (128 fall to `biped`). Needs
-      `mm-2024` keys in the curation files: `body_plan_overrides.json` is keyed by bare slug
-      and `build_registry.py` rejects unknown slugs, so it needs a per-source layout first.
-- [ ] Equipment review: 152 records need a `data/equipment.json` `mm-2024` entry (hands
-      default on for every rule `biped`). Prop specs missing for `maul`, `flail`, `trident`,
-      `lance` (dao, elemental-cultist, gnoll-fang-of-yeenoghu, lizardfolk-sovereign,
-      mezzoloth, sahuagin-baron, salamander-inferno-master, thri-kreen-psion).
-- [ ] Hand-written `visual_profiles.json` descriptions, at least for the non-humanoid
-      shapes the A-pose template draws wrong (beholder, spectator, carrion crawler,
-      displacer beast, grell, intellect devourer, ...). kuo-toa-whip: "whip" in the name of
-      an empty-hands reference.
-- [ ] Hand `scale_m` (all 173 are size-category defaults).
-- [ ] Rigs MM needs that the pilots do not cover: floating (beholder family), tentacled,
-      merfolk_naga (yuan-ti), centauroid, serpentine, amorphous, plant_object, swarm.
-- [ ] SRD cross-check (report only, not applied): clay-golem walk 30 in the SRD registry vs
-      20 in 5etools; lycanthropes walk 40 (beast form) vs 30 (humanoid form);
-      swarm-of-insects has a climb-or-fly 20 choice the SRD registry drops. Re-check
-      against the SRD 5.2.1 PDF.
+Curation lives in the per-source layout (`docs/body-plans.md` "Per-source curation layout"):
+`sources["mm-2024"]` in `body_plan_overrides.json` and `visual_profiles.json`, `"mm-2024"` in
+`body_plan_reviewed.json` and `equipment.json["monsters"]`. The SRD registry builds byte-identical.
+- [x] Per-source layout: flat keys stay srd-5.2.1, `build_registry.load_curation()`; both
+      builders validate their own source (unknown slugs, bad plans, props without a spec).
+- [x] Body-plan review: 92 overrides + 77 reviewed (120 at 1.0; 14 below 0.8, was 129 at 0.5).
+      Histogram before/after in `docs/body-plans.md`. Left at the rule's 0.5 (shape not known
+      well enough): `empyrean-iota`, `graveyard-revenant`, `haunting-revenant` (a haunted place),
+      `violet-fungus-necrohulk`. Low but set: grick-ancient, vine-blight, yochlol, shadow-demon,
+      modron-monodrone (0.7), animal-lord, marid, elemental-cataclysm, slaad-tadpole (0.6), dao (0.75).
+      New rig variants named (not built): `custom.eye_tyrant` (4 beholders), `custom.radial_pentapod`.
+- [x] Equipment review: all hand-plan and weapon records listed (116 hands, 54 wield, 56 unarmed
+      references). New prop specs `maul`, `flail`, `trident`, `lance` in `equipment.json["props"]`
+      (MM-only, so not in the SRD `data/registry/props.json` and not generated). `lance` has no
+      user: the thri-kreen psion's Psionic Lance is a psychic attack. Readings to check in art:
+      Pincer Staff -> `fork`, Dread Scythe -> `glaive`, Gythka -> `glaive`, Sacred Weapon ->
+      `greatsword`, Bejeweled Baton -> `club`, Hex Stick -> `wand`.
+- [x] `visual_profiles.json` descriptions for 146 of 173 (all non-humanoid shapes; the 27 left
+      are human NPCs and swarms whose template reads fine). kuo-toa-whip: its desc keeps "whip"
+      out of the prompt and `data/overrides/mm-2024/kuo-toa-whip.json` adds a `negative_extra`.
+      Still open (forge stream): `unarmed_check.py` gets `--name "a kuo-toa whip"`.
+- [x] Hand `scale_m` for 162; size-category defaults left on 11 with no well-known size:
+      blob-of-annihilation, colossus, elemental-cataclysm, gulthias-blight (gargantuan),
+      empyrean-iota, graveyard-revenant, haunting-revenant, violet-fungus-necrohulk,
+      swarm-of-dretches/larvae/lemures (Large swarms; the SRD swarms are Medium at 1.5).
+- [ ] Rigs MM needs that the pilots do not cover: floating (beholder family: `custom.eye_tyrant`),
+      tentacled (grell, flumph, giant squid), merfolk_naga (yuan-ti), centauroid, serpentine,
+      amorphous, plant_object, swarm, radial (modron tridrone/pentadrone), 4-armed bipeds.
+- [x] SRD cross-check (report only, not applied), re-checked against the SRD 5.2.1 PDF
+      (`godot-srd-addon/tools/srd_source/SRD_CC_v5.2.1.pdf`):
+      - clay-golem: the PDF says Speed 30 ft. (p. 274), so the registry's 30 is right for the
+        SRD; 5etools' 20 is the MM 2024 value. No change.
+      - werewolf/wereboar/weretiger/werebear: the PDF says "Speed 30 ft., 40 ft. (wolf form
+        only)" (werebear also "Climb 30 ft. (bear form only)"). The addon parser took the
+        beast-form 40; the hybrid form we model walks 30. Fix belongs in godot-srd-addon;
+        it changes no registry field but `speeds` (the animation sets stay the same).
+      - swarm-of-insects: the PDF says "Speed 20 ft., Climb or Fly 20 ft. (GM's choice)"; the
+        registry drops the choice. Adding fly 20 would add a `fly` clip to its animation set.
+      - New: the addon names gray ooze "GrayOoze" (slug `grayooze`); the PDF says "Gray Ooze"
+        (p. 293). Renaming the slug would move `out/srd-5.2.1/grayooze` and its curation keys.
 
 ### H. Body plans (2026-11-04)
 One pilot per uncovered plan through the whole chain. Strategies, numbers and the plan table:

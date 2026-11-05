@@ -905,5 +905,487 @@
  "zombie": {
   "body_plan": "biped",
   "confidence": 1.0
+ },
+ "sources": {
+  "mm-2024": {
+   "aarakocra-aeromancer": {
+    "body_plan": "winged_biped",
+    "confidence": 0.85,
+    "note": "bird-folk drawn with arms and a separate pair of back wings (harpy layout); switch to avian if an art pass fuses arms and wings"
+   },
+   "aarakocra-skirmisher": {
+    "body_plan": "winged_biped",
+    "confidence": 0.85,
+    "note": "bird-folk drawn with arms and a separate pair of back wings (harpy layout); switch to avian if an art pass fuses arms and wings"
+   },
+   "animal-lord": {
+    "body_plan": "biped",
+    "confidence": 0.6,
+    "note": "shapechanger: modelled in a hybrid beast-headed humanoid form; each animal lord differs"
+   },
+   "animated-broom": {
+    "body_plan": "plant_object",
+    "confidence": 1.0,
+    "rig_template": "custom.rigid_prop",
+    "note": "animated object; hovers"
+   },
+   "arcanaloth": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "jackal-headed robed yugoloth; flies by magic, no wings"
+   },
+   "arch-hag": {
+    "body_plan": "biped",
+    "confidence": 0.9
+   },
+   "banshee": {
+    "body_plan": "floating",
+    "confidence": 1.0,
+    "rig_template": "custom.ghost"
+   },
+   "barlgura": {
+    "body_plan": "biped",
+    "confidence": 0.85,
+    "note": "orangutan-like demon: knuckle-walks but stands upright to fight (ape layout)"
+   },
+   "beholder": {
+    "body_plan": "floating",
+    "confidence": 1.0,
+    "rig_template": "custom.eye_tyrant",
+    "note": "eye tyrant: floating sphere with a central eye, jaw and eyestalks; no limbs. custom.eye_tyrant = sphere root + jaw + one short chain per eyestalk"
+   },
+   "beholder-zombie": {
+    "body_plan": "floating",
+    "confidence": 1.0,
+    "rig_template": "custom.eye_tyrant",
+    "note": "eye tyrant: floating sphere with a central eye, jaw and eyestalks; no limbs. custom.eye_tyrant = sphere root + jaw + one short chain per eyestalk"
+   },
+   "blue-slaad": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "frog-like humanoid"
+   },
+   "brazen-gorgon": {
+    "body_plan": "quadruped",
+    "confidence": 1.0,
+    "rig_template": "rigify.horse",
+    "note": "bull-shaped construct (gorgon layout)"
+   },
+   "bulette-pup": {
+    "body_plan": "quadruped",
+    "confidence": 1.0,
+    "note": "young bulette (SRD bulette layout)"
+   },
+   "carrion-crawler": {
+    "body_plan": "insectoid",
+    "confidence": 1.0,
+    "rig_template": "custom.myriapod",
+    "note": "centipede-like body with a crown of face tentacles; myriapod rig + tentacle chains"
+   },
+   "centaur-warden": {
+    "body_plan": "centauroid",
+    "confidence": 1.0
+   },
+   "chasme": {
+    "body_plan": "insectoid",
+    "confidence": 1.0,
+    "rig_template": "custom.hexapod_winged",
+    "note": "demonic housefly"
+   },
+   "cockatrice-regent": {
+    "body_plan": "avian",
+    "confidence": 0.9,
+    "note": "rooster-like with bat-ish wings and lizard tail (SRD cockatrice layout)"
+   },
+   "colossus": {
+    "body_plan": "biped",
+    "confidence": 0.9,
+    "note": "giant humanoid statue"
+   },
+   "crawling-claw": {
+    "body_plan": "plant_object",
+    "confidence": 0.9,
+    "rig_template": "custom.limb_chain",
+    "note": "severed crawling hand; a body part rather than a body plan (troll-limb layout)"
+   },
+   "dao": {
+    "body_plan": "biped",
+    "confidence": 0.75,
+    "note": "earth genie drawn with legs (like the efreeti); some art gives a floating rock lower body"
+   },
+   "death-slaad": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "frog-like humanoid"
+   },
+   "death-tyrant": {
+    "body_plan": "floating",
+    "confidence": 1.0,
+    "rig_template": "custom.eye_tyrant",
+    "note": "eye tyrant: floating sphere with a central eye, jaw and eyestalks; no limbs. custom.eye_tyrant = sphere root + jaw + one short chain per eyestalk"
+   },
+   "demilich": {
+    "body_plan": "floating",
+    "confidence": 1.0,
+    "rig_template": "custom.wisp",
+    "note": "floating skull: one root bone plus dust/glow bones"
+   },
+   "dire-worg": {
+    "body_plan": "quadruped",
+    "confidence": 1.0,
+    "rig_template": "rigify.wolf"
+   },
+   "displacer-beast": {
+    "body_plan": "quadruped",
+    "confidence": 1.0,
+    "rig_template": "rigify.cat",
+    "note": "six-legged panther with two shoulder tentacles; extra leg pair and tentacle chains are rig add-ons"
+   },
+   "dracolich": {
+    "body_plan": "winged_quadruped",
+    "confidence": 1.0,
+    "note": "undead dragon (true-dragon layout)"
+   },
+   "elemental-cataclysm": {
+    "body_plan": "floating",
+    "confidence": 0.6,
+    "rig_template": "custom.elemental_column",
+    "note": "titanic churning column of mixed elements; no stable anatomy"
+   },
+   "empyrean": {
+    "body_plan": "biped",
+    "confidence": 1.0
+   },
+   "flameskull": {
+    "body_plan": "floating",
+    "confidence": 1.0,
+    "rig_template": "custom.wisp",
+    "note": "floating skull: one root bone plus flame/glow bones"
+   },
+   "flumph": {
+    "body_plan": "tentacled",
+    "confidence": 0.85,
+    "note": "floating jellyfish-like disc with dangling tentacles"
+   },
+   "galeb-duhr": {
+    "body_plan": "biped",
+    "confidence": 0.8,
+    "note": "boulder body with stubby arms and legs"
+   },
+   "gas-spore-fungus": {
+    "body_plan": "floating",
+    "confidence": 0.9,
+    "rig_template": "custom.wisp",
+    "note": "floating gas-bag fungus shaped like a beholder; one root bone plus tendril bones"
+   },
+   "giant-axe-beak": {
+    "body_plan": "avian",
+    "confidence": 1.0,
+    "note": "flightless bird"
+   },
+   "giant-squid": {
+    "body_plan": "tentacled",
+    "confidence": 0.9,
+    "note": "squid: streamlined mantle with fins plus ten tentacles; swims"
+   },
+   "githyanki-dracomancer": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "flies by magic, no wings"
+   },
+   "githzerai-psion": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "levitates by psionics, no wings"
+   },
+   "gray-slaad": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "frog-like humanoid"
+   },
+   "green-slaad": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "frog-like humanoid"
+   },
+   "grell": {
+    "body_plan": "tentacled",
+    "confidence": 0.9,
+    "note": "floating brain-like body with a beak and ten tentacles; tentacle hub, hovers"
+   },
+   "grick-ancient": {
+    "body_plan": "serpentine",
+    "confidence": 0.7,
+    "note": "worm-like body with four tentacles around a beak (SRD grick layout)"
+   },
+   "gulthias-blight": {
+    "body_plan": "plant_object",
+    "confidence": 0.8,
+    "rig_template": "custom.tree_roots",
+    "note": "gargantuan walking blighted tree"
+   },
+   "helmed-horror": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "animated armor; flies by magic, no wings"
+   },
+   "hook-horror": {
+    "body_plan": "biped",
+    "confidence": 0.85,
+    "note": "upright vulture-headed biped with hooked arms"
+   },
+   "intellect-devourer": {
+    "body_plan": "quadruped",
+    "confidence": 0.85,
+    "note": "a brain on four clawed bestial legs"
+   },
+   "jackalwere": {
+    "body_plan": "biped",
+    "confidence": 0.8,
+    "note": "shapechanger: modelled in hybrid form; the jackal form reuses the jackal asset"
+   },
+   "kenku": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "crow-headed humanoid; no wings"
+   },
+   "larva": {
+    "body_plan": "serpentine",
+    "confidence": 0.85,
+    "note": "maggot-like worm with a human face"
+   },
+   "manes": {
+    "body_plan": "biped",
+    "confidence": 0.9,
+    "note": "small hunched demon"
+   },
+   "manes-vaporspawn": {
+    "body_plan": "biped",
+    "confidence": 0.8,
+    "note": "shadowy manes; may read as floating"
+   },
+   "marid": {
+    "body_plan": "floating",
+    "confidence": 0.6,
+    "rig_template": "custom.elemental_column",
+    "note": "water genie: humanoid upper body over a column of water; some art gives legs (biped)"
+   },
+   "merfolk-wavebender": {
+    "body_plan": "merfolk_naga",
+    "confidence": 1.0
+   },
+   "mezzoloth": {
+    "body_plan": "biped",
+    "confidence": 0.85,
+    "note": "upright insect-like yugoloth with four arms"
+   },
+   "mind-flayer": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "levitates by psionics, no wings"
+   },
+   "mind-flayer-arcanist": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "levitates by psionics, no wings"
+   },
+   "modron-duodrone": {
+    "body_plan": "biped",
+    "confidence": 0.9,
+    "note": "brick-shaped body with two arms and two legs"
+   },
+   "modron-monodrone": {
+    "body_plan": "winged_biped",
+    "confidence": 0.7,
+    "note": "spherical one-eyed body with thin arms and legs and a pair of small wings"
+   },
+   "modron-pentadrone": {
+    "body_plan": "radial",
+    "confidence": 0.9,
+    "rig_template": "custom.radial_pentapod",
+    "note": "five-fold body: five arms over five legs; no mirrored rig works"
+   },
+   "modron-quadrone": {
+    "body_plan": "winged_biped",
+    "confidence": 0.8,
+    "note": "cube body, four arms, two legs, small wings"
+   },
+   "modron-tridrone": {
+    "body_plan": "radial",
+    "confidence": 0.85,
+    "note": "pyramid body, three arms and three legs (xorn-like radial layout)"
+   },
+   "myconid-adult": {
+    "body_plan": "biped",
+    "confidence": 0.9,
+    "note": "walking mushroom person"
+   },
+   "myconid-sovereign": {
+    "body_plan": "biped",
+    "confidence": 0.9,
+    "note": "walking mushroom person"
+   },
+   "myconid-spore-servant": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "fungus-animated corpse"
+   },
+   "myconid-sprout": {
+    "body_plan": "biped",
+    "confidence": 0.9,
+    "note": "walking mushroom person"
+   },
+   "needle-blight": {
+    "body_plan": "biped",
+    "confidence": 0.85,
+    "note": "conifer twisted into a humanoid shape"
+   },
+   "nothic": {
+    "body_plan": "biped",
+    "confidence": 0.9,
+    "note": "hunched one-eyed humanoid"
+   },
+   "peryton": {
+    "body_plan": "avian",
+    "confidence": 0.85,
+    "note": "eagle body and wings with a stag's head"
+   },
+   "piercer": {
+    "body_plan": "plant_object",
+    "confidence": 0.8,
+    "rig_template": "custom.stalk",
+    "note": "stalactite-shaped mollusc; barely moves"
+   },
+   "poltergeist": {
+    "body_plan": "floating",
+    "confidence": 0.9,
+    "rig_template": "custom.ghost",
+    "note": "invisible; visualised as a faint ghost"
+   },
+   "primeval-owlbear": {
+    "body_plan": "quadruped",
+    "confidence": 1.0,
+    "note": "owlbear layout (SRD owlbear)"
+   },
+   "red-slaad": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "frog-like humanoid"
+   },
+   "salamander-inferno-master": {
+    "body_plan": "merfolk_naga",
+    "confidence": 1.0
+   },
+   "shadow-demon": {
+    "body_plan": "floating",
+    "confidence": 0.7,
+    "rig_template": "custom.ghost",
+    "note": "shadowy demonic upper body with clawed arms; no real legs"
+   },
+   "slaad-tadpole": {
+    "body_plan": "serpentine",
+    "confidence": 0.6,
+    "note": "toothy tadpole: bulbous head on a long tail"
+   },
+   "spectator": {
+    "body_plan": "floating",
+    "confidence": 1.0,
+    "rig_template": "custom.eye_tyrant",
+    "note": "eye tyrant: floating sphere with a central eye, jaw and eyestalks; no limbs. custom.eye_tyrant = sphere root + jaw + one short chain per eyestalk"
+   },
+   "sphinx-of-secrets": {
+    "body_plan": "winged_quadruped",
+    "confidence": 1.0,
+    "rig_template": "custom.quadruped_winged"
+   },
+   "thri-kreen-marauder": {
+    "body_plan": "biped",
+    "confidence": 0.9,
+    "note": "upright mantis-folk: two legs, four arms"
+   },
+   "thri-kreen-psion": {
+    "body_plan": "biped",
+    "confidence": 0.9,
+    "note": "upright mantis-folk: two legs, four arms"
+   },
+   "tree-blight": {
+    "body_plan": "plant_object",
+    "confidence": 0.85,
+    "rig_template": "custom.tree_roots",
+    "note": "walking blighted tree"
+   },
+   "twig-blight": {
+    "body_plan": "plant_object",
+    "confidence": 0.8,
+    "rig_template": "custom.tree_roots",
+    "note": "small twiggy shrub shape walking on roots (awakened-shrub layout)"
+   },
+   "ultroloth": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "flies by magic, no wings"
+   },
+   "umber-hulk": {
+    "body_plan": "biped",
+    "confidence": 0.9,
+    "note": "upright beetle-like burrower with huge digging claws"
+   },
+   "vampire-nightbringer": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "flies by magic, no wings"
+   },
+   "vampire-umbral-lord": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "flies by magic, no wings"
+   },
+   "vine-blight": {
+    "body_plan": "biped",
+    "confidence": 0.7,
+    "note": "heap of creeping vines in a rough humanoid shape (shambling-mound layout)"
+   },
+   "water-weird": {
+    "body_plan": "serpentine",
+    "confidence": 1.0,
+    "note": "serpent of water rising from a pool"
+   },
+   "winged-kobold": {
+    "body_plan": "winged_biped",
+    "confidence": 1.0
+   },
+   "yochlol": {
+    "body_plan": "amorphous",
+    "confidence": 0.7,
+    "rig_template": "custom.blob_torso",
+    "note": "shapechanger: modelled in its true form, a column of slime with one eye and tentacles"
+   },
+   "young-remorhaz": {
+    "body_plan": "insectoid",
+    "confidence": 0.85,
+    "rig_template": "custom.myriapod",
+    "note": "many-legged centipede-like polar worm (SRD remorhaz layout)"
+   },
+   "yuan-ti-abomination": {
+    "body_plan": "merfolk_naga",
+    "confidence": 1.0,
+    "note": "snake-headed humanoid torso with arms on a serpent tail"
+   },
+   "yuan-ti-malison-type-1": {
+    "body_plan": "biped",
+    "confidence": 1.0,
+    "note": "type 1: human body with a snake head"
+   },
+   "yuan-ti-malison-type-2": {
+    "body_plan": "biped",
+    "confidence": 0.9,
+    "note": "type 2: human head and body with snakes for arms; arm chains end in snake heads"
+   },
+   "yuan-ti-malison-type-3": {
+    "body_plan": "merfolk_naga",
+    "confidence": 1.0,
+    "note": "type 3: human head and upper body on a serpent tail"
+   }
+  }
  }
 }
