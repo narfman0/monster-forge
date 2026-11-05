@@ -375,6 +375,46 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
   - [ ] Fungus death: the cap ends standing on its rim as a vertical disc 1.22 m high next
         to the planted base. Plausible for a fallen mushroom; noting it in case a flat cap is
         wanted.
+- [x] Round 6 (2026-11-04, godot-dnd uncommitted, on top of 40980df): re-sync after ede55a9,
+      71dd174, 1def4a4 (`--ids`: snake, centaur, eagle, merfolk, octopus, swarm, ghost; harpy
+      not synced, rig being rewritten). `check_monsters.gd` ALL PASS on 16 monsters and 32
+      props, every clip binds 100% (centaur 21/19/19/21/17, snake 6/15/15/15/15/15, eagle
+      9/8/17/10/17). Verified in Godot 4.7.1 (check + Xvfb screenshots): snake slither (S-wave
+      in the top view, the whole 4 m on the floor, lowest 0.000 in every clip); centaur walk
+      with four hooves cycling and the thrust on the right arm (manifest `style: thrust` for
+      the pike, not a cut), the lab refuses a left-hand prop with a warning; eagle stands on its
+      talons, idle and fly hover ~0.35 m, the lunge leads with the beak at 50%, wings
+      symmetric; merfolk idle holds the spear upright (tip (0.07, 0.95, -0.31), grip y 1.52 m),
+      thrust tip forward (-0.18, 0.23, -0.95); lifted one-shots: idle -> attack/hit frame-0 jump
+      octopus 0.55 -> 0.225 m (no height pop in the side shots), merfolk 0.19 -> 0.059, eagle
+      one-shots start at 0.348 (idle 0.352; jump 0.938 m is pose). No godot-dnd code change.
+      New findings, open:
+  - [ ] Centaur tail has no bones (`anim.parts.tail` empty): the tail sheet follows the near
+        hind leg in walk, swept forward under the belly at 0% and kicking forward like a hoof
+        at 50% (confirmed).
+  - [ ] Centaur arrow-shaft stick shreds into a fan of dark spikes in front of the chest in
+        attack_melee 25-75% (clean reference needed, as noted in H).
+  - [ ] Centaur `grip_r` is 13 cm from `hand_r`, 5.4 cm from the nearest skin at idle (0
+        vertices within 5 cm; goblin 2 cm), 8-9 cm during the thrust.
+  - [ ] Centaur death dips to -0.033 m mid-fall (check WARN); idle/walk sit at -0.004/-0.006.
+  - [ ] Centaur loadout: the registry pike is a two-hander on a one-armed rig, and godot-dnd's
+        `scale_m / 1.8` prop scale gives 1.333 (scale_m is the whole 2.4 m centaur), a 4.7 m
+        pike. Needs a wielder (rider) height for centauroids, upstream or in the game.
+  - [ ] Eagle idle -> fly instant switch moves a vertex 1.754 m in one frame (round 5 1.070,
+        the eagle is 1.39x bigger); 0.25 s cross-fade 0.182 m. Pose (wings), not height.
+  - [ ] Eagle attack_melee at 25% draws the head back behind the near wing with a dark gap
+        (tear) at the neck.
+  - [ ] Eagle scale: 5.84 m wingspan (right for 20 ft), 5.29 m tall to the raised wing tips,
+        head ~3.5 m; next to the 1 m goblin its legs alone are the goblin's height. Check
+        that this is the intended size.
+  - [ ] Snake strike is small: only the front 5 bones key (6 tracks), the head rears 0.3-0.5 m.
+        Snake idle -> swim frame-0 jump 1.245 m (walk 0.717).
+  - [ ] Ghost death now starts at lowest 0.180 m vs idle 0.254 (jump 0.104 m, same as hit).
+  - [ ] Merfolk attack_ranged still starts from the raised rest arm (0.614 m jump; open in
+        round 5 notes).
+  - [ ] Snake, centaur and eagle are described as unpainted, but render with full texture
+        colours (python pattern, palomino and rider, bald eagle) in Godot: the texture stage
+        alone is enough for a read. Not a bug.
 
 ### F. Props (2026-11-04)
 - [x] `tools/props.py` + `tools/blender_prop_qa.py`: all 32 props in `out/props/<id>/` (prop
