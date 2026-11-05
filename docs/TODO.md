@@ -171,17 +171,31 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       down to `DIP_MAX` into the ground, curls about `TAIL_AXIS`, and skips the death
       counter-turn. Edges past 4x, old -> now in `out/`: wolf death 3 -> 3, walk 0 -> 0;
       centaur walk 203 -> 114, death 129 -> 56 (tail no longer kicks with the hoof). Wolf and
-      centaur rigged with the inserted tails in `out/` (`rig_tail_chain: true` overrides).
+      centaur rigged with the inserted tails in `out/` (then by `rig_tail_chain: true`
+      overrides; on by default since, below).
       Gate: the 13 other pilots' clips.json identical but for `build_seconds`.
-- [ ] Owlbear tail chain: with the inserted/adopted chain its walk tears 33 edges past 4x (old
-      rig 1), death 45 (1), attack 16 (1); with every tail turn at 0 still 22 / 45, so it is the
-      rig's weights, not the clips: the lobe runs from the upper back (0.41 m above the hips) to
-      beside the hind legs and the legs' share is stripped from all 859 lobe vertices, so the
-      fan's border with `bone_14`/`bone_15` and `bone_18` tears when the legs move (owner of
-      `blender_tail_chain.py`). The owlbear keeps its old rig in `out/` and `rig.adds_tail`
-      stays opt-in (`rig_tail_chain`) until it passes (walk <= 5, death <= 10); then flip the
-      default for `TAIL_ADDED` (keep `rig_tail_chain: false` as the off switch) and update
-      `overrides.py`'s default and description for the key.
+- [x] (2026-11-05) Owlbear tail chain: with the first tail rules its walk tore 33 edges past 4x
+      (old rig 1), death 45 (1), attack 16 (1), from the rig's weights (the lobe ran from the
+      upper back, 0.41 m above the hips, and the legs' share was stripped from all 859 lobe
+      vertices). `blender_tail_chain.py` now (docs/rig-anim.md "Tail chains from the mesh"):
+      roots the tail where the lobe leaves the rump (narrower than `ROOT_W` 0.6 x the body at
+      the hips, at or below hip height) and adopts only the SkinTokens bones from there down
+      (owlbear: `bone_12..13` + 2 inserted, `bone_11` stays on the back); a leg seam over the
+      welded surface (geodesic from the legs' joint-path skin vs the tail line's skin, smooth
+      step) keeps the legs' share where the skin is nearer a leg; an adopted chain's own weights
+      outside the tail take the surface-nearest non-tail vertex's weights. Owlbear in `out/`:
+      idle 0, walk 2, attack 2, hit 2, death 5. Wolf (4 bones now, was 6) idle/walk/attack/hit
+      0, death 3, unchanged; centaur (4, was 6) walk 114 -> 100, death 56 -> 38, hit 45 -> 43,
+      idle 21, attack 525 -> 530. `rig.adds_tail` is on by default for `TAIL_ADDED`
+      (`rig_tail_chain: false` turns it off; `overrides.py` default and description updated;
+      the wolf's and centaur's `rig_tail_chain: true` dropped). No-op (`rig --force` in
+      scratch): goblin-warrior, young-red-dragon (SkinTokens tail untouched), harpy,
+      giant-eagle: `rig.json` and `rig/chosen.json` identical.
+- [ ] Tail chains on the batch: the rule is checked on 3 tailed pilots only; the SRD
+      quadrupeds/centauroids get it by default on their next `rig`. Things to watch: a tail
+      whose real root is well above the hip joint (the wolf's top third now rides the rump);
+      the owlbear's fan tip vs the left hind foot in the death (5 edges); a 4-bone tail is the
+      minimum the clips sway.
 - [x] (2026-11-04) `find_arms`: chains off or through the head (hair, the neck) and hanging
       chains that reach the ground band (a tail) are not arms; a side with no hanging arm
       takes a raised chain that reaches less than `WING_REACH` x the height (less than a

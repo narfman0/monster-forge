@@ -365,12 +365,13 @@ TAIL_ADDED = {"quadruped", "winged_quadruped", "centauroid"}
 
 
 def adds_tail(mon: dict) -> bool:
-    """Tail insertion is opt-in (`rig_tail_chain` override). blender_clips.py drives hanging tails
-    now (the wolf and centaur are on), but the owlbear's adopted chain still tears against its
-    hind legs (its weights, docs/TODO.md C), so the default stays off."""
+    """Tail insertion is on for the TAIL_ADDED plans (blender_clips.py drives hanging tails; the
+    tail roots where it leaves the rump and the legs keep their side of the seam, so the owlbear,
+    wolf and centaur pass, docs/rig-anim.md "Tail chains from the mesh"); the override
+    `rig_tail_chain: false` turns it off for one monster."""
     if mon["body_plan"] not in TAIL_ADDED:
         return False
-    return bool(overrides.load(mon["source"], mon["id"]).get("rig_tail_chain"))
+    return overrides.load(mon["source"], mon["id"]).get("rig_tail_chain") is not False
 
 
 def tail_summary(t: dict) -> dict:

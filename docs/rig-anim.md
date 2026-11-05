@@ -370,9 +370,10 @@ tail, avians left out) whose skeleton has a `find_tail` of fewer than 4 bones, f
 chosen-rig score, after the wings) finds the tail on the rest mesh and inserts a chain, or adopts
 and extends a shorter one. Recorded as `tail_added` in `rig.json` and `manifest.rig` (bones,
 parent, adopted, the profile's numbers, weight counts); a gated plan with no tail found gets
-`tail_added` with `found: false` and a `reason` and a warning in the log. It is opt-in per
-monster (`rig.adds_tail`: override `rig_tail_chain: true`; on for the wolf and the centaur): the
-default stays off until the owlbear's inserted weights stop tearing (below). The rule:
+`tail_added` with `found: false` and a `reason` and a warning in the log. It is on by default for
+those plans (`rig.adds_tail`; override `rig_tail_chain: false` turns it off for one monster) since
+the root and seam rules below (2026-11-05, later) stopped the owlbear's tearing; before them it was
+opt-in. The rule:
 
 - Body axis: the skeleton's centre line (`centre_x`); hips: the mean first joint of the hind
   legs (legs behind the feet's mean).
@@ -383,8 +384,11 @@ default stays off until the owlbear's inserted weights stop tearing (below). The
   the samples within `REAR` 0.1 x the height of the band's rearmost point, split at x gaps wider
   than `GAP` 0.06 x the height; the piece kept is the one with the rearmost point at the root,
   then the one nearest the band above (the centaur's tail hangs beside a hind leg near the floor).
-- Root: the first band from the top whose rear cluster is one piece and lies `REAR_MIN` 0.1 x
-  the height behind the hips, no lower than 0.2 x the height below them. The tail runs down while
+- Root: where the lobe leaves the rump: the first band from the top whose rear cluster is one
+  piece, lies `REAR_MIN` 0.1 x the height behind the hips, is narrower than `ROOT_W` 0.6 x the
+  body's width at the hips, and is at or below hip height (no lower than 0.2 x the height below
+  it). Rooted 0.2 x the height above the hips (the old rule), the owlbear's lobe started on the
+  upper back (0.41 m above the hips) and took the haunches with it. The tail runs down while
   the cluster stays behind the hips by that much and moves less than `JUMP` 0.08 x the height
   (forward, or sideways) from the band above; legs, under the hips, never are. A tail may reach
   the floor (the centaur's does). At least 3 bands, and thin: the clusters' median width at most
@@ -395,16 +399,36 @@ default stays off until the owlbear's inserted weights stop tearing (below). The
   tail bands' rear clusters.
 - Adoption: a SkinTokens chain (off a branch, not a leg, the torso or the neck) with a joint within
   0.08 x the height of the tail line whose bones own half the lobe's vertices (dominant weight) is
-  renamed `tail_00..` and extended from its last joint along the line to the tip with inserted
-  bones, at least 4 in all (owlbear: `bone_11..13` own 858 of 859, plus 2 inserted). The wolf's
+  the tail; only its bones whose head is at or below the root band's top are renamed `tail_00..`
+  (the ones above stay on the back, the chain's parent) and extended from the last joint along the
+  line to the tip with inserted bones, at least 4 in all (owlbear: of `bone_11..13`, `bone_11`
+  starts 0.07 x the height above the root and stays; `bone_12..13` + 2 inserted). The wolf's
   rump stub `bone_27` (owns the whole tail, but its joint is at the hip, 0.18 x the height off the
   line) is not taken.
 - Weights: the tail share t rises from 0 at the root to 1 over `BASE` 0.06 x the height of arc
-  length (the base blends into the rump) and across the lobe's border from 0 at `EDGE` 0.05 x the
-  height outside to 1 at `EDGE` inside, over the welded surface; t goes to the two nearest chain
-  bones by inverse distance, 1 - t keeps the vertex's old weights, without the legs' share on the
-  lobe's own vertices (t > 1/2). A hard border tore where the centaur's tail sheet is fused to the
-  back of its left hind leg.
+  length along the tail line (the base blends into the rump), across the lobe's border from 0 at
+  `EDGE` 0.05 x the height outside to 1 at `EDGE` inside over the welded surface (a hard border
+  tore where the centaur's tail sheet is fused to the back of its left hind leg), and times the
+  leg seam s; t goes to the two nearest chain bones by inverse distance, 1 - t keeps the vertex's
+  old weights.
+- Leg seam (`leg_seam`, the arm-wing seam's idea from `blender_wing_weights`): g_leg is the
+  geodesic distance over the welded surface from the leg core (the skin within `SEAM_CORE` 0.04 x
+  the height of any leg's joint path, hip -> knee -> hock -> toe, or the skin nearest each segment
+  when the limb is bulkier), g_tail from the tail core (the lobe's skin within `SEAM_CORE` of the
+  tail line). s = 0 within `SEAM_HOLD` 0.03 x the height of the leg core, else a smooth step from
+  0 to 1 as g_leg - hold - g_tail goes from -`SEAM_BAND` to +`SEAM_BAND` (0.04 x the height). The
+  legs' share of a lobe vertex is scaled by 1 - s x the border blend and what they drop goes to
+  the vertex's other old bones (the hip bone when none are left): on the tail's side of the
+  surface the legs let go, beside a haunch or where a tail is fused to a hock they keep it. The
+  lobe is not cut above the hocks: the seam says where the leg's skin is (owlbear: 3 of 638 lobe
+  vertices on the legs' side; centaur: 29 of 136, its tail sheet on the left hind leg). The old
+  rule stripped the legs from every lobe vertex with t > 1/2 (owlbear: 55.6 of weight off 859
+  vertices), so the border with each hind leg tore whenever the legs moved.
+- Adopted weights: an adopted chain's own SkinTokens weights outside the tail would move with
+  the tail now (the owlbear's `bone_13` skinned feathers beside the left hind shin, next to
+  shin-skinned ones: 7 edges past 4x in the walk, 11 in the death). Every vertex with adopted
+  weight is rewritten: that share takes the old (non-tail) weights of the surface-nearest vertex
+  the chain does not rule (adopted share <= 1/2), then the tail share is laid over as above.
 - `rig_topology`: `tail_*` chains are the tail by name (`find_tail` returns `tail_00`'s chain
   whatever its shape) and never feet or arms (`find_legs`, `find_arms`), so a tail hanging into
   the ground band is not a fifth leg.
@@ -418,19 +442,22 @@ scratch copies of the goblin, dragon, harpy and eagle: `rig.json`, `rig/chosen.j
 scores identical.
 
 Rear profiles (x the height; bands, root and tip height, root and tip behind the hips, median
-width vs the body's, lobe vertices):
+width vs the body's, lobe vertices; the first three with the root rule, the old root before the
+arrow where it moved; hips at 0.56 (centaur), 0.69 (wolf), 0.66 (owlbear)):
 
 | | bands | root -> tip z | behind root / tip | width / body | lobe | chain |
 |---|---|---|---|---|---|---|
-| centaur-trooper | 18 | 0.66 -> 0.00 | 0.12 / 0.09 | 0.13 / 0.32 | 349 | 6 inserted on `bone_15` |
-| wolf | 17 | 0.87 -> 0.23 | 0.22 / 0.24 | 0.20 / 0.38 | 726 | 6 inserted on `bone_17` |
-| owlbear | 19 | 0.83 -> 0.13 | 0.28 / 0.55 | 0.33 / 0.79 | 859 | `bone_11..13` adopted + 2 |
+| centaur-trooper | 18 -> 13 | (0.66) 0.47 -> 0.00 | 0.15 / 0.09 | 0.12 / 0.32 | 349 -> 136 | 6 -> 4 inserted on `bone_15` |
+| wolf | 17 -> 12 | (0.87) 0.67 -> 0.23 | 0.28 / 0.24 | 0.20 / 0.38 | 726 -> 330 | 6 -> 4 inserted on `bone_17` |
+| owlbear | 19 -> 14 | (0.83) 0.63 -> 0.13 | 0.42 / 0.55 | 0.31 / 0.79 | 859 -> 638 | `bone_12..13` adopted + 2 on `bone_11` (was `bone_11..13` + 2) |
 | young-red-dragon | 7 | 0.33 -> 0.12 | 0.11 / 0.34 | 0.13 / 0.44 | 376 | not run (9 bones) |
 | giant-eagle | 13 | 0.47 -> 0.00 | 0.10 / 0.27 | 0.32 / 0.67 | 3277 | not run (avian) |
 | harpy | 16 | 0.65 -> 0.05 | 0.22 / 0.32 | 0.36 / 0.97 | 985 | not run (winged biped) |
 
-Results with the current clips (scratch copies, `rig --force` + `anim --force`, clip frames
-unchanged; edges past 4x over the clip every 3rd frame, before -> after):
+Results of the first version (old root, legs stripped from the whole lobe), with the clips of
+the time (scratch copies, `rig --force` + `anim --force`, clip frames unchanged; edges past 4x
+over the clip every 3rd frame, before -> after); the current numbers are in "Hanging tails in the
+clips" below:
 
 | | walk | death | idle | score (chosen.json) |
 |---|---|---|---|---|
@@ -469,25 +496,30 @@ do not, so their clips are byte-for-byte the old ones. For a hanging tail:
   back against the roll it swung down through the floor (wolf death 292 edges past 4x).
 - The walk report has `tail_hangs: true`.
 
-Results in `out/` (`rig --force` + `anim --force` with `rig_tail_chain: true`; edges past 4x over
-the clip every 3rd frame; before = the old rig and clips, `tails2/backup`):
+Results in `out/` (`rig --force` + `anim --force`, the tail chain on by default; edges past 4x
+over the clip every 3rd frame; no tail = the old rigs, first = the first tail rules with these
+clips (old root, legs stripped from the whole lobe), now = the root and seam rules; backups in
+`~/.cache/monster-forge-scratch/tails3/backup`):
 
-| | idle | walk | attack_melee | hit | death | in `out/` |
+| | idle | walk | attack_melee | hit | death | chain in `out/` |
 |---|---|---|---|---|---|---|
-| wolf | 0 -> 0 | 0 -> 0 | 0 -> 0 | 0 -> 0 | 3 -> 3 | yes (6 inserted on `bone_17`) |
-| centaur-trooper | 21 -> 21 | 203 -> 114 | 525 -> 525 | 37 -> 45 | 129 -> 56 | yes (6 inserted on `bone_15`) |
-| owlbear | 0 -> 0 | 1 -> 33 | 1 -> 16 | 1 -> 2 | 1 -> 45 | no: old rig and clips kept |
+| wolf | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 3 / 3 / 3 | 4 inserted on `bone_17` (was 6) |
+| centaur-trooper | 21 / 21 / 21 | 203 / 114 / 100 | 525 / 525 / 530 | 37 / 45 / 43 | 129 / 56 / 38 | 4 inserted on `bone_15` (was 6) |
+| owlbear | 0 / 0 / 0 | 1 / 33 / 2 | 1 / 16 / 2 | 1 / 2 / 2 | 1 / 45 / 5 | `bone_12..13` adopted + 2 on `bone_11` |
 
-Clip and frame counts are unchanged on all three. The centaur's tail swings behind it in the walk
-and lies with the body in the death instead of kicking with the left hind hoof; its remaining
-walk tearing is the old leg sheet (`bone_0`, `bone_22`/`bone_33`, as before). The owlbear's is
-not the clips: with every hanging-tail turn set to 0 (scratch) its walk still tears 22 edges and
-its death 45 (the same 45), between the hind legs (`bone_14`/`bone_15` left, `bone_18` right)
-and the lobe (`tail_*`, `bone_2`). The adopted chain runs from the upper back (root 0.83 x the
-height, 0.41 m above the hips) down the rear fan to 0.13 x the height beside the hind legs, and
-the weights strip the legs' share from all 859 lobe vertices (55.6 of weight), so the fan's
-border with each hind leg tears whenever the legs move. That is in `blender_tail_chain.py`'s
-weights (keep the leg share low on the lobe, or stop the lobe above the hocks), not the clips.
+Clip and frame counts are unchanged on all three; the tail sways in the walk and idle on all
+three (owlbear: 4 degrees per bone in the walk, up to 5 at the tip in the idle). The owlbear's
+first-rules tearing was the rig's weights, not the clips (with every hanging-tail turn at 0 its
+walk still tore 22 edges and its death 45): the adopted chain ran from the upper back (0.41 m
+above the hips) down the rear fan and the legs' share was stripped from all 859 lobe vertices,
+so the fan's border with each hind leg tore whenever the legs moved. Each rule's share (scratch):
+the seam and the adopted-weights rule with the old root still tore walk 11 / death 27; the new
+root with the seam but SkinTokens' `bone_13` weights left beside the left hind shin 7 / 11; all
+three 2 / 5. What the owlbear's clips still tear: one edge on the right hind shin (`bone_19`,
+as with the old rig) and one on the left (`bone_14`), and in the death 5 edges where the fan's
+tip meets the left hind foot (`tail_03` / `bone_16`). The wolf's and centaur's tails are shorter
+now (rooted at hip height, the top of the wolf's tail rides the rump); the centaur's leg sheet
+(`bone_0`, `bone_22`/`bone_33`) is what still tears in its walk, attack and death.
 
 A successful `rig` or `anim` run drops that stage's entries from `manifest.errors` (which
 forge.py appends on every failure), so a fixed monster no longer reads as broken.
@@ -519,11 +551,11 @@ placeholder sword on `hand_r` and a bow on `hand_l` (`viewer/README.md`).
   2026-11-04; with the body seam (above) fly tears 4 stretched edges (hand-built: 217) and
   the sword cut 14 (85). What remains is a few edges on top of the right shoulder between
   the raised upper arm and the wing root.
-- The owlbear has no spine (its legs hang off a back root); the wolf has no real tail
-  chain. The owlbear's tail (3 bones) is too short for the clips' 4. The rig stage now
-  inserts or extends a tail chain from the mesh ("Tail chains from the mesh"); the wolf and
-  centaur in `out/` have theirs (`rig_tail_chain: true`), the owlbear keeps its old rig until
-  the tail weights stop tearing against the hind legs.
+- The owlbear has no spine (its legs hang off a back root). SkinTokens gave the wolf no
+  tail chain and the owlbear a 3-bone one; the rig stage now inserts or extends a tail chain
+  from the mesh by default for quadruped, winged_quadruped and centauroid ("Tail chains from
+  the mesh"; `rig_tail_chain: false` turns it off), and the wolf, owlbear and centaur in
+  `out/` all carry 4-bone `tail_00..03` chains. Checked on those three pilots only.
 - Added hand bones point straight up in the bind pose, not along the forearm, so a prop
   attached with no offset stands upright from the wrist (the harpy's `hand_r` and `hand_l`
   in the viewer). Renamed hand bones keep SkinTokens' orientation. The prop-space
