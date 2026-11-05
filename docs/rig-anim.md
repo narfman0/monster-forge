@@ -321,6 +321,94 @@ sits (`wing_r_00` head at y 0.06 m, beside the shoulder joint) and the raised up
 (`bone_11`) pulls the skin between them; rooting the chain 6 cm farther back (the rim's half
 behind its median depth) gave 11 and looked the same, so it was not kept.
 
+**Tail chains from the mesh** (`tools/blender_tail_chain.py`, 2026-11-05). On a plan in
+`rig.TAIL_ADDED` (quadruped, winged_quadruped, centauroid: the legged plans whose clips sway a
+tail, avians left out) whose skeleton has a `find_tail` of fewer than 4 bones, finalize (and the
+chosen-rig score, after the wings) finds the tail on the rest mesh and inserts a chain, or adopts
+and extends a shorter one. Recorded as `tail_added` in `rig.json` and `manifest.rig` (bones,
+parent, adopted, the profile's numbers, weight counts); a gated plan with no tail found gets
+`tail_added` with `found: false` and a `reason` and a warning in the log. The rule:
+
+- Body axis: the skeleton's centre line (`centre_x`); hips: the mean first joint of the hind
+  legs (legs behind the feet's mean).
+- Rear profile (side view): surface samples (vertices plus points on every triangle 0.01 x the
+  height apart: the centaur's tail sheet is a few big triangles) behind the hips and within
+  `SIDE` 0.2 x the height of the centre line, cut into horizontal bands of `BAND` 0.04 x the
+  height from 0.2 x the height above the hips down to the floor. Per band the rear cluster is
+  the samples within `REAR` 0.1 x the height of the band's rearmost point, split at x gaps wider
+  than `GAP` 0.06 x the height; the piece kept is the one with the rearmost point at the root,
+  then the one nearest the band above (the centaur's tail hangs beside a hind leg near the floor).
+- Root: the first band from the top whose rear cluster is one piece and lies `REAR_MIN` 0.1 x
+  the height behind the hips, no lower than 0.2 x the height below them. The tail runs down while
+  the cluster stays behind the hips by that much and moves less than `JUMP` 0.08 x the height
+  (forward, or sideways) from the band above; legs, under the hips, never are. A tail may reach
+  the floor (the centaur's does). At least 3 bands, and thin: the clusters' median width at most
+  0.75 x the body's width at the hips.
+- Chain: the band centroids root to tip (the last band's sample farthest from the root), resampled
+  to equal arc lengths, one bone per 0.12 x the height of tail, 4 to 6 bones, `tail_00..`, on the
+  hip bone (`find_spine`'s hip, the hind legs' common ancestor). The lobe for the weights is the
+  tail bands' rear clusters.
+- Adoption: a SkinTokens chain (off a branch, not a leg, the torso or the neck) with a joint within
+  0.08 x the height of the tail line whose bones own half the lobe's vertices (dominant weight) is
+  renamed `tail_00..` and extended from its last joint along the line to the tip with inserted
+  bones, at least 4 in all (owlbear: `bone_11..13` own 858 of 859, plus 2 inserted). The wolf's
+  rump stub `bone_27` (owns the whole tail, but its joint is at the hip, 0.18 x the height off the
+  line) is not taken.
+- Weights: the tail share t rises from 0 at the root to 1 over `BASE` 0.06 x the height of arc
+  length (the base blends into the rump) and across the lobe's border from 0 at `EDGE` 0.05 x the
+  height outside to 1 at `EDGE` inside, over the welded surface; t goes to the two nearest chain
+  bones by inverse distance, 1 - t keeps the vertex's old weights, without the legs' share on the
+  lobe's own vertices (t > 1/2). A hard border tore where the centaur's tail sheet is fused to the
+  back of its left hind leg.
+- `rig_topology`: `tail_*` chains are the tail by name (`find_tail` returns `tail_00`'s chain
+  whatever its shape) and never feet or arms (`find_legs`, `find_arms`), so a tail hanging into
+  the ground band is not a fifth leg.
+
+The detector alone is not selective: on the goblin (biped) it reads a "tail" off the back of the
+thighs, on the harpy off its hip feathers, on the eagle the tail fan (root 0.47, tip on the floor).
+The plan gate is what keeps them out: bipeds, winged bipeds and avians never run it (the eagle's
+fan stays `find_tail(ground=True)`'s and `ground_feet`'s), and the dragon has 9 SkinTokens tail
+bones (the detector would adopt `bone_60..66`, share 0.65, but never runs). `rig --force` in
+scratch copies of the goblin, dragon, harpy and eagle: `rig.json`, `rig/chosen.json`, sockets and
+scores identical.
+
+Rear profiles (x the height; bands, root and tip height, root and tip behind the hips, median
+width vs the body's, lobe vertices):
+
+| | bands | root -> tip z | behind root / tip | width / body | lobe | chain |
+|---|---|---|---|---|---|---|
+| centaur-trooper | 18 | 0.66 -> 0.00 | 0.12 / 0.09 | 0.13 / 0.32 | 349 | 6 inserted on `bone_15` |
+| wolf | 17 | 0.87 -> 0.23 | 0.22 / 0.24 | 0.20 / 0.38 | 726 | 6 inserted on `bone_17` |
+| owlbear | 19 | 0.83 -> 0.13 | 0.28 / 0.55 | 0.33 / 0.79 | 859 | `bone_11..13` adopted + 2 |
+| young-red-dragon | 7 | 0.33 -> 0.12 | 0.11 / 0.34 | 0.13 / 0.44 | 376 | not run (9 bones) |
+| giant-eagle | 13 | 0.47 -> 0.00 | 0.10 / 0.27 | 0.32 / 0.67 | 3277 | not run (avian) |
+| harpy | 16 | 0.65 -> 0.05 | 0.22 / 0.32 | 0.36 / 0.97 | 985 | not run (winged biped) |
+
+Results with the current clips (scratch copies, `rig --force` + `anim --force`, clip frames
+unchanged; edges past 4x over the clip every 3rd frame, before -> after):
+
+| | walk | death | idle | score (chosen.json) |
+|---|---|---|---|---|
+| centaur-trooper | 203 -> 272 | 129 -> 219 | 21 -> 30 | -3.19 -> -3.79 (`follow` on the left hind "leg", whose bones lie in the tail) |
+| wolf | 0 -> 0 | 3 -> 292 | 0 -> 0 | -2.06 -> -1.37, `tail` problem gone |
+| owlbear | 1 -> 22 | 1 -> 484 | 0 -> 0 | -3.11 -> -3.26, `tail` problem gone |
+
+The tail is skinned and found by the clips on all three (`anim.parts.tail` = the chain), and the
+centaur's no longer kicks with the hind hoof, but `blender_clips.py` drives a tail as a level one
+and these three hang: the walk and idle sway turn it about Z (a twist for a hanging tail), the
+floor lift turns it about `TAIL_AXIS` = (root -> tip, horizontal) x Z, which for the centaur's
+near-vertical tail (tip 0.18 m to the side, 0.08 m behind) swings it 30 degrees sideways in the
+walk, and the death turns it back against the 88 degree roll, which for a hanging tail swings it
+down through the floor (the wolf's and owlbear's death tearing, the centaur's torn sheet). A
+scratch patch to the clips (a tail whose root drops more than it reaches out "hangs": it sways
+about Y, lifts about -X, and skips the death counter-turn) gives: wolf death 292 -> 3 (lies flat
+along the ground with the body), walk 0, idle 0; centaur death 219 -> 56, walk 264 (the lift then
+raises the floor-touching tail up to ~40 degrees backwards: `TAIL_REACH` is the tail's horizontal
+reach, 0.24 m for a 1.6 m hanging tail); owlbear walk 33, death 45. So none of the three is in
+`out/` yet: that needs the hanging-tail case in the clips (owner of blender_clips.py). The
+owlbear's adopted chain also runs from the upper back (its rear profile is continuous from the
+back into the fan), so its whole rump sways as tail.
+
 A successful `rig` or `anim` run drops that stage's entries from `manifest.errors` (which
 forge.py appends on every failure), so a fixed monster no longer reads as broken.
 The viewer's `sockets` toggle draws each socket bone with its axes, and `prop` hangs a
@@ -352,7 +440,9 @@ placeholder sword on `hand_r` and a bow on `hand_l` (`viewer/README.md`).
   the sword cut 14 (85). What remains is a few edges on top of the right shoulder between
   the raised upper arm and the wing root.
 - The owlbear has no spine (its legs hang off a back root); the wolf has no real tail
-  chain. The owlbear's tail (3 bones) is too short for the clips' 4.
+  chain. The owlbear's tail (3 bones) is too short for the clips' 4. The rig stage now
+  inserts or extends a tail chain from the mesh ("Tail chains from the mesh"), but the
+  kept rigs in `out/` are still the old ones until the clips handle hanging tails.
 - Added hand bones point straight up in the bind pose, not along the forearm, so a prop
   attached with no offset stands upright from the wrist (the harpy's `hand_r` and `hand_l`
   in the viewer). Renamed hand bones keep SkinTokens' orientation. The prop-space

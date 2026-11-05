@@ -328,6 +328,35 @@ def adds_wings(mon: dict) -> bool:
     return plan in WINGED or (plan == "avian" and mon.get("rig_template") != "custom.theropod")
 
 
+# Plans whose clips sway a tail (blender_clips: find_tail on every legged plan but the upright
+# ones, whose tail test matches an arm) and whose rig gets a tail chain found on the mesh when
+# find_tail has fewer than 4 bones (blender_tail_chain.py). Avians are left out: a bird's tail
+# fan is find_tail(ground=True)'s and ground_feet's (the giant eagle), never a swaying chain.
+TAIL_ADDED = {"quadruped", "winged_quadruped", "centauroid"}
+
+
+def adds_tail(mon: dict) -> bool:
+    """Tail insertion is opt-in (`rig_tail_chain` override) until blender_clips.py drives hanging
+    tails: on the wolf, owlbear and centaur the inserted chains tear the walk and death clips."""
+    if mon["body_plan"] not in TAIL_ADDED:
+        return False
+    return bool(overrides.load(mon["source"], mon["id"]).get("rig_tail_chain"))
+
+
+def tail_summary(t: dict) -> dict:
+    """manifest rig.tail_added: the chain, adoption, the profile's numbers, the weights' counts."""
+    return {"bones": t["chain"]["bones"], "parent": t["chain"]["parent"],
+            **({"adopted": t["adopted"]} if t.get("adopted") else {}),
+            "had": t.get("had") or [],
+            **{k: t[k] for k in ("bands", "verts", "length", "width", "body_width", "root_z", "tip_z", "root_behind",
+                                 "tip_behind") if k in t},
+            "weights": t["weights"]}
+
+
+def tail_changed(rep: dict) -> bool:
+    return bool((rep.get("tail_added") or {}).get("chain"))
+
+
 def stage_rig(fg, mon: dict, d: Path, args) -> None:
     man = fg.load_manifest(d)
     if not (d / "model.glb").exists():
@@ -372,11 +401,12 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
                        "sprawl": mon["body_plan"] in SPRAWLED, "hands": bool(mon.get("hands")),
                        "sockets": mon.get("sockets") or [], "feet": FEET.get(mon["body_plan"], 0),
                        "upright": mon["body_plan"] in UPRIGHT_BODY, "add_wings": adds_wings(mon),
+                       "add_tail": adds_tail(mon),
                        "reweight": overrides.load(mon["source"], mon["id"]).get("rig_reweight") or []})
     # the kept skeleton's quality terms, also when it was not rolled now (a hand-fixed rig);
     # with the wing chains finalize inserted, so the score is that of the game skeleton
     q = scored(blender(fg, {**score_job(mon, chosen, d / "rig" / "chosen.json"), "add_wings": adds_wings(mon),
-                            "feet": FEET.get(mon["body_plan"], 0)}), mon["body_plan"], bool(mon.get("hands")))
+                            "add_tail": adds_tail(mon), "feet": FEET.get(mon["body_plan"], 0)}), mon["body_plan"], bool(mon.get("hands")))
     (d / "rig" / "chosen.json").write_text(json.dumps(q, indent=1))
     man = fg.load_manifest(d)
     missing = [s for s in (mon.get("sockets") or []) if s not in rep["sockets"]]
@@ -392,6 +422,8 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
                   **({"grounded": rep["grounded"]} if rep.get("grounded") else {}),
                   # wing chains found on the mesh and inserted (blender_wing_weights.py)
                   **({"wings_added": wings_summary(rep["wings_added"])} if wings_changed(rep) else {}),
+                  # a tail chain found on the mesh, inserted or adopted (blender_tail_chain.py)
+                  **({"tail_added": tail_summary(rep["tail_added"])} if tail_changed(rep) else {}),
                   **({"picked": info["picked"], "rolls": info["rolls"]} if info else
                      {k: v for k, v in (man.get("rig") or {}).items() if k in ("picked", "rolls")} or {"picked": "chosen.glb"})}
     if wings_changed(rep):
@@ -400,6 +432,13 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
     elif rep.get("wings_added"):
         fg.log(f"{mon['id']}: WARNING rig has wings on {sorted(rep['wings_added']['had'])} only and found no "
                f"wing lobe on the mesh for {rep['wings_added']['missing']}")
+    if tail_changed(rep):
+        ta = man["rig"]["tail_added"]
+        fg.log(f"{mon['id']}: rig added tail chain {ta['bones']} on {ta['parent']} (found on the mesh)"
+               + (f", adopted {ta['adopted']['was']}" if ta.get("adopted") else ""))
+    elif rep.get("tail_added"):
+        fg.log(f"{mon['id']}: WARNING rig has a {len(rep['tail_added'].get('had') or [])}-bone tail and found no tail "
+               f"on the mesh ({rep['tail_added'].get('reason')})")
     man.setdefault("timings", {})["rig"] = man["rig"]["seconds"]
     clear_stage_errors(man, "rig")
     fg.save_manifest(d, man)

@@ -10,10 +10,15 @@ MIN_DROP = 0.35    # a leg's drop over its length: rejects a tail lying on the g
 WING_REACH = 0.4   # a wing reaches this far sideways (x height) from the centre line
 SNOUT_SIDE = 0.15  # find_snout: the head bone's midpoint is this close (x height) to the centre line
 WING_PREFIX = "wing_"  # chains the rig stage inserts (blender_wing_weights.py): wings, never legs or arms
+TAIL_PREFIX = "tail_"  # tail chains the rig stage inserts or adopts (blender_tail_chain.py): the tail, never a leg or an arm
 
 
 def _inserted_wing(name: str) -> bool:
     return name.startswith(WING_PREFIX)
+
+
+def _inserted_tail(name: str) -> bool:
+    return name.startswith(TAIL_PREFIX)
 
 
 def _children(bones: list[dict]) -> dict:
@@ -47,8 +52,8 @@ def find_legs(bones: list[dict], height: float, want: int, sprawl: bool = False)
     toes = height * TOES
     feet = set()
     for b in bones:
-        if _inserted_wing(b["name"]):
-            continue  # a hanging inserted wing (the harpy's) can reach the ground band
+        if _inserted_wing(b["name"]) or _inserted_tail(b["name"]):
+            continue  # a hanging inserted wing (the harpy's) or tail (the centaur's) can reach the ground band
         if kids[b["name"]] or (not sprawl and min(b["head"][2], b["tail"][2]) > low):
             continue  # sprawled leg tips are unreliable: rank every chain by length instead
         foot = b["name"]
@@ -123,7 +128,7 @@ def find_arms(bones: list[dict], height: float, legs: list[dict]) -> list[dict]:
     best: dict[str, tuple] = {}
     for b in bones:
         if b["name"] in leg_bones or b["name"] in on_head or not b["parent"] or len(kids[b["parent"]]) < 2 \
-                or _inserted_wing(b["name"]):
+                or _inserted_wing(b["name"]) or _inserted_tail(b["name"]):
             continue
         chain = longest_chain(b["name"], kids)
         tip = by_name[chain[-1]]["head"]
@@ -183,9 +188,14 @@ def find_tail(bones: list[dict], height: float, legs: list[dict], min_bones: int
     and slopes down into the ground band (its end within GROUND x the height of the
     floor), the farthest-reaching first. A bird's tail fan resting on the ground (the
     giant eagle's 2-bone fan) is one; the walk then turns it up at its root instead of
-    raising the whole body."""
+    raising the whole body.
+
+    A chain the rig stage inserted or adopted (`tail_00 ..`, blender_tail_chain.py) is the
+    tail by name, whatever its shape (the centaur's hangs straight down to the floor)."""
     by_name = {b["name"]: b for b in bones}
     kids = _children(bones)
+    if TAIL_PREFIX + "00" in by_name:
+        return longest_chain(TAIL_PREFIX + "00", kids)
     leg_bones = {n for g in legs for n in g["chain"]}
     if not legs:
         return []

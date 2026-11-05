@@ -17,6 +17,10 @@ lods {k: path}, out_dir, report, hands, sockets, reweight):
   weighted (blender_wing_weights.add_missing_wings; report key wings_added). Mode "score"
   does the same with this key, so rig/chosen.json measures the skeleton the game files
   get; rig/chosen.glb itself is not changed.
+- add_tail (rig.adds_tail plans: quadruped, winged quadruped, centauroid): when find_tail
+  finds fewer than 4 bones, the tail is found on the mesh and a tail_00.. chain inserted on
+  the hip bone (or a shorter SkinTokens chain that owns it adopted and extended) and weighted
+  (blender_tail_chain.add_missing_tail; report key tail_added). Mode "score" does the same.
 - reweight (optional, the `rig_reweight` override): chains re-weighted geometrically and
   optionally fitted into the limb (tools/rig_reweight.py) before anything else but the
   wings. Only the game files see it; rig/chosen.glb and its quality score keep SkinTokens'
@@ -48,6 +52,7 @@ from mathutils.bvhtree import BVHTree
 from mathutils.kdtree import KDTree
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import blender_tail_chain  # noqa: E402
 import blender_wing_weights  # noqa: E402
 import rig_reweight  # noqa: E402
 import rig_topology  # noqa: E402
@@ -979,6 +984,10 @@ if job["mode"] in ("score", "finalize") and job.get("add_wings"):
     # before stats(), so joints and empty bones count the inserted chains
     wings_added = blender_wing_weights.add_missing_wings(arm, me, rig_topology, rig_reweight,
                                                          int(job.get("feet", 0)), bool(job.get("upright")))
+tail_added = None
+if job["mode"] in ("score", "finalize") and job.get("add_tail"):
+    # likewise a tail chain found on the mesh when find_tail has fewer than 4 bones
+    tail_added = blender_tail_chain.add_missing_tail(arm, me, rig_topology, int(job.get("feet", 0)))
 if job["mode"] == "facing":
     report = facing()
 elif job["mode"] == "fallback":
@@ -987,6 +996,8 @@ else:
     report = stats()
 if wings_added is not None:
     report["wings_added"] = wings_added
+if tail_added is not None:
+    report["tail_added"] = tail_added
 if job["mode"] == "score" and job.get("quality", True):
     report.update(quality())
 if job["mode"] == "finalize":

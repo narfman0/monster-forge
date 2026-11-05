@@ -140,6 +140,27 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       score then counts missing legs and the anim stage would fail on that roll.
 - [ ] Owlbear: no roll on disk has a spine (all four hang the legs off one root); re-roll,
       the facing is fine (4 degrees). Wolf: no tail chain (its only roll).
+- [x] (2026-11-05) Tail chains from the mesh (`tools/blender_tail_chain.py`, docs/rig-anim.md
+      "Tail chains from the mesh"): on quadruped, winged_quadruped and centauroid
+      (`rig.TAIL_ADDED`) when `find_tail` has fewer than 4 bones, finalize and the chosen-rig
+      score read the tail off the rear profile, insert `tail_00..` (4-6 bones) on the hip bone
+      or adopt and extend a SkinTokens chain that owns half the lobe, and weight it (root ramp,
+      surface blend across the lobe's border, legs stripped); `tail_added` in rig.json and
+      `manifest.rig`; `tail_*` are the tail by name in `find_tail` and never legs or arms.
+      Verified in scratch: centaur 6 inserted, wolf 6 inserted, owlbear `bone_11..13` adopted
+      + 2; all three found by the clips (`anim.parts.tail`), clip frames and sockets unchanged.
+      No-op (`rig --force` in scratch): goblin, dragon (SkinTokens tail untouched), harpy,
+      eagle (fan not taken) leave rig.json, chosen.json, sockets and scores identical.
+- [ ] Hanging tails in the clips (owner of `blender_clips.py`): the walk/idle sway about Z,
+      the floor lift about (root -> tip) x Z and the death counter-turn assume a level tail.
+      With the inserted tails, current clips: centaur walk 203 -> 272 edges past 4x (tail swung
+      30 degrees sideways), death 129 -> 219; wolf death 3 -> 292, owlbear walk 1 -> 22, death
+      1 -> 484 (the counter-turn swings a hanging tail through the floor). A scratch patch
+      (hanging = root drops more than it reaches: sway about Y, lift about -X, no death
+      counter-turn) gives wolf death 3, walk/idle 0; centaur death 56; owlbear death 45. Also
+      `TAIL_REACH` for the lift should be the tail's length, not its horizontal reach (the
+      centaur's floor-touching tail lifts ~40 degrees). Until then the three pilots keep their
+      old rigs in `out/` (docs/rig-anim.md).
 - [x] (2026-11-04) `find_arms`: chains off or through the head (hair, the neck) and hanging
       chains that reach the ground band (a tail) are not arms; a side with no hanging arm
       takes a raised chain that reaches less than `WING_REACH` x the height (less than a
@@ -805,7 +826,16 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
       "legs"): not kept, the round-2 pilot stays. Still open: a reference with the arms clear
       of the body (a centaur depth template with the arms out further, or an OpenPose arm
       hint on top of the depth one) and a tail chain (12 rolls, none: rig-stage insertion,
-      like the wing chains, for another stream). Prop scale: props scale by `scale_m / 1.8`
+      like the wing chains, for another stream). (2026-11-05) Tail insertion done in the rig
+      stage (C, `blender_tail_chain.py`): the centaur gets `tail_00..05` on `bone_15` (root
+      0.66 x the height, tip on the floor, 349 lobe vertices, 282 stripped of leg weight) and
+      the clips find it, so the tail no longer kicks with the hoof. Two things block the swap
+      into `out/`: the clips treat it as a level tail (sideways 30 degree swing in the walk,
+      swung through the floor in the death; see C), and SkinTokens' "left hind leg"
+      (`bone_21..23`, the one `find_legs` takes) runs down the tail itself, its foot on the
+      tail's floor contact, while the real left hind leg (x -0.6) has no bones and stays
+      skinned to `bone_22`; that is the roll's `leg_pairs` problem and needs a leg chain
+      there (a re-roll or a leg insertion), not the tail. Prop scale: props scale by `scale_m / 1.8`
       and the centaur's scale_m is its whole 2.4 m body, so its pike came out 4.7 m. New
       override field `rider_height_m` (centauroid, merfolk_naga; centaur-trooper 1.8): the
       viewer and the game should scale props by `rider_height_m / 1.8` when set

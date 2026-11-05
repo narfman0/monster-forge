@@ -215,6 +215,8 @@ FIELDS = {
     "rig_reweight": (_reweight, "rig", "geometric re-weight of bone chains in the game files, before sockets: "
                      "[{bones: [root..tip], bias, reach (m), blend (m), strip, fit, hand_room (m), far (m)}] (tools/rig_reweight.py)"),
     "rig_facing_check": (_bool, "rig","refuse to roll a skeleton when model.glb looks misfaced (false = roll anyway)"),
+    "rig_tail_chain": (_bool, "rig", "insert a tail chain from the mesh when a tailed plan's roll has none "
+                       "(tools/blender_tail_chain.py); off until the clips handle hanging tails"),
     "idle_lift": (_idle_lift, "anim", "idle height: metres of lift, \"match_move\" (where the swim/fly clip "
                   "holds the body) or false (floor); unset: match_move when the animation_set has no walk"),
     "paint": (_paint, "paint", "multiview paint: {enabled, views, denoise, ip_weight, cn_strength, ...}"),
@@ -282,7 +284,7 @@ def defaults(mon: dict, style_name: str | None = None) -> dict:
         "prompt_extra": "", "negative_extra": "", "style": style_name, "seed_ref": None, "ref_template": None,
         "yaw": None, "forward": "-Z", "level": plan in FEET_BY_PLAN,
         "level_tilt": TILT_CAP_BY_PLAN.get(plan, DEFAULT_TILT_CAP),
-        "lod_ratios": list(LOD_RATIOS), "rig_facing_check": True, "lod_screen_ratios": None, "notes": "",
+        "lod_ratios": list(LOD_RATIOS), "rig_facing_check": True, "rig_tail_chain": False, "lod_screen_ratios": None, "notes": "",
         # anim.idle_lift: a monster that cannot walk idles where its swim/fly clip holds it
         "idle_lift": "match_move" if "walk" not in (mon.get("animation_set") or [])
         and {"swim", "fly"} & set(mon.get("animation_set") or []) else False,
