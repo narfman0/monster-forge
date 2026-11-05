@@ -6,9 +6,12 @@ D&D monster, generated locally with ComfyUI and Blender and consumed by Godot 4.
 Scope tiers (see `docs/corpus-plan.md`):
 
 1. SRD 5.2.1 (CC-BY-4.0): 330 monsters, registry in `data/registry/srd-5.2.1.json`.
-2. Monster Manual 2024: the 173 stat blocks not in the SRD, unreviewed stubs in
+2. Monster Manual 2024: the 173 stat blocks not in the SRD, in
    `data/registry/mm-2024.json` (`tools/import_names.py`; WotC IP, personal use only,
-   generated locally and not committed).
+   generated locally and not committed). Body plans, equipment, scale and visual
+   descriptions are reviewed under the `mm-2024` keys of the curation files
+   (`docs/body-plans.md`, "Per-source curation layout"); the rigs some of them need
+   (beholder family, radial modrons, four-armed bipeds) are not built.
 3. Other official books (2024-2025 first, then legacy 2014-era books).
 
 Non-SRD monsters are WotC IP: personal use only; a public pack ships SRD assets or

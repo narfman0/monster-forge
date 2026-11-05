@@ -116,7 +116,10 @@ descriptions names a held weapon.
 | `rig` | only for props that bend (whip: a spline-IK chain) |
 
 SRD 5.2.1: 32 props. Longbow is the most used (10 monsters), then greatsword and longsword
-(7 each), then mace, scimitar, shield and spear (6 each).
+(7 each), then mace, scimitar, shield and spear (6 each). The MM-2024 loadouts add four
+specs that no SRD monster uses, so they are in `equipment.json["props"]` but not in the
+generated registry and not built: `maul` (heavy_bludgeon, 1.5 m, two hands), `flail`
+(flexible), `trident` (polearm, 2.0 m) and `lance` (polearm, 3.0 m; no current user).
 
 ### Generating props
 
