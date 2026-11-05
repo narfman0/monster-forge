@@ -57,6 +57,8 @@ IDLE_SINK = 0.03    # the idle's body, lowered this fraction of the leg's drop o
                     # the floor one-shots start there (at_idle_height)
 ARM_SWING = 16.0    # degrees
 TAIL_SWAY = 4.0     # degrees per tail bone
+TAIL_IDLE_DEG = 5.0  # idle: most a tail bone sways (the last bone; less toward the root) ...
+TAIL_IDLE_TIP = 0.05  # ... and the tail's far end moves at most this x body length (tail_idle_amps)
 # ground. The metre values are the pilots' (a 1-6.3 m body): every one is multiplied by
 # SCALE (below), which is 1 for a body inside SIZE_BAND and grows or shrinks in proportion
 # to the body's size outside it, so a 0.3 m sprite and a 15 m roc get the same fractions of
@@ -683,8 +685,14 @@ def build(clip: Clip) -> dict:
         rep["ik_reach_gap"] = round(max(reach[f][i] for f in range(clip.frames + 1) for i in planted(clip, f)), 4)
     if clip.name == "idle":
         FIRST["idle"] = pos[0]
+        FIRST["idle_cycle"] = pos[:clip.frames:IDLE_STEP]
     elif "idle" in FIRST:  # the first frame's largest vertex move from the idle's first frame
         rep["from_idle_m"] = round(float(np.linalg.norm(pos[0] - FIRST["idle"], axis=1).max()), 4)
+    if "idle_cycle" in FIRST:
+        # ... and from any frame of the idle (every IDLE_STEP-th): the game fires a one-shot
+        # mid-idle; on the idle itself, how far it wanders from its own first frame
+        rep["from_idle_max_m"] = round(max(float(np.linalg.norm(pos[0] - p, axis=1).max())
+                                           for p in FIRST["idle_cycle"]), 4)
     if GROUND.any() and clip.ground == "floor":
         rep["contact_min_z"] = round(min(clip.contact_low), 4)  # lowest ground contact (GROUND)
     if clip.loop:
@@ -714,7 +722,9 @@ def start_phase(make) -> tuple[float, float, float]:
     return f / c.frames, dev[0], dev[f]
 
 
-FIRST: dict = {}  # "idle": its first frame's skinned vertices, once built (start_phase, from_idle_m)
+FIRST: dict = {}  # "idle": its first frame's skinned vertices, once built (start_phase, from_idle_m);
+# "idle_cycle": every IDLE_STEP-th frame of it (from_idle_max_m)
+IDLE_STEP = 3
 
 
 # --- clips ----------------------------------------------------------------------------
@@ -789,11 +799,30 @@ def idle() -> Clip:
     for a in arms:
         c.turn(a["upper"], "X", wave(3.0, 1, 0.5))
         c.turn(a["forearm"], "X", lambda t: 3.5 * (1 - math.cos(2 * math.pi * t)))
-    for n in tail:
-        c.turn(n, "Z", wave(5.0, 1))
+    for n, a in zip(tail, tail_idle_amps()):
+        c.turn(n, "Z", wave(a, 1))
     for w in wings:
         c.turn(w["chain"][0], "Y", lambda t, s=w["side"]: sym(s, -3.0 * math.sin(2 * math.pi * t)))
     return c
+
+
+def tail_idle_amps() -> list[float]:
+    """The idle's tail sway per bone (degrees, in phase about Z, so it is 0 on the first
+    frame): growing from the root to the last bone (i / n), the last at most TAIL_IDLE_DEG,
+    all scaled down until the farthest point of the chain moves at most TAIL_IDLE_TIP x
+    body_len. An in-phase turn adds up along the chain: 5 degrees on each of the dragon's
+    9 curled tail bones swung its tip 1.66 m mid-idle, which a game switch to any clip
+    shows as a jump. Bound: each bone moves the chain beyond it by its angle (radians) x
+    the largest horizontal distance from its head to a joint further out."""
+    if not tail:
+        return []
+    n = len(tail)
+    w = [(i + 1) / n for i in range(n)]
+    pts = [Vector(by_name[b]["tail"][:2]) for b in tail]
+    lever = [max((p - Vector(by_name[b]["head"][:2])).length for p in pts[i:]) for i, b in enumerate(tail)]
+    reach = sum(wi * li for wi, li in zip(w, lever))  # metres the far end moves per radian at the last bone
+    amp = min(TAIL_IDLE_DEG, math.degrees(TAIL_IDLE_TIP * body_len / reach)) if reach > 1e-6 else TAIL_IDLE_DEG
+    return [amp * wi for wi in w]
 
 
 def attack_biped() -> Clip:

@@ -225,6 +225,12 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       eagle in scratch: identical clip lists and frame counts; numbers change on the 7 legged
       pilots (harpy, goblin, wolf, owlbear, spider, dragon, centaur); legless/lifted only gain
       `from_idle_m`. docs/rig-anim.md "Clip-to-clip jumps, round 7".
+- [x] (2026-11-05, clips5) Godot round 8 (E): new report key `from_idle_max_m` (clip frame 0
+      against the whole idle cycle); the legged idle's tail sway is bounded
+      (`tail_idle_amps`: root-to-tip ramp, far end <= 0.05 x body length). Gate on the 15
+      pilots (the eagle for real): identical clip lists and frame counts; besides the new key
+      only the dragon changes (idle `tail_raise_max_deg` 1.92 -> 1.72, `planted_foot_gap`
+      0.0002 -> 0.0001, `from_idle_max_m` values). docs/rig-anim.md "round 8".
 - [ ] Clips still without a builder: `fly` for plant_object (flying sword), `attack_ranged`
       without two arms (djinni, manticore, spirit naga), the xorn (radial); avian `cast`
       (giant owl) builds but no avian rig was available to test it.
@@ -589,7 +595,7 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         - The merfolk throw goes cocked -> release -> follow-through, spear in the fist.
         - Harpy and eagle as noted in the items above.
       New findings, open:
-  - [ ] Dragon idle tail: the in-phase 5-degree sway adds up along the 9-bone curled tail.
+  - [x] Dragon idle tail: the in-phase 5-degree sway adds up along the 9-bone curled tail.
         The tip (`bone_66`, lying on the floor at the left side) swings 1.66 m sideways at
         0.62 s and 1.34 m the other way at 1.88 s.
         - Frame 0 matches (one-shots 0), but a game switch is mid-idle. Godot's probe (walk
@@ -597,16 +603,29 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
           with the 0.25 s cross-fade. Attack/hit/breath from mid-idle jump up to 1.66 m.
         - The other legged idles wander 0.02-0.10 m. A smaller tail amplitude per joint
           (scaled by chain length) would fix it.
-  - [ ] Note (not a bug): `from_idle_m` is frame 0 against frame 0. The game fires
+        (2026-11-05, clips5) `tail_idle_amps`: still in phase (frame 0 = rest), but growing
+        root -> tip (i / n, the last bone at most 5 degrees) and scaled so the chain's far end
+        moves at most 0.05 x body length (0.29 m on the dragon). Tip travel 1.625 -> 0.243 m;
+        idle `from_idle_max_m` 1.657 -> 0.305 (now the head's look-about); one-shots from
+        mid-idle 1.66 -> 0.305-0.315, walk 1.698 -> 0.618. Frame-0 values unchanged. Godot
+        to re-run its mid-idle probe.
+  - [x] Note (not a bug): `from_idle_m` is frame 0 against frame 0. The game fires
         one-shots mid-idle, so what it sees is idle(t) -> clip(0).
         - Worst over the idle cycle (Godot scratch scan): goblin 0.05, wolf 0.09, owlbear
           0.07, spider 0.02, harpy 0.10, ghost 0.23, snake 0.28, octopus 0.36, shark 0.28,
           eagle 1.68 (the idle beats), dragon 1.66 (tail).
         - Reporting a per-clip `from_idle_max_m` over the idle cycle would expose cases like
           the dragon's.
-  - [ ] giant-eagle `anims/clips.json` (22:03) predates `from_idle_m`, so it has no Blender
+        (2026-11-05, clips5) Done: every clip report and the manifest have
+        `from_idle_max_m` (clip frame 0 against every 3rd idle frame; on the idle, its own
+        wander). Before the tail fix it matched the Godot scan (dragon 1.657, eagle 1.683,
+        snake 0.275, ghost 0.226). Per-pilot table: docs/rig-anim.md "round 8".
+  - [x] giant-eagle `anims/clips.json` (22:03) predates `from_idle_m`, so it has no Blender
         jump values. Godot measures 0.072 (one-shots) and 0.010 (fly), matching the
         scratch-run numbers in docs/rig-anim.md.
+        (2026-11-05, clips5) Re-run for real: fly 0.0096, attack/hit/death 0.0716 m
+        (`from_idle_max_m` fly 1.701, one-shots 1.683: the idle's own beat), 6 ground
+        contacts, same clips and frame counts.
   - [ ] The eagle lunge is a small peck: head travel 0.26 x body length, and from the side
         the strike barely leaves the raised-wing silhouette. Fine for a bite; a giant eagle's
         beak/talon attack may want more reach.

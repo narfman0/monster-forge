@@ -266,7 +266,9 @@ bone scale (squash and stretch). The plan table is in `docs/rig-anim.md`, "Body 
 Looping clips have identical first and last frames. On legged plans the idle's first frame
 is the rest pose, the one-shots start (and, but for death, end) on it, and the walk starts at
 the frame of its cycle nearest it; each clip's report has `from_idle_m` (its first frame's
-largest vertex move from the idle's first frame). Manifest shape:
+largest vertex move from the idle's first frame) and `from_idle_max_m` (the largest from any
+frame of the idle cycle, every 3rd: what an instant switch mid-idle can jump; on the idle,
+how far it wanders from its own first frame). Manifest shape:
 
 ```json
 "anim": {"clips": ["idle", "walk", "attack_melee", "hit", "death"], "missing": [], "seconds": 4.7,

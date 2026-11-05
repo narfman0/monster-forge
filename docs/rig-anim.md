@@ -558,6 +558,37 @@ built first). Legged plans (floor idle):
   m = 0.26 x body length (1.54 m). The same count on the old rig and clip: 304 at the strike
   (88 was against its first frame). No change needed.
 
+**Clip-to-clip jumps, round 8 (2026-11-05, clips5).** `from_idle_m` compares frame 0 with
+idle frame 0, but a game fires one-shots (and starts the walk) mid-idle. Every clip report
+(clips.json and manifest `anim.<clip>`) now also has `from_idle_max_m`: the largest vertex
+distance between the clip's first frame and any frame of the idle cycle (every
+`IDLE_STEP` = 3rd frame); on the idle itself it is how far the idle wanders from its own
+first frame. It is the instant-switch worst case: anything the idle wanders adds to it.
+
+- Dragon idle tail (`tail_idle_amps`): round 7's in-phase 5 degree sway on each of the 9
+  curled tail bones added up along the chain, the tip (`bone_66`) swinging 1.63 m off rest
+  mid-idle (Godot: walk started after 0.5 s of idle popped 1.5 m). The idle's tail sway is
+  still in phase about Z (0 on the first frame, so the idle still starts on the rest pose)
+  but grows from the root to the last bone (i / n of the amplitude), the last bone at most
+  `TAIL_IDLE_DEG` (5), and all of it is scaled down until the far end of the chain moves at
+  most `TAIL_IDLE_TIP` (0.05) x `body_len` (bound: each bone's angle in radians x the
+  largest horizontal distance from its head to a joint further out). Dragon (body_len
+  5.90 m, bound 0.29 m): tip travel over the idle 1.625 -> 0.243 m; the idle's
+  `from_idle_max_m` 1.657 -> 0.305 m (the rest is now the head's look-about, at the top of the
+  neck); attack, breath, hit 1.657 -> 0.305, death 1.669 -> 0.315, walk 1.698 -> 0.618 (its
+  own first frame is 0.435 from the idle's). `tail_raise_max_deg` 1.92 -> 1.72 (less of the
+  ground-lying tail swings down). No other pilot's idle has a `tail` chain (the wolf's and
+  owlbear's are not found as tails; the merfolk's fish tail and the snake's body have their
+  own builders): every other clip report is identical.
+- `from_idle_max_m` per pilot, worst clip (fly and swim are pose changes, not idle drift):
+  wolf walk 0.198 (one-shots 0.092), goblin walk 0.084 (0.050), owlbear walk 0.219 (0.066),
+  harpy fly 1.310 (walk 0.126, one-shots 0.096), spider walk 0.097 (0.024), dragon fly 3.589
+  (walk 0.618, one-shots 0.305-0.315), snake walk 0.572 (one-shots 0.275), ghost fly 1.018
+  (0.226), pudding walk 0.205 (0.060), fungus walk 0.185 (0.073), octopus swim 0.720 (0.356),
+  shark swim 0.620 (0.280), merfolk swim 1.091 (0.076), swarm of rats 0.084 (all clips),
+  giant eagle fly 1.701 (one-shots 1.683: its idle is a slow wing beat, 1.694 from its own
+  first frame).
+
 **cast, swim, burrow, breath and fly for every plan that asks (2026-11-04, clips2).** The
 SRD animation sets ask for `cast` 48 times, `swim` on legged plans and floating 39, `burrow`
 18, `breath` off the winged quadrupeds 11 and `fly` without wing chains 9; the legged
