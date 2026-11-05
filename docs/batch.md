@@ -8,24 +8,25 @@ swarm-of-rats) are done through anim and are never re-run by the batch.
 
 ## Summary
 
-- 315 monsters to make. 146 are **tier 1** (a pilot's body plan and rig template at a
-  pilot size), 101 **tier 2** (same code path as a pilot, a size no pilot had, or the
-  harpy's hand-fixed winged_biped), 31 **tier 3** (a plan variant nobody has run), 37
-  **tier 4 / hold** (the reference stage needs a fix first; running them now means
-  re-running everything later).
-- Estimated time (pilot stage timings, checked by the smoke run below): **~32.6 h** for
-  tiers 1-3 (278 monsters: tier 1 17.2 h, tier 2 12.1 h, tier 3 3.4 h), ~36.3 h with the
-  hold tier. Paint dominates (160 s, untimed in the smoke run), then the 4 SkinTokens rolls
+- 315 monsters to make. 155 are **tier 1** (a pilot's body plan and rig template at a
+  pilot size), 113 **tier 2** (same code path as a pilot, a size no pilot had, a swarm
+  made as its unit, or the harpy's hand-fixed winged_biped), 33 **tier 3** (a plan variant
+  nobody has run), 14 **tier 4 / hold** (the reference stage needs a fix first; running
+  them now means re-running everything later). (2026-11-05, after cade6ef: was 146 / 101 /
+  31 / 37; the avian prompt, the swarm units and the specter / wraith prompts left the hold
+  tier.)
+- Estimated time (pilot stage timings, checked by the smoke run below): **~35.1 h** for
+  tiers 1-3 (301 monsters: tier 1 18.2 h, tier 2 13.4 h, tier 3 3.6 h), ~36.3 h with the
+  hold tier (1.2 h). Paint dominates (160 s, untimed in the smoke run), then the 4 SkinTokens rolls
   (~140 s) and mesh (~70-80 s), each after a 6-10 s ComfyUI restart. A monster is ~7 min
   with SkinTokens, ~5 min with a generated skeleton; `ref,mesh,qa` alone ~2 min (tier 1:
-  4.4 h).
-- Blocking gaps (fix before those records run; all are reference-stage fixes): avian
-  prompt (16), serpentine template pilot (10), swarm unit model (6), centauroid pilot (3),
-  specter/wraith ghost prompt (2). (2026-11-05) Fixed in forge, not yet in `batch.py`'s
-  `hold_reason()`: the avian per-plan prompt (16), swarm units (6: each runs as its unit's
-  plan; the snake swarm stays with the serpentine hold) and the specter/wraith prompts (2),
-  so 23 records can leave the hold tier; centauroid (3) and serpentine (10) stay held
-  (docs/TODO.md I). The ghoul (tier 1) has a working prompt now. Everything else can be fixed after the batch by
+  4.4 h before the 2026-11-05 changes, 4.6 h with the 9 records they added).
+- Blocking gaps (fix before those records run; all are reference-stage fixes): the
+  serpentine template pilot (10, plus the venomous-snake swarm, whose unit is serpentine)
+  and the centauroid pilot (3): the 14 hold records. Fixed in cade6ef and no longer held:
+  the avian per-plan prompt (`_plans.avian`, 16), swarm units (`forge.SWARM_UNITS`, 5 of
+  6 leave the hold) and the specter / wraith prompts (2) (docs/TODO.md I). The ghoul
+  (tier 1) has a working prompt now. Everything else can be fixed after the batch by
   re-running only `rig` and/or `anim` (or only the props), see "Gaps".
 - Missing clips the batch will leave (no builder makes them; the anim stage records them
   in `manifest.anim.missing` and the viewer shows `anim_complete` false): since clips2
@@ -54,8 +55,16 @@ Regenerate the tables with `python3 -I tools/batch.py audit` (the coverage model
   wyvern, myriapods, the winged wasp, hydra, dragon turtle, tarrasque, glabrezu and
   marilith arms, the drider, the xorn).
 - **hold**: the reference is known to come out wrong for the plan today (below).
-- Sizes: the pilots are small to large. Tiny (25), huge (34) and gargantuan (15) records
-  of a proven template are bumped to tier 2 (the "proven" column still counts them).
+- **Swarms** are judged as their unit (`forge.resolve_swarm_unit`, the record the stages
+  see): the unit's plan, rig template and size key the tier, the hold, the gaps, the clips
+  and the estimate (a unit costs what its plan costs: SkinTokens rolls or a generated
+  skeleton). A swarm is tier 2 at best ("same path as" the unit plan's pilot): bats and
+  ravens as giant-eagle (avian), insects as giant-spider (insectoid), piranhas as
+  hunter-shark (aquatic). Crawling claws (a hand on `custom.limb_chain`) is untested like
+  the troll limb, the venomous snakes are held with the serpentine plan, and the
+  swarm-of-rats pilot has no unit.
+- Sizes: the pilots are small to large. Tiny, huge and gargantuan records of a proven
+  template are bumped to tier 2 (the "proven" column still counts them).
 
 ### Coverage per body plan
 
@@ -65,15 +74,15 @@ Regenerate the tables with `python3 -I tools/batch.py audit` (the coverage model
 | quadruped | 61 | owlbear, wolf | 37 | 20 | 2 | 0 | SkinTokens | - |
 | winged_quadruped | 49 | young-red-dragon | 40 | 8 | 0 | 0 | SkinTokens | attack_ranged 1 |
 | winged_biped | 21 | harpy | 0 | 20 | 0 | 0 | SkinTokens | - |
-| avian | 19 | giant-eagle | 0 | 0 | 2 | 16 | SkinTokens | - |
+| avian | 19 | giant-eagle | 11 | 4 | 3 | 0 | SkinTokens | - |
 | insectoid | 15 | giant-spider | 5 | 6 | 3 | 0 | SkinTokens | - |
 | serpentine | 11 | constrictor-snake | 0 | 0 | 0 | 10 | fallback:spine_chain | attack_ranged 1 |
-| floating | 10 | ghost | 0 | 0 | 7 | 2 | SkinTokens | attack_ranged 1 |
+| floating | 10 | ghost | 2 | 0 | 7 | 0 | SkinTokens | attack_ranged 1 |
 | aquatic | 9 | hunter-shark | 4 | 0 | 4 | 0 | SkinTokens | - |
 | tentacled | 7 | giant-octopus | 3 | 0 | 3 | 0 | fallback:tentacle_hub | - |
 | plant_object | 7 | violet-fungus | 1 | 0 | 5 | 0 | fallback:vertical | fly 1 |
 | amorphous | 7 | black-pudding | 5 | 0 | 1 | 0 | fallback:vertical | swim 1 |
-| swarm | 7 | swarm-of-rats | 0 | 0 | 0 | 6 | fallback:root | - |
+| swarm | 7 | swarm-of-rats | 0 | 4 | 1 | 1 | SkinTokens 4, fallback:vertical 1, fallback:root 1, fallback:spine_chain 1 | - |
 | merfolk_naga | 4 | merfolk-skirmisher | 2 | 0 | 1 | 0 | SkinTokens | - |
 | centauroid | 3 | - | 0 | 0 | 0 | 3 | SkinTokens | - |
 | radial | 1 | - | 0 | 0 | 1 | 0 | SkinTokens | idle 1, walk 1, burrow 1, attack_melee 1, hit 1, death 1 |
@@ -107,10 +116,11 @@ Pilots are not counted in proven / same path / untested / hold.
 | winged_biped | custom.human_winged | 1 | pilot | 0 | harpy |
 | winged_biped | custom.human_winged | 20 | proven (hand-fixed) | 2 | 20 records - harpy pilot: SkinTokens gave no wing bones in 4 of 4 rolls; hand-added wing chains + blender_wing_weights.py + rig_reweight |
 | avian | rigify.bird | 1 | pilot | 0 | giant-eagle |
-| avian | rigify.bird | 11 | hold | 4 | 11 records - avian: the registry prompt (side view, wings partly spread) gave the eagle one wing; the eagle needed a front view with the wings spread to the sides |
-| avian | custom.bat_wing | 4 | hold | 4 | stirge, bat, giant-bat, pteranodon - avian: the registry prompt (side view, wings partly spread) gave the eagle one wing; the eagle needed a front view with the wings spread to the sides |
+| avian | rigify.bird | 7 | proven | 1 | 7 records - as giant-eagle |
+| avian | rigify.bird | 4 | proven | 2 | roc, hawk, owl, raven - sizes gargantuan, tiny (pilots are small-large) |
+| avian | custom.bat_wing | 4 | same path | 2 | stirge, bat, giant-bat, pteranodon - legged avian framework; membrane wings not yet seen by find_wings |
 | avian | custom.theropod | 2 | untested | 3 | allosaurus, tyrannosaurus-rex - allosaurus, T. rex: wingless avian (rig score skips wings) |
-| avian | custom.wyvern | 1 | hold | 4 | wyvern - avian: the registry prompt (side view, wings partly spread) gave the eagle one wing; the eagle needed a front view with the wings spread to the sides |
+| avian | custom.wyvern | 1 | untested | 3 | wyvern - bat wings as forelimbs plus a stinger tail |
 | insectoid | custom.arachnid | 1 | pilot | 0 | giant-spider |
 | insectoid | custom.arachnid | 3 | proven | 1 | phase-spider, giant-scorpion, giant-wolf-spider - as giant-spider |
 | insectoid | custom.arachnid | 2 | proven | 2 | scorpion, spider - sizes tiny (pilots are small-large) |
@@ -125,7 +135,7 @@ Pilots are not counted in proven / same path / untested / hold.
 | serpentine | custom.spine_chain_winged | 1 | hold | 4 | couatl - serpentine: the serpentine_side depth template is new; the constrictor-snake pilot is being re-made with it (paint, rig, anim pending) |
 | floating | custom.elemental_column | 5 | untested | 3 | air-elemental, djinni, fire-elemental, invisible-stalker, water-elemental - air/fire/water elementals, djinni, invisible stalker: a column with arms (TODO H: untested) |
 | floating | custom.ghost | 1 | pilot | 0 | ghost |
-| floating | custom.ghost | 2 | hold | 4 | specter, wraith - needs the ghost pilot's prompt tweak (legless tapering robe); the registry prompt draws a legged zombie |
+| floating | custom.ghost | 2 | proven | 1 | specter, wraith - as ghost |
 | floating | custom.membrane | 1 | untested | 3 | cloaker - cloaker: a cloak-shaped membrane |
 | floating | custom.wisp | 1 | untested | 3 | will-o-wisp - will-o'-wisp: a ball of light |
 | aquatic | rigify.shark | 1 | pilot | 0 | hunter-shark |
@@ -143,7 +153,9 @@ Pilots are not counted in proven / same path / untested / hold.
 | plant_object | custom.cloth_grid | 1 | untested | 3 | animated-rug-of-smothering - rug of smothering: a flat cloth, the vertical chain is wrong |
 | plant_object | custom.limb_chain | 1 | untested | 3 | troll-limb - troll limb: a crawling arm |
 | swarm | custom.swarm | 1 | pilot | 0 | swarm-of-rats |
-| swarm | custom.swarm | 6 | hold | 4 | swarm-of-crawling-claws, swarm-of-bats, swarm-of-insects, swarm-of-piranhas, swarm-of-ravens, swarm-of-venomous-snakes - swarm: model one unit (prompt + unit scale_m), not the wall of rats the pilot got (TODO H) |
+| swarm | custom.swarm | 4 | same path | 2 | swarm-of-bats, swarm-of-insects, swarm-of-piranhas, swarm-of-ravens - made as one bat (avian, custom.bat_wing, tiny): same path as giant-eagle; made as one piranha (aquatic, rigify.shark, tiny): same path as hunter-shark; made as one raven (avian, rigify.bird, tiny): same path as giant-eagle; made as one unit (insectoid, custom.hexapod, tiny): same path as giant-spider |
+| swarm | custom.swarm | 1 | untested | 3 | swarm-of-crawling-claws - unit is a crawling hand on custom.limb_chain, untested like the troll limb |
+| swarm | custom.swarm | 1 | hold | 4 | swarm-of-venomous-snakes - swarm unit venomous-snake: serpentine: the serpentine_side depth template is new; the constrictor-snake pilot is being re-made with it (paint, rig, anim pending) |
 | tentacled | custom.tentacle_hub | 1 | pilot | 0 | giant-octopus |
 | tentacled | custom.tentacle_hub | 2 | proven | 1 | darkmantle, octopus - as giant-octopus |
 | tentacled | custom.tentacle_hub | 1 | proven | 2 | kraken - sizes gargantuan (pilots are small-large) |
@@ -159,19 +171,19 @@ Pilots are not counted in proven / same path / untested / hold.
 
 | # | gap | records | blocks the batch? | re-run after the fix | examples |
 |---:|---|---:|---|---|---|
-| 1 | winged bodies: QA's auto-facing follows the wings (the dragon pilot was 65 deg off); the rig stage refuses past 30 deg | 86 | no (after) | pin `yaw`, then qa, paint, lod, rig, anim | axe-beak, balor, black-dragon-wyrmling, young-black-dragon, adult-black-dragon, ancient-black-dragon, ...; the batch's facing gate stops these after qa, before paint |
+| 1 | winged bodies: QA's auto-facing follows the wings (the dragon pilot was 65 deg off); the rig stage refuses past 30 deg | 88 | no (after) | pin `yaw`, then qa, paint, lod, rig, anim | axe-beak, balor, black-dragon-wyrmling, young-black-dragon, adult-black-dragon, ancient-black-dragon, ...; the batch's facing gate stops these after qa, before paint |
 | 2 | unarmed_reference: --n 4 + the unarmed check (thin margin, 2.5 threshold) | 77 | no (after) | ref (re-pick) when a weapon slips through | animated-armor, assassin, azer-sentinel, balor, bandit, bandit-captain, ...; handled by the batch (--n 4); review the candidate strip |
 | 3 | huge / gargantuan: 20-25k tri LOD0 never through SkinTokens; paint views are 1024 px whatever the size (anim thresholds are size-relative since clips2) | 49 | no (after) | rig (if SkinTokens fails: tri_budget override, then mesh..), anim --force | awakened-tree, balor, behir, adult-black-dragon, ancient-black-dragon, adult-blue-dragon, ... |
-| 4 | untested plan variant (see the plan table) | 35 | no (after) | rig --rig-reroll, anim --force (mesh only if the shape is wrong) | aboleth, air-elemental, animated-flying-sword, animated-rug-of-smothering, awakened-shrub, awakened-tree, ... |
-| 5 | tiny: no pilot below 0.95 m (anim thresholds are size-relative since clips2, untested there) | 25 | no (after) | anim --force | homunculus, imp, pseudodragon, quasit, sphinx-of-wonder, sprite, ... |
+| 4 | untested plan variant (see the plan table) | 36 | no (after) | rig --rig-reroll, anim --force (mesh only if the shape is wrong) | aboleth, air-elemental, animated-flying-sword, animated-rug-of-smothering, awakened-shrub, awakened-tree, ... |
+| 5 | tiny: no pilot below 0.95 m (anim thresholds are size-relative since clips2, untested there) | 31 | no (after) | anim --force | swarm-of-crawling-claws, homunculus, imp, pseudodragon, quasit, sphinx-of-wonder, ... |
 | 6 | winged_biped wing chains: SkinTokens found none on the harpy (hand-built) | 20 | no (after) | rig --rig-reroll (+ hand chains / wing weights), anim --force | balor, bone-devil, deva, erinyes, gargoyle, homunculus, ...; expect fly missing or torn wings; TODO C has the stage work |
-| 7 | avian reference prompt: front view, wings spread to the sides | 16 | **yes** (fix first) | everything (ref) | axe-beak, cockatrice, roc, stirge, wyvern, bat, ...; registry pose or per-id prompt_extra |
-| 8 | serpentine: pilot re-made with the serpentine_side depth template | 10 | **yes** (fix first) | everything (ref) | behir, couatl, grick, guardian-naga, purple-worm, spirit-naga, ...; owned by the pilot stream; release once constrictor-snake is through anim |
+| 7 | avian reference prompt: front view, wings spread to the sides (fixed) | 18 | no (fixed) | - | axe-beak, cockatrice, roc, stirge, wyvern, bat, ...; fixed in cade6ef: prompt_tweaks.json `_plans.avian` (front view, both wings spread; theropods excepted) |
+| 8 | serpentine: pilot re-made with the serpentine_side depth template | 11 | **yes** (fix first) | everything (ref) | behir, couatl, grick, guardian-naga, purple-worm, spirit-naga, ...; owned by the pilot stream; release once constrictor-snake is through anim |
 | 9 | wields an off-model prop (fork, heavy crossbow, mace) | 10 | no (after) | props.py only (no monster re-run) | cloud-giant, deva, horned-devil, knight, pit-fiend, priest-acolyte, ... |
-| 10 | swarms: one unit per swarm (prompt, unit scale_m) | 6 | **yes** (fix first) | everything (ref) | swarm-of-crawling-claws, swarm-of-bats, swarm-of-insects, swarm-of-piranhas, swarm-of-ravens, swarm-of-venomous-snakes; decide the unit model; the pilot is a 1.4 m column of rats |
+| 10 | swarms: one unit per swarm (prompt, unit scale_m) (fixed) | 6 | no (fixed) | - | swarm-of-crawling-claws, swarm-of-bats, swarm-of-insects, swarm-of-piranhas, swarm-of-ravens, swarm-of-venomous-snakes; fixed in cade6ef: forge.SWARM_UNITS makes each swarm as one unit (plan, template, size, scale_m); swarm-of-rats keeps its column-of-rats pilot |
 | 11 | `attack_ranged` without two arms (spit, tail spikes, rays) | 3 | no (after) | anim --force | djinni, manticore, spirit-naga; floating and serpentine casters, manticore |
 | 12 | centauroid: no centaur pilot through anim yet | 3 | **yes** (fix first) | everything (ref) | centaur-trooper, drider, lamia; centaur-trooper in progress |
-| 13 | specter, wraith: the ghost's legless-robe prompt tweak | 2 | **yes** (fix first) | everything (ref) | specter, wraith; data/prompt_tweaks.json or prompt_extra |
+| 13 | specter, wraith: the ghost's legless-robe prompt tweak (fixed) | 2 | no (fixed) | - | specter, wraith; fixed in cade6ef: per-id specter / wraith tweaks in data/prompt_tweaks.json |
 | 14 | multi-armed wielders: hand_r1..n sockets / more than one arm pair | 2 | no (after) | rig --force, anim --force | glabrezu, marilith; glabrezu, marilith |
 | 15 | `fly` on a plan with no fly builder (amorphous, plant_object, aquatic, merfolk_naga) | 1 | no (after) | anim --force | animated-flying-sword; the flying sword |
 | 16 | `swim` on a plan with no swim builder (amorphous, plant_object) | 1 | no (after) | anim --force | gibbering-mouther; amorphous builders: idle, walk, attack_melee, hit, death |
@@ -181,27 +193,23 @@ Pilots are not counted in proven / same path / untested / hold.
 
 Expected missing clips over all records (animation_set clips no builder makes): `attack_ranged` 3, `fly` 1, `swim` 1, `idle` 1, `walk` 1, `burrow` 1, `attack_melee` 1, `hit` 1, `death` 1.
 
-Tiers: 0 = 15, 1 = 146, 2 = 101, 3 = 31, 4 = 37.
+Tiers: 0 = 15, 1 = 155, 2 = 113, 3 = 33, 4 = 14.
 
 ### Notes on the gaps
 
 - **Blocking** means the fix is in `ref` (prompt, pose template, registry scale), so a
   record made before it would have to go through every stage again. These records are
   tier 4 and `batch.py run` leaves them out unless asked (`--tier 4` or `--ids`).
-  - Avian (16, theropods excluded): the registry pose is "side view, wings partly spread";
-    the eagle's side-view reference gave one wing that was also taken as the tail, and it
-    only rigged with a front view, wings spread to the sides (`docs/TODO.md` H). Change the
-    avian pose in `tools/build_registry.py` (or per-id `prompt_extra`) first.
-  - Serpentine (10): the `serpentine_side` depth template (`forge.REF_TEMPLATE_BY_PLAN`)
-    applies to every serpentine record, but the constrictor-snake pilot is still being
-    re-made with it. Release once it is through anim.
-  - Swarms (6): the pilot reference drew a wall of rats; the decision (TODO H) is one unit
-    per swarm with the game doing the swarm. Needs a unit prompt and a unit `scale_m`
-    (`swarm_unit_size` is tiny for all 7).
+  - Serpentine (10, and swarm-of-venomous-snakes, a serpentine unit): the
+    `serpentine_side` depth template (`forge.REF_TEMPLATE_BY_PLAN`) applies to every
+    serpentine record, but the constrictor-snake pilot is still being re-made with it.
+    Release once it is through anim.
   - Centauroid (3): the centaur-trooper pilot has a real centaur reference now
     (`centaur_34` template) but is not through anim.
-  - Specter, wraith (2): the ghost pilot's prompt tweak (legless tapering robe); the
-    registry prompt draws a legged zombie.
+  - Fixed (cade6ef), kept in the gap table as "no (fixed)": the avian pose
+    (`prompt_tweaks.json` `_plans.avian`: front view, both wings spread; theropods keep
+    the registry pose), swarm units (`forge.SWARM_UNITS`: one unit per swarm, the game
+    multiplies it) and the specter / wraith copies of the ghost's legless-robe tweak.
 - **After** means `forge.py run <id> --stages rig,anim --force` (or `anim --force`, or
   `props.py`) once the code is fixed; the batch's output up to `lod` stays. Biggest ones:
   - Clips: `cast` (48), `swim` (39), `burrow` (18), `breath` (11) and `fly` without wings
@@ -210,11 +218,13 @@ Tiers: 0 = 15, 1 = 146, 2 = 101, 3 = 31, 4 = 37.
     the xorn (radial, no builder at all).
   - Winged bipeds (20): SkinTokens gave the harpy no wing bones in 4 of 4 rolls; expect the
     same, so `fly` missing or wings tearing (TODO C: wing chains in the stage).
-  - Tiny (25) and huge / gargantuan (49): the anim thresholds (`DIP_MAX`, `HOVER`, ...) are
+  - Tiny (31, the 6 swarm units included) and huge / gargantuan (49): the anim thresholds
+    (`DIP_MAX`, `HOVER`, ...) are
     size-relative outside the pilots' 0.95-6.5 m band since clips2, but no pilot ran there.
     20000-25000 tri LOD0s have never gone through SkinTokens (VRAM, time), and the paint
     stage renders every view at 1024 px whatever the 2048 atlas.
-  - Winged bodies (86): QA's PCA auto-facing followed the dragon's wings (65 degrees off).
+  - Winged bodies (88, with the bat and raven units): QA's PCA auto-facing followed the
+    dragon's wings (65 degrees off).
     The rig stage refuses to roll past 30 degrees; fixing it is a pinned `yaw` and qa,
     which deletes the paint. The batch runs the facing check right after qa and stops the
     monster before paint when it would be refused (`manifest.rig.facing`, an `errors`
@@ -363,17 +373,19 @@ phase-spider (insectoid, large), gibbering-mouther (amorphous).
 
 ## Recommended order
 
-1. Tier 1 (146): bipeds first (86, the largest group, proven by the goblin, 57 of them
-   with the unarmed check), then quadrupeds (27), winged quadrupeds (19 dragons), amorphous
-   (5), arachnids (3), tentacled (2), merfolk (2), the shrieker and the reef shark. Stop and
-   look after the first 20 (`report`).
-2. Tier 2 (101): the same plans at tiny / huge / gargantuan sizes, horses, cats, feathered
-   winged quadrupeds, crabs and beetles, and the 20 winged bipeds (expect rig re-rolls or
-   hand wing chains).
-3. Tier 3 (31): the variants one plan at a time, reviewing each in the viewer; most will
+1. Tier 1 (155): bipeds first (86, the largest group, proven by the goblin, 57 of them
+   with the unarmed check), then quadrupeds (27), winged quadrupeds (19 dragons), birds
+   (7, as the giant-eagle), amorphous (5), arachnids (3), tentacled (2), merfolk (2),
+   specter and wraith (as the ghost), the shrieker and the reef shark. Stop and look after
+   the first 20 (`report`).
+2. Tier 2 (113): the same plans at tiny / huge / gargantuan sizes, horses, cats, feathered
+   winged quadrupeds, crabs and beetles, bat-winged avians, 4 swarm units (bats, ravens,
+   insects, piranhas) and the 20 winged bipeds (expect rig re-rolls or hand wing chains).
+3. Tier 3 (33): the variants one plan at a time, reviewing each in the viewer; most will
    need a rig or clip fix afterwards (`--stages rig,anim --force`).
-4. Tier 4 (37) as each blocking gap is fixed: `run --tier 4 --plans avian` once the avian
-   prompt is changed, and so on.
+4. Tier 4 (14) as each blocking gap is fixed: `run --tier 4 --plans serpentine` once the
+   constrictor-snake pilot is through anim (the snake swarm with it: `--ids
+   swarm-of-venomous-snakes`), then the centauroids.
 5. After the batch: the clip builders (`cast`, `swim`, `burrow`, `breath`, `fly`), the size
    thresholds and the winged_biped wings, each followed by `forge.py run <ids> --stages
    anim --force` (or `rig,anim`) on the records it affects (`batch.py audit` lists them).

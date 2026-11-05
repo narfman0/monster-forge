@@ -18,7 +18,8 @@ a failed stage in manifest.errors itself, the batch adds timeouts and the facing
 
 Tiers (classify()): 0 pilot (never run here unless --include-pilots), 1 proven (a
 pilot's body plan and rig template, pilot sizes), 2 same code path as a pilot (or a
-size the pilots did not cover, or the hand-fixed winged_biped), 3 untested plan variant,
+size the pilots did not cover, a swarm made as its unit, or the hand-fixed winged_biped),
+3 untested plan variant,
 4 hold (needs a reference-stage fix first; only run with --tier 4 or --ids).
 """
 from __future__ import annotations
@@ -132,39 +133,66 @@ UNTESTED_IDS = {
     "otyugh": "tentacled on three legs (TODO H: untested)",
     "roper": "tentacled column (TODO H: untested)",
     "aboleth": "fish body with 4 tentacles: tentacle_hub vs a fish spine",
+    "swarm-of-crawling-claws": "unit is a crawling hand on custom.limb_chain, untested like the troll limb",
 }
 # The pilots that needed hand work the batch cannot repeat: same template, but tier 2.
 HAND_FIXED = {("winged_biped", "custom.human_winged"): "harpy pilot: SkinTokens gave no wing bones in 4 of 4 rolls; "
               "hand-added wing chains + blender_wing_weights.py + rig_reweight"}
 EXTREME_SIZES = {"tiny", "huge", "gargantuan"}  # the pilots are small to large
+# Fixed in cade6ef by data/prompt_tweaks.json: "_plans.avian" (front view, both wings spread;
+# not custom.theropod) and the per-id specter / wraith ghost-robe tweaks. Kept for the audit.
 GHOST_PROMPT = {"specter", "wraith"}
+_REG_CACHE: dict = {}
+
+
+def unit_rec(rec: dict) -> dict:
+    """The record forge's stages see: a swarm made as its unit (forge.resolve_swarm_unit:
+    SWARM_UNITS / override swarm_unit, the unit's plan, template, size, scale_m), anything
+    else (and swarm-of-rats, which has no unit) as is."""
+    if rec.get("body_plan") != "swarm" and not rec.get("swarm_unit"):
+        return rec
+    src = rec.get("source") or "srd-5.2.1"
+    if src not in _REG_CACHE:
+        _REG_CACHE[src] = fg.load_registry(src)
+    try:
+        return fg.resolve_swarm_unit(_REG_CACHE[src], rec)
+    except Exception:  # a bad unit fails the ref stage loudly in forge; here: the record as is
+        return rec
 
 
 def hold_reason(rec: dict) -> str | None:
     """Why a record should wait for a reference-stage fix (tier 4), or None. Fixing these
-    after the batch means re-running the whole chain from ref."""
-    plan, tpl = rec["body_plan"], rec["rig_template"]
-    if plan == "swarm":
-        return "swarm: model one unit (prompt + unit scale_m), not the wall of rats the pilot got (TODO H)"
+    after the batch means re-running the whole chain from ref. Swarms are judged by their
+    unit (unit_rec): swarm-of-venomous-snakes is a serpentine unit."""
+    u = unit_rec(rec)
+    plan = u["body_plan"]
+    unit = (u.get("swarm_unit") or {}).get("unit")
+    pre = f"swarm unit {unit}: " if unit else ""
     if plan == "centauroid":
         return "centauroid: the centaur-trooper pilot is not through anim (new centaur_34 reference, mesh re-made)"
     if plan == "serpentine":
-        return ("serpentine: the serpentine_side depth template is new; the constrictor-snake pilot is being "
+        return (pre + "serpentine: the serpentine_side depth template is new; the constrictor-snake pilot is being "
                 "re-made with it (paint, rig, anim pending)")
-    if rec["id"] in GHOST_PROMPT:
-        return "needs the ghost pilot's prompt tweak (legless tapering robe); the registry prompt draws a legged zombie"
-    if plan == "avian" and tpl != "custom.theropod":
-        return ("avian: the registry prompt (side view, wings partly spread) gave the eagle one wing; "
-                "the eagle needed a front view with the wings spread to the sides")
     return None
 
 
 def classify(rec: dict, pilot_keys: dict) -> dict:
-    """{tier, status, note} for one record (see the module doc)."""
-    key = (rec["body_plan"], rec["rig_template"])
+    """{tier, status, note} for one record (see the module doc). A swarm is classified as
+    its unit (unit_rec): plan, template and size of the unit, tier 2 at best (the swarm
+    itself is a new record even when the unit's path is a pilot's)."""
     if rec["id"] in PILOTS:
         return {"tier": 0, "status": "pilot", "note": ""}
     hold = hold_reason(rec)
+    u = unit_rec(rec)
+    su = u.get("swarm_unit")
+    key = (u["body_plan"], u["rig_template"])
+    if su and rec["id"] not in UNTESTED_IDS and key not in UNTESTED:
+        plan_pilot = next((p for (pl, _t), p in pilot_keys.items() if pl == key[0]), None)
+        if key in pilot_keys or key in SAME_PATH or plan_pilot:
+            note = (f"made as one {su.get('unit') or 'unit'} ({key[0]}, {key[1]}, {u['size']}): same path as "
+                    f"{pilot_keys.get(key) or plan_pilot}")
+            return {"tier": 4 if hold else 2, "status": "hold" if hold else "same path", "note": hold or note}
+    rec = u
     if rec["id"] in UNTESTED_IDS:
         tier, status, note = 3, "untested", UNTESTED_IDS[rec["id"]]
     elif key in UNTESTED:
@@ -242,19 +270,22 @@ GAPS = [
      lambda r: r["body_plan"] == "winged_biped" and r["id"] not in PILOTS, False,
      "rig --rig-reroll (+ hand chains / wing weights), anim --force",
      "expect fly missing or torn wings; TODO C has the stage work"),
-    ("avian_prompt", "avian reference prompt: front view, wings spread to the sides",
+    ("avian_prompt", "avian reference prompt: front view, wings spread to the sides (fixed)",
      lambda r: r["body_plan"] == "avian" and r["rig_template"] != "custom.theropod" and r["id"] not in PILOTS,
-     True, "everything (ref)", "registry pose or per-id prompt_extra"),
+     False, "-", "fixed in cade6ef: prompt_tweaks.json `_plans.avian` (front view, both wings spread; "
+     "theropods excepted)"),
     ("serpentine_template", "serpentine: pilot re-made with the serpentine_side depth template",
      lambda r: r["body_plan"] == "serpentine" and r["id"] not in PILOTS, True, "everything (ref)",
      "owned by the pilot stream; release once constrictor-snake is through anim"),
-    ("swarm_unit", "swarms: one unit per swarm (prompt, unit scale_m)",
-     lambda r: r["body_plan"] == "swarm" and r["id"] not in PILOTS, True, "everything (ref)",
-     "decide the unit model; the pilot is a 1.4 m column of rats"),
+    ("swarm_unit", "swarms: one unit per swarm (prompt, unit scale_m) (fixed)",
+     lambda r: bool(r.get("swarm_unit")) and r["id"] not in PILOTS, False, "-",
+     "fixed in cade6ef: forge.SWARM_UNITS makes each swarm as one unit (plan, template, size, scale_m); "
+     "swarm-of-rats keeps its column-of-rats pilot"),
     ("centauroid", "centauroid: no centaur pilot through anim yet",
      lambda r: r["body_plan"] == "centauroid", True, "everything (ref)", "centaur-trooper in progress"),
-    ("ghost_prompt", "specter, wraith: the ghost's legless-robe prompt tweak",
-     lambda r: r["id"] in GHOST_PROMPT, True, "everything (ref)", "data/prompt_tweaks.json or prompt_extra"),
+    ("ghost_prompt", "specter, wraith: the ghost's legless-robe prompt tweak (fixed)",
+     lambda r: r["id"] in GHOST_PROMPT, False, "-",
+     "fixed in cade6ef: per-id specter / wraith tweaks in data/prompt_tweaks.json"),
     ("variant", "untested plan variant (see the plan table)",
      lambda r: r["id"] not in PILOTS and ((r["body_plan"], r["rig_template"]) in UNTESTED or r["id"] in UNTESTED_IDS),
      False, "rig --rig-reroll, anim --force (mesh only if the shape is wrong)", ""),
@@ -326,10 +357,11 @@ def status(rec: dict, source: str) -> dict:
         if why:
             done["qa"], stale["qa"] = False, why
     skipped = {}
-    if not paint_enabled(rec):
+    u = unit_rec(rec)  # a swarm's stages run on its unit
+    if not paint_enabled(u):
         skipped["paint"] = "disabled by override paint.enabled"
-    if not anim_supported(rec):
-        skipped["anim"] = f"no clip builder for plan {rec['body_plan']}"
+    if not anim_supported(u):
+        skipped["anim"] = f"no clip builder for plan {u['body_plan']}"
     raw = [s for s in STAGES if not done[s] and s not in skipped]
     # what running a stage deletes downstream (forge: mesh/qa clear paint, lods, rig;
     # paint clears lods and the rigged files; lod clears the rigged files)
@@ -385,9 +417,10 @@ def ref_n(rec: dict, args) -> int:
 
 
 def rig_kind(rec: dict, d: Path) -> str:
+    """A swarm costs what its unit's plan costs (SkinTokens rolls or a generated skeleton)."""
     if (d / "rig" / "chosen.glb").exists():
         return "rig_fallback"  # rebuild from the kept skeleton: ~5-7 s
-    return "rig_fallback" if rec["body_plan"] in rig.RIG_STRATEGY else "rig"
+    return "rig_fallback" if unit_rec(rec)["body_plan"] in rig.RIG_STRATEGY else "rig"
 
 
 def est_key(stage: str, rec: dict, d: Path) -> str:
@@ -399,7 +432,7 @@ def est_key(stage: str, rec: dict, d: Path) -> str:
 
 
 def needs_facing_gate(rec: dict, d: Path, pending: list, args) -> bool:
-    if args.no_facing_gate or "rig" not in pending or rec["body_plan"] in rig.FACING_ADVISORY:
+    if args.no_facing_gate or "rig" not in pending or unit_rec(rec)["body_plan"] in rig.FACING_ADVISORY:
         return False
     if (d / "rig" / "chosen.glb").exists():
         return False  # the rig stage will not roll: no facing refusal
@@ -490,6 +523,7 @@ def cmd_audit(args) -> int:
 def audit_markdown(reg: dict, pilot_keys: dict) -> str:
     recs = list(reg.values())
     cls = {r["id"]: classify(r, pilot_keys) for r in recs}
+    units = {r["id"]: unit_rec(r) for r in recs}  # gaps, clips and rigs: what the stages see
     plan_n = collections.Counter(r["body_plan"] for r in recs)
     lines = ["## Coverage per body plan", "",
              "| plan | records | pilot | proven | same path | untested | hold | rig | expected missing clips |",
@@ -498,9 +532,11 @@ def audit_markdown(reg: dict, pilot_keys: dict) -> str:
         rs = [r for r in recs if r["body_plan"] == plan]
         c = collections.Counter(cls[r["id"]]["status"] for r in rs)
         pil = [r["id"] for r in rs if r["id"] in PILOTS]
-        strat = rig.RIG_STRATEGY.get(plan)
-        rigs = f"fallback:{strat['kind']}" if strat else "SkinTokens"
-        miss = collections.Counter(c2 for r in rs for c2 in missing_clips_expected(r))
+        kinds = collections.Counter(
+            f"fallback:{rig.RIG_STRATEGY[p]['kind']}" if p in rig.RIG_STRATEGY else "SkinTokens"
+            for p in (units[r["id"]]["body_plan"] for r in rs))
+        rigs = kinds.most_common(1)[0][0] if len(kinds) == 1 else ", ".join(f"{k} {v}" for k, v in kinds.most_common())
+        miss = collections.Counter(c2 for r in rs for c2 in missing_clips_expected(units[r["id"]]))
         lines.append(f"| {plan} | {n} | {', '.join(pil) or '-'} | {c['proven']} | "
                      f"{c['same path'] + c['proven (hand-fixed)']} | {c['untested']} | {c['hold']} | {rigs} | "
                      + (", ".join(f"{k} {v}" for k, v in miss.most_common()) or "-") + " |")
@@ -518,7 +554,7 @@ def audit_markdown(reg: dict, pilot_keys: dict) -> str:
             ids = ", ".join(r["id"] for r in ex) if len(ex) <= 6 else f"{len(ex)} records"
             if tier == 2 and status_ == "proven":  # bumped by size only: say which sizes
                 notes = ["sizes " + ", ".join(sorted({r["size"] for r in ex})) + " (pilots are small-large)"]
-            note = "; ".join(notes)[:300]
+            note = "; ".join(notes)[:400]
             lines.append(f"| {plan} | {tpl} | {k} | {status_} | {tier} | {ids} - {note} |" if status_ != "pilot"
                          else f"| {plan} | {tpl} | {k} | pilot | 0 | {ids} |")
     lines += ["", "## Gaps, ranked by records", "",
@@ -526,14 +562,14 @@ def audit_markdown(reg: dict, pilot_keys: dict) -> str:
               "|---:|---|---:|---|---|---|"]
     rows = []
     for key, title, pred, blocking, rerun, note in GAPS:
-        hit = [r["id"] for r in recs if pred(r)]
+        hit = [r["id"] for r in recs if pred(units[r["id"]])]
         rows.append((len(hit), key, title, blocking, rerun, note, hit))
     rows.sort(key=lambda x: (-x[0]))
     for i, (n, key, title, blocking, rerun, note, hit) in enumerate(rows, 1):
         ex = ", ".join(hit[:6]) + (", ..." if len(hit) > 6 else "")
-        lines.append(f"| {i} | {title} | {n} | {'**yes** (fix first)' if blocking and n else 'no (after)'} | "
+        lines.append(f"| {i} | {title} | {n} | {'**yes** (fix first)' if blocking and n else 'no (fixed)' if rerun == '-' else 'no (after)'} | "
                      f"{rerun} | {ex}{'; ' + note if note else ''} |")
-    clip_miss = collections.Counter(c for r in recs for c in missing_clips_expected(r))
+    clip_miss = collections.Counter(c for r in recs for c in missing_clips_expected(units[r["id"]]))
     lines += ["", "Expected missing clips over all records (animation_set clips no builder makes): "
               + ", ".join(f"`{k}` {v}" for k, v in clip_miss.most_common()) + "."]
     tiers = collections.Counter(c["tier"] for c in cls.values())

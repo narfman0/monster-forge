@@ -807,12 +807,17 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
 
 ### I. Batch (2026-11-04)
 `tools/batch.py` runs the SRD batch (`plan`, `run`, `report`, `audit`); coverage audit, tiers and
-the run book in `docs/batch.md`. 315 monsters, ~32.6 h for tiers 1-3 (278), ~36.3 h with the hold
-tier. Blocking gaps (reference-stage fixes; their records are tier 4 and not run by default):
+the run book in `docs/batch.md`. 315 monsters, ~35.1 h for tiers 1-3 (301), ~36.3 h with the hold
+tier. (2026-11-05) `batch.py` follows cade6ef: tiers 1 = 155, 2 = 113, 3 = 33, 4 = 14 (was 146 /
+101 / 31 / 37); `hold_reason()` keeps only centauroid (3), serpentine (10) and the snake swarm
+(1), and `classify()` / the estimates take a swarm as its unit (`forge.resolve_swarm_unit`).
+Blocking gaps (reference-stage fixes; their records are tier 4 and not run by default):
 - [x] Avian reference prompt (16: every avian but the eagle and the 2 theropods): (2026-11-05)
       per-plan tweak `prompt_tweaks.json` `_plans.avian` (front view, both wings spread to
       the sides, feet on the ground): giant-vulture, raven and the bat unit 4 of 4 on pose;
-      giant-vulture meshed at 2.40 m wingspan, facing 0.5 deg. **Unblocked.**
+      giant-vulture meshed at 2.40 m wingspan, facing 0.5 deg. **Unblocked** in `batch.py`: 7
+      to tier 1 (as giant-eagle), roc / hawk / owl / raven tier 2 (size), the 4 bat-winged tier 2
+      (same path), wyvern tier 3 (untested template).
 - [ ] Serpentine (10): release once constrictor-snake is through anim with the `serpentine_side`
       depth template.
 - [x] Swarms (6): (2026-11-05) one unit per swarm (`forge.SWARM_UNITS`, override `swarm_unit`):
@@ -820,16 +825,19 @@ tier. Blocking gaps (reference-stage fixes; their records are tier 4 and not run
       **Unblocked**, with the unit plan's own tier: bats/ravens avian (now prompt-fixed),
       piranhas aquatic (shark path), venomous snakes serpentine (still held with the
       serpentine plan), crawling claws `custom.limb_chain` (untested, as the troll limb).
+      In `batch.py`: bats, ravens, insects, piranhas tier 2 ("same path" as the unit plan's
+      pilot; the units are tiny and a swarm is tier 2 at best), crawling claws tier 3
+      (`UNTESTED_IDS`), venomous snakes tier 4 (serpentine unit).
 - [ ] Centauroid (3: centaur-trooper, drider, lamia): the centaur-trooper pilot through anim
       on its new centaur reference. (2026-11-05) Still held: the pilot is through anim with
       one arm and no tail chain; the no-quiver reference lost both arms (H). Lamia (lion body,
       no weapons) could run as tier 3 if one arm is acceptable.
 - [x] Specter, wraith (2): (2026-11-05) per-id copies of the ghost's legless-robe tweak; specter
       round 3 and wraith round 1-2 give floor-length robes without feet as the ghost pilot,
-      `ref_pick` 3 each (not meshed). **Unblocked** (custom.ghost path, tier 1).
+      `ref_pick` 3 each (not meshed). **Unblocked** (custom.ghost path, tier 1 in `batch.py`).
 Fixable after the batch (re-run `anim` or `rig,anim` only; counts and lists: `batch.py audit`):
 `attack_ranged` 3 clips; winged_biped wing chains (20: the rig stage now
-inserts them from the mesh, C; check the arm-wing seam in each sword cut); tiny / huge / gargantuan budgets; the 31
+inserts them from the mesh, C; check the arm-wing seam in each sword cut); tiny / huge / gargantuan budgets; the 33
 untested variants; off-model fork, heavy crossbow, mace props.
 - [x] (2026-11-04, clips2) `cast` 48, `swim` 39, `burrow` 18, `breath` 11 and `fly` 8 of 9 (not
       the flying sword) have builders (D); the anim thresholds are size-relative outside the
