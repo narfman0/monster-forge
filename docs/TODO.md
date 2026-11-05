@@ -202,6 +202,12 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       clips so `batch.py audit` stops listing them (owner of batch.py). Done (2026-11-04):
       left are attack_ranged 3, the flying sword's fly, the gibbering mouther's swim
       (amorphous has no swim builder) and the xorn.
+- [x] (2026-11-04, clips3) Godot round 6 clip fixes (E): serpentine strike and swim, merfolk
+      throw, legged flier idle = fly first frame, avian lunge rear, ghost idle from rest,
+      half-held legs in falls. Gate on 14 pilots (not harpy, eagle in scratch): identical clip
+      and frame counts; numbers change on constrictor-snake, merfolk (attack_ranged), ghost
+      (idle, attack), centaur, wolf, dragon, owlbear and goblin (death). docs/rig-anim.md
+      "Clip-to-clip jumps".
 - [ ] Clips still without a builder: `fly` for plant_object (flying sword), `attack_ranged`
       without two arms (djinni, manticore, spirit naga), the xorn (radial); avian `cast`
       (giant owl) builds but no avian rig was available to test it.
@@ -398,27 +404,59 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       New findings, open:
   - [ ] Centaur tail has no bones (`anim.parts.tail` empty): the tail sheet follows the near
         hind leg in walk, swept forward under the belly at 0% and kicking forward like a hoof
-        at 50% (confirmed).
+        at 50% (confirmed). (2026-11-04, clips3) Nothing for the clips to drive: SkinTokens
+        found no tail chain and the tail is skinned to the hind leg. A rig fix (H, centauroid).
   - [ ] Centaur arrow-shaft stick shreds into a fan of dark spikes in front of the chest in
         attack_melee 25-75% (clean reference needed, as noted in H).
   - [ ] Centaur `grip_r` is 13 cm from `hand_r`, 5.4 cm from the nearest skin at idle (0
         vertices within 5 cm; goblin 2 cm), 8-9 cm during the thrust.
-  - [ ] Centaur death dips to -0.033 m mid-fall (check WARN); idle/walk sit at -0.004/-0.006.
+  - [x] Centaur death dips to -0.033 m mid-fall (check WARN); idle/walk sit at -0.004/-0.006.
+        (2026-11-04, clips3) A half-held leg (IK fading 0.28-0.45) rolled with the body and
+        its hoof dipped at 0.33, which raising the body could not lift. In a `rest` fall a leg
+        whose own vertices dip while its IK is between 0 and 1 now has its foot target raised
+        by the dip each settle pass: lowest -0.033 -> -0.010 m (the buckle before the roll, as
+        before), foot raise up to 0.134 m. Same rule: wolf death -0.016 -> -0.006, dragon
+        -0.010 -> -0.006, owlbear and goblin feet up 0.024 / 0.014 m, lowest unchanged.
   - [ ] Centaur loadout: the registry pike is a two-hander on a one-armed rig, and godot-dnd's
         `scale_m / 1.8` prop scale gives 1.333 (scale_m is the whole 2.4 m centaur), a 4.7 m
         pike. Needs a wielder (rider) height for centauroids, upstream or in the game.
-  - [ ] Eagle idle -> fly instant switch moves a vertex 1.754 m in one frame (round 5 1.070,
+  - [x] Eagle idle -> fly instant switch moves a vertex 1.754 m in one frame (round 5 1.070,
         the eagle is 1.39x bigger); 0.25 s cross-fade 0.182 m. Pose (wings), not height.
-  - [ ] Eagle attack_melee at 25% draws the head back behind the near wing with a dark gap
+        (2026-11-04, clips3) The idle's slow beat swells back to full size at its loop start,
+        so its first frame is the fly's (`fly(amp < 1)`), and the lifted one-shots hold the
+        fly's first-frame wings (`wing_beat(at=0)`). Scratch copy of the eagle (out/ not
+        re-run: another stream re-scales it), first-frame jump from the idle (Blender): fly
+        0.616 -> 0.009 m, attack/hit/death 0.938 -> 0.137. Re-check in Godot after the
+        eagle's re-run.
+  - [x] Eagle attack_melee at 25% draws the head back behind the near wing with a dark gap
         (tear) at the neck.
+        (2026-11-04, clips3) The avian lunge rears neck and skull `AVIAN_REAR` 0.35 as far
+        (30 -> 10.5 degrees): edges stretched past 4x at 25% 219 -> 3, past 2x 1033 -> 67
+        (scratch). The strike frames still stretch the raised wings (88 edges past 4x, was 153).
   - [ ] Eagle scale: 5.84 m wingspan (right for 20 ft), 5.29 m tall to the raised wing tips,
         head ~3.5 m; next to the 1 m goblin its legs alone are the goblin's height. Check
         that this is the intended size.
-  - [ ] Snake strike is small: only the front 5 bones key (6 tracks), the head rears 0.3-0.5 m.
+  - [x] Snake strike is small: only the front 5 bones key (6 tracks), the head rears 0.3-0.5 m.
         Snake idle -> swim frame-0 jump 1.245 m (walk 0.717).
-  - [ ] Ghost death now starts at lowest 0.180 m vs idle 0.254 (jump 0.104 m, same as hit).
-  - [ ] Merfolk attack_ranged still starts from the raised rest arm (0.614 m jump; open in
+        (2026-11-04, clips3) Strike on the front third (a cobra S), a sideways coil and a
+        draw-back as the wind-up, forward and down with a 0.08 x length slide: head tip
+        wind-up -> bite 0.81 -> 1.39 m (0.35 x length), rise 0.30 -> 0.63 m, rear on the
+        ground (`contact`). The swim had no lift (it is `contact`); the jump was the wave:
+        18 degrees per joint over one wave swung the tail 2 m. Swim is now 16 degrees over 1.5
+        waves growing toward the tail, and walk and swim start at the phase nearest the rest
+        pose; the idle is a standing flex starting on the rest pose. Idle -> swim 1.245 ->
+        0.320 m, -> walk 0.717 -> 0.379, -> attack/hit/death 0.270 -> 0. docs/rig-anim.md
+        "Clip-to-clip jumps".
+  - [x] Ghost death now starts at lowest 0.180 m vs idle 0.254 (jump 0.104 m, same as hit).
+        (2026-11-04, clips3) The body heights matched; the idle's hem sway lifted the train on
+        its first frame. Every idle layer now starts at 0 (`from_rest`): idle first lowest
+        vertex 0.254 -> 0.180, idle -> hit, death 0.104 -> 0, -> attack 0.044 -> 0 (its hem
+        sway too); idle -> fly 0.702 -> 0.801 (the fly's lean).
+  - [x] Merfolk attack_ranged still starts from the raised rest arm (0.614 m jump; open in
         round 5 notes).
+        (2026-11-04, clips3) `attack_throw`: an FK overhand throw from and back to the relaxed
+        arm (cock behind the shoulder, release at head height, follow through), 30 frames:
+        idle -> attack_ranged 0.614 -> 0.059 m (= attack_melee, hit).
   - [ ] Snake, centaur and eagle are described as unpainted, but render with full texture
         colours (python pattern, palomino and rider, bald eagle) in Godot: the texture stage
         alone is enough for a read. Not a bug.
@@ -592,7 +630,9 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
       spine, head, right arm only (an arrow shaft behind the head meshed as a sideways stick
       where the left arm should be), so `attack_ranged` is missing; the tail hangs to the
       ground and moves with the hind legs. Open: a cleaner reference (no shaft, house style)
-      and a re-roll for both arms. Paint pending (B). Before: juggernaut drew a man riding a horse in
+      and a re-roll for both arms. Paint pending (B). The tail has no bones (no tail chain in
+      roll_1; it is skinned to the near hind leg, so it kicks with the hoof in the walk, Godot
+      round 6): the clips cannot fix it, the re-roll or a fallback tail chain must. Before: juggernaut drew a man riding a horse in
       8 of 8 over three prompts. A rider proxy (prancing, one hoof up) rigged with both arms,
       head and spine; the stage refuses its 3 grounded feet. In scratch with feet 3 all six clips
       build (sword cut and bow draw on the arms). Batch: blocked on references (Z-Image /

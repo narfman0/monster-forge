@@ -239,7 +239,7 @@ after the clip, 30 fps, starting at t=0) plus `anims/<clip>.json` (its report) a
 | `idle` | all legged | yes | 2.5 s |
 | `walk` | all legged | yes | 0.7-2 s (from the leg length) |
 | `attack_melee` | biped: sword cut from `hand_r`; quadruped: lunge bite; insectoid: front-leg stab + bite | once | 0.9-1.1 s |
-| `attack_ranged` | two-armed: bow draw (bow at `hand_l`) | once | 1.6 s |
+| `attack_ranged` | two-armed: bow draw (bow at `hand_l`); merfolk_naga: overhand throw from the relaxed `hand_r` arm (1.0 s) | once | 1.6 s |
 | `hit` | all legged | once | 0.5 s |
 | `death` | all legged; ends on the lying pose (hold the last frame) | once | 1.8 s |
 | `fly` | when wing chains are found: wing beat, hover (the lowest vertex `HOVER` above the ground: 0.32 m on a pilot-sized body); without wings (giants, efreeti, nightmare): a levitation, the same hover, legs hanging, a slow bob | yes | 1.2-1.6 s; levitation 2 s |
@@ -258,8 +258,9 @@ breaststroke and hem kick); serpentine has `cast` and `breath` (the front quarte
 thrusts), `burrow` (the head dives, the body follows down by half its height) and `fly` (the
 slither held `HOVER` up). Still without a builder: `fly` for plant_object (the flying sword),
 `attack_ranged` without two arms, and every clip of the radial xorn. Floating,
-aquatic and swim clips hover at one constant height for every clip of the monster (`lift`);
-the other legless clips keep the lowest vertex on the ground (`contact`). Blobs also key
+aquatic and swim clips hover at one constant height for every clip of the monster (`lift`),
+except the serpentine swim, which slithers on the ground like its walk; the other legless
+clips keep the lowest vertex on the ground (`contact`). Blobs also key
 bone scale (squash and stretch). The plan table is in `docs/rig-anim.md`, "Body plans".
 
 Looping clips have identical first and last frames. Manifest shape:

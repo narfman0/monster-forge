@@ -411,8 +411,8 @@ the line the fist travels, and the torso's wind-up and lean are taken out of the
 directions so the shaft stays on line. Merfolk (spear): grip (0.28, 0.02, 1.51) ->
 (0.10, 0.59, 1.58) m, within ~10 degrees of the shaft; the spear tip is 1.74 m forward at the
 thrust against the body's front at 0.67, and ahead of the body in every frame. Same 30
-frames. Goblin (scimitar): cut and bow draw unchanged. The merfolk's `attack_ranged` (a
-throw) stays the overhand arc.
+frames. Goblin (scimitar): cut and bow draw unchanged. The merfolk's `attack_ranged` is an
+FK overhand throw (`attack_throw`, report `style: throw`, round 6 below).
 
 **Arm relax** (`blender_clips.RELAXED`). The rest pose is the reference's pose, and an arm
 drawn raised (shoulder -> wrist rising more than `RAISED_DEG` 15 degrees; the merfolk's right
@@ -421,13 +421,65 @@ a base layer in idle, walk, swim, hit and the thrust's ends: upper arm `RELAX_DE
 from the body, forearm forward, grip +Y forward and up (a spear held upright); death fades it
 out over its first half, so the fall ends as before. Merfolk idle grip z 1.87 -> 1.48 m.
 Arms that hang (goblin, harpy, ghost) or reach out sideways (the merfolk's left arm, 6
-degrees) are left alone. The cut and the throw are arm IK from the rest wrist, so they still
-start from the raised arm (merfolk `attack_ranged`).
+degrees) are left alone. The cut is arm IK from the rest wrist, so it still starts from the
+raised arm; the merfolk's throw starts and ends on the relaxed arm (round 6 below).
 
 **Lift clips that would touch the ground.** `lift` keeps the body at one height, but a pose
 can still push a part through the floor (the ghost's hit tilts its robe train to -1.3 cm):
 those frames, and only those, are raised by the dip (ghost hit: lowest vertex -0.013 -> 0,
 lift 0.18 -> at most 0.193 m).
+
+**Clip-to-clip jumps (2026-11-04, Godot round 6, clips3).** The game switches clips, so each
+clip's first frame should be where the idle's first frame is. "Jump" below is the largest
+vertex move from the idle's first frame to the clip's first frame (Blender, skinned mesh).
+
+- Serpentine. `idle_serpent` flexes the body as a *standing* wave (`body_wave` speed 0, the
+  shape sin(2 pi s) scaled by sin(2 pi t)) and its head layers are 0 at t=0, so its first
+  frame is the rest pose, where hit, attack and death start (jump 0.27 -> 0). `slither`
+  starts its travelling wave at the phase whose first frame keeps the chain nearest its rest
+  (`wave_phase`, a flat FK of the chain about Z over 48 phases; report `wave_phase`,
+  `start_dev_m`). `swim_serpent` was 18 degrees per joint over one wave (the tail swung 2 m on
+  the 4 m snake): now 16 degrees over 1.5 waves, growing toward the tail (0.5 at the head,
+  1.0 at the tail end). The serpentine swim has no lift: it is `contact` like the walk (the
+  game places the water line). Constrictor snake idle -> walk 0.717 -> 0.379 m, idle -> swim
+  1.245 -> 0.320 m. `strike_serpent` drives the front third (`STRIKE_S` 2/3; was the front
+  quarter): its base pitches up 75 degrees and its front half back down 40 (a cobra S, the
+  head looking ahead), a sideways S coils each side of the mid-body root (16 degrees, each
+  side's turns adding up to 0, so the tail keeps its heading) and the body draws back 0.04 x
+  length; then the front third strikes forward and down (-8 / -6 degrees, the head tip at
+  0.34 m against 0.48 at rest) as the body slides 0.08 x length forward, holds 0.5-0.62 and
+  recovers. `contact`. Snake: head tip wind-up -> bite 0.81 -> 1.39 m (0.35 x length),
+  forward 0.54 -> 1.16, rise at the wind-up 0.30 -> 0.63 m; the rear 60% of the body stays
+  within 0.04-0.06 m of the ground (its rest arch) in every frame; body correction 0.015 m.
+- Merfolk `attack_ranged` (`attack_throw`): FK-aimed like the thrust, from the relaxed arm:
+  cocked above and behind the shoulder with the elbow out (0.35), released forward at head
+  height (0.5), followed through down across the body (0.62), back on the relaxed arm; the
+  torso turns away and leans back, then into the throw; the free arm points ahead while
+  cocked. Same 30 frames. Idle -> attack_ranged 0.614 -> 0.059 m (= attack_melee and hit:
+  the idle's own small arm and tail waves).
+- Legged flier's idle (`fly(amp < 1)`): the beat's size swells back to full at the loop start
+  (A(t) = amp + (1 - amp)(1 + cos 2 pi t) / 2, also on the bob), so the idle's first frame is
+  the fly clip's; lifted one-shots of a legged flier hold the fly's first-frame wing pose
+  (`wing_beat(at=0)`, faded out over the first half of death) next to its leg tuck. The
+  avian lunge rears the neck and skull `AVIAN_REAR` (0.35) as far (the eagle's head went
+  behind the near wing at 25% and tore the neck). Giant eagle, scratch copy of its rig:
+  idle -> fly 0.616 -> 0.009 m, idle -> attack, hit, death 0.938 -> 0.137; edges stretched
+  past 4x at 25% of the lunge 219 -> 3 (past 2x 1033 -> 67); idle body 0.413 -> 0.421 m,
+  one-shots first lowest vertex 0.348 -> 0.356 (idle 0.352 -> 0.359). Fly unchanged (amp 1),
+  so harpy and dragon fly are unchanged.
+- Ghost (`idle_float`): every idle layer is shifted to 0 at t=0 (`from_rest`; the hem sway
+  `hem_sway(zero=True)`, also in `attack_float`), so the idle starts on the pose the one-shots
+  start on; before, its hem sway had lifted the robe train 0.074 m on the first frame (lowest
+  vertex 0.254 vs 0.180). Idle -> hit, death 0.104 -> 0, -> attack 0.044 -> 0; idle first
+  lowest vertex 0.254 -> 0.180, its cycle minimum 0.079 -> 0.015 (the sway is no longer
+  centred on rest). Idle -> fly 0.702 -> 0.801 m (pose: the fly leans 14 degrees).
+- Falls that let go of the IK (`death`, ground `rest`): a leg whose IK is half on (0 < k < 1)
+  rolls with the body and its own vertices (`leg_masks`) dip, which raising the body barely
+  lifts; the foot target is raised by that leg's dip each settle pass (`foot_raise_max`).
+  Centaur death -0.033 -> -0.010 m (the -0.010 is the buckle before the roll, as before);
+  the same rule changes wolf (-0.016 -> -0.006, feet up to 0.056 m), young red dragon (-0.010
+  -> -0.006, 0.095), owlbear (0.024) and goblin (0.014) deaths; spider (legs not level) and the
+  legless plans unchanged.
 
 **cast, swim, burrow, breath and fly for every plan that asks (2026-11-04, clips2).** The
 SRD animation sets ask for `cast` 48 times, `swim` on legged plans and floating 39, `burrow`
@@ -529,7 +581,7 @@ centauroid stay on the legged framework (centauroid adds the arms via `anim.ARME
 
 | plan | pilot | rig | clips | result |
 |---|---|---|---|---|
-| serpentine | constrictor-snake | `fallback:spine_chain` (16 bones). SkinTokens: 7-13 joint star, no chain (4 of 4) | `walk`/`swim` slither (curvature wave head -> tail, mid-body root holds place and heading), `idle`, `attack_melee` strike (front quarter rears and strikes), `hit`, `death` (front slumps). Ground `contact` | works. (2026-11-04, pose template) The reference is now a side-view snake stretched along the ground (`serpentine_side` depth ControlNet, docs/references.md): mesh 4.0 x 0.40 x 0.56 m, no leveling needed, facing 1.0 degree off; spine_chain 16 bones head to tail, 0 loose vertices (no fused coils); SkinTokens rolls still 10-12 joint stars. Slither sheet: curvature wave in the top view, lowest vertex 0 in every clip. The side-view drawing's S comes out as a gentle vertical wave, so the mid-body arches a few cm off the ground at rest |
+| serpentine | constrictor-snake | `fallback:spine_chain` (16 bones). SkinTokens: 7-13 joint star, no chain (4 of 4) | `walk`/`swim` slither (curvature wave head -> tail, mid-body root holds place and heading), `idle`, `attack_melee` strike (front third rears in an S, coils, strikes 0.35 x length; round 6 above), `hit`, `death` (front slumps). Ground `contact` | works. (2026-11-04, pose template) The reference is now a side-view snake stretched along the ground (`serpentine_side` depth ControlNet, docs/references.md): mesh 4.0 x 0.40 x 0.56 m, no leveling needed, facing 1.0 degree off; spine_chain 16 bones head to tail, 0 loose vertices (no fused coils); SkinTokens rolls still 10-12 joint stars. Slither sheet: curvature wave in the top view, lowest vertex 0 in every clip. The side-view drawing's S comes out as a gentle vertical wave, so the mid-body arches a few cm off the ground at rest |
 | floating | ghost | SkinTokens roll 3 (34 joints): a biped under the robe, legs to the hem, both arms, `hand_r/l` | `idle`, `fly` (lean + hem trailing), `attack_melee` (both arms reach, FK-aimed), `hit`, `death` (falls forward onto the ground; the robe train, flat on the floor behind the feet at rest, folds back at the hem's first bone below 0.15 x the height so it lies flat instead of standing up as a 0.9 m sheet: last-frame top 1.28 -> 0.78 m, body raise 0.30 -> 0.18). All but death `lift`: a constant 0.1 x height above the ground in every clip | works |
 | avian | giant-eagle | SkinTokens roll 3 (32 joints): both wing chains, 2 legs, no spine (`problems` spine, leg_pairs) | legged framework: `idle`, `fly` (both wings flap), `attack_melee` (lunge), `hit` (no body tilt for avian), `death` (pitches forward onto its breast, wings fold back). The 2-bone tail fan resting on the ground is turned up instead of the body being raised (Anim stage) | works; `walk` (not in this record's set) builds clean in scratch. The head is the beak (`find_snout` skips wings) and the rig stage stands it on its feet (Rig stage). (2026-11-04) Yaw pinned -150.5 (the facing check's suggested yaw; was 29.5 degrees off at QA's auto 180): facing 0.0, wings symmetric in the front view, legs one per side (was 2 right, 0 left); rig roll_0 of 4 (score -1.70 after the mesh-found wing chains, problem spine only; was roll_3 -3.32 with leg_pairs and spine), grounded (lowered 0.49 m, tail fan turned up 30.8 degrees). Because `scale_m` is nose-to-tail, the straightened eagle is 1.39x bigger: wingspan 5.84 m, height 5.78 (was 3.89 / 4.16 on the diagonal). Clips: idle and fly 0.32 m hover as before, attack and hit held at the lifted idle (first frame 0.348), death ends on the ground |
 | amorphous | black-pudding | `fallback:vertical` (4 bones, one straight line through the upper body's bbox centre). SkinTokens: 21-24 joints, 0.83-0.88 bleed | squash and stretch = the root's scale (`vscale`: on the bone axis closest to world up), lean = chain about X. `idle` pulse, `walk` ooze, `attack_melee` engulf (rear up, surge and flatten forward), `hit`, `death` (flattens into a puddle 1.5x wide). Ground `contact` | works |
