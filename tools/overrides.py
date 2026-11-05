@@ -13,6 +13,8 @@ import json
 import re
 from pathlib import Path
 
+import sources  # tools/sources.py: SRD here, other sources in the non-SRD repo
+
 ROOT = Path(__file__).resolve().parent.parent
 OVERRIDES_DIR = ROOT / "data" / "overrides"
 
@@ -198,7 +200,7 @@ FIELDS = {
 
 
 def path_for(source: str, mid: str) -> Path:
-    return OVERRIDES_DIR / source / f"{mid}.json"
+    return sources.overrides_dir(source) / f"{mid}.json"
 
 
 def load(source: str, mid: str) -> dict:

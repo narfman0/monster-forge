@@ -20,10 +20,9 @@ hold only `scale_m`; the description then stays the template). Its equipment `pr
 to data/equipment.json's. Curated entries for unknown slugs, bad body plans or props
 without a spec fail the build.
 
-Until tools/forge.py and tools/overrides.py resolve paths through tools/sources.py, the
-importer also leaves a git-ignored copy at data/registry/mm-2024.json and a git-ignored
-symlink data/overrides/mm-2024 -> the non-SRD checkout's overrides/mm-2024 (--no-local
-skips both).
+forge.py, overrides.py and viewer.py resolve non-SRD paths through tools/sources.py, so
+nothing non-SRD is written under data/ (--local leaves the old git-ignored registry copy
+and overrides symlink there for tools that still read data/ directly).
 
   --check-srd PATH  also compare the `srd52` stat blocks' size/type/speeds/CR against
                     data/registry/srd-5.2.1.json and write the mismatches to PATH
@@ -303,8 +302,8 @@ def check_srd(srd_monsters, srd_path, out_path):
 
 
 def leave_local_copies(out):
-    """Transitional, until forge.py / overrides.py resolve through tools/sources.py: a
-    git-ignored copy of the registry and a git-ignored overrides symlink in data/."""
+    """Optional (--local): a git-ignored copy of the registry and a git-ignored overrides
+    symlink in data/, for tools that still read data/ directly."""
     msgs = []
     local = ROOT / "data/registry" / f"{SOURCE_ID}.json"
     if local.resolve() != out.resolve():
@@ -325,8 +324,8 @@ def main():
     ap.add_argument("--src", type=Path, default=DEFAULT_SRC)
     ap.add_argument("--out", type=Path, default=None,
                     help="default: registry/mm-2024.json in the non-SRD checkout (tools/sources.py)")
-    ap.add_argument("--no-local", action="store_true",
-                    help="do not leave the git-ignored data/registry copy and data/overrides symlink")
+    ap.add_argument("--local", action="store_true",
+                    help="also leave a git-ignored data/registry copy and data/overrides symlink")
     ap.add_argument("--check-srd", type=Path, metavar="PATH",
                     help="write the srd52 vs srd-5.2.1.json mismatch table here")
     args = ap.parse_args()
@@ -385,7 +384,7 @@ def main():
 
     rel = args.out.relative_to(ROOT) if args.out.is_relative_to(ROOT) else args.out
     print(f"wrote {len(records)} records -> {rel}  ({len(srd)} srd52 blocks skipped)")
-    if default_out and not args.no_local:
+    if default_out and args.local:
         for line in leave_local_copies(args.out):
             print("  " + line)
     counts = Counter(r["body_plan"] for r in records)

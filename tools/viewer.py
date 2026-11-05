@@ -34,6 +34,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import overrides  # noqa: E402  (tools/overrides.py)
+import sources  # noqa: E402  (tools/sources.py)
 
 ROOT = Path(__file__).resolve().parent.parent
 VIEWER = ROOT / "viewer"
@@ -202,7 +203,7 @@ def ref_unarmed(ref_m: dict) -> dict | None:
 
 
 def build_index(source: str) -> dict:
-    reg = load_json(REGISTRY_DIR / f"{source}.json")
+    reg = load_json(sources.registry_path(source))
     monsters = reg.get("monsters", [])
     out = []
     totals = {s: 0 for s in STAGES}
@@ -348,11 +349,11 @@ JOBS = JobQueue()
 
 
 def registry_ids(source: str) -> set[str]:
-    return {m["id"] for m in load_json(REGISTRY_DIR / f"{source}.json").get("monsters", [])}
+    return {m["id"] for m in load_json(sources.registry_path(source)).get("monsters", [])}
 
 
 def registry_record(source: str, mid: str) -> dict | None:
-    for m in load_json(REGISTRY_DIR / f"{source}.json").get("monsters", []):
+    for m in load_json(sources.registry_path(source)).get("monsters", []):
         if m["id"] == mid:
             return m
     return None
@@ -371,7 +372,8 @@ def override_view(source: str, mid: str) -> dict:
         if eff["ref_pick"]["override"] is None:
             eff["ref_pick"]["value"] = picked
     refs = sorted((OUT_ROOT / source / mid).glob("ref_*.png"))
-    return {"id": mid, "file": str(overrides.path_for(source, mid).relative_to(ROOT)),
+    path = overrides.path_for(source, mid)
+    return {"id": mid, "file": str(path.relative_to(ROOT) if path.is_relative_to(ROOT) else path),
             "exists": overrides.path_for(source, mid).exists(), "fields": eff,
             "ref_candidates": len(refs), "run_stages": list(RUN_STAGES)}
 
@@ -525,8 +527,10 @@ def main() -> int:
     if args.out_root:
         global OUT_ROOT
         OUT_ROOT = Path(args.out_root).resolve()
-    if not (REGISTRY_DIR / f"{args.source}.json").exists():
-        print(f"no registry for source {args.source!r}", file=sys.stderr)
+    try:
+        sources.registry_path(args.source)
+    except FileNotFoundError as e:
+        print(f"no registry for source {args.source!r}: {e}", file=sys.stderr)
         return 2
     Handler.source = args.source
     JOBS.source = args.source

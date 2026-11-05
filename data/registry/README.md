@@ -124,16 +124,16 @@ schema and live in the separate non-SRD checkout, `registry/<source>.json`
 Monster Manual 2024 one is built there by
 
 ```sh
-python3 -I tools/import_names.py [--src PATH] [--check-srd PATH] [--no-local]
+python3 -I tools/import_names.py [--src PATH] [--check-srd PATH] [--local]
 ```
 
 from a local 5etools checkout (read as data, never vendored). The source's curation is
 read from the same checkout. `--check-srd` also writes a table of size/type/speed/CR
-differences between the SRD blocks in that file and `srd-5.2.1.json` (report only). Until
-`tools/forge.py` and `tools/overrides.py` resolve through `tools/sources.py`, the importer
-also leaves a git-ignored copy in this directory and a git-ignored `data/overrides/<source>`
-symlink (`--no-local` skips both). Neither the registry nor anything generated from it may
-be published. The non-SRD checkout's `docs/sources.md` has the details.
+differences between the SRD blocks in that file and `srd-5.2.1.json` (report only).
+`forge.py`, `overrides.py` and `viewer.py` resolve non-SRD paths through
+`tools/sources.py`, so nothing non-SRD is written under `data/` (`--local` leaves a
+git-ignored copy here and a `data/overrides/<source>` symlink for tools that still read
+`data/` directly). Neither the registry nor anything generated from it may be published. The non-SRD checkout's `docs/sources.md` has the details.
 
 ## props.json
 

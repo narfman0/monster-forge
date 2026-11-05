@@ -38,6 +38,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import overrides  # noqa: E402  (tools/overrides.py: per-monster overrides, budgets)
+import sources  # noqa: E402  (tools/sources.py: SRD here, other sources in the non-SRD repo)
 import paint  # noqa: E402  (tools/paint.py: multiview paint stage)
 import rig  # noqa: E402  (tools/rig.py: SkinTokens rig stage)
 import anim  # noqa: E402  (tools/anim.py: procedural clips)
@@ -105,7 +106,7 @@ def log(msg: str) -> None:
 
 
 def load_registry(source: str) -> dict[str, dict]:
-    data = json.loads((REGISTRY_DIR / f"{source}.json").read_text())
+    data = json.loads(sources.registry_path(source).read_text())
     return {m["id"]: m for m in data["monsters"]}
 
 
