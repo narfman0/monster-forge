@@ -4,6 +4,7 @@
     "strength": 0.6,
     "end": 0.6
   },
-  "notes": "centauroid pilot. References from the centaur_34 depth ControlNet template (docs/references.md \"Pose templates\", round 2 of 3, 2026-11-04): ref 2 is a real centaur (human torso where the horse's neck would be, all four hooves down, empty hands), drawn photo-like rather than in the house ink style. The rider proxy (yaw 113) it replaces was refused by the rig stage (3 grounded feet). Three-quarter reference on a front-view plan: yaw pinned to 100.5 (the facing check's suggested yaw; QA's front-view 180 left it 79.5 degrees off).",
-  "yaw": 100.5
+  "notes": "centauroid pilot. References from the centaur_34 depth ControlNet template (docs/references.md \"Pose templates\", round 2 of 3, 2026-11-04): ref 2 is a real centaur (human torso where the horse's neck would be, all four hooves down, empty hands), drawn photo-like rather than in the house ink style. The rider proxy (yaw 113) it replaces was refused by the rig stage (3 grounded feet). Three-quarter reference on a front-view plan: yaw pinned to 100.5 (the facing check's suggested yaw; QA's front-view 180 left it 79.5 degrees off). 2026-11-05: a no-quiver re-reference (prompt_tweaks.json centaur-trooper.tried_2026_11_05) meshed clean but its arms hang against the body and no SkinTokens roll (8) found an arm, so this round-2 pick is kept. rider_height_m 1.8: props scale by the rider (a man-sized torso), not by scale_m 2.4 (docs/equipment.md).",
+  "yaw": 100.5,
+  "rider_height_m": 1.8
 }

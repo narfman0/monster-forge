@@ -82,6 +82,27 @@ def _ref_template(v):
     return None
 
 
+SWARM_UNIT_KEYS = {"unit": _text(80), "plan": _text(40), "rig_template": _text(80),
+                   "size": _choice("tiny", "small", "medium", "large", "huge", "gargantuan"),
+                   "scale_m": _num(0.02, 20), "prompt": _text(800)}
+
+
+def _swarm_unit(v):
+    """swarm_unit: false (make the swarm record as the swarm) or {unit (a registry id), plan,
+    rig_template, size, scale_m, prompt} over forge.SWARM_UNITS (docs/references.md)."""
+    if v is False:
+        return None
+    if not isinstance(v, dict):
+        return "must be false or an object"
+    for k, x in v.items():
+        if k not in SWARM_UNIT_KEYS:
+            return f"unknown key {k!r} (allowed: {sorted(SWARM_UNIT_KEYS)})"
+        e = SWARM_UNIT_KEYS[k](x)
+        if e:
+            return f"{k} {e}"
+    return None
+
+
 def _screen_ratios(v):
     if not (isinstance(v, list) and len(v) == 3):
         return "must be a list of 3 numbers (LOD0, LOD1, LOD2 switch points)"
@@ -181,6 +202,11 @@ FIELDS = {
     "seed_ref": (_num(0, 2**31 - 1, True), "ref", "reference image seed"),
     "ref_template": (_ref_template, "ref", "ControlNet pose template: false (none), a name (apose, serpentine_side, "
                      "centaur_34) or {image, type, strength, start, end} over the body plan's (docs/references.md)"),
+    "swarm_unit": (_swarm_unit, "ref", "swarms: make the record as one unit: false (off) or {unit, plan, rig_template, "
+                   "size, scale_m, prompt} over forge.SWARM_UNITS (docs/references.md \"Swarm units\")"),
+    "rider_height_m": (_num(0.3, 10), None, "centauroid / merfolk_naga: height of the humanoid rider part for "
+                       "prop scale (props are sized for a 1.8 m wielder; scale_m is the whole body). Read by "
+                       "the viewer and the game, not by forge.py (docs/equipment.md)"),
     "yaw": (_num(-360, 360), "qa", "degrees about up (overrides auto facing)"),
     "forward": (_choice("-Z", "+Z"), "qa", "glTF facing direction"),
     "level": (_bool, "qa", "stance leveling on/off"),

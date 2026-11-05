@@ -61,7 +61,22 @@ UPRIGHT_PLANS = {"biped", "winged_biped", "centauroid", "merfolk_naga"}
 FRONT_VIEW_PLANS = UPRIGHT_PLANS | {"floating"}
 # Plans with no standing height or nose-to-tail axis: scale_m is the largest body
 # dimension (the registry's definition). A ghost scaled by its depth came out ~3x too big.
-MAX_SCALE_PLANS = {"floating", "amorphous", "plant_object", "swarm", "tentacled"}
+# Avian too: a bird's largest dimension is its wingspan with the wings spread (the eagle
+# scaled nose-to-tail came out 1.39x too big, 5.84 m across for scale_m 3.0); theropods
+# (wingless avian records, LENGTH_SCALE_TEMPLATES) keep nose-to-tail.
+MAX_SCALE_PLANS = {"floating", "amorphous", "plant_object", "swarm", "tentacled", "avian"}
+LENGTH_SCALE_TEMPLATES = {"custom.theropod"}
+
+
+def scale_axis(mon: dict) -> str:
+    """Which model dimension QA scales to `scale_m`: "height" (upright plans), "max" (the
+    largest dimension: MAX_SCALE_PLANS) or "length" (nose-to-tail, everything else)."""
+    plan = mon["body_plan"]
+    if plan in UPRIGHT_PLANS:
+        return "height"
+    if plan in MAX_SCALE_PLANS and mon.get("rig_template") not in LENGTH_SCALE_TEMPLATES:
+        return "max"
+    return "length"
 
 REF_PROMPT_PREFIX = "single creature, centered, "
 DEFAULT_MESH = {
@@ -288,9 +303,105 @@ def load_workflow(name: str) -> dict:
 
 # ---------------------------------------------------------------- stages
 def load_prompt_tweaks() -> dict:
-    """data/prompt_tweaks.json: {id: {prompt | prepend, negative_append, note}} for re-rolls."""
+    """data/prompt_tweaks.json: {id: {prompt | prepend, negative_append, note}} for re-rolls,
+    plus "_plans": {body_plan: {replace, prepend, append, negative_append, except_templates}}."""
     p = ROOT / "data" / "prompt_tweaks.json"
     return json.loads(p.read_text()) if p.exists() else {}
+
+
+def ref_prompt(mon: dict) -> tuple[str, str, list[str]]:
+    """(positive subject, negative to append, tweaks applied) for the ref stage. The per-plan
+    tweak (prompt_tweaks.json "_plans"[body_plan], skipped for the rig templates in its
+    `except_templates`) applies first: `replace` {old: new} on the registry prompt, then
+    `prepend` / `append`; then the per-id entry: `prompt` replaces the whole subject (the
+    plan's replace/prepend/append are then moot), else its own replace / prepend / append.
+    Negatives add up (plan, then id)."""
+    tw = load_prompt_tweaks()
+    plan = (tw.get("_plans") or {}).get(mon["body_plan"]) or {}
+    if mon.get("rig_template") in (plan.get("except_templates") or []):
+        plan = {}
+    ent = tw.get(mon["id"]) or {}
+    used = ([f"plan:{mon['body_plan']}"] if plan else []) + ([f"id:{mon['id']}"] if ent else [])
+    if ent.get("prompt"):
+        subject = ent["prompt"]
+    else:
+        subject = mon["reference_prompt"]
+        for t in (plan, ent):
+            for old, new in (t.get("replace") or {}).items():
+                subject = subject.replace(old, new)
+        subject = ent.get("prepend", "") + plan.get("prepend", "") + REF_PROMPT_PREFIX + subject
+        for t in (plan, ent):
+            if t.get("append"):
+                subject = subject.rstrip(" ,.") + ", " + t["append"]
+    neg = ", ".join(t["negative_append"] for t in (plan, ent) if t.get("negative_append"))
+    return subject, neg, used
+
+
+# Swarms are generated as ONE unit (docs/references.md "Swarm units"): the record is made as
+# its unit (a bat, a beetle, ...) with the unit's body plan, rig template, size and scale; the
+# game multiplies it. `unit` borrows a registry record's plan, template, size, scale_m and
+# reference prompt; the other keys set or override them. The swarm's own animation_set is
+# kept. Override `swarm_unit` (false = off, or an object over this table's entry).
+# swarm-of-rats is left out: its pilot was made as a column of rats and is not re-run; add
+# it (or an override {"unit": "rat"}) when it is regenerated (docs/TODO.md H).
+SWARM_UNIT_SCALE_M = 0.3  # a Tiny unit with no registry record of its own
+SWARM_UNITS = {
+    "swarm-of-bats": {"unit": "bat"},
+    "swarm-of-ravens": {"unit": "raven"},
+    "swarm-of-piranhas": {"unit": "piranha"},
+    "swarm-of-venomous-snakes": {"unit": "venomous-snake"},
+    "swarm-of-insects": {
+        "plan": "insectoid", "rig_template": "custom.hexapod", "size": "tiny",
+        "prompt": "a single large beetle with a glossy dark brown carapace, six jointed legs and short "
+                  "antennae, all six feet on the ground. Tiny beast. Low-poly game asset, full body, "
+                  "neutral stance, side view, plain gray background, clean silhouette, flat even lighting."},
+    "swarm-of-crawling-claws": {
+        "plan": "plant_object", "rig_template": "custom.limb_chain", "size": "tiny",
+        "prompt": "a single severed undead human hand crawling on its fingertips, pale withered grey skin, "
+                  "long dirty nails, ragged wrist stump. Tiny undead. Low-poly game asset, full body, "
+                  "neutral stance, side view, plain gray background, clean silhouette, flat even lighting."},
+}
+
+
+def swarm_unit_spec(mon: dict) -> dict | None:
+    """The swarm_unit entry for a swarm record (SWARM_UNITS under the `swarm_unit` override),
+    or None (not a swarm, no entry, or the override is false)."""
+    if mon.get("body_plan") != "swarm" and not mon.get("swarm_unit"):
+        return None
+    ov = ov_for(mon).get("swarm_unit")
+    if ov is False:
+        return None
+    spec = {**SWARM_UNITS.get(mon["id"], {}), **(ov or {})}
+    return spec or None
+
+
+def resolve_swarm_unit(reg: dict, mon: dict) -> dict:
+    """The record the stages see: for a swarm with a unit (swarm_unit_spec), a copy made as
+    the unit (body_plan, rig_template, size, scale_m, reference_prompt, no hands or sockets),
+    with `swarm_unit` = {unit, plan, rig_template, size, scale_m, swarm: {body_plan, size,
+    scale_m}} for the manifest. Anything else is returned as is."""
+    spec = swarm_unit_spec(mon)
+    if not spec:
+        return mon
+    base = reg.get(spec["unit"], {}) if spec.get("unit") else {}
+    if spec.get("unit") and not base:
+        raise RuntimeError(f"{mon['id']}: swarm_unit.unit {spec['unit']!r} is not in the registry")
+    plan = spec.get("plan") or base.get("body_plan")
+    if not plan:
+        raise RuntimeError(f"{mon['id']}: swarm_unit needs a unit record or a plan")
+    unit = dict(mon)
+    unit.update({
+        "body_plan": plan,
+        "rig_template": spec.get("rig_template") or base.get("rig_template") or mon.get("rig_template"),
+        "size": spec.get("size") or base.get("size") or "tiny",
+        "scale_m": float(spec.get("scale_m") or base.get("scale_m") or SWARM_UNIT_SCALE_M),
+        "reference_prompt": spec.get("prompt") or base.get("reference_prompt") or mon["reference_prompt"],
+        "hands": False, "sockets": [], "wields": [], "unarmed_reference": False,
+    })
+    unit["swarm_unit"] = {"unit": spec.get("unit"), "plan": unit["body_plan"], "rig_template": unit["rig_template"],
+                          "size": unit["size"], "scale_m": unit["scale_m"],
+                          "swarm": {"body_plan": mon["body_plan"], "size": mon["size"], "scale_m": mon["scale_m"]}}
+    return unit
 
 
 def load_style(path: str | None) -> dict:
@@ -514,8 +625,7 @@ def stage_ref(mon: dict, d: Path, args) -> None:
     for p in refs:
         p.unlink()
     wf = load_workflow("ref_image.api.json")
-    tweak = load_prompt_tweaks().get(mon["id"], {})
-    prompt = tweak.get("prompt") or (tweak.get("prepend", "") + REF_PROMPT_PREFIX + mon["reference_prompt"])
+    prompt, tweak_neg, tweaks_used = ref_prompt(mon)
     ov = ov_for(mon)
     if ov.get("prompt_extra"):
         prompt = prompt.rstrip(" ,.") + ", " + ov["prompt_extra"]
@@ -529,8 +639,8 @@ def stage_ref(mon: dict, d: Path, args) -> None:
         prompt = prompt.rstrip(" ,.") + ", " + style["unarmed_suffix"]
         if style.get("unarmed_negative"):
             wf["neg"]["inputs"]["text"] += ", " + style["unarmed_negative"]
-    if tweak.get("negative_append"):
-        wf["neg"]["inputs"]["text"] += ", " + tweak["negative_append"]
+    if tweak_neg:
+        wf["neg"]["inputs"]["text"] += ", " + tweak_neg
     if ov.get("negative_extra"):
         wf["neg"]["inputs"]["text"] += ", " + ov["negative_extra"]
     seed0 = args.seed if args.seed is not None else ov.get("seed_ref", base_seed(mon["id"]))
@@ -569,7 +679,11 @@ def stage_ref(mon: dict, d: Path, args) -> None:
                                   "strength": wf["cn_apply"]["inputs"]["strength"],
                                   "end": wf["cn_apply"]["inputs"]["end_percent"]}
                                  if "cn_apply" in wf else None),
-                  "seconds": dt}
+                  "tweaks": tweaks_used, "seconds": dt}
+    if mon.get("swarm_unit"):
+        man["swarm_unit"] = mon["swarm_unit"]
+    else:
+        man.pop("swarm_unit", None)
     if chk is not None:
         man["ref"]["unarmed"] = chk
         if "scores" in chk:
@@ -885,8 +999,7 @@ def stage_qa(mon: dict, d: Path, args) -> None:
         "src": str(d / "model_raw.glb"), "dst": str(d / "model.glb"), "thumb": str(d / "thumb.png"),
         "thumb_head": str(d / "thumb_head.png"), "body_plan": mon["body_plan"],
         "report": str(d / "qa.json"), "scale_m": mon["scale_m"],
-        "scale_axis": "height" if mon["body_plan"] in UPRIGHT_PLANS else
-                      "max" if mon["body_plan"] in MAX_SCALE_PLANS else "length",
+        "scale_axis": scale_axis(mon),
         "front_view": mon["body_plan"] in FRONT_VIEW_PLANS, "yaw_override": yaw,
         "forward": args.forward or ov.get("forward") or "-Z", "label": f"{mon['name']} ({mon['body_plan']})",
         "thumb_ground": str(d / "thumb_ground.png"), "id": mon["id"], "source": mon["source"],
@@ -909,6 +1022,9 @@ def stage_qa(mon: dict, d: Path, args) -> None:
     if yaw is not None:
         rep["yaw_override"] = yaw
     man["qa"] = rep
+    man.update({"body_plan": mon["body_plan"], "scale_m": mon["scale_m"], "size": mon["size"]})
+    if mon.get("swarm_unit"):
+        man["swarm_unit"] = mon["swarm_unit"]
     man["tri_count"] = rep["tris"]
     man.pop("lod", None)
     man.setdefault("timings", {})["qa"] = dt
@@ -1040,7 +1156,12 @@ def main() -> int:
             log(f"unknown id {mid!r} in {args.source}")
             failures.append(mid)
             continue
-        mon = reg[mid]
+        try:  # a swarm is made as its unit (SWARM_UNITS / override swarm_unit)
+            mon = resolve_swarm_unit(reg, reg[mid])
+        except Exception as e:
+            log(f"{mid}: {e}")
+            failures.append(mid)
+            continue
         d = out_dir(args.source, mid, args.out_suffix)
         for st in stages:
             try:

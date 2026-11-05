@@ -21,7 +21,11 @@ swarm-of-rats) are done through anim and are never re-run by the batch.
   4.4 h).
 - Blocking gaps (fix before those records run; all are reference-stage fixes): avian
   prompt (16), serpentine template pilot (10), swarm unit model (6), centauroid pilot (3),
-  specter/wraith ghost prompt (2). Everything else can be fixed after the batch by
+  specter/wraith ghost prompt (2). (2026-11-05) Fixed in forge, not yet in `batch.py`'s
+  `hold_reason()`: the avian per-plan prompt (16), swarm units (6: each runs as its unit's
+  plan; the snake swarm stays with the serpentine hold) and the specter/wraith prompts (2),
+  so 23 records can leave the hold tier; centauroid (3) and serpentine (10) stay held
+  (docs/TODO.md I). The ghoul (tier 1) has a working prompt now. Everything else can be fixed after the batch by
   re-running only `rig` and/or `anim` (or only the props), see "Gaps".
 - Missing clips the batch will leave (no builder makes them; the anim stage records them
   in `manifest.anim.missing` and the viewer shows `anim_complete` false): since clips2

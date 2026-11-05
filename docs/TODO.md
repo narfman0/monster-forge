@@ -76,7 +76,9 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       433 s, normally ~15 s) and was OOM-killed twice. constrictor-snake, centaur-trooper and
       giant-eagle have no paint now (qa --force removed the old one): run
       `forge.py run <id> --stages paint,lod,rig,anim --force` for each when swap has room or
-      the limits allow ~18 GB (rig --force keeps rig/chosen.glb).
+      the limits allow ~18 GB (rig --force keeps rig/chosen.glb). (2026-11-05) Also unpainted
+      now: giant-eagle (qa again for the avian scale rule), ghoul, giant-vulture, swarm-of-bats,
+      swarm-of-insects (new meshes, `--stages` without paint).
 - [x] (2026-11-04) Unarmed-candidate check (`tools/unarmed_check.py`, `docs/references.md`):
       after the ref stage draws its candidates, each `unarmed_reference` monster's hands are
       found with DWPose (ComfyUI's controlnet_aux weights) and scored with zero-shot SigLIP
@@ -745,6 +747,9 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
       +Y: (2026-11-04) yaw pinned -150.5, facing 0.0, wings symmetric, one leg per side, rig
       roll_0 score -1.70 (was -3.32). It is now 1.39x larger (scale_m is nose-to-tail: 5.84 m
       wingspan, 5.78 m tall); check that against the game's expectations. Paint pending (B).
+      (2026-11-05) Fixed: avian is in `forge.MAX_SCALE_PLANS` (largest dimension = the spread
+      wingspan; `custom.theropod` keeps nose-to-tail, `forge.scale_axis`): wingspan 3.00 m,
+      height 2.97; rig re-rolled (roll_1, -1.38, both wings, spine only), anim re-made.
 - [x] amorphous (black-pudding): `fallback:vertical` (4 bones) with squash-and-stretch bone
       scales. Batch: fallback. Ref pick matters: drips under a raised blob meshed as a spider.
       The lemure (`blob_torso`, arms) will want SkinTokens + arms instead.
@@ -771,13 +776,28 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
       head and spine; the stage refuses its 3 grounded feet. In scratch with feet 3 all six clips
       build (sword cut and bow draw on the arms). Batch: blocked on references (Z-Image /
       FLUX.2-klein or a pose ControlNet); a four-hooves-down stance prompt.
+      (2026-11-05) No-quiver re-reference (docs/references.md rounds 4-5): no weapons in 4 of
+      4, clean mesh, but the arms hang against the body and 8 of 8 rolls found no arm (5
+      "legs"): not kept, the round-2 pilot stays. Still open: a reference with the arms clear
+      of the body (a centaur depth template with the arms out further, or an OpenPose arm
+      hint on top of the depth one) and a tail chain (12 rolls, none: rig-stage insertion,
+      like the wing chains, for another stream). Prop scale: props scale by `scale_m / 1.8`
+      and the centaur's scale_m is its whole 2.4 m body, so its pike came out 4.7 m. New
+      override field `rider_height_m` (centauroid, merfolk_naga; centaur-trooper 1.8): the
+      viewer and the game should scale props by `rider_height_m / 1.8` when set
+      (docs/equipment.md). The viewer change is not done (viewer/ is another stream's).
 - [x] merfolk_naga (merfolk-skirmisher): SkinTokens (spine, tail, arms); legless builders with the
       biped sword cut, tail kick swim. Both arms found since the raised-arm fallback (C), all
       sockets placed. Batch: SkinTokens; the marilith's 6 arms untested.
 - [x] swarm (swarm-of-rats): `fallback:root` + root-only clips. The reference draws a wall of
       rats (one cluster mesh); the batch should model one unit with the unit's plan and leave
       the swarm to particles. Death scatters and sinks (1.7x wide, 0.3 high) rather than
-      squashing the pilot's column flat.
+      squashing the pilot's column flat. (2026-11-05) Swarm units done for the other 6
+      (`forge.SWARM_UNITS`, docs/references.md "Swarm units"): the record is made as its unit
+      with the unit's plan and scale; swarm-of-bats went through rig and anim on the avian
+      path (both wings, 5 clips). **swarm-of-rats should be regenerated as a unit** (`{"unit":
+      "rat"}`: quadruped, 0.25 m) with `run --stages ref,mesh,qa,lod,rig,anim --force`; it is
+      left out of the table until then so the pilot's column keeps its swarm rig.
 - [x] Fix found on the way: `blender_rig.add_sockets` renamed the head to `head` and then
       failed to parent `back` to it (KeyError), now aliased. The bone was the head after all
       (it owns the skull); `back` went there because the left "arm" was a hair chain off the
@@ -789,15 +809,24 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
 `tools/batch.py` runs the SRD batch (`plan`, `run`, `report`, `audit`); coverage audit, tiers and
 the run book in `docs/batch.md`. 315 monsters, ~32.6 h for tiers 1-3 (278), ~36.3 h with the hold
 tier. Blocking gaps (reference-stage fixes; their records are tier 4 and not run by default):
-- [ ] Avian reference prompt (16: every avian but the eagle and the 2 theropods): front view,
-      wings spread to the sides, as the eagle needed (registry pose in `build_registry.py`, or
-      per-id `prompt_extra`).
+- [x] Avian reference prompt (16: every avian but the eagle and the 2 theropods): (2026-11-05)
+      per-plan tweak `prompt_tweaks.json` `_plans.avian` (front view, both wings spread to
+      the sides, feet on the ground): giant-vulture, raven and the bat unit 4 of 4 on pose;
+      giant-vulture meshed at 2.40 m wingspan, facing 0.5 deg. **Unblocked.**
 - [ ] Serpentine (10): release once constrictor-snake is through anim with the `serpentine_side`
       depth template.
-- [ ] Swarms (6): one unit per swarm: unit prompt and unit `scale_m` (`swarm_unit_size` tiny).
+- [x] Swarms (6): (2026-11-05) one unit per swarm (`forge.SWARM_UNITS`, override `swarm_unit`):
+      bats (avian, through anim) and insects (a beetle, through qa; yaw pinned) checked.
+      **Unblocked**, with the unit plan's own tier: bats/ravens avian (now prompt-fixed),
+      piranhas aquatic (shark path), venomous snakes serpentine (still held with the
+      serpentine plan), crawling claws `custom.limb_chain` (untested, as the troll limb).
 - [ ] Centauroid (3: centaur-trooper, drider, lamia): the centaur-trooper pilot through anim
-      on its new centaur reference.
-- [ ] Specter, wraith (2): the ghost's legless-robe prompt tweak.
+      on its new centaur reference. (2026-11-05) Still held: the pilot is through anim with
+      one arm and no tail chain; the no-quiver reference lost both arms (H). Lamia (lion body,
+      no weapons) could run as tier 3 if one arm is acceptable.
+- [x] Specter, wraith (2): (2026-11-05) per-id copies of the ghost's legless-robe tweak; specter
+      round 3 and wraith round 1-2 give floor-length robes without feet as the ghost pilot,
+      `ref_pick` 3 each (not meshed). **Unblocked** (custom.ghost path, tier 1).
 Fixable after the batch (re-run `anim` or `rig,anim` only; counts and lists: `batch.py audit`):
 `attack_ranged` 3 clips; winged_biped wing chains (20: the rig stage now
 inserts them from the mesh, C; check the arm-wing seam in each sword cut); tiny / huge / gargantuan budgets; the 31
@@ -811,8 +840,10 @@ untested variants; off-model fork, heavy crossbow, mace props.
       MemoryHigh reclaim), `/free` at once in the memory gate, the facing gate right after qa,
       stale mesh / qa detection (re-rolled ref, new `ref_pick`, pinned `yaw`) run with
       `--force`, a stop after 3 monsters in a row fail within 10 s, report fixes.
-- [ ] Ghoul reference: every candidate is a bare skeleton, also with `prompt_extra` /
-      `negative_extra`; needs a full prompt (`data/prompt_tweaks.json`), then the batch re-meshes.
+- [x] Ghoul reference: every candidate is a bare skeleton, also with `prompt_extra` /
+      `negative_extra`. (2026-11-05) Full prompt in `data/prompt_tweaks.json` (round 2: no
+      "undead", a fleshy grey face, skull / statue negatives): 4 of 4 fleshy clawed humanoids,
+      empty hands; ref_2 meshed at 1.8 m, facing 0.5 deg (the old smoke-run mesh replaced).
 - [ ] References drift off-model on "proven" plans (3 of 6 in the smoke run: skeleton ghoul,
       top-down phase spider, lizard gibbering mouther). Review every candidate strip and
       thumbnail before the paint pass; consider a reference check (e.g. a SigLIP prompt

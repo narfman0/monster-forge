@@ -1,4 +1,16 @@
 {
+  "_plans": {
+    "avian": {
+      "replace": {
+        "neutral standing stance with wings partly spread, side view": "(front view, body facing the viewer:1.2), standing upright with both feet on the ground, (both wings spread wide open to the left and right:1.3), symmetrical pose"
+      },
+      "negative_append": "side view, profile, folded wings, wings raised behind the back, flying, in flight, perched, branch, back view",
+      "except_templates": [
+        "custom.theropod"
+      ],
+      "note": "per-plan tweak (forge.ref_prompt): the registry's 'wings partly spread, side view' gave the eagle one rigged wing (the second hidden behind the body); the eagle's pick was a front view with both wings spread to the sides. Theropods are wingless and keep the registry pose"
+    }
+  },
   "owlbear": {
     "prompt": "single creature, centered, full body side view of an owlbear walking on all fours, (four-legged bear body:1.2) with (dark brown fur:1.3) and big claws, (owl head with brown-feathered face, round yellow eyes and hooked beak:1.25), feathered neck and shoulders. Large fantasy monstrosity, whole body in frame, legs and paws visible",
     "negative_append": "close-up, portrait, head only, bear head, bear snout, bear ears, wings, perched bird, yellow fur, blonde fur",
@@ -32,6 +44,30 @@
   "centaur-trooper": {
     "prompt": "single creature, centered, (fantasy centaur, half man half horse:1.4), (human from the waist up, horse from the waist down, the man's waist joins the horse's chest:1.3), bearded warrior with a breastplate and an arrow quiver on the back, empty open hands, (four horse legs with all four hooves on the ground:1.2), horse tail. Large fey. full body, standing still, three-quarter view",
     "negative_append": "(rider, riding, horseback, saddle, reins, bridle:1.5), (horse head, horse ears, horse mane:1.4), minotaur, horns, two creatures, rearing, galloping, bow, spear, weapon in hand, statue, sculpture, marble, figurine, greek vase, pottery, yellow background, human feet",
-    "note": "the registry prompt draws a man riding a horse (2 of 3) or a minotaur; force the human torso in place of the horse's neck. The centaur_34 depth template (forge.REF_TEMPLATES, override strength 0.6 / end 0.6) poses the body: 3 rounds 2026-11-04 (docs/references.md); this is round 2, whose ref_2 is the pick"
+    "note": "the registry prompt draws a man riding a horse (2 of 3) or a minotaur; force the human torso in place of the horse's neck. The centaur_34 depth template (forge.REF_TEMPLATES, override strength 0.6 / end 0.6) poses the body: 3 rounds 2026-11-04 (docs/references.md); this is round 2, whose ref_2 is the pick",
+    "tried_2026_11_05": {
+      "prompt": "single creature, centered, (fantasy centaur, half man half horse:1.4), (human from the waist up, horse from the waist down, the man's waist joins the horse's chest:1.3), bearded warrior with a leather breastplate, (both arms held out away from the body with empty open hands, palms forward, fingers spread:1.3), nothing on the back, (four horse legs with all four hooves on the ground:1.2), horse tail. Large fey. full body, standing still, three-quarter view",
+      "negative_append": "(rider, riding, horseback, saddle, reins, bridle:1.5), (horse head, horse ears, horse mane:1.4), (quiver, arrows, arrow, bow, spear, lance, staff, sword, shaft, stick, weapon, holding:1.4), minotaur, horns, two creatures, rearing, galloping, statue, sculpture, marble, figurine, greek vase, pottery, yellow background, human feet",
+      "ref_template": {
+        "strength": 0.7,
+        "end": 0.65
+      },
+      "result": "round 4: no quiver, arrows or bow in 4 of 4 (paper/photo looks); ref 1 (torso to the camera, empty hands, arms hanging against the body) meshed clean (no stick, tail apart from the legs) but 8 of 8 SkinTokens rolls found no arm and 5 legs (the arms fused to the torso). Round 5 ('arms spread wide', white background, 0.65 / 0.6): arms still down, a horse head, masked faces. Not kept: the pilot stays on round 2 ref 2 (right arm rigged)"
+    }
+  },
+  "specter": {
+    "prompt": "single creature, centered, specter, a translucent dark blue-violet spectral human figure in (long tattered flowing robes that hide the feet:1.3), a featureless shadowed face with two glowing white eyes, (no legs, the lower body tapers into a single wispy tail of mist:1.3), (floating in the air:1.2), arms held slightly out from the body. Medium undead. full body, neutral hovering pose, front view",
+    "negative_append": "legs, feet, boots, shoes, trousers, standing on ground, skeleton, skull face, zombie, walking, weapon, sword, scythe, (legs, feet, shoes, claws at the bottom, standing:1.4), robe touching the ground, grey background, gradient background, fog",
+    "note": "the ghost's legless tapering-robe tweak (custom.ghost rig) with the registry's dark featureless specter. Round 1 (2026-11-05, 'shadowy apparition ... wisps of shroud') lost the colour style and grew legs 3 of 4; round 2 (fog/legs negatives) bare feet 4 of 4; round 3 asks for the ghost pilot's long robes hiding the feet (the ghost pick is a floor-length robe too)"
+  },
+  "wraith": {
+    "prompt": "single creature, centered, wraith, a floating hooded figure in black tattered shadow robes, a dark empty hood with two glowing red eyes, gaunt grey clawed hands, (no legs, the robe tapers into a single wispy tail of black mist:1.3), (floating in the air:1.2), arms held slightly out from the body. Medium undead. full body, neutral hovering pose, front view",
+    "negative_append": "legs, feet, boots, shoes, trousers, standing on ground, skeleton, skull face, zombie, walking, weapon, sword, scythe, staff, (legs, feet, shoes, claws at the bottom, standing:1.4), robe touching the ground, grey background, gradient background, fog",
+    "note": "the ghost's legless tapering-robe tweak (custom.ghost rig), with the registry's hooded black-robed wraith; round 2 (2026-11-05): round 1 drew floor-length robes, 2 of 4 with shoes; forbid feet and a robe on the ground"
+  },
+  "ghoul": {
+    "prompt": "single creature, centered, ghoul, a gaunt feral man-eating creature with a human shape, (ashen grey skin covering the whole body and face, a fleshy face with a nose, lips and pointed ears:1.3), sunken glowing yellow eyes, a wide mouth of sharp jagged teeth, lean stringy muscles, (long black claws on its fingers:1.2), a torn ragged loincloth, (empty open hands:1.1), arms held slightly away from the body. Medium monster. full body, A-pose, front view",
+    "negative_append": "(skeleton, skull, skull face, bare bones, exposed ribcage, exposed bones, ribs:1.4), (statue, figurine, miniature, sculpture, base, pedestal, diorama, leaves, photo:1.3), (weapon, sword, dagger, club, axe, holding:1.3), armor, cloak, hood",
+    "note": "the registry's 'emaciated undead humanoid' drew a bare skeleton 6 of 6 (also with prompt_extra/negative_extra). Round 1 of this tweak (2026-11-05, 'undead ... rotting flesh') still drew skull heads on a statue base 4 of 4: drop 'undead', ask for a fleshy face, forbid skull/statue"
   }
 }

@@ -75,6 +75,10 @@ sockets.
   the arrow points, for bows and crossbows.
 - Props are built for a Medium wielder (1.8 m), in metres (`length_m`). At runtime they are
   scaled by `wielder.scale_m / 1.8` for upright bodies (giants carry giant weapons).
+  Centauroids and merfolk/naga are measured over the whole body (the centaur-trooper's
+  scale_m 2.4 gave a 4.7 m pike), so their override can set `rider_height_m`, the height of
+  the humanoid part as a standing wielder (centaur-trooper 1.8): scale props by
+  `rider_height_m / 1.8` when it is set. The viewer and godot-dnd do not read it yet.
 - Two-handed props (`grip: 2`) attach to `grip_socket`. The off hand reaches the shaft with
   a two-bone IK target, `offhand_grip`, a marker node in the prop scene 0.3-0.6 m along +Y.
 - Shields: origin at the arm strap, +Y toward the top rim, -Z out of the face.

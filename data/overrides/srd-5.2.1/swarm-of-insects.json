@@ -1,0 +1,5 @@
+{
+  "ref_pick": 2,
+  "notes": "made as ONE unit (forge.SWARM_UNITS: a beetle, insectoid / custom.hexapod, tiny, scale_m 0.3) (2026-11-05): 4 of 4 single beetles; ref 2 a clean side view with all six legs. QA's auto yaw -61.4 (pca_upper_mass_end, the domed elytra read as the head end) faced it backwards (thumb: abdomen in the front view; facing check head_known false, so it passes either way): yaw pinned 118.6 (+180).",
+  "yaw": 118.6
+}
