@@ -20,7 +20,7 @@ until asked.
 
 ## To resume (in order)
 
-1. **Decide the ComfyUI memory limit.** Paint peaks at ~17.3 GB against `MemoryHigh=16G` and
+1. **ComfyUI memory limit: settled 2026-11-05** (`MemoryHigh=20G`, `MemoryMax=22G` in `memory.conf`, daemon reloaded; the old file is in `~/.cache/monster-forge-scratch/memory.conf.bak`). Untested until the eagle paint test passes. The original problem: Paint peaks at ~17.3 GB against `MemoryHigh=16G` and
    the only swap is an 8 GB zram that is full, so paint stalls and gets throttled (a test on
    the eagle hung 27 min). Set `MemoryHigh=19G`, `MemoryMax=22G` in
    `~/.config/systemd/user/comfyui.service.d/memory.conf`, `systemctl --user daemon-reload`,
