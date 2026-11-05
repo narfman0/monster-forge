@@ -1,8 +1,53 @@
-# TODO (checkpoint 2026-11-04, rig + walk on all 6 pilots)
+# TODO (checkpoint 2026-11-05, paused: SRD generation and rigging are proven, paint is blocked)
 
-Decision: take the 6 pilots (goblin-warrior, wolf, owlbear, giant-spider, harpy,
-young-red-dragon) all the way to rigged + animated Godot-ready GLBs **before** the
-330-monster SRD batch. Batch is gated on all 6 loading and playing clips in godot-dnd.
+Goal: SRD 5.2.1 content first and great. Non-SRD content lives in the separate local repo
+`../monster-forge-nonsrd` (`tools/sources.py`, `MONSTER_FORGE_EXTRA`); do not work on it
+until asked.
+
+## Where things stand
+
+- **16 pilots** are rigged, animated, painted where noted, and verified in Blender and in the
+  godot-dnd lab (rounds 1-11, `docs/monsters.md` there). Every body plan has a pilot except
+  that the swarm pilot (swarm-of-rats) is still a column and should be regenerated as a
+  single rat (`swarm_unit`).
+- **Reference, mesh and qa** (`tools/batch.py`): 216 of 330 SRD monsters have an accepted
+  reference. Tier 1: 147 of 155 ready for paint; tier 2: 24 of 113 ready, 61 reviewed, 52 not
+  generated yet; tier 3 untouched; tier 4 held (centauroid 3, serpentine 10, snake swarm 1).
+  Verdicts and lists: `docs/review-tier1.md`, `docs/review-tier2.md`. `batch.py report` gives
+  the live counts (last: 166 ready for paint, 9 facing refused, 16 unverified).
+- **Paint, LOD, rig and anim** have run only on the 16 pilots. Everything else waits on paint.
+- Everything is committed and pushed (monster-forge master, godot-dnd local, nonsrd local).
+
+## To resume (in order)
+
+1. **Decide the ComfyUI memory limit.** Paint peaks at ~17.3 GB against `MemoryHigh=16G` and
+   the only swap is an 8 GB zram that is full, so paint stalls and gets throttled (a test on
+   the eagle hung 27 min). Set `MemoryHigh=19G`, `MemoryMax=22G` in
+   `~/.config/systemd/user/comfyui.service.d/memory.conf`, `systemctl --user daemon-reload`,
+   or free RAM (Steam, Discord, spare Firefox, other Claude sessions' dirs in /tmp/claude-1000).
+   Never leave scratch in `/tmp` (RAM-backed tmpfs): use `~/.cache/monster-forge-scratch/`.
+2. `systemctl --user start comfyui`, then restart the batch pass for the generation that is
+   left: `python3 -I tools/batch.py run --tier 1,2,3 --stages ref,mesh,qa --reroll-changed-prompts`
+   (128 monsters, ~3.4 h; it restarts ComfyUI before each mesh and recovers after timeouts).
+   It peaks near 24 GB RAM: run it with nothing else heavy open.
+3. Review what it produced (candidate sheet, thumb, facing per monster) and pin picks,
+   yaws and prompts in `data/overrides/srd-5.2.1/`; see the method in `docs/review-tier*.md`.
+   The 16 monsters with an `unverified` facing need a look at their thumb; paint refuses them
+   until `rig_facing_check` is false or the facing passes.
+4. Paint, LOD, rig and anim for the ready monsters: `batch.py run ... --stages paint,lod,rig,anim`
+   (paint ~160 s, rig ~2 min with SkinTokens, anim seconds). Then a Godot round per new plan.
+5. Then tier 3 and the held tier 4 (serpentine and centauroid need better references).
+
+## Open decisions (the user's)
+
+- MM-2024 curation is still in public git history (commits 09d69d2..d3e1c86); removing it
+  needs a history rewrite and force-push of master.
+- Remotes for `godot-dnd` and `monster-forge-nonsrd`; the Pages repo for the public viewer
+  (after confirming the model terms allow publishing outputs).
+- Quivers and scabbards: `docs/equipment.md` keeps worn gear in the mesh; the prompt table's
+  `no_carried_gear` rule strips quivers from not-yet-accepted references. Pick one.
+- Parked polish: lying tails reaching the floor in death (needs softer tail-base weights),
+  the centaur's pike butt running into the horse (carry pose), the owlbear fan's edge sliver.
 
 ## State
 
