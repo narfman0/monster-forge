@@ -1,5 +1,3 @@
 {
-  "prompt_extra": "(skeleton of a horse, bare bones, visible ribcage and skull, empty eye sockets, no flesh, no rider:1.5), tattered barding, standing on all four legs, side view",
-  "negative_extra": "(rider, person, lance, spear, pole, banner, flag, flesh, living horse, white coat, mane:1.5)",
-  "notes": "Tier-2 review 2026-11-05 (pass 4): refs 0-1 drew living white horses with bony legs and a saddle (not skeletons); ref_0 has a lance with a red pennant standing on the saddle, meshed as a pole and flag; ref_2 has a skeletal rider with a spear. Re-roll as a bare horse skeleton, no rider or pole."
+  "notes": "Tier-2 review 2026-11-05 (pass 4): refs 0-1 drew living white horses with bony legs and a saddle (not skeletons); ref_0 has a lance with a red pennant standing on the saddle, meshed as a pole and flag; ref_2 has a skeletal rider with a spear. Re-roll as a bare horse skeleton, no rider or pole. 2026-11-05 prompt table: prompt_extra, negative_extra removed, covered by data/prompt_tweaks.json per-id prompt."
 }

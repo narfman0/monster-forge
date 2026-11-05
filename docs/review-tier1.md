@@ -8,6 +8,8 @@ Review of the tier-1 `batch.py run --tier 1 --stages ref,mesh,qa` pass (146 mons
 
 **After pass 4 (2026-11-05, all 155 tier-1 records; see "Pass 4" below):** 147 good, ready for paint; 1 waiting for a mesh pass (shambling-mound); 3 waiting for a qa pass (mastiff, polar-bear, merrow); 1 needs a re-roll (shield-guardian); 3 with the prompt route exhausted (medusa, ettin, death-dog: per-id prompt, template or compromise, the lead decides).
 
+**Prompt table (2026-11-05):** medusa, ettin and death-dog now have whole per-id prompts in `data/prompt_tweaks.json` (snakes on the head only and a knee-length tunic; "(two-headed giant:1.4) ... two separate heads side by side on one pair of shoulders ... (two heads:1.5)", two bodies / twins negated; a two-headed dog with one body and four legs, two dogs negated); their `prompt_extra` / `negative_extra` are removed and the batch re-rolls them. The re-roll history's families are table rules now (docs/references.md "Table rules and the frozen list"): `fleshy_undead` (corpse / undead words drew bare skeletons), `house_ground` (ground slabs, shield-guardian), the quadruped "standing on all four legs" replace (mastiff, giant-weasel). The 147 good records are in `_frozen`: their prompts are unchanged.
+
 **After pass 3 (all 155 tier-1 records: the 148 above, the 6 smoke-run monsters and giant-vulture; the 15 pilots apart):**
 
 - good, ready for paint: 129 (10 of them still carry a pre-fix `refused` record in `_batch.json` / `rig/facing.json`, see "Pass 3" below; the paint pass re-runs the gate first)

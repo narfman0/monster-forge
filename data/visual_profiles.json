@@ -424,7 +424,7 @@
   "scale_m": 0.15
  },
  "frost-giant": {
-  "desc": "huge giant with pale icy-blue skin, white hair and beard braided with frost, fur and mail armor, quiver of huge arrows on the back",
+  "desc": "huge giant with pale icy-blue skin, white hair and beard braided with frost, fur cloak over mail armor",
   "scale_m": 6.4
  },
  "gargoyle": {
@@ -1040,7 +1040,7 @@
   "scale_m": 1.8
  },
  "solar": {
-  "desc": "majestic angel with golden skin, shining feathered wings, radiant eyes, arrow quiver on the back",
+  "desc": "majestic angel with golden skin, shining feathered wings, radiant eyes, flowing white and gold robes",
   "scale_m": 2.9
  },
  "specter": {
@@ -1068,7 +1068,7 @@
   "scale_m": 6
  },
  "sprite": {
-  "desc": "tiny fey humanoid with dragonfly wings and leafy garments, tiny arrow quiver on the back",
+  "desc": "tiny fey humanoid with dragonfly wings and leafy garments",
   "scale_m": 0.3
  },
  "spy": {

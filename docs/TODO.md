@@ -1100,6 +1100,19 @@ untested variants; off-model fork, heavy crossbow, mace props.
       quadruped "standing on all four, side view" append), ground / shadow slabs (4), the
       frost-giant registry prompt's quiver. The gate let 2 backwards quadrupeds through as
       one-cue `unverified` (elephant, mammoth).
+- [x] (2026-11-05) Prompt-table fixes for the tier-2 findings (docs/references.md "Table rules
+      and the frozen list"): `forge.ref_prompt` learnt `_rules` (match on plan / id regex /
+      type / registry-prompt regex / unarmed, `insert` before the pose tail, a `by_group`
+      generator) and `_frozen` + `skip_frozen` (216 accepted references keep their prompt).
+      Quadruped and winged_quadruped plan entries (standing on all four legs; rider, sitting
+      negatives), rules `house_ground`, `dragon_colour` (40 ids), `fleshy_undead`,
+      `no_carried_gear`; per-id prompts for the horses, sphinxes, chimera, the 3 reptiles,
+      medusa, ettin, death-dog (griffon / hippogriff / pegasus waiting behind their re-picks);
+      quivers out of the frost-giant / solar / sprite registry prompts. The next pass re-rolls
+      20 references (was 15): + medusa, ettin, death-dog, chimera, ancient-brass-dragon.
+      Open: 26 frozen wielders still name a scabbard / quiver / bolt case (docs/equipment.md
+      bakes worn gear; the lead asked to strip it): edit their desc when one is re-rolled;
+      hydra (five heads) has no per-id prompt yet.
 - [x] (2026-11-05) Runner fixes from the pass-3 review (docs/batch.md): a `ref_pick` older than
       the candidates of a prompt re-roll is stale (the mesh uses the strip's own pick with
       `--pick`; `_batch.json` `stale_pin`; "Pins to re-choose" in `plan` / `report`);

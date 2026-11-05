@@ -152,6 +152,44 @@ than a plan entry (the floating plan also holds elementals, the cloaker and the 
 | ghoul | 1 | full prompt "undead ... rotting flesh, not a skeleton": skull heads on a statue base 4 of 4 | - |
 | ghoul | 2 | no "undead"; "ashen grey skin over the whole body and face, a fleshy face", skull / statue / diorama negatives | 4 of 4 fleshy grey clawed humanoids, empty hands (unarmed check -4.2..-4.6, all empty; run by hand, the ghoul has no `unarmed_reference`), painterly on grey. **ref_2** (no horns); mesh 1.8 m, facing 0.5 deg |
 
+## Table rules and the frozen list (`_rules`, `_frozen`, 2026-11-05)
+
+The tier-2 review (docs/review-tier2.md "Systematic findings") found families of failures
+that one table entry fixes better than an override per monster. `forge.ref_prompt` applies,
+in order: the plan entry, the matching `_rules` (`forge.tweak_rule`), the per-id entry.
+A rule matches on `plans`, `ids`, `id_match` (regex on the id), `types`, `prompt_match`
+(regex in the registry prompt) and `unarmed_reference`, minus `except_ids`; it may `replace`,
+`insert` (placed before the registry's ". Low-poly game asset" tail, so the style's
+`strip_from_subject` still matches) and `negative_append`. `by_group` is the generator:
+`id_match`'s group picks a sub-entry (one rule covers every dragon colour). A per-id `prompt`
+makes the rules' `insert` moot; their negatives still apply. `manifest.ref.tweaks` lists
+`rule:<name>`.
+
+**`_frozen.ids`** (216 on 2026-11-05) are the records with an accepted reference: every
+SRD record with `ref.png` except the 20 being re-rolled for a known problem (the 14 tier-2
+re-rolls, shield-guardian, medusa, ettin, death-dog, chimera and the unreviewed
+ancient-brass-dragon). A plan, rule or per-id entry with `skip_frozen` passes them by, so
+the new rules leave their prompt (and the batch's fingerprint) unchanged and nothing good is
+re-rolled. The older entries (`_plans.avian`, ghoul, specter, ...) have no `skip_frozen`
+and apply as before. Drop an id from the list to let the rules in at its next re-roll.
+Generated (with the dragon colour table) by
+`~/.cache/monster-forge-scratch/prompts/gen_tweaks.py`, not tracked.
+
+| entry | what | table / live (not frozen) |
+|---|---|---|
+| `_plans.quadruped` | "neutral stance, side view" -> "(standing on all four legs:1.2), side view"; negative sitting / on haunches / rearing / standing upright, and rider / person / human / saddle / reins / bridle | 61 / 9 |
+| `_plans.winged_quadruped` | "(standing on all four legs:1.2), wings partly spread, side view"; negative rider / saddle / reins (no person / human: sphinx heads), sitting / rearing | 49 / 14 |
+| rule `house_ground` | negative "(cast shadow, floor, ground plane, ground patch, grass mound, pedestal, base, plinth, platform, rock base, puddle, reflection:1.2)": the workflow negative already had cast shadow, rocks, grass, scenery; the style drop / ground shadow and shadow under feet. A rule rather than `data/style.json`: the style is in every prompt and would re-roll all 216 | 330 / 114 |
+| rule `dragon_colour` | the 40 chromatic and metallic dragon ids: "(<colour> scales all over the body:1.3), (<colour> wing membranes:1.2)" and the colours it drifts to, negated (black: green / teal / blue, orange wings; red: blue / black / teal, fire on the ground; metallics: teal / green / blue) | 40 / 11 |
+| rule `fleshy_undead` | registry prompts with corpse / undead / rotting / skeletal / emaciated / stitched / withered words, not the skeletons, mummies, lich, the incorporeal ones or shambling-mound: "(intact skin and flesh, no exposed bones:1.2)", negative bare skeleton / ribcage / bones | 10 / 2 (bone-devil, crawling claw) |
+| rule `no_carried_gear` | `unarmed_reference` records: negative quiver / arrows / weapons on the back / sheathed weapon | 79 / 15 |
+| per-id `prompt` | riding-horse, warhorse (a bare horse: no saddle, no barding), warhorse-skeleton, sphinx-of-lore, sphinx-of-valor, chimera (three heads named), ankylosaurus, triceratops, giant-crocodile, medusa (snakes on the head only), ettin and death-dog ("two heads" up front, two bodies negated); griffon, hippogriff, pegasus wait (`skip_frozen`: their re-picks are on-model) | 15 / 12 |
+
+Registry source fix (`data/visual_profiles.json`, rebuilt): frost-giant, solar and sprite no
+longer name a quiver. The other 26 wielders (centaur-trooper through its own per-id prompt) whose prompt names a scabbard, quiver, bolt case
+or knife sheaths are frozen (their references were judged good with empty hands; worn gear is
+baked by docs/equipment.md) and keep their prompt; edit their desc when one is re-rolled.
+
 ## Swarm units
 
 A swarm is made as ONE unit; the game multiplies it. `forge.SWARM_UNITS` maps each swarm to

@@ -3232,7 +3232,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "huge giant with pale icy-blue skin, white hair and beard braided with frost, fur and mail armor, quiver of huge arrows on the back. Huge giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "reference_prompt": "huge giant with pale icy-blue skin, white hair and beard braided with frost, fur cloak over mail armor. Huge giant. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "wields_aka": {
     "greataxe": "Frost Axe",
     "longbow": "Great Bow"
@@ -7965,7 +7965,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "majestic angel with golden skin, shining feathered wings, radiant eyes, arrow quiver on the back. Large celestial. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "reference_prompt": "majestic angel with golden skin, shining feathered wings, radiant eyes, flowing white and gold robes. Large celestial. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "wields_aka": {
     "greatsword": "Flying Sword",
     "longbow": "Slaying Bow"
@@ -8204,7 +8204,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "tiny fey humanoid with dragonfly wings and leafy garments, tiny arrow quiver on the back. Tiny fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "reference_prompt": "tiny fey humanoid with dragonfly wings and leafy garments. Tiny fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "wields_aka": {
     "rapier": "Needle Sword",
     "shortbow": "Enchanting Bow"

@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import re
 import math
 import os
 import shutil
@@ -304,36 +305,92 @@ def load_workflow(name: str) -> dict:
 # ---------------------------------------------------------------- stages
 def load_prompt_tweaks() -> dict:
     """data/prompt_tweaks.json: {id: {prompt | prepend, negative_append, note}} for re-rolls,
-    plus "_plans": {body_plan: {replace, prepend, append, negative_append, except_templates}}."""
+    plus "_plans": {body_plan: {replace, prepend, append, negative_append, except_templates}},
+    "_rules": [{name, match..., insert, negative_append}] and "_frozen": {ids}."""
     p = ROOT / "data" / "prompt_tweaks.json"
     return json.loads(p.read_text()) if p.exists() else {}
+
+
+# Where a rule's `insert` goes: before the registry prompt's pose tail, so the house style's
+# strip_from_subject (which ends with "flat even lighting.") still matches.
+RULE_INSERT_BEFORE = ". Low-poly game asset"
+
+
+def tweak_rule(rule: dict, mon: dict) -> dict | None:
+    """The rule as it applies to `mon`, or None. Match keys (all given must hold): `plans`,
+    `ids`, `id_match` (regex, fullmatch on the id), `types`, `prompt_match` (regex, searched
+    case-insensitively in the registry reference_prompt), `unarmed_reference` (bool);
+    `except_ids` excludes. `by_group` {value: {insert, negative_append, ...}} is the generator:
+    `id_match`'s first group picks the entry, merged over the rule (one rule covers e.g. every
+    dragon colour); no entry for the group = no match."""
+    mid = mon["id"]
+    if mid in (rule.get("except_ids") or []):
+        return None
+    if rule.get("plans") and mon.get("body_plan") not in rule["plans"]:
+        return None
+    if rule.get("ids") and mid not in rule["ids"]:
+        return None
+    if rule.get("types") and mon.get("type") not in rule["types"]:
+        return None
+    if "unarmed_reference" in rule and bool(mon.get("unarmed_reference")) != bool(rule["unarmed_reference"]):
+        return None
+    if rule.get("prompt_match") and not re.search(rule["prompt_match"], mon.get("reference_prompt", ""), re.I):
+        return None
+    out = dict(rule)
+    if rule.get("id_match"):
+        m = re.fullmatch(rule["id_match"], mid)
+        if not m:
+            return None
+        if rule.get("by_group"):
+            sub = rule["by_group"].get(m.group(1) if m.groups() else m.group(0))
+            if not sub:
+                return None
+            out.update(sub)
+    return out
 
 
 def ref_prompt(mon: dict) -> tuple[str, str, list[str]]:
     """(positive subject, negative to append, tweaks applied) for the ref stage. The per-plan
     tweak (prompt_tweaks.json "_plans"[body_plan], skipped for the rig templates in its
     `except_templates`) applies first: `replace` {old: new} on the registry prompt, then
-    `prepend` / `append`; then the per-id entry: `prompt` replaces the whole subject (the
-    plan's replace/prepend/append are then moot), else its own replace / prepend / append.
-    Negatives add up (plan, then id)."""
+    `prepend` / `append`; then the matching `_rules` (tweak_rule) in order: `replace`, and
+    `insert` placed before the registry's pose tail (RULE_INSERT_BEFORE); then the per-id
+    entry: `prompt` replaces the whole subject (the plan's and rules' replace / prepend /
+    append / insert are then moot), else its own replace / prepend / append. Negatives add up
+    (plan, rules, id). `_frozen.ids` are records with an accepted reference: any plan, rule or
+    per-id entry with `skip_frozen` passes them by, so a new table rule does not change (and
+    re-roll) a reference already judged good; drop an id from the list to let the rules in."""
     tw = load_prompt_tweaks()
-    plan = (tw.get("_plans") or {}).get(mon["body_plan"]) or {}
+    frozen = mon["id"] in set((tw.get("_frozen") or {}).get("ids") or [])
+
+    def live(t):
+        return t if t and not (frozen and t.get("skip_frozen")) else {}
+
+    plan = live((tw.get("_plans") or {}).get(mon["body_plan"]) or {})
     if mon.get("rig_template") in (plan.get("except_templates") or []):
         plan = {}
-    ent = tw.get(mon["id"]) or {}
-    used = ([f"plan:{mon['body_plan']}"] if plan else []) + ([f"id:{mon['id']}"] if ent else [])
+    rules = [r for r in (tweak_rule(r, mon) for r in tw.get("_rules") or [] if live(r)) if r]
+    ent = live(tw.get(mon["id"]) or {})
+    used = (([f"plan:{mon['body_plan']}"] if plan else []) + [f"rule:{r.get('name', '?')}" for r in rules]
+            + ([f"id:{mon['id']}"] if ent else []))
     if ent.get("prompt"):
         subject = ent["prompt"]
     else:
         subject = mon["reference_prompt"]
-        for t in (plan, ent):
+        for t in (plan, *rules, ent):
             for old, new in (t.get("replace") or {}).items():
                 subject = subject.replace(old, new)
+        for r in rules:
+            if r.get("insert"):
+                if RULE_INSERT_BEFORE in subject:
+                    subject = subject.replace(RULE_INSERT_BEFORE, ", " + r["insert"] + RULE_INSERT_BEFORE, 1)
+                else:
+                    subject = subject.rstrip(" ,.") + ", " + r["insert"]
         subject = ent.get("prepend", "") + plan.get("prepend", "") + REF_PROMPT_PREFIX + subject
         for t in (plan, ent):
             if t.get("append"):
                 subject = subject.rstrip(" ,.") + ", " + t["append"]
-    neg = ", ".join(t["negative_append"] for t in (plan, ent) if t.get("negative_append"))
+    neg = ", ".join(t["negative_append"] for t in (plan, *rules, ent) if t.get("negative_append"))
     return subject, neg, used
 
 

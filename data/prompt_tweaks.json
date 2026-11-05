@@ -9,7 +9,329 @@
         "custom.theropod"
       ],
       "note": "per-plan tweak (forge.ref_prompt): the registry's 'wings partly spread, side view' gave the eagle one rigged wing (the second hidden behind the body); the eagle's pick was a front view with both wings spread to the sides. Theropods are wingless and keep the registry pose"
+    },
+    "quadruped": {
+      "replace": {
+        "neutral stance, side view": "(standing on all four legs:1.2), side view"
+      },
+      "negative_append": "(sitting, sitting on haunches, rearing, standing upright, on hind legs:1.3), (rider, riding, person, human, knight, cowboy, saddle, reins, bridle:1.3)",
+      "skip_frozen": true,
+      "note": "2026-11-05 (docs/review-tier2.md 1 and 6): cat, weasel sat or stood up and the horses drew a rider; 'standing on all four legs, side view' fixed mastiff and giant-weasel on the first try"
+    },
+    "winged_quadruped": {
+      "replace": {
+        "neutral standing stance with wings partly spread, side view": "(standing on all four legs:1.2), wings partly spread, side view"
+      },
+      "negative_append": "(rider, riding, saddle, reins, bridle:1.3), (sitting, sitting on haunches, rearing:1.2)",
+      "skip_frozen": true,
+      "note": "2026-11-05 (docs/review-tier2.md 1, 5 and 6): sphinx-of-lore drew a woman riding, sphinx-of-valor sat, adult-blue-dragon reared. No 'person' / 'human' negative: the sphinxes have human heads"
     }
+  },
+  "_rules": [
+    {
+      "name": "house_ground",
+      "skip_frozen": true,
+      "negative_append": "(cast shadow, floor, ground plane, ground patch, grass mound, pedestal, base, plinth, platform, rock base, puddle, reflection:1.2)",
+      "note": "2026-11-05 (docs/review-tier2.md 7): floor shadows, grass mounds, rock bases and fire splashes meshed as slabs (cloud-giant, frog, adult black / red dragon, shield-guardian, polar-bear). The style negative already has drop shadow, ground shadow and (shadow under feet, colored shadow:1.2); this adds the rest. A rule, not data/style.json: the style is in every prompt and would re-roll every reference"
+    },
+    {
+      "name": "dragon_colour",
+      "skip_frozen": true,
+      "id_match": "(?:(?:young|adult|ancient)-)?(black|blue|green|red|white|brass|bronze|copper|gold|silver)-dragon(?:-wyrmling)?",
+      "by_group": {
+        "black": {
+          "insert": "(jet-black scales all over the body:1.3), (black wing membranes:1.2), dark grey belly plates",
+          "negative_append": "(green scales, teal scales, blue scales, orange wings, green wings:1.3)"
+        },
+        "blue": {
+          "insert": "(deep blue scales all over the body:1.3), (blue wing membranes:1.2)",
+          "negative_append": "(green scales, teal scales, black scales, purple scales, orange wings:1.3)"
+        },
+        "green": {
+          "insert": "(emerald green scales all over the body:1.3), (green wing membranes:1.2)",
+          "negative_append": "(teal scales, blue scales, black scales, orange wings, red wings:1.3)"
+        },
+        "red": {
+          "insert": "(crimson red scales all over the body:1.3), (red wing membranes:1.2), orange belly plates",
+          "negative_append": "(blue scales, dark blue body, black body, teal scales, green scales, fire on the ground, lava:1.3)"
+        },
+        "white": {
+          "insert": "(white scales all over the body:1.3), (pale white wing membranes:1.2), icy blue accents",
+          "negative_append": "(teal scales, dark blue scales, grey body, black scales, green scales:1.3)"
+        },
+        "brass": {
+          "insert": "(polished brass yellow metallic scales all over the body:1.3), (brass wing membranes:1.2)",
+          "negative_append": "(teal scales, green scales, blue scales, red scales:1.3)"
+        },
+        "bronze": {
+          "insert": "(bronze metallic scales all over the body:1.3), (bronze wing membranes:1.2)",
+          "negative_append": "(teal scales, green scales, blue scales:1.3)"
+        },
+        "copper": {
+          "insert": "(copper orange metallic scales all over the body:1.3), (copper wing membranes:1.2)",
+          "negative_append": "(teal scales, turquoise scales, green scales, blue scales:1.3)"
+        },
+        "gold": {
+          "insert": "(gleaming gold scales all over the body:1.3), (golden wing membranes:1.2), golden horns",
+          "negative_append": "(teal scales, green scales, blue scales, dark body:1.3)"
+        },
+        "silver": {
+          "insert": "(gleaming silver scales all over the body:1.3), (silver-white wing membranes:1.2)",
+          "negative_append": "(teal scales, dark body, orange wings, blue scales, green scales:1.3)"
+        }
+      },
+      "note": "2026-11-05 (docs/review-tier2.md 2): the colour word in the registry prompt loses to SDXL's dragon prior (black drawn green, gold / copper / silver teal, red blue-black). One generator: the id's colour picks the weighted scale and wing clause and the colours it drifts to"
+    },
+    {
+      "name": "fleshy_undead",
+      "skip_frozen": true,
+      "prompt_match": "\\b(corpses?|undead|rotting|zombie|emaciated|skeletal|stitched|putrid|decaying|withered|mummified|dried skin)\\b",
+      "except_ids": [
+        "skeleton",
+        "minotaur-skeleton",
+        "warhorse-skeleton",
+        "lich",
+        "mummy",
+        "mummy-lord",
+        "ghost",
+        "specter",
+        "wraith",
+        "shadow",
+        "will-o-wisp",
+        "shambling-mound"
+      ],
+      "insert": "(intact skin and flesh, no exposed bones:1.2)",
+      "negative_append": "(bare skeleton, exposed ribcage, bare bones, x-ray:1.3)",
+      "note": "2026-11-05 (docs/review-tier1.md, tier-2 shadow): 'undead' / 'corpse' / 'rotting' draw a bare skeleton (ghoul 6 of 6, flesh-golem, grimlock, ogre-zombie, shadow). The ghoul treatment for fleshy creatures; skeletons, mummies, liches and the incorporeal ones are excepted"
+    },
+    {
+      "name": "no_carried_gear",
+      "skip_frozen": true,
+      "unarmed_reference": true,
+      "negative_append": "(quiver, arrows, arrows on the back, weapons on the back, sheathed weapon:1.3)",
+      "note": "2026-11-05 (docs/review-tier2.md 9): frost-giant drew a fan of arrows behind the back from its registry prompt's quiver. The registry prompts of live records no longer name carried gear (visual_profiles.json); this keeps SDXL from adding it"
+    }
+  ],
+  "_frozen": {
+    "ids": [
+      "adult-blue-dragon",
+      "adult-brass-dragon",
+      "adult-bronze-dragon",
+      "adult-copper-dragon",
+      "adult-green-dragon",
+      "adult-silver-dragon",
+      "adult-white-dragon",
+      "ancient-black-dragon",
+      "ancient-blue-dragon",
+      "animated-armor",
+      "ape",
+      "archmage",
+      "assassin",
+      "axe-beak",
+      "azer-sentinel",
+      "baboon",
+      "badger",
+      "bandit",
+      "bandit-captain",
+      "barbed-devil",
+      "bearded-devil",
+      "berserker",
+      "black-bear",
+      "black-dragon-wyrmling",
+      "black-pudding",
+      "blink-dog",
+      "blood-hawk",
+      "blue-dragon-wyrmling",
+      "boar",
+      "brass-dragon-wyrmling",
+      "bronze-dragon-wyrmling",
+      "brown-bear",
+      "bugbear-stalker",
+      "bugbear-warrior",
+      "bulette",
+      "camel",
+      "cat",
+      "centaur-trooper",
+      "chain-devil",
+      "clay-golem",
+      "cloud-giant",
+      "cockatrice",
+      "commoner",
+      "constrictor-snake",
+      "copper-dragon-wyrmling",
+      "crocodile",
+      "cultist",
+      "cultist-fanatic",
+      "darkmantle",
+      "deer",
+      "dire-wolf",
+      "doppelganger",
+      "draft-horse",
+      "dretch",
+      "druid",
+      "dryad",
+      "eagle",
+      "earth-elemental",
+      "efreeti",
+      "elephant",
+      "elk",
+      "ettercap",
+      "fire-giant",
+      "flesh-golem",
+      "frog",
+      "gelatinous-cube",
+      "ghast",
+      "ghost",
+      "ghoul",
+      "giant-ape",
+      "giant-badger",
+      "giant-boar",
+      "giant-eagle",
+      "giant-elk",
+      "giant-frog",
+      "giant-goat",
+      "giant-hyena",
+      "giant-lizard",
+      "giant-octopus",
+      "giant-owl",
+      "giant-rat",
+      "giant-scorpion",
+      "giant-spider",
+      "giant-toad",
+      "giant-vulture",
+      "giant-weasel",
+      "giant-wolf-spider",
+      "gibbering-mouther",
+      "gladiator",
+      "gnoll-warrior",
+      "goat",
+      "goblin-boss",
+      "goblin-minion",
+      "goblin-warrior",
+      "gold-dragon-wyrmling",
+      "gorgon",
+      "grayooze",
+      "green-dragon-wyrmling",
+      "green-hag",
+      "griffon",
+      "grimlock",
+      "guard",
+      "guard-captain",
+      "half-dragon",
+      "harpy",
+      "hell-hound",
+      "hezrou",
+      "hippogriff",
+      "hippopotamus",
+      "hobgoblin-captain",
+      "hobgoblin-warrior",
+      "hunter-shark",
+      "hyena",
+      "ice-devil",
+      "iron-golem",
+      "jackal",
+      "knight",
+      "kobold-warrior",
+      "lich",
+      "lion",
+      "lizard",
+      "mage",
+      "magmin",
+      "mammoth",
+      "manticore",
+      "mastiff",
+      "merfolk-skirmisher",
+      "merrow",
+      "mimic",
+      "minotaur-of-baphomet",
+      "minotaur-skeleton",
+      "mule",
+      "mummy",
+      "mummy-lord",
+      "night-hag",
+      "nightmare",
+      "noble",
+      "ochre-jelly",
+      "octopus",
+      "ogre",
+      "ogre-zombie",
+      "oni",
+      "owlbear",
+      "panther",
+      "pegasus",
+      "phase-spider",
+      "pirate",
+      "pirate-captain",
+      "polar-bear",
+      "pony",
+      "priest",
+      "priest-acolyte",
+      "pseudodragon",
+      "quasit",
+      "rakshasa",
+      "rat",
+      "raven",
+      "red-dragon-wyrmling",
+      "reef-shark",
+      "rhinoceros",
+      "rust-monster",
+      "saber-toothed-tiger",
+      "sahuagin-warrior",
+      "salamander",
+      "satyr",
+      "scout",
+      "sea-hag",
+      "shambling-mound",
+      "shrieker-fungus",
+      "silver-dragon-wyrmling",
+      "skeleton",
+      "specter",
+      "sphinx-of-wonder",
+      "spy",
+      "stone-giant",
+      "stone-golem",
+      "storm-giant",
+      "swarm-of-bats",
+      "swarm-of-insects",
+      "swarm-of-rats",
+      "tiger",
+      "tough",
+      "tough-boss",
+      "treant",
+      "troll",
+      "unicorn",
+      "vampire",
+      "vampire-familiar",
+      "vampire-spawn",
+      "violet-fungus",
+      "vulture",
+      "warrior-infantry",
+      "warrior-veteran",
+      "weasel",
+      "werebear",
+      "wereboar",
+      "wererat",
+      "weretiger",
+      "werewolf",
+      "white-dragon-wyrmling",
+      "wight",
+      "winter-wolf",
+      "wolf",
+      "worg",
+      "wraith",
+      "young-black-dragon",
+      "young-blue-dragon",
+      "young-brass-dragon",
+      "young-bronze-dragon",
+      "young-copper-dragon",
+      "young-gold-dragon",
+      "young-green-dragon",
+      "young-red-dragon",
+      "young-silver-dragon",
+      "young-white-dragon",
+      "zombie"
+    ],
+    "note": "records with an accepted reference on 2026-11-05 (tier-1 pass 4, tier-2 review, pilots and hand picks): every plan, rule and per-id entry with skip_frozen passes them by (forge.ref_prompt), so the table rules of 2026-11-05 do not change their prompt and the batch does not re-roll them. Drop an id from this list to let the rules in at its next re-roll. Generated by ~/.cache/monster-forge-scratch/prompts/gen_tweaks.py: every SRD record with ref.png except those re-rolled for a known problem."
   },
   "owlbear": {
     "prompt": "single creature, centered, full body side view of an owlbear walking on all fours, (four-legged bear body:1.2) with (dark brown fur:1.3) and big claws, (owl head with brown-feathered face, round yellow eyes and hooked beak:1.25), feathered neck and shoulders. Large fantasy monstrosity, whole body in frame, legs and paws visible",
@@ -69,5 +391,89 @@
     "prompt": "single creature, centered, ghoul, a gaunt feral man-eating creature with a human shape, (ashen grey skin covering the whole body and face, a fleshy face with a nose, lips and pointed ears:1.3), sunken glowing yellow eyes, a wide mouth of sharp jagged teeth, lean stringy muscles, (long black claws on its fingers:1.2), a torn ragged loincloth, (empty open hands:1.1), arms held slightly away from the body. Medium monster. full body, A-pose, front view",
     "negative_append": "(skeleton, skull, skull face, bare bones, exposed ribcage, exposed bones, ribs:1.4), (statue, figurine, miniature, sculpture, base, pedestal, diorama, leaves, photo:1.3), (weapon, sword, dagger, club, axe, holding:1.3), armor, cloak, hood",
     "note": "the registry's 'emaciated undead humanoid' drew a bare skeleton 6 of 6 (also with prompt_extra/negative_extra). Round 1 of this tweak (2026-11-05, 'undead ... rotting flesh') still drew skull heads on a statue base 4 of 4: drop 'undead', ask for a fleshy face, forbid skull/statue"
+  },
+  "riding-horse": {
+    "prompt": "single creature, centered, (a bare riderless horse:1.4), a brown riding horse with a dark mane and tail, (no saddle, no bridle, nothing on its back:1.3), (standing on all four legs:1.2). Large beast. full body, side view",
+    "negative_append": "(rider, riding, person, man, cowboy, knight, sitting on the horse:1.6), saddle, saddlebags, saddle blanket, reins, bridle, harness",
+    "note": "2026-11-05: 3 of 3 drew a cowboy riding (the registry's 'with saddle and bridle'); a bare horse"
+  },
+  "warhorse": {
+    "prompt": "single creature, centered, (a bare riderless war horse:1.4), a powerful heavy-boned destrier with a thick muscular neck, glossy dark bay coat, black mane and tail, feathered hooves, (no saddle, no armour, nothing on its back:1.3), (standing on all four legs:1.2). Large beast. full body, side view",
+    "negative_append": "(rider, knight, person, soldier, sitting on the horse:1.6), (barding, horse armour, armor plates, caparison, saddle, reins, bridle:1.4), sword, lance, spear, banner, cape",
+    "note": "2026-11-05: 3 of 3 drew an armoured knight riding; the SRD warhorse is a horse: drawn bare (barding is not in its stat block's description and pulls the knight in)"
+  },
+  "warhorse-skeleton": {
+    "prompt": "single creature, centered, (the animated skeleton of a horse:1.5), bare white bones, a horse skull with empty eye sockets, visible ribcage, spine and bony legs, no flesh, no mane, (nothing on its back, no rider:1.4), (standing on all four legs:1.2). Large undead. full body, side view",
+    "negative_append": "(rider, person, skeleton rider, knight:1.6), saddle, reins, lance, spear, pole, banner, flag, (flesh, living horse, white coat, mane:1.4)",
+    "note": "2026-11-05: living white horses with bony legs and a saddle, a lance with a pennant, a skeletal rider"
+  },
+  "sphinx-of-lore": {
+    "prompt": "single creature, centered, (a sphinx, one creature with the body of a lion standing on all four legs:1.4), tawny fur, (large feathered wings on the back, partly spread:1.2), (a woman's human head with a calm wise face and an elaborate striped headdress on the lion's neck:1.4), lion tail. Large celestial. full body, side view",
+    "negative_append": "(woman riding, rider, person sitting on the lion, standing woman, human body, human arms, dress, robe:1.6), lion head, lion mane",
+    "note": "2026-11-05: a woman riding a winged lion, winged women in dresses"
+  },
+  "sphinx-of-valor": {
+    "prompt": "single creature, centered, (a sphinx, one creature with the body of a lion standing on all four legs:1.4), golden fur, (large feathered wings on the back, partly spread:1.2), (a stern bearded man's human head in a striped pharaoh headdress on the lion's neck:1.4), lion tail. Large celestial. full body, side view",
+    "negative_append": "(sitting, lying, sitting on haunches, portrait, head only, close-up, emblem, medallion, statue:1.5), (lion head, lion face, lion mane:1.4), rider, human body",
+    "note": "2026-11-05: a sitting winged lion with a lion's head; head-only emblems"
+  },
+  "chimera": {
+    "prompt": "single creature, centered, (a chimera, one lion body standing on all four legs:1.3), tawny fur, (three heads side by side on the shoulders: a maned lion head in the middle, a horned goat head on one side and a red dragon head on the other:1.5), (leathery red dragon wings partly spread:1.2), a long tail. Large monstrosity. full body, side view",
+    "negative_append": "(one head, single head, dragon body, dragon legs, scales on the body:1.4), rider, sitting",
+    "note": "2026-11-05: refs 0-1 red dragons, ref_2 (re-pick) a lion with a second dragon head, no goat head: re-roll"
+  },
+  "griffon": {
+    "skip_frozen": true,
+    "prompt": "single creature, centered, (a griffon, the front half an eagle and the back half a lion:1.4), (eagle head with a hooked yellow beak, golden feathers on the head, neck and chest, eagle front legs with talons:1.3), (lion hindquarters with tawny fur, lion back legs with paws and a tufted lion tail:1.3), (large feathered wings partly spread:1.2), standing on all four legs. Large monstrosity. full body, side view",
+    "negative_append": "(two legs, bird standing on two legs, plain eagle, perched bird:1.5), rider, sitting",
+    "note": "2026-11-05: ref_0 an eagle on two legs. Waits (skip_frozen): re-pick 2 is a proper griffon; applies when the id leaves _frozen"
+  },
+  "hippogriff": {
+    "skip_frozen": true,
+    "prompt": "single creature, centered, (a hippogriff, the front half an eagle and the back half a horse:1.4), (eagle head with a hooked beak, brown feathers on the head, neck and chest, eagle front legs with talons:1.3), (horse hindquarters with a brown coat, horse back legs with hooves and a horse tail:1.3), (large feathered wings partly spread:1.2), standing on all four legs. Large monstrosity. full body, side view",
+    "negative_append": "(two legs, plain eagle, perched bird, horse head:1.5), rider, saddle, sitting",
+    "note": "2026-11-05: ref_0 a plain eagle. Waits (skip_frozen): re-pick 2 is a proper hippogriff"
+  },
+  "pegasus": {
+    "skip_frozen": true,
+    "prompt": "single creature, centered, (a pegasus, a white horse with large feathered wings:1.4), (a plain horse head with no horn:1.3), white mane and tail, (feathered wings partly spread:1.2), (standing on all four legs:1.2). Large celestial. full body, side view",
+    "negative_append": "(horn, unicorn, horned horse:1.6), rider, saddle, reins",
+    "note": "2026-11-05: refs 0 and 2 a unicorn horn. Waits (skip_frozen): re-pick 1 has no horn"
+  },
+  "ankylosaurus": {
+    "prompt": "single creature, centered, (an ankylosaurus, a low wide heavy armoured dinosaur on four short thick legs:1.4), (broad flat back covered in rows of bony plates and short spikes:1.2), spikes along the sides, (a heavy round bony club at the end of the long tail:1.3), small beaked head held low, olive-brown reptile skin. Huge beast. full body, side view",
+    "negative_append": "(robot, mech, machine, metal armour, rivets:1.5), (upright, theropod, standing on hind legs, bipedal, big teeth, open jaws:1.4), (stegosaurus plates, tall back plates:1.3)",
+    "note": "2026-11-05: 3 of 3 robotic armoured theropods, no tail club"
+  },
+  "triceratops": {
+    "prompt": "single creature, centered, (a triceratops, a heavy dinosaur standing on four thick pillar legs:1.4), (a large round bony neck frill behind the head, two long brow horns and one short nose horn, a parrot-like beak:1.3), (smooth broad back with no plates or spikes:1.3), thick tapering tail, grey-green reptile skin. Huge beast. full body, side view",
+    "negative_append": "(back plates, dorsal plates, spikes along the back, sail, stegosaurus:1.5), (standing on hind legs, rearing:1.3)",
+    "note": "2026-11-05: 3 of 3 with a row of stegosaurus plates down the back"
+  },
+  "giant-crocodile": {
+    "prompt": "single creature, centered, (a huge crocodile lying low on the ground:1.4), (long flat armoured body with the belly close to the ground, four short sprawling legs bent out at the sides:1.3), (very long thick tail lying flat behind:1.3), long low snout with rows of teeth, dark green-grey armoured scales. Huge beast. full body, side view",
+    "negative_append": "(standing upright, raised chest, tall, kaiju, godzilla, hind legs, bipedal, muscular arms:1.5), front view, water, river, swamp",
+    "note": "2026-11-05: 3 of 3 kaiju crocodiles standing tall, chest raised"
+  },
+  "medusa": {
+    "prompt": "single creature, centered, medusa, a gorgon woman with (green scaled skin:1.2), a stern face with glowing yellow eyes, (short hair made of small snakes on the head only:1.4), a sleeveless knee-length tunic with a belt, bare arms, bare legs, sandals, both feet visible. Medium monstrosity. full body, A-pose, front view",
+    "negative_append": "(snakes on body, snakes around the body, snake tail, serpent body, large snakes, giant serpents, snake coils on the floor:1.5), (long robe, kimono, long dress, robe pooling on the floor, long train:1.4), black hair, lamia, naga",
+    "note": "2026-11-05: three prompt_extra rounds spread snakes over the whole body ((small snakes:1.4) weighted every snake); a whole per-id subject, snakes on the head only"
+  },
+  "ettin": {
+    "prompt": "single creature, centered, (two-headed giant:1.4), an ettin, (two separate heads side by side on one pair of shoulders:1.5), (two heads:1.5), each head with its own ugly ogre face, one wide muscular body with two arms and two legs, crude hide loincloth and a broad belt, grey-brown skin. Large giant. full body, A-pose, front view",
+    "negative_append": "(one head, single head, single face, headless:1.5), (two bodies, twins, two giants, two people:1.5)",
+    "note": "2026-11-05: three prompt_extra rounds at 1.4-1.5 drew one head (and once two whole ogres); a whole per-id subject with the head count up front"
+  },
+  "death-dog": {
+    "prompt": "single creature, centered, (a two-headed dog:1.5), one gaunt black hound with (one body, exactly four legs and one tail:1.4), (two heads on two short necks side by side from the same shoulders:1.5), (two heads:1.4), mangy black fur, red eyes, snarling jaws, (standing on all four legs:1.2). Medium monstrosity. full body, side view",
+    "negative_append": "(two dogs, second dog, pair of dogs, overlapping dogs, eight legs, extra legs, two bodies, several dogs:1.6), (one head, single head:1.4), multiple views, character sheet",
+    "note": "2026-11-05: three prompt_extra rounds drew two whole dogs overlapping; a whole per-id subject"
+  },
+  "swarm-of-crawling-claws": {
+    "replace": {
+      "a single severed undead human hand": "a single severed human hand"
+    },
+    "note": "2026-11-05 (fleshy_undead): 'undead' draws bones; the hand keeps its withered skin (the rule adds flesh)"
   }
 }

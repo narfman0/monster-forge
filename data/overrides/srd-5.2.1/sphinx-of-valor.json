@@ -1,5 +1,3 @@
 {
-  "prompt_extra": "(a sphinx: a lion body standing on all four legs with large feathered wings and a bearded human head in a pharaoh headdress:1.5), whole body, side view",
-  "negative_extra": "(sitting, lying, portrait, head only, close-up, lion head, emblem, medallion:1.5)",
-  "notes": "Tier-2 review 2026-11-05 (pass 4): ref_0 a SITTING winged lion with a lion's head (front view), meshed sitting (3.8 m, gate refused 53.5); refs 1-2 are head-only emblems. Re-roll standing, whole body, with the human head."
+  "notes": "Tier-2 review 2026-11-05 (pass 4): ref_0 a SITTING winged lion with a lion's head (front view), meshed sitting (3.8 m, gate refused 53.5); refs 1-2 are head-only emblems. Re-roll standing, whole body, with the human head. 2026-11-05 prompt table: prompt_extra, negative_extra removed, covered by data/prompt_tweaks.json per-id prompt."
 }
