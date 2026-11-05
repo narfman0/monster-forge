@@ -1,0 +1,4 @@
+{
+  "ref_pick": 2,
+  "notes": "Tier-1 review 2026-11-05: the ref_0 mesh is BACKWARDS (front thumb the rump, back thumb the face; QA pca_upper_mass_end -32.7, gate passed 1.5 with head_known false) and has a dark floor-shadow slab under the feet. ref_2: clean side view, four paws down, small shadow. Re-pick 2 instead of pinning a yaw for ref_0; check thumb.png of the new mesh (if backwards again: yaw = QA auto + 180)."
+}

@@ -1,0 +1,4 @@
+{
+  "yaw": 149.2,
+  "notes": "Tier-1 review 2026-11-05: ref_0 is a front three-quarter badger, on-model, 4 feet down, but the mesh is BACKWARDS: thumb.png front view shows the rump, the back view the striped face. QA auto yaw -30.8 (pca_upper_mass_end), facing gate passed 2.5 with head_known false (sign-blind). Pinned yaw 149.2 = -30.8 + 180; check thumb.png after the qa re-run. (refs 1-2 are clean side views if a re-pick is preferred.)"
+}

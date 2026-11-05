@@ -1,0 +1,3 @@
+{
+  "notes": "Tier-1 review 2026-11-05: the facing gate refused at 180 deg (suggested yaw 0), but thumb.png shows the mesh facing front like every passing biped (QA front_view yaw 180 is right). The sign rule toes_ahead_of_ankles had sign_confidence 0.21 (toe_offset -0.0085): the floor-length robe hides the toes. Do NOT pin the suggested yaw 0 (it turns the wizard backwards); clear the refusal by hand (rig_facing_check false, or accept)."
+}

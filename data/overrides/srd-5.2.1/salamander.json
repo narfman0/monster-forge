@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(upper body of a red-orange scaled humanoid with spines down its back, lower body a long thick coiled serpent tail instead of legs:1.4), empty clawed hands",
+  "negative_extra": "(legs, feet, superhero, bodysuit, mask, spider:1.5)",
+  "notes": "Tier-1 review 2026-11-05: 4 of 4 candidates are red-orange two-legged humanoids (refs 1 and 3 read as superhero bodysuits, a known comic character); the SRD salamander has a serpent tail, and the merfolk_naga plan / custom.naga rig needs one. Hands empty (-5.22..-1.66). The ref_0 mesh is a crouching biped; the facing gate refused 43.5 deg (suggested yaw 136.5; not pinned, the ref is wrong anyway). Needs a re-roll: forge.py ref salamander --force --n 4."
+}

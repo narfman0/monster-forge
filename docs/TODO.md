@@ -923,5 +923,7 @@ untested variants; off-model fork, heavy crossbow, mace props.
       match per candidate like the unarmed check) before tier 1 at scale.
 - [ ] Facing check sign: with `head_known` false the suggested yaw can be 180 degrees off and
       the gate passes either way (phase-spider); owner of rig.py.
+- [ ] Tier-1 pass review (2026-11-05): per-monster verdicts, re-roll / re-pick lists and the
+      overrides written are in `docs/review-tier1.md`.
 - [ ] First batch run: `batch.py run --tier 1 --stages ref,mesh,qa` (~4.4 h), review the strips,
       then the paint pass once the ComfyUI memory limit is decided; `report` after the first 20.

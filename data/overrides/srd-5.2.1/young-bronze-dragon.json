@@ -1,0 +1,3 @@
+{
+  "notes": "Tier-1 review 2026-11-05: the facing gate refused at 84 deg (confidence 0.61, suggested yaw about -174.5), but thumb.png front view shows the head and chest toward the front camera and the side views show a clean profile with the head forward (QA pca yaw -90.5 looks right). Likely the asymmetric spread wings (the dragon failure mode). Not pinned: check in the viewer; if it faces front, clear the refusal by hand (rig_facing_check false)."
+}

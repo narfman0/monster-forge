@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "seen from the side at eye level, all eight legs standing on the ground, tail curled up over the back",
+  "negative_extra": "(top view, overhead view, top-down:1.3)",
+  "notes": "Tier-1 review 2026-11-05: 3 of 3 registry-prompt candidates are scorpions seen from above / three-quarter above (ref_1 a strange upright head with antennae). The mesh stage failed in 49 s (ComfyUI connection reset: a crash, not the ref). Re-roll with a side-view prompt before the next mesh: forge.py ref giant-scorpion --force --n 3."
+}

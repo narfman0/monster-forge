@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(a single dog with one body and two heads growing side by side from its one neck:1.4), side view, one creature",
+  "negative_extra": "(two dogs, pair of dogs, multiple views, character sheet, several dogs:1.5)",
+  "notes": "Tier-1 review 2026-11-05 (pass 2, ref timed out in pass 1): refs 0 and 1 drew two separate black dogs standing side by side (two bodies, not one two-headed hound), ref_2 a sheet with three single-headed dogs. The ref_0 mesh then timed out (312 s). Needs a re-roll: forge.py ref death-dog --force --n 3."
+}
