@@ -198,8 +198,10 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       `DIP_MAX`, `HOVER`, fly bob) scale with the body outside the pilots' 0.95-6.5 m band
       (`SIZE_BAND`, `SCALE`). Gate on 13 pilots: every clip report identical (no pilot's set
       has a new clip). docs/rig-anim.md "cast, swim, burrow, breath and fly".
-- [ ] `tools/batch.py` `buildable_clips()` still models the old builders: teach it the new
-      clips so `batch.py audit` stops listing them (owner of batch.py).
+- [x] `tools/batch.py` `buildable_clips()` still models the old builders: teach it the new
+      clips so `batch.py audit` stops listing them (owner of batch.py). Done (2026-11-04):
+      left are attack_ranged 3, the flying sword's fly, the gibbering mouther's swim
+      (amorphous has no swim builder) and the xorn.
 - [ ] Clips still without a builder: `fly` for plant_object (flying sword), `attack_ranged`
       without two arms (djinni, manticore, spirit naga), the xorn (radial); avian `cast`
       (giant owl) builds but no avian rig was available to test it.
@@ -573,7 +575,7 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
 
 ### I. Batch (2026-11-04)
 `tools/batch.py` runs the SRD batch (`plan`, `run`, `report`, `audit`); coverage audit, tiers and
-the run book in `docs/batch.md`. 315 monsters, ~33.5 h for tiers 1-3 (278), ~37.4 h with the hold
+the run book in `docs/batch.md`. 315 monsters, ~32.6 h for tiers 1-3 (278), ~36.3 h with the hold
 tier. Blocking gaps (reference-stage fixes; their records are tier 4 and not run by default):
 - [ ] Avian reference prompt (16: every avian but the eagle and the 2 theropods): front view,
       wings spread to the sides, as the eagle needed (registry pose in `build_registry.py`, or
@@ -591,5 +593,19 @@ untested variants; off-model fork, heavy crossbow, mace props.
 - [x] (2026-11-04, clips2) `cast` 48, `swim` 39, `burrow` 18, `breath` 11 and `fly` 8 of 9 (not
       the flying sword) have builders (D); the anim thresholds are size-relative outside the
       pilots' band (tiny / huge / gargantuan). Records made before this need `anim --force`;
-      `batch.py`'s `buildable_clips()` must learn the new clips for the audit counts.
-- [ ] First batch run: `batch.py run --tier 1`, `report` after the first 20.
+      `batch.py`'s `buildable_clips()` learnt them (audit and docs/batch.md refreshed).
+- [x] (2026-11-04) Smoke run: 6 tier-1 records through `ref,mesh,qa` (docs/batch.md "What to
+      watch"). batch.py fixes: ComfyUI restart before mesh (a mesh after a ref stalled in
+      MemoryHigh reclaim), `/free` at once in the memory gate, the facing gate right after qa,
+      stale mesh / qa detection (re-rolled ref, new `ref_pick`, pinned `yaw`) run with
+      `--force`, a stop after 3 monsters in a row fail within 10 s, report fixes.
+- [ ] Ghoul reference: every candidate is a bare skeleton, also with `prompt_extra` /
+      `negative_extra`; needs a full prompt (`data/prompt_tweaks.json`), then the batch re-meshes.
+- [ ] References drift off-model on "proven" plans (3 of 6 in the smoke run: skeleton ghoul,
+      top-down phase spider, lizard gibbering mouther). Review every candidate strip and
+      thumbnail before the paint pass; consider a reference check (e.g. a SigLIP prompt
+      match per candidate like the unarmed check) before tier 1 at scale.
+- [ ] Facing check sign: with `head_known` false the suggested yaw can be 180 degrees off and
+      the gate passes either way (phase-spider); owner of rig.py.
+- [ ] First batch run: `batch.py run --tier 1 --stages ref,mesh,qa` (~4.4 h), review the strips,
+      then the paint pass once the ComfyUI memory limit is decided; `report` after the first 20.

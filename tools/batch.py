@@ -56,15 +56,31 @@ PILOTS = ("goblin-warrior", "wolf", "owlbear", "giant-spider", "harpy", "young-r
 # candidates, ~40 s with 4 + the unarmed check (bandit 38, goblin 50); mesh 50-96; qa 3;
 # paint 150-171 (+ a ComfyUI restart before it); lod 1; rig 120-155 for 4 SkinTokens rolls,
 # 7 for a generated skeleton or a rebuild from rig/chosen.glb; anim 3-6.
-EST = {"ref": 24, "ref_unarmed": 40, "mesh": 70, "qa": 3, "facing": 6, "restart": 30, "paint": 160,
+EST = {"ref": 24, "ref_unarmed": 40, "mesh": 70, "qa": 3, "facing": 6, "restart": 10, "paint": 160,
        "lod": 1.5, "rig": 140, "rig_fallback": 7, "anim": 5}
 # Timeout per stage = TIMEOUT_SCALE x the pilots' slowest run, at least TIMEOUT_FLOOR.
-MAX_SEEN = {"ref": 30, "ref_unarmed": 50, "mesh": 96, "qa": 3, "paint": 171, "lod": 1.4, "rig": 155,
+# Smoke run (2026-11-04, 6 tier-1 records, ref,mesh,qa): ref 22.1 s warm (28 s after a mesh),
+# 59.6 s cold with the unarmed check; mesh 65-104 s (mean 80) from a freshly restarted ComfyUI;
+# qa 2.6-3.2; facing gate 2.7-3.7; ComfyUI restart 6-10 s.
+MAX_SEEN = {"ref": 30, "ref_unarmed": 60, "mesh": 104, "qa": 3, "paint": 171, "lod": 1.4, "rig": 155,
             "rig_fallback": 8, "anim": 10}
 TIMEOUT_SCALE = 3.0
 TIMEOUT_FLOOR = 120.0
 COMFY_STAGES = {"ref", "mesh", "paint", "rig"}  # stages that talk to ComfyUI (rig: /free, wait_idle)
 MIN_FREE_GB = 8.0
+# ComfyUI restarts before these stages. Paint: it pushes ComfyUI to its 16 GB MemoryHigh and
+# stalled twice. Mesh (smoke run 2026-11-04): Trellis2 peaks at the 16 GB ceiling even from a
+# fresh process (75 s); after a ref, /free still left 4.6 GB resident and the texture-VAE
+# decode stalled in MemoryHigh reclaim past the 288 s timeout.
+RESTART_BEFORE = ("mesh", "paint")
+
+
+def restart_stages(args) -> set:
+    if getattr(args, "no_restart", False):
+        return set()
+    return {x for x in (getattr(args, "restart_before", None) or ",".join(RESTART_BEFORE)).split(",") if x}
+FAST_FAIL_S = 10.0  # a stage failing this fast is the environment (ComfyUI 500s, disk quota), not the monster
+MAX_FAST_FAILURES = 3  # stop the run after this many monsters in a row fail that way
 HANG_S = 60.0  # /queue silent this long = hung ComfyUI
 WATCH_POLL = 10.0  # seconds between the watchdog's /queue polls
 
@@ -169,20 +185,20 @@ def classify(rec: dict, pilot_keys: dict) -> dict:
 
 
 # Clips the anim stage can build per plan, a mirror of blender_clips.py plan_clips() and
-# legless_clips() (keep in sync). Legged plans: walk, idle, hit, death and attack_melee;
-# fly with wing chains; breath for a non-upright winged body with a neck; attack_ranged
-# with both arms. The legless builders are fixed sets.
+# legless_clips() (keep in sync; clips2, docs/rig-anim.md). Legged plans: walk, idle, hit,
+# death, attack_melee, fly (the wing beat with wing chains, else `levitate`), breath (any
+# head chain), cast, swim, burrow; attack_ranged with both arms. The legless builders are
+# fixed sets; serpentine and floating have the clips2 extras, the others do not.
 LEGLESS_CLIPS = {
-    "serpentine": {"idle", "walk", "swim", "attack_melee", "hit", "death"},
+    "serpentine": {"idle", "walk", "swim", "attack_melee", "hit", "death", "cast", "breath", "burrow", "fly"},
     "amorphous": {"idle", "walk", "attack_melee", "hit", "death"},
     "plant_object": {"idle", "walk", "attack_melee", "attack_special", "hit", "death"},
     "tentacled": {"idle", "swim", "fly", "walk", "attack_melee", "hit", "death"},
     "aquatic": {"idle", "swim", "walk", "attack_melee", "attack_special", "hit", "death"},
     "merfolk_naga": {"idle", "swim", "walk", "hit", "death"},
     "swarm": {"idle", "walk", "fly", "swim", "attack_melee", "hit", "death"},
-    "floating": {"idle", "fly", "walk", "attack_melee", "hit", "death"},
+    "floating": {"idle", "fly", "walk", "attack_melee", "hit", "death", "swim", "cast"},
 }
-WINGED_PLANS = {"winged_quadruped", "winged_biped"}
 
 
 def buildable_clips(rec: dict) -> set:
@@ -195,12 +211,7 @@ def buildable_clips(rec: dict) -> set:
         return s
     if plan not in overrides.FEET_BY_PLAN:
         return set()  # radial: anim.stage_anim skips the plan
-    s = {"walk", "idle", "hit", "death", "attack_melee"}
-    winged = plan in WINGED_PLANS or (plan == "avian" and rec["rig_template"] != "custom.theropod")
-    if winged:
-        s.add("fly")
-        if plan not in anim.UPRIGHT:
-            s.add("breath")
+    s = {"walk", "idle", "hit", "death", "attack_melee", "fly", "breath", "cast", "swim", "burrow"}
     if plan in anim.UPRIGHT or (plan in anim.ARMED and rec.get("hands")):
         s.add("attack_ranged")
     return s
@@ -218,20 +229,14 @@ def _clip_gap(clip):
 
 
 GAPS = [
-    ("clip_cast", "`cast` clip: no builder for any plan", _clip_gap("cast"), False, "anim --force",
-     "a spellcasting gesture: arms for upright plans, a pulse for the rest"),
-    ("clip_breath", "`breath` on a plan without a breath builder (only non-upright winged bodies have one)",
-     _clip_gap("breath"), False, "anim --force", "hell hound, gorgon, mephits, behir, dragon turtle, ..."),
-    ("clip_burrow", "`burrow` clip: no builder", _clip_gap("burrow"), False, "anim --force", ""),
-    ("clip_swim", "`swim` on a legged plan or floating (legged builders have no swim)", _clip_gap("swim"), False,
-     "anim --force", "crocodiles, crabs, water elemental, ..."),
     ("clip_ranged", "`attack_ranged` without two arms (spit, tail spikes, rays)", _clip_gap("attack_ranged"), False,
-     "anim --force", "floating and serpentine casters, manticore, ..."),
-    ("clip_fly", "`fly` without wings the code can find or a builder for the plan", _clip_gap("fly"), False,
-     "anim --force", "couatl, flying snake, flying sword, giant wasp, ..."),
-    ("clip_other", "other clips with no builder", lambda r: any(c not in {"cast", "breath", "burrow", "swim",
-                                                                          "attack_ranged", "fly"}
-                                                                for c in missing_clips_expected(r)),
+     "anim --force", "floating and serpentine casters, manticore"),
+    ("clip_fly", "`fly` on a plan with no fly builder (amorphous, plant_object, aquatic, merfolk_naga)", _clip_gap("fly"),
+     False, "anim --force", "the flying sword"),
+    ("clip_swim", "`swim` on a plan with no swim builder (amorphous, plant_object)", _clip_gap("swim"), False,
+     "anim --force", "amorphous builders: idle, walk, attack_melee, hit, death"),
+    ("clip_other", "radial: no clip builder for the plan (anim stage skips it)",
+     lambda r: any(c not in {"attack_ranged", "fly", "swim"} for c in missing_clips_expected(r)),
      False, "anim --force", ""),
     ("winged_biped_wings", "winged_biped wing chains: SkinTokens found none on the harpy (hand-built)",
      lambda r: r["body_plan"] == "winged_biped" and r["id"] not in PILOTS, False,
@@ -255,10 +260,10 @@ GAPS = [
      False, "rig --rig-reroll, anim --force (mesh only if the shape is wrong)", ""),
     ("multi_arm", "multi-armed wielders: hand_r1..n sockets / more than one arm pair",
      lambda r: (r.get("arms") or 2) != 2, False, "rig --force, anim --force", "glabrezu, marilith"),
-    ("size_tiny", "tiny: anim thresholds are absolute metres (DIP_MAX 0.03, HOVER 0.32 m) on 0.1-0.6 m bodies",
+    ("size_tiny", "tiny: no pilot below 0.95 m (anim thresholds are size-relative since clips2, untested there)",
      lambda r: r["size"] == "tiny" and r["id"] not in PILOTS, False, "anim --force", ""),
-    ("size_big", "huge / gargantuan: 20-25k tri LOD0 never through SkinTokens; HOVER 0.32 m on 10-30 m bodies; "
-                 "paint views are 1024 px whatever the size",
+    ("size_big", "huge / gargantuan: 20-25k tri LOD0 never through SkinTokens; paint views are 1024 px whatever "
+                 "the size (anim thresholds are size-relative since clips2)",
      lambda r: r["size"] in ("huge", "gargantuan") and r["id"] not in PILOTS, False,
      "rig (if SkinTokens fails: tri_budget override, then mesh..), anim --force", ""),
     ("facing_wings", "winged bodies: QA's auto-facing follows the wings (the dragon pilot was 65 deg off); the rig "
@@ -311,6 +316,15 @@ def status(rec: dict, source: str) -> dict:
     st = viewer.stage_status(d, man)
     done = dict(st["stages"])
     done["rig"] = rig_done(d, man, st)
+    stale = {}
+    if done["mesh"]:
+        why = mesh_stale(rec, d, man)
+        if why:  # forge's mesh clears model.glb and the thumbs, so qa follows by itself
+            done["mesh"], stale["mesh"] = False, why
+    if done["qa"] and "mesh" not in stale:
+        why = qa_stale(rec, man)
+        if why:
+            done["qa"], stale["qa"] = False, why
     skipped = {}
     if not paint_enabled(rec):
         skipped["paint"] = "disabled by override paint.enabled"
@@ -328,7 +342,42 @@ def status(rec: dict, source: str) -> dict:
         elif s == "lod":
             pend.add("rig")
     return {"done": done, "pending": [s for s in STAGES if s in pend], "raw_pending": raw,
-            "skipped": skipped, "man": man, "st": st, "dir": d}
+            "skipped": skipped, "stale": stale, "man": man, "st": st, "dir": d}
+
+
+def mesh_stale(rec: dict, d: Path, man: dict) -> str | None:
+    """model_raw.glb made from another reference than the one in use now: a re-rolled ref
+    (`forge.py ref --force`, ref.png newer than the mesh) or a `ref_pick` pinned after the
+    mesh ran. forge skips mesh while model_raw.glb exists, so the batch runs it with --force."""
+    raw, ref = d / "model_raw.glb", d / "ref.png"
+    if not raw.exists():
+        return None
+    if ref.exists() and ref.stat().st_mtime > raw.stat().st_mtime + 1:
+        return "ref.png is newer than model_raw.glb (re-rolled reference)"
+    try:
+        pin = overrides.load(rec["source"], rec["id"]).get("ref_pick")
+    except Exception:
+        pin = None
+    made = (man.get("mesh") or {}).get("ref_picked") if isinstance(man.get("mesh"), dict) else None
+    if pin is not None and made is not None and int(pin) != int(made):
+        return f"override ref_pick {pin} != the candidate the mesh was made from ({made})"
+    return None
+
+
+def qa_stale(rec: dict, man: dict) -> str | None:
+    """A `yaw` pinned in the override after qa ran (the facing gate's fix) makes model.glb
+    stale; forge would skip qa because its files exist, so the batch runs it with --force."""
+    try:
+        yaw = overrides.load(rec["source"], rec["id"]).get("yaw")
+    except Exception:
+        return None
+    if yaw is None:
+        return None
+    q = man.get("qa") if isinstance(man.get("qa"), dict) else {}
+    have = q.get("yaw_override")
+    if have is None or abs(float(have) - float(yaw)) > 0.05:
+        return f"override yaw {yaw} != the yaw qa ran with ({have})"
+    return None
 
 
 def ref_n(rec: dict, args) -> int:
@@ -363,8 +412,7 @@ def needs_facing_gate(rec: dict, d: Path, pending: list, args) -> bool:
 def estimate(rec: dict, s: dict, args, stages=None) -> float:
     pend = [x for x in s["pending"] if stages is None or x in stages]
     t = sum(EST[est_key(x, rec, s["dir"])] for x in pend)
-    if "paint" in pend and not args.no_restart:
-        t += EST["restart"]
+    t += EST["restart"] * len(restart_stages(args) & set(pend))
     if needs_facing_gate(rec, s["dir"], pend, args):
         t += EST["facing"]
     return t
@@ -636,20 +684,24 @@ def ensure_comfy(prog: Progress) -> None:
 
 
 def memory_gate(prog: Progress, min_gb: float, label: str) -> None:
-    """Wait until MemAvailable (free's 'available') >= min_gb. After 5 min ask ComfyUI to
-    /free, after 15 min restart it; keeps waiting after that, logging every minute."""
+    """Wait until MemAvailable (free's 'available') >= min_gb. Short at once: ask ComfyUI to
+    /free (between stages nothing is queued; what it holds is the previous stage's models:
+    after a ref ComfyUI keeps SDXL + DWPose at ~14 GB RSS, which left 6.5 GB on the smoke
+    run). After 15 min restart it; keeps waiting after that, logging every minute."""
     t0, freed, restarted, last = time.time(), False, False, 0.0
     while True:
         avail = paint.mem_available_gb()
         if avail >= min_gb:
             if time.time() - t0 > 1:
-                prog.event("memory_wait", stage=label, seconds=round(time.time() - t0, 1), available_gb=round(avail, 1))
+                prog.event("memory_wait", stage=label, seconds=round(time.time() - t0, 1), available_gb=round(avail, 1),
+                           freed=freed, restarted=restarted)
             return
         el = time.time() - t0
         if el - last >= 60 or last == 0:
             fg.log(f"batch: {label}: {avail:.1f} GB available < {min_gb} GB, waiting ({el:.0f}s)")
             last = el or 1
-        if el > 300 and not freed:
+        if not freed:
+            fg.log(f"batch: {label}: asking ComfyUI to /free")
             paint.free_comfy(fg)
             freed = True
         if el > 900 and not restarted:
@@ -685,21 +737,23 @@ def last_manifest_error(d: Path, stage: str) -> str | None:
     return errs[-1].get("error") if errs else None
 
 
-def forge_cmd(stage: str, rec: dict, args) -> list:
+def forge_cmd(stage: str, rec: dict, args, force: bool = False) -> list:
     cmd = [sys.executable, "-I", str(FORGE), stage, rec["id"], "--source", args.source]
     if stage == "ref":
         cmd += ["--n", str(ref_n(rec, args))]
+    if force:
+        cmd.append("--force")  # a stale stage (status()["stale"]): forge would skip it otherwise
     return cmd
 
 
-def run_stage(stage: str, rec: dict, d: Path, args, prog: Progress, logf) -> dict:
+def run_stage(stage: str, rec: dict, d: Path, args, prog: Progress, logf, force: bool = False) -> dict:
     """One forge.py stage in its own process group with a timeout and the /queue watchdog.
     A hung ComfyUI kills the stage, restarts the unit and retries the stage once."""
     timeout = timeout_for(stage, rec, d, args)
     for attempt in (1, 2):
         if stage in COMFY_STAGES:
             ensure_comfy(prog)
-        cmd = forge_cmd(stage, rec, args)
+        cmd = forge_cmd(stage, rec, args, force)
         logf.write(f"\n=== {time.strftime('%H:%M:%S')} {' '.join(cmd)} (timeout {timeout:.0f}s)\n")
         logf.flush()
         t0 = time.time()
@@ -758,14 +812,46 @@ def facing_gate(rec: dict, d: Path) -> dict:
     mesh would be refused by the rig stage after ~3 min of paint, and fixing it (pin yaw,
     qa --force) deletes the paint again."""
     f = rig.facing_check(fg, rec, d)
-    if not f["ok"]:
-        man = fg.load_manifest(d)
+    man = fg.load_manifest(d)
+    if f["ok"]:  # a pinned yaw fixed it: drop this gate's earlier refusal (the report reads manifest errors)
+        errs = man.get("errors") or []
+        keep = [e for e in errs if not str(e.get("error", "")).startswith("batch facing gate:")]
+        rm = man.get("rig")
+        placeholder = isinstance(rm, dict) and rm.get("error") == "facing check failed" and set(rm) <= {"error", "facing"}
+        if len(keep) != len(errs) or placeholder:
+            man["errors"] = keep
+            if placeholder:
+                man.pop("rig")
+            fg.save_manifest(d, man)
+    else:
         man.setdefault("rig", {"error": "facing check failed"})["facing"] = f
         fg.save_manifest(d, man)
         add_manifest_error(d, "rig", f"batch facing gate: model.glb faces {f['angle_deg']} deg off +Y "
                                      f"(confidence {f['confidence']}); pin `yaw` (about {f.get('suggested_yaw')}) "
                                      "and re-run qa, or set rig_facing_check false")
     return f
+
+
+def run_facing_gate(rec: dict, d: Path, m: dict, prog: Progress, args) -> bool:
+    """facing_gate() with the bookkeeping: m["stages"]["facing"], an errors entry when
+    refused. False = refused (leave the monster before paint)."""
+    t0 = time.time()
+    try:
+        f = facing_gate(rec, d)
+    except Exception as e:  # a Blender failure here is not a verdict: let rig decide
+        f = {"ok": True, "error": str(e)[:300]}
+        fg.log(f"batch: {rec['id']}: facing gate failed to run ({e}); continuing")
+    m["stages"]["facing"] = {"status": "ok" if f["ok"] else "refused", "angle_deg": f.get("angle_deg"),
+                             "confidence": f.get("confidence"), "suggested_yaw": f.get("suggested_yaw"),
+                             "seconds": round(time.time() - t0, 1), "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    if not f["ok"]:
+        m["errors"].append({"stage": "facing", "error": f"{f['angle_deg']} deg off +Y, confidence "
+                            f"{f['confidence']}, suggested yaw {f.get('suggested_yaw')}",
+                            "at": time.strftime("%Y-%m-%dT%H:%M:%S")})
+        fg.log(f"batch: {rec['id']}: facing gate refused ({f['angle_deg']} deg); next monster")
+    prog.refresh(rec, args.source)
+    prog.save()
+    return bool(f["ok"])
 
 
 # ---------------------------------------------------------------- run
@@ -778,6 +864,7 @@ def cmd_run(args) -> int:
     sess = prog.session(args) if not args.dry_run else {}
     logdir = bdir / "_batch_logs"
     failures, total_est = 0, 0.0
+    fast_streak = 0  # monsters in a row whose stage failed within FAST_FAIL_S: a broken environment
     fg.log(f"batch: {len(items)} monsters, stages {','.join(want)}{' (dry run)' if args.dry_run else ''}")
     for i, (rec, cls) in enumerate(items, 1):
         mid = rec["id"]
@@ -795,11 +882,15 @@ def cmd_run(args) -> int:
                 if not gate_done and st in ("paint", "lod", "rig") and needs_facing_gate(rec, d, todo, args):
                     print("    facing gate: rig.facing_check on model.glb (Blender); stop this monster if refused")
                     gate_done = True
-                if st == "paint" and not args.no_restart:
+                if st in restart_stages(args):
                     print("    systemctl --user restart comfyui; wait for /system_stats")
                 if st in ("mesh", "paint"):
                     print(f"    memory gate: wait for >= {args.min_free_gb} GB available")
-                print(f"    {' '.join(forge_cmd(st, rec, args)[2:])}   (timeout {timeout_for(st, rec, d, args):.0f}s)")
+                print(f"    {' '.join(forge_cmd(st, rec, args, st in s['stale'])[2:])}   "
+                      f"(timeout {timeout_for(st, rec, d, args):.0f}s)" + (f"  [stale: {s['stale'][st]}]" if st in s["stale"] else ""))
+                if st == "qa" and not gate_done and needs_facing_gate(rec, d, s["pending"], args):
+                    print("    facing gate: rig.facing_check on model.glb (Blender); stop this monster if refused")
+                    gate_done = True
             for st, why in s["skipped"].items():
                 if st in want:
                     print(f"    {st}: skipped ({why})")
@@ -807,7 +898,7 @@ def cmd_run(args) -> int:
         m = prog.monster(rec, cls)
         logdir.mkdir(parents=True, exist_ok=True)
         fg.log(f"batch [{i}/{len(items)}] {mid}: pending {','.join(todo)}")
-        ran, gate_passed = set(), False
+        ran, gate_passed, fast_fail = set(), False, None
         with open(logdir / f"{mid}.log", "a") as logf:
             while True:
                 s = status(rec, args.source)
@@ -822,36 +913,24 @@ def cmd_run(args) -> int:
                     failures += 1
                     break
                 if not gate_passed and st in ("paint", "lod", "rig") and needs_facing_gate(rec, d, s["pending"], args):
-                    t0 = time.time()
-                    try:
-                        f = facing_gate(rec, d)
-                    except Exception as e:  # a Blender failure here is not a verdict: let rig decide
-                        f = {"ok": True, "error": str(e)[:300]}
-                        fg.log(f"batch: {mid}: facing gate failed to run ({e}); continuing")
-                    m["stages"]["facing"] = {"status": "ok" if f["ok"] else "refused", "angle_deg": f.get("angle_deg"),
-                                             "confidence": f.get("confidence"), "seconds": round(time.time() - t0, 1)}
                     gate_passed = True
-                    if not f["ok"]:
-                        m["errors"].append({"stage": "facing", "error": f"{f['angle_deg']} deg off +Y, confidence "
-                                            f"{f['confidence']}, suggested yaw {f.get('suggested_yaw')}",
-                                            "at": time.strftime("%Y-%m-%dT%H:%M:%S")})
-                        fg.log(f"batch: {mid}: facing gate refused ({f['angle_deg']} deg); next monster")
+                    if not run_facing_gate(rec, d, m, prog, args):
                         failures += 1
-                        prog.refresh(rec, args.source)
-                        prog.save()
                         break
-                if st == "paint" and not args.no_restart:
-                    restart_comfy(prog, f"before {mid} paint")
+                if st in restart_stages(args):
+                    restart_comfy(prog, f"before {mid} {st}")
                 if st in ("mesh", "paint"):
                     memory_gate(prog, args.min_free_gb, f"{mid} {st}")
                 ran.add(st)
-                res = run_stage(st, rec, d, args, prog, logf)
+                res = run_stage(st, rec, d, args, prog, logf, force=st in s["stale"])
                 res["at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
                 m["stages"][st] = res
                 m["seconds"] = round(m.get("seconds", 0) + res["seconds"], 1)
                 sess["stages_run"] += 1
                 if res["status"] != "ok":
                     m["errors"].append({"stage": st, "error": res.get("error"), "at": res["at"]})
+                    if res["status"] == "failed" and res["seconds"] < FAST_FAIL_S:
+                        fast_fail = f"{st}: {str(res.get('error'))[:200]}"
                     failures += 1
                     sess["failures"] += 1
                 fg.log(f"batch: {mid}: {st} {res['status']} in {res['seconds']}s")
@@ -860,9 +939,23 @@ def cmd_run(args) -> int:
                 prog.save()
                 if res["status"] != "ok":
                     break  # move on to the next monster
+                # A ref,mesh,qa pass stops before paint, where the gate would run: check the
+                # facing right after qa so refusals (pin `yaw`) are known before the paint pass.
+                if st == "qa" and not gate_passed and needs_facing_gate(rec, d, status(rec, args.source)["pending"], args):
+                    gate_passed = True
+                    if not run_facing_gate(rec, d, m, prog, args):
+                        failures += 1
+                        break
         prog.refresh(rec, args.source)
         sess["wall_s"] = round(time.time() - sess["t0"], 1)
         prog.save()
+        fast_streak = fast_streak + 1 if fast_fail else (0 if ran else fast_streak)
+        if args.max_fast_failures and fast_streak >= args.max_fast_failures:
+            prog.event("stopped", why=f"{fast_streak} monsters in a row failed within {FAST_FAIL_S:.0f}s", last=fast_fail)
+            fg.log(f"batch: stopping: {fast_streak} monsters in a row failed a stage within {FAST_FAIL_S:.0f}s "
+                   f"(last {mid} {fast_fail}); the environment is broken (ComfyUI, disk, quota?), not the monsters")
+            failures = max(failures, 1)
+            break
         if args.stop_after_failures and failures >= args.stop_after_failures:
             fg.log(f"batch: stopping after {failures} failures (--stop-after-failures {args.stop_after_failures})")
             break
@@ -929,7 +1022,8 @@ def cmd_report(args) -> int:
         for e in r["errors"]:
             by_stage[e.get("stage", "?")].append((r["rec"]["id"], e.get("error", ""), e.get("at", "")))
         for e in r["b"].get("errors") or []:
-            if e.get("stage") == "facing" or str(e.get("error", "")).startswith("batch: ") and "still reads" in str(e.get("error")):
+            refused = ((r["b"].get("stages") or {}).get("facing") or {}).get("status") == "refused"
+            if (e.get("stage") == "facing" and refused) or "still reads" in str(e.get("error", "")):
                 by_stage[e["stage"]].append((r["rec"]["id"], e.get("error", ""), e.get("at", "")))
     if not by_stage:
         L.append("None.")
@@ -955,6 +1049,28 @@ def cmd_report(args) -> int:
         L.append("None.")
     for plan in sorted(probs):
         L.append(f"- **{plan}** ({len(probs[plan])}): " + "; ".join(probs[plan]))
+    # every monster the batch touched: stage seconds, facing, stale stages, the unarmed pick
+    L += ["", "## Batch monsters", "",
+          "| id | plan | tier | done | pending | ref s | mesh s | qa s | facing | unarmed pick (scores) | notes |",
+          "|---|---|---:|---|---|---:|---:|---:|---|---|---|"]
+    for r in rows:
+        b = r["b"]
+        if not b:
+            continue
+        stg = b.get("stages") or {}
+        sec = lambda k: "" if k not in stg else f"{stg[k].get('seconds')}" + ("" if stg[k].get("status") == "ok" else
+                                                                             f" {stg[k].get('status')}")
+        fc = stg.get("facing") or {}
+        facing = "" if not fc else f"{fc.get('status')} {fc.get('angle_deg')} deg"
+        u = r["unarmed"] or {}
+        ref_m = r["s"]["man"].get("ref") if isinstance(r["s"]["man"].get("ref"), dict) else {}
+        unarmed = "" if not u else f"{ref_m.get('picked')} by {ref_m.get('picked_by')} ({', '.join(str(x) for x in u['scores'])})"
+        notes = [f"stale {k}: {v}" for k, v in r["s"]["stale"].items()]
+        if u.get("warning") or u.get("warning_pick"):
+            notes.append("unarmed: " + str(u.get("warning_pick") or u.get("warning")))
+        L.append(f"| `{r['rec']['id']}` | {r['rec']['body_plan']} | {r['cls']['tier']} | "
+                 f"{','.join(s_ for s_ in STAGES if r['s']['done'][s_]) or '-'} | {','.join(r['s']['pending']) or '-'} | "
+                 f"{sec('ref')} | {sec('mesh')} | {sec('qa')} | {facing} | {unarmed} | {'; '.join(notes) or '-'} |")
     # review list sorted by rig score
     L += ["", "## Needs review (lowest rig score first)", "",
           "| id | plan | tier | rig score | problems | missing clips | other |", "|---|---|---:|---:|---|---|---|"]
@@ -1011,7 +1127,9 @@ def main(argv=None) -> int:
         p.add_argument("--stages", help=f"comma subset of {','.join(STAGES)}")
         p.add_argument("--n", type=int, default=3, help="ref candidates (unarmed_reference monsters: at least 4)")
         p.add_argument("--include-pilots", action="store_true", help="run the pilots too")
-        p.add_argument("--no-restart", action="store_true", help="no ComfyUI restart before paint")
+        p.add_argument("--no-restart", action="store_true", help="no ComfyUI restart before mesh and paint")
+        p.add_argument("--restart-before", default=",".join(RESTART_BEFORE),
+                       help="stages to restart ComfyUI before (default %(default)s)")
         p.add_argument("--no-facing-gate", action="store_true", help="no facing check before paint / rig")
         p.add_argument("--batch-dir", help="where _batch.json / _batch.md / _batch_logs go (default out/<source>)")
         p.add_argument("--timeout-scale", type=float, default=TIMEOUT_SCALE)
@@ -1023,6 +1141,8 @@ def main(argv=None) -> int:
     common(pr)
     pr.add_argument("--dry-run", action="store_true", help="print what it would do; touch nothing")
     pr.add_argument("--stop-after-failures", type=int, default=0, help="stop after N failed stages (0 = never)")
+    pr.add_argument("--max-fast-failures", type=int, default=MAX_FAST_FAILURES,
+                    help=f"stop after N monsters in a row fail a stage within {FAST_FAIL_S:.0f}s (0 = never)")
     rp = sub.add_parser("report", help="write <batch-dir>/_batch.md and print a summary")
     rp.add_argument("--source", default="srd-5.2.1")
     rp.add_argument("--batch-dir")

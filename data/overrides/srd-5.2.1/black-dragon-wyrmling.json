@@ -1,0 +1,4 @@
+{
+  "yaw": -155.6,
+  "notes": "Batch smoke run 2026-11-04: QA auto-yaw -105.6 left the body 50 deg off +Y (facing gate, confidence 0.74, wings on a side-view reference); pinned the gate's suggested yaw."
+}
