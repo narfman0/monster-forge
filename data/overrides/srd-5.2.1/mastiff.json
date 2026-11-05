@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(standing on all four legs, walking, side view, whole body in profile:1.4)",
+  "negative_extra": "(sitting, sitting on its haunches, lying down, front view:1.4)",
+  "notes": "Pass 3 (2026-11-05, first reference and mesh): 3 of 3 on-model fawn mastiffs with black masks and collars, but ALL SITTING on their haunches; ref_0 meshed as a sitting dog (1.2 m, faces front, gate ok 7.0) that the quadruped walk rig cannot use. Re-roll with a standing side-view prompt."
+}

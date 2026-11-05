@@ -1,4 +1,5 @@
 {
   "ref_pick": 2,
-  "notes": "Tier-1 review 2026-11-05: ref_0 (default) is a brown bear seen from the front three-quarter (foreshortened, like the black bear ref_0) and its mesh timed out (312 s); ref_1 stands on a rock slab. ref_2: clean side view, four paws down, no base. Re-pick 2; the next pass meshes it."
+  "notes": "Tier-1 review 2026-11-05: ref_0 (default) is a brown bear seen from the front three-quarter (foreshortened, like the black bear ref_0) and its mesh timed out (312 s); ref_1 stands on a rock slab. ref_2: clean side view, four paws down, no base. Re-pick 2; the next pass meshes it. Pass 3 (2026-11-05, ref_2 re-mesh): clean walking brown bear, 4 paws down, 2.7 m long, but BACKWARDS: thumb.png front tile is the rump, back tile the face, thumb_head on the rump; the gate refused 174 deg (toes 1.0), suggested 136.6. Pinned yaw 130.6 = QA -49.35 + 180; qa re-runs on the next pass, check thumb.png.",
+  "yaw": 130.6
 }

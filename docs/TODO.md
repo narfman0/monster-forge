@@ -943,6 +943,11 @@ untested variants; off-model fork, heavy crossbow, mace props.
       differs; unstamped (older) references only with `--reroll-changed-prompts` (prompt
       source newer than `ref.png` and the prompt differs): the review's 24 re-roll ids.
 - [ ] Tier-1 pass review (2026-11-05): per-monster verdicts, re-roll / re-pick lists and the
-      overrides written are in `docs/review-tier1.md`.
+      overrides written are in `docs/review-tier1.md`. Pass 3 (`--reroll-changed-prompts`,
+      48 monsters) reviewed: 129 of 155 ready for paint; 7 re-picks wait for a mesh pass, 7
+      yaw pins for a qa pass, 5 first-round re-rolls (mastiff, giant-weasel, polar-bear,
+      black-dragon-wyrmling, shambling-mound), 5 third-round re-rolls (medusa,
+      earth-elemental, ettin, death-dog, salamander), 2 false refusals to clear by hand
+      (black-bear, giant-hyena). Open: a pinned `ref_pick` survives a prompt re-roll.
 - [ ] First batch run: `batch.py run --tier 1 --stages ref,mesh,qa` (~4.4 h), review the strips,
       then the paint pass once the ComfyUI memory limit is decided; `report` after the first 20.
