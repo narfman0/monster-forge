@@ -151,16 +151,24 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       + 2; all three found by the clips (`anim.parts.tail`), clip frames and sockets unchanged.
       No-op (`rig --force` in scratch): goblin, dragon (SkinTokens tail untouched), harpy,
       eagle (fan not taken) leave rig.json, chosen.json, sockets and scores identical.
-- [ ] Hanging tails in the clips (owner of `blender_clips.py`): the walk/idle sway about Z,
-      the floor lift about (root -> tip) x Z and the death counter-turn assume a level tail.
-      With the inserted tails, current clips: centaur walk 203 -> 272 edges past 4x (tail swung
-      30 degrees sideways), death 129 -> 219; wolf death 3 -> 292, owlbear walk 1 -> 22, death
-      1 -> 484 (the counter-turn swings a hanging tail through the floor). A scratch patch
-      (hanging = root drops more than it reaches: sway about Y, lift about -X, no death
-      counter-turn) gives wolf death 3, walk/idle 0; centaur death 56; owlbear death 45. Also
-      `TAIL_REACH` for the lift should be the tail's length, not its horizontal reach (the
-      centaur's floor-touching tail lifts ~40 degrees). Until then the three pilots keep their
-      old rigs in `out/` (docs/rig-anim.md).
+- [x] (2026-11-05) Hanging tails in the clips (`blender_clips.py`, docs/rig-anim.md "Hanging
+      tails in the clips"): a tail whose root drops more than it reaches out (not a ground fan)
+      sways as a pendulum (about (root -> tip) x `TAIL_AXIS`), lifts about (root -> tip) x -Y
+      with `TAIL_REACH` = its arc length and an exact 1 - cos step (`hang_lift`), its end let
+      down to `DIP_MAX` into the ground, curls about `TAIL_AXIS`, and skips the death
+      counter-turn. Edges past 4x, old -> now in `out/`: wolf death 3 -> 3, walk 0 -> 0;
+      centaur walk 203 -> 114, death 129 -> 56 (tail no longer kicks with the hoof). Wolf and
+      centaur rigged with the inserted tails in `out/` (`rig_tail_chain: true` overrides).
+      Gate: the 13 other pilots' clips.json identical but for `build_seconds`.
+- [ ] Owlbear tail chain: with the inserted/adopted chain its walk tears 33 edges past 4x (old
+      rig 1), death 45 (1), attack 16 (1); with every tail turn at 0 still 22 / 45, so it is the
+      rig's weights, not the clips: the lobe runs from the upper back (0.41 m above the hips) to
+      beside the hind legs and the legs' share is stripped from all 859 lobe vertices, so the
+      fan's border with `bone_14`/`bone_15` and `bone_18` tears when the legs move (owner of
+      `blender_tail_chain.py`). The owlbear keeps its old rig in `out/` and `rig.adds_tail`
+      stays opt-in (`rig_tail_chain`) until it passes (walk <= 5, death <= 10); then flip the
+      default for `TAIL_ADDED` (keep `rig_tail_chain: false` as the off switch) and update
+      `overrides.py`'s default and description for the key.
 - [x] (2026-11-04) `find_arms`: chains off or through the head (hair, the neck) and hanging
       chains that reach the ground band (a tail) are not arms; a side with no hanging arm
       takes a raised chain that reaches less than `WING_REACH` x the height (less than a
@@ -204,6 +212,9 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       Giant eagle walk (scratch): min_z -0.085 -> +0.001 m, body raise 0.092 -> 0, stride
       0.5 -> 0.8; its idle, lunge (now full size) and hit no longer raise the body. All other
       pilots' clips unchanged (clip and frame counts, min_z, raises).
+- [x] (2026-11-05, tails2) Hanging tails: the floor clips, idle/walk sway, curls and death
+      drive a tail that hangs (wolf, centaur, owlbear inserted chains) in its own plane;
+      level tails and fans untouched (C, docs/rig-anim.md "Hanging tails in the clips").
 - [x] (2026-11-04, anim3) Round 4 fixes (E): ghost train folds flat in death and lift clips
       raise frames that dip, the fungus falls from a planted root, the merfolk's top arm lies
       down, the swarm scatters and sinks, lifted idle for swim/fly-only monsters, the eagle's

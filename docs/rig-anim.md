@@ -327,7 +327,9 @@ tail, avians left out) whose skeleton has a `find_tail` of fewer than 4 bones, f
 chosen-rig score, after the wings) finds the tail on the rest mesh and inserts a chain, or adopts
 and extends a shorter one. Recorded as `tail_added` in `rig.json` and `manifest.rig` (bones,
 parent, adopted, the profile's numbers, weight counts); a gated plan with no tail found gets
-`tail_added` with `found: false` and a `reason` and a warning in the log. The rule:
+`tail_added` with `found: false` and a `reason` and a warning in the log. It is opt-in per
+monster (`rig.adds_tail`: override `rig_tail_chain: true`; on for the wolf and the centaur): the
+default stays off until the owlbear's inserted weights stop tearing (below). The rule:
 
 - Body axis: the skeleton's centre line (`centre_x`); hips: the mean first joint of the hind
   legs (legs behind the feet's mean).
@@ -394,20 +396,55 @@ unchanged; edges past 4x over the clip every 3rd frame, before -> after):
 | owlbear | 1 -> 22 | 1 -> 484 | 0 -> 0 | -3.11 -> -3.26, `tail` problem gone |
 
 The tail is skinned and found by the clips on all three (`anim.parts.tail` = the chain), and the
-centaur's no longer kicks with the hind hoof, but `blender_clips.py` drives a tail as a level one
-and these three hang: the walk and idle sway turn it about Z (a twist for a hanging tail), the
-floor lift turns it about `TAIL_AXIS` = (root -> tip, horizontal) x Z, which for the centaur's
-near-vertical tail (tip 0.18 m to the side, 0.08 m behind) swings it 30 degrees sideways in the
-walk, and the death turns it back against the 88 degree roll, which for a hanging tail swings it
-down through the floor (the wolf's and owlbear's death tearing, the centaur's torn sheet). A
-scratch patch to the clips (a tail whose root drops more than it reaches out "hangs": it sways
-about Y, lifts about -X, and skips the death counter-turn) gives: wolf death 292 -> 3 (lies flat
-along the ground with the body), walk 0, idle 0; centaur death 219 -> 56, walk 264 (the lift then
-raises the floor-touching tail up to ~40 degrees backwards: `TAIL_REACH` is the tail's horizontal
-reach, 0.24 m for a 1.6 m hanging tail); owlbear walk 33, death 45. So none of the three is in
-`out/` yet: that needs the hanging-tail case in the clips (owner of blender_clips.py). The
-owlbear's adopted chain also runs from the upper back (its rear profile is continuous from the
-back into the fan), so its whole rump sways as tail.
+centaur's no longer kicks with the hind hoof. Those numbers are with the clips of the time, which
+drove every tail as a level one; `blender_clips.py` now handles hanging tails (below).
+
+**Hanging tails in the clips** (`blender_clips.py`, 2026-11-05). Per clip build, a tail (not a
+ground fan) *hangs* when its root drops more to its tip than it reaches out horizontally
+(`HANG`: root head z - last bone's tail z > their horizontal distance). Wolf (drop 0.69 m, reach
+0.09), owlbear (1.61 / 0.79) and centaur (1.59 / 0.20) hang; the dragon's tail and the eagle's fan
+do not, so their clips are byte-for-byte the old ones. For a hanging tail:
+
+- Sway (walk, idle, swim; `tail_sway`): a pendulum swing side to side, about `TAIL_SWAY_AXIS` =
+  (root -> tip) x `TAIL_AXIS`, the line across the tail in its plane (about Y for a straight-down
+  tail). About Z, the level tail's axis, it was a twist along the chain. The idle's bound
+  (`tail_idle_amps`) measures the lever in 3D (a hanging tail's horizontal lever is ~0).
+- Floor lift: about `TAIL_AXIS` = (root -> tip) x -Y, the normal of the plane through the tail
+  line and the body's long axis (about -X; + lifts the end backwards). (root -> tip,
+  horizontal) x Z swung the centaur's tail, whose tip hangs 0.18 m to the side and 0.08 m behind,
+  30 degrees sideways. `TAIL_REACH` is the chain's arc length (the horizontal reach, 0.24 m of a
+  1.6 m tail, lifted it 40 degrees), and the step is `hang_lift`: the end sits `TAIL_REACH` x
+  cos(slant + lift) below the root, so the turn that raises it dz is solved exactly (the level
+  tail's asin step left the centaur's tail 4 cm under). The end is let down to `DIP_MAX` into
+  the ground, not lifted clear: the centaur's lower tail is fused to its left hind leg and every
+  degree pulls the sheet off it (walk edges past 4x with the end at -0.03 m: 114; -0.025 m: 237;
+  clear of the ground: 250; no lift at all: 110 with the end 10 cm under). Centaur turns: idle 9,
+  walk 15, attack 15, hit 11 degrees; lowest vertex -0.030 m (was -0.006 with the old rig).
+- Attack, hit, fly, cast curls (`tail_curl`): about `TAIL_AXIS` (+ lifts it backwards); about X
+  a hanging tail swung forward into the hind legs.
+- Death: no counter-turn. The roll lays a hanging tail along the ground with the body; turned
+  back against the roll it swung down through the floor (wolf death 292 edges past 4x).
+- The walk report has `tail_hangs: true`.
+
+Results in `out/` (`rig --force` + `anim --force` with `rig_tail_chain: true`; edges past 4x over
+the clip every 3rd frame; before = the old rig and clips, `tails2/backup`):
+
+| | idle | walk | attack_melee | hit | death | in `out/` |
+|---|---|---|---|---|---|---|
+| wolf | 0 -> 0 | 0 -> 0 | 0 -> 0 | 0 -> 0 | 3 -> 3 | yes (6 inserted on `bone_17`) |
+| centaur-trooper | 21 -> 21 | 203 -> 114 | 525 -> 525 | 37 -> 45 | 129 -> 56 | yes (6 inserted on `bone_15`) |
+| owlbear | 0 -> 0 | 1 -> 33 | 1 -> 16 | 1 -> 2 | 1 -> 45 | no: old rig and clips kept |
+
+Clip and frame counts are unchanged on all three. The centaur's tail swings behind it in the walk
+and lies with the body in the death instead of kicking with the left hind hoof; its remaining
+walk tearing is the old leg sheet (`bone_0`, `bone_22`/`bone_33`, as before). The owlbear's is
+not the clips: with every hanging-tail turn set to 0 (scratch) its walk still tears 22 edges and
+its death 45 (the same 45), between the hind legs (`bone_14`/`bone_15` left, `bone_18` right)
+and the lobe (`tail_*`, `bone_2`). The adopted chain runs from the upper back (root 0.83 x the
+height, 0.41 m above the hips) down the rear fan to 0.13 x the height beside the hind legs, and
+the weights strip the legs' share from all 859 lobe vertices (55.6 of weight), so the fan's
+border with each hind leg tears whenever the legs move. That is in `blender_tail_chain.py`'s
+weights (keep the leg share low on the lobe, or stop the lobe above the hocks), not the clips.
 
 A successful `rig` or `anim` run drops that stage's entries from `manifest.errors` (which
 forge.py appends on every failure), so a fixed monster no longer reads as broken.
@@ -441,8 +478,9 @@ placeholder sword on `hand_r` and a bow on `hand_l` (`viewer/README.md`).
   the raised upper arm and the wing root.
 - The owlbear has no spine (its legs hang off a back root); the wolf has no real tail
   chain. The owlbear's tail (3 bones) is too short for the clips' 4. The rig stage now
-  inserts or extends a tail chain from the mesh ("Tail chains from the mesh"), but the
-  kept rigs in `out/` are still the old ones until the clips handle hanging tails.
+  inserts or extends a tail chain from the mesh ("Tail chains from the mesh"); the wolf and
+  centaur in `out/` have theirs (`rig_tail_chain: true`), the owlbear keeps its old rig until
+  the tail weights stop tearing against the hind legs.
 - Added hand bones point straight up in the bind pose, not along the forearm, so a prop
   attached with no offset stands upright from the wrist (the harpy's `hand_r` and `hand_l`
   in the viewer). Renamed hand bones keep SkinTokens' orientation. The prop-space

@@ -336,8 +336,9 @@ TAIL_ADDED = {"quadruped", "winged_quadruped", "centauroid"}
 
 
 def adds_tail(mon: dict) -> bool:
-    """Tail insertion is opt-in (`rig_tail_chain` override) until blender_clips.py drives hanging
-    tails: on the wolf, owlbear and centaur the inserted chains tear the walk and death clips."""
+    """Tail insertion is opt-in (`rig_tail_chain` override). blender_clips.py drives hanging tails
+    now (the wolf and centaur are on), but the owlbear's adopted chain still tears against its
+    hind legs (its weights, docs/TODO.md C), so the default stays off."""
     if mon["body_plan"] not in TAIL_ADDED:
         return False
     return bool(overrides.load(mon["source"], mon["id"]).get("rig_tail_chain"))

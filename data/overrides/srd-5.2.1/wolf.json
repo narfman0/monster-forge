@@ -1,0 +1,4 @@
+{
+  "rig_tail_chain": true,
+  "notes": "2026-11-05: rig_tail_chain on: the rig inserts a 6-bone tail from the mesh and the hanging-tail clips drive it (docs/rig-anim.md \"Hanging tails in the clips\"); keep it until the tail chain is on by default for quadrupeds/centauroids."
+}

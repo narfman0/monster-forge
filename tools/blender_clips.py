@@ -141,6 +141,13 @@ tail = [] if job["upright"] or legless else rig_topology.find_tail(bones, height
 fan = not tail and not job["upright"] and not legless
 if fan:
     tail = rig_topology.find_tail(bones, height, legs, ground=True)
+# A tail hangs when its root drops more to its tip than it reaches out (the wolf's, the
+# owlbear's and the centaur's chains inserted by the rig stage); a level or lying one (the
+# dragon's) or a ground fan (the eagle's) does not. See "Hanging tails" in docs/rig-anim.md.
+HANG = False
+if tail and not fan:
+    _a, _b = by_name[tail[0]]["head"], by_name[tail[-1]]["tail"]
+    HANG = (_a[2] - _b[2]) > math.hypot(_b[0] - _a[0], _b[1] - _a[1])
 wings = [{"side": w[0], "chain": w[1]} for w in job["wings"]] if job.get("wings") else [] if legless else \
     rig_topology.find_wings(bones, height, legs, arms, exclude=(head,) if head else ())
 root = next(b["name"] for b in bones if b["parent"] is None)
@@ -253,6 +260,52 @@ if tail:
     _d = Vector((_t.x - _r.x, _t.y - _r.y, 0))
     TAIL_AXIS = _d.normalized().cross(AXES["Z"]) if _d.length > 1e-6 else -AXES["X"]
     TAIL_REACH = max(_d.length, 0.1 * height)
+    if HANG:
+        # a hanging tail lifts backwards in its own plane, the one through its root -> tip line
+        # and the body's long axis: (root -> tip) x -Y (about -X for a straight-down tail).
+        # (root -> tip, horizontal) x Z turned the centaur's tail, whose tip hangs 0.18 m to the
+        # side and 0.08 m behind, 30 degrees sideways. Its reach is its length along the chain
+        # (the horizontal reach, 0.24 m of a 1.6 m tail, lifted it 40 degrees).
+        _d3 = _t - _r
+        TAIL_AXIS = _d3.cross(-AXES["Y"]).normalized()
+        # side to side like a pendulum: about the line in that plane across the tail (Y for a
+        # straight-down tail; Z, a twist for a hanging one, is the level tail's sway)
+        TAIL_SWAY_AXIS = _d3.cross(TAIL_AXIS).normalized()
+        TAIL_REACH = max(sum((Vector(by_name[n]["tail"]) - Vector(by_name[n]["head"])).length for n in tail),
+                         0.1 * height)
+        TAIL_SLANT = math.degrees(math.atan2(_d.length, max(1e-6, _r.z - _t.z)))  # off the vertical
+
+
+def hang_lift(up: float, dz: float) -> float:
+    """Degrees more to turn a hanging tail (turned `up` degrees now) about TAIL_AXIS so its
+    far end rises dz: it hangs TAIL_SLANT off the vertical, so its end sits TAIL_REACH x
+    cos(slant + up) below the root. A level tail's end rises by sin (asin above); a hanging
+    one's by 1 - cos, so the asin step left the centaur's floor-touching tail 4 cm under.
+    The end is let down to DIP_MAX into the ground (a tail drags), not lifted clear: the
+    centaur's lower tail is fused to its left hind leg and every degree pulls the sheet
+    off it (walk edges past 4x: tail end at -0.03 m 114, -0.025 m 237, clear of it 250)."""
+    a0 = math.radians(TAIL_SLANT + up)
+    c1 = max(-1.0, min(1.0, math.cos(a0) - dz / TAIL_REACH))
+    return max(0.0, math.degrees(math.acos(c1) - a0))
+
+
+def tail_sway(c, n: str, fn) -> None:
+    """The tail's side-to-side sway on bone n: about Z for a level tail, about TAIL_SWAY_AXIS
+    (a pendulum swing) for a hanging one."""
+    if HANG:
+        c.rot.setdefault(n, []).append((TAIL_SWAY_AXIS, fn))
+    else:
+        c.turn(n, "Z", fn)
+
+
+def tail_curl(c, n: str, fn) -> None:
+    """The tail's up-down turn on bone n (attack, hit, fly, cast): about X for a level tail
+    (+ turns it down), about TAIL_AXIS for a hanging one (+ lifts it backwards, away from the
+    hind legs; about X it swung forward into them)."""
+    if HANG:
+        c.rot.setdefault(n, []).append((TAIL_AXIS, fn))
+    else:
+        c.turn(n, "X", fn)
 
 
 # --- curves ---------------------------------------------------------------------------
@@ -633,7 +686,10 @@ def build(clip: Clip) -> dict:
             sample(clip)
             if tail and clip.ground == "floor":
                 for f, z in enumerate(clip.tail_low):
-                    if z < 0:
+                    if HANG:  # its end drags on the ground: down to DIP_MAX in it (see hang_lift)
+                        if z < -DIP_MAX:
+                            tail_up[f] += hang_lift(tail_up[f], 1.2 * (-z - DIP_MAX))
+                    elif z < 0:
                         tail_up[f] += math.degrees(math.asin(min(1.0, 1.2 * -z / TAIL_REACH)))
                     elif fan and it < 3 and z > FLOOR_TOL and tail_up[f] > 0:
                         # a drooping fan lifts unevenly and overshoots: ease it back onto
@@ -772,10 +828,12 @@ def walk(scale: float = 1.0, phase: float | None = None) -> Clip:
         p = leg["phase"] if leg else 0.0
         c.turn(a["upper"], "X", lambda t, p=p: ARM_SWING * math.sin(2 * math.pi * (t + phase - p + 0.19)))
     for i, n in enumerate(tail):
-        c.turn(n, "Z", lambda t, i=i: TAIL_SWAY * math.sin(2 * math.pi * (t + phase - 0.09 * i)))
+        tail_sway(c, n, lambda t, i=i: TAIL_SWAY * math.sin(2 * math.pi * (t + phase - 0.09 * i)))
     c.info = {"stride_scale": scale, "legs": len(legs), "feet": [g["foot"] for g in legs],
               "phases": [g["phase"] for g in legs],
               "arms": [a["upper"] for a in arms], "tail": tail}
+    if HANG:
+        c.info["tail_hangs"] = True
     return c
 
 
@@ -800,7 +858,7 @@ def idle() -> Clip:
         c.turn(a["upper"], "X", wave(3.0, 1, 0.5))
         c.turn(a["forearm"], "X", lambda t: 3.5 * (1 - math.cos(2 * math.pi * t)))
     for n, a in zip(tail, tail_idle_amps()):
-        c.turn(n, "Z", wave(a, 1))
+        tail_sway(c, n, wave(a, 1))
     for w in wings:
         c.turn(w["chain"][0], "Y", lambda t, s=w["side"]: sym(s, -3.0 * math.sin(2 * math.pi * t)))
     return c
@@ -818,8 +876,9 @@ def tail_idle_amps() -> list[float]:
         return []
     n = len(tail)
     w = [(i + 1) / n for i in range(n)]
-    pts = [Vector(by_name[b]["tail"][:2]) for b in tail]
-    lever = [max((p - Vector(by_name[b]["head"][:2])).length for p in pts[i:]) for i, b in enumerate(tail)]
+    k = 3 if HANG else 2  # a hanging tail swings in 3D (its horizontal lever is ~0)
+    pts = [Vector(by_name[b]["tail"][:k]) for b in tail]
+    lever = [max((p - Vector(by_name[b]["head"][:k])).length for p in pts[i:]) for i, b in enumerate(tail)]
     reach = sum(wi * li for wi, li in zip(w, lever))  # metres the far end moves per radian at the last bone
     amp = min(TAIL_IDLE_DEG, math.degrees(TAIL_IDLE_TIP * body_len / reach)) if reach > 1e-6 else TAIL_IDLE_DEG
     return [amp * wi for wi in w]
@@ -882,7 +941,7 @@ def lunge(name: str, seconds: float, rear: float, strike: float, reach: float, s
     sk = AVIAN_REAR if PLAN == "avian" else 1.0
     c.turn(skull, "X", keys((0, 0), (0.3, 10 * sk), (0.48, -8), (0.55, 4), (0.62, -6), (1, 0)))
     for i, n in enumerate(tail):
-        c.turn(n, "X", keys((0, 0), (0.3, -2), (0.5, 4), (1, 0)))
+        tail_curl(c, n, keys((0, 0), (0.3, -2), (0.5, 4), (1, 0)))
     return c
 
 
@@ -921,7 +980,7 @@ def hit() -> Clip:
     for w in wings:
         c.turn(w["chain"][0], "Y", lambda t, s=w["side"]: sym(s, -12 * k(t)))
     for n in tail:
-        c.turn(n, "X", lambda t: 4 * k(t))
+        tail_curl(c, n, lambda t: 4 * k(t))
     return c
 
 
@@ -987,7 +1046,8 @@ def death() -> Clip:
     c.lift = lambda t: Vector((0, 0, -0.25 * drop * buckle(t)))
     for g in legs:  # legs bend a little and go slack
         c.turn(g["chain"][0], "X", keys((0, 0), (0.6, 15 if g in front else -15), (1, 15 if g in front else -15)))
-    if tail:  # the tail turns back against the roll, so it lies along the ground
+    if tail and not HANG:  # the tail turns back against the roll, so it lies along the ground
+        # (a hanging tail lies with the body as it is: turned back, it swung down through the floor)
         c.turn(tail[0], "Y", lambda t: -0.9 * roll(t))
     for w in wings:  # wings fold up over the back, away from the ground
         c.turn(w["chain"][0], "Y", lambda t, s=w["side"]: sym(s, keys((0, 0), (0.6, -45), (1, -45))(t)))
@@ -1033,7 +1093,7 @@ def fly(name: str = "fly", amp: float = 1.0, seconds: float | None = None) -> Cl
             fore = g in front
             c.turn(g["chain"][0], "X", lambda t, fore=fore: (20 if fore else -25) + 2 * math.sin(2 * math.pi * t))
     for i, n in enumerate(tail):
-        c.turn(n, "X", lambda t, i=i: 3 * math.sin(2 * math.pi * (t - 0.1 * i)))
+        tail_curl(c, n, lambda t, i=i: 3 * math.sin(2 * math.pi * (t - 0.1 * i)))
     c.turn_chain(neck, "X", lambda t: -2 * math.sin(2 * math.pi * (t - 0.2)))
     c.info = {"wings": {w["side"]: w["chain"] for w in wings}, "hover_m": HOVER}
     return c
@@ -1333,7 +1393,7 @@ def cast_head(c: Clip, scale: float = 1.0) -> None:
     for wg in wings:
         c.turn(wg["chain"][0], "Y", lambda t, s=wg["side"]: sym(s, -20 * rise(t)))
     for n in tail:
-        c.turn(n, "X", lambda t: 3 * rise(t))
+        tail_curl(c, n, lambda t: 3 * rise(t))
     c.info = {**c.info, "cast": "head", "body_scale": scale}
 
 
@@ -1390,8 +1450,8 @@ def swim_legged() -> Clip:
     fold_wings(c, lambda t: 1.0)
     c.turn_chain(neck, "X", lambda t: (30.0 if up else 6.0) + 2 * math.sin(2 * math.pi * (t - 0.2)))
     for i, n in enumerate(tail):
-        c.turn(n, "Z", lambda t, i=i: 6 * math.sin(2 * math.pi * (t - 0.08 * i)))
-        c.turn(n, "X", lambda t: 2.0)
+        tail_sway(c, n, lambda t, i=i: 6 * math.sin(2 * math.pi * (t - 0.08 * i)))
+        tail_curl(c, n, lambda t: 2.0)
     c.info = {"swim_lift_m": round(c.hover, 4), "pitch_deg": pitch}
     return c
 
@@ -1468,7 +1528,7 @@ def levitate() -> Clip:
         c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, -10 - 3 * math.sin(2 * math.pi * (t - 0.3))))
         c.turn(a["forearm"], "X", lambda t: 10 + 3 * math.sin(2 * math.pi * (t - 0.4)))
     for i, n in enumerate(tail):
-        c.turn(n, "X", lambda t, i=i: 3 * math.sin(2 * math.pi * (t - 0.1 * i)))
+        tail_curl(c, n, lambda t, i=i: 3 * math.sin(2 * math.pi * (t - 0.1 * i)))
     c.turn_chain(neck, "X", lambda t: 2 * math.sin(2 * math.pi * (t - 0.2)))
     c.info = {"wings": {}, "hover_m": round(HOVER, 4), "levitate": True}
     return c
