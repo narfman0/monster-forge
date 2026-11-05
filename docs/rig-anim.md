@@ -236,9 +236,31 @@ reweight). The rule:
   farther than 0.2 x the height from the centre line. The finders give the same parts as before
   on every kept skeleton (14 chosen rigs in `out/`, the eagle's backup, and the harpy, eagle,
   dragon and goblin rolls).
-- Recorded in `rig.json` (`wings_added`: lobes, chains, weights) and `manifest.rig.wings_added`
-  (bones, parent, adopted, lobe numbers, owned vertices); the stage logs the chains, or a
-  warning when a side has no lobe.
+- Seam (`seam_blend`, 2026-11-04, sides with both an inserted chain and an arm, so winged
+  bipeds): SkinTokens skins by proximity, and the wing membrane behind an arm is near the
+  forearm in space but far from it over the surface. On harpy roll_1 the torn feathers lay
+  0.23 m behind the forearm in a straight line but 0.93 m from it around the shoulder, and
+  they held 0.5-0.95 forearm weight, mixed with `wing_r_01`/`02` (the lobe's body band, below
+  the shoulders within 0.3 x the height, leaves them out of the lobe). So arm vs wing
+  ownership follows the welded surface (glTF's UV-seam duplicates welded at 1e-5 m): `g_arm`
+  = geodesic distance from the arm core (skin within `core` 0.04 x the height of the arm's
+  joint path shoulder -> elbow -> wrist -> hand tip, not of its bones: roll_1's upper arm
+  bone runs out along the wing's leading edge), `g_wing` from the wing core (vertices the
+  wing chain owns, farther than `wing_core` 0.3 x the height from the arm core). The arm's
+  share of a vertex's arm + wing weight is 1 within `hold` (0.03 x the height) of the arm core,
+  else `g_wing / (g_arm - hold + g_wing)`, a smooth falloff across the boundary, and it only
+  moves one way: arm -> wing where the arm holds more (a vertex with wing weight, or an
+  arm-only vertex nearer the wing over the surface), wing -> arm where the wing holds more (a
+  vertex with arm weight, or the arm skin). Pure wing vertices never gain arm weight, other
+  bones keep their share, the arm skin keeps all of its arm weight (median 1.0) and lobe
+  vertices stay on the wing. Harpy roll_1: right 824 vertices arm -> wing, 307 wing -> arm;
+  left 213 / 265. The chain's parent was not the cause: the inserted chains already hang from
+  the chest (`bone_3`), which the cut only turns with the torso. The root stays where the lobe
+  meets the body above the shoulders (roll_1: on top of the shoulder, y 0.06 m, not the back).
+- Recorded in `rig.json` (`wings_added`: lobes, chains, weights, `seam`) and
+  `manifest.rig.wings_added` (bones, parent, adopted, lobe numbers, owned vertices, `seam` per
+  side: arm bones, core sizes, vertices moved each way, the three distances in metres); the
+  stage logs the chains, or a warning when a side has no lobe.
 
 Lobes (reach / vertices / root and tip height, x the height): harpy (every roll) right 0.50 /
 2810 / 0.80 -> 0.29, left 0.52 / 2969 / 0.83 -> 0.37; dragon 0.63 / 2807 and 0.67 / 1604 (both
@@ -246,21 +268,28 @@ wings present: nothing added); eagle 0.45 / 2226 and 0.43 / 1937 (present: nothi
 tail fan, 616 vertices below 0.23, is not taken); goblin (not winged, never run) would show a
 0.43-reach left piece of 772 vertices, so the plan gate matters. Harpy roll_1 (best SkinTokens
 roll, -1.54, no wings) with the inserted chains, against the hand-built rig (edges past 4x over
-the clip, right/left; sockets: distance outside the skin):
+the clip, every 3rd frame, right/left; sockets: distance outside the skin):
 
-| | hand-built `chosen.glb` | roll_1 + inserted wings |
-|---|---|---|
-| wings found (`find_wings`, clips) | yes | yes |
-| `fly` | 217 (139/78) | 126 (79/47) |
-| `attack_melee` (sword cut) | 85 (70/15) | 172 (132/40) |
-| `idle` / `walk` | 0 / 5 | 3 / 13 |
-| `hand_r`/`grip_r`/`hand_l`/`grip_l` | 0/0/0.3/0 cm | 0/0.5/0.8/0 cm |
-| score (chosen.json) | -3.47 (wing tips counted as legs; -1.47 without) | -1.09, no problems |
+| | hand-built (until 2026-11-04) | roll_1 + inserted wings | + seam (`out/` now) |
+|---|---|---|---|
+| wings found (`find_wings`, clips) | yes | yes | yes |
+| `fly` | 217 (139/78) | 126 (79/47) | 96 (58/38) |
+| `attack_melee` (sword cut) | 85 (70/15) | 172 (132/40) | 48 (33/15) |
+| `idle` / `walk` | 0 / 5 | 3 / 13 | 1 / 5 |
+| `hand_r`/`grip_r`/`hand_l`/`grip_l` | 0/0/0.3/0 cm | 0/0.5/0.8/0 cm | 0/0.5/0.8/0 cm |
+| score (chosen.json) | -3.47 (wing tips counted as legs; -1.47 without) | -1.09, no problems | -0.84, no problems |
 
-The sword cut tears at the right arm-wing seam (forearm vs `wing_r_00`/`01`): roll_1 hangs the
-whole right wing on the arm, and this roll's cut raises the hand above the head. The harpy's
-`rig_reweight` arm entries, mapped onto roll_1's arm bones, made it worse (274-310), so the
-hand-built rig stays in `out/` (scratch only).
+Before the seam the sword cut tore at the right arm-wing seam (forearm `bone_12` vs
+`wing_r_00`/`01`, 64 of 172 edges, plus 61 at the upper arm once the forearm was fixed):
+roll_1 hangs the membrane behind the arm on the arm, and this roll's cut raises the hand above
+the head, so the feathers went up with it (13 arm re-weights in scratch did not help; the
+harpy's `rig_reweight` arm entries, mapped onto roll_1, made it worse, 274-310). With the seam
+the harpy's `rig/chosen.glb` is roll_1 (2026-11-04, `rig --force` + `anim --force`; clip frames
+unchanged: idle 75, walk 33, fly 36, attack_melee 30, hit 15, death 54) and its override has
+no `rig_reweight` (the hand-built rig's entries named roll_1's right leg and left forearm).
+What `fly` still tears (96) is mostly the hanging wing tips next to the legs: long feathers
+skinned to the thighs and hips (`bone_0`, `bone_18`, `bone_20`) beside `wing_*_03` stretch
+sideways at the top of the upstroke, as on the hand-built rig.
 
 A successful `rig` or `anim` run drops that stage's entries from `manifest.errors` (which
 forge.py appends on every failure), so a fixed monster no longer reads as broken.

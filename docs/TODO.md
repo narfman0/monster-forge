@@ -97,13 +97,15 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       `rig_reweight` entry with the lobe's vertices; `manifest.rig.wings_added`), or renames a
       SkinTokens chain that falls short of `find_wings`' reach (eagle roll_1). No-op on the
       dragon, eagle, goblin, wolf, owlbear, spider (`rig --force`: sockets and scores identical).
-      Harpy roll_1 + inserted wings vs the hand-built rig (scratch): `fly` 126 vs 217 edges past
-      4x, sockets <= 0.8 cm, score -1.09 vs -3.47, but the sword cut 172 vs 85 (right arm-wing
-      seam), `idle` 3 vs 0, `walk` 13 vs 5, so the harpy keeps its hand-built rig. Left: the
-      arm-wing seam when SkinTokens hangs the wing on the arm (a seam-aware blend, or an arm
-      re-weight that holds on roll_1: the harpy's mapped entries made it worse); the inserted
-      chains on the 20 other winged bipeds are unverified (docs/rig-anim.md "Wing chains from
-      the mesh").
+      (2026-11-04) Arm-wing seam (`blender_wing_weights.seam_blend`): arm vs wing ownership
+      follows the welded surface (geodesic from the arm's skin vs the wing's core, smooth
+      falloff, one-way strips), so feathers behind the forearm leave the arm. Harpy roll_1 +
+      inserted wings + seam vs the hand-built rig: `fly` 96 vs 217 edges past 4x, sword cut 48 vs
+      85, `idle`/`walk` 1/5 vs 0/5, sockets <= 0.8 cm, score -0.84 vs -3.47, so the harpy's
+      `rig/chosen.glb` is now roll_1 (override: no `rig_reweight`). Left: the inserted chains
+      and the seam on the 20 other winged bipeds are unverified (a batch check of fly/sword-cut
+      tearing per monster); `fly` still stretches the hanging wing tips skinned to the thighs
+      (docs/rig-anim.md "Wing chains from the mesh").
 - [x] (2026-11-04) `rig_reweight` override (`tools/rig_reweight.py`, applied in the finalize
       path before sockets, so `rig --force` keeps it): geometric re-weight of a chain
       ({bones, reach, bias, blend, strip, fit, hand_room, far}), optionally fitting its

@@ -27,6 +27,12 @@ within 2x (`lobe_bias` 0.5) of the next bone's distance, with no reach limit; a 
 at the crossover keeps part of the old weight; the side's outer vertices lose weights of
 bones farther than `far` (SkinTokens' forearm weight on the harpy's feather tips).
 
+**Seam** (`seam_blend`, winged bipeds): where an inserted chain's wing meets the arm on the
+same side, ownership between the arm and the wing follows the welded surface, not space
+(geodesic distance from the arm's skin vs from the wing's core, a smooth falloff with the
+arm skin held), so feathers behind the forearm leave the arm and the arm's skin loses the
+wing's weight (the harpy roll_1's sword cut: 172 -> 38 edges past 4x).
+
 **Adoption** (`_adopt`): a SkinTokens chain short of find_wings' reach that owns ADOPT of a
 lobe's vertices is renamed wing_<side>_00.. instead of getting a second chain beside it.
 
@@ -61,6 +67,12 @@ N_BONES = 4        # bones per inserted chain, root to tip
 PREFIX = "wing_"   # inserted chains: wing_r_00 .. wing_r_03, wing_l_00 ..
 # rig_reweight entry for an inserted chain (x height for reach and blend; bias plain)
 WEIGHTS = {"reach": 0.3, "bias": 1.0, "blend": 0.1, "far": 0.15, "strip": True, "lobe_bias": 0.5}
+# arm-wing seam (`seam_blend`, x height): the arm core is the skin within `core` of the arm's
+# joint path, the wing core the vertices the wing chain owns (> half) farther than
+# `wing_core` from the arm core over the surface; past `hold` of the arm core the arm's share
+# falls off as g_wing / (g_arm - hold + g_wing), geodesic over the welded mesh
+SEAM = {"core": 0.04, "hold": 0.03, "wing_core": 0.3}
+WELD = 1e-5        # metres: glTF splits vertices at UV seams; these are one surface point
 
 
 def _components(keys: np.ndarray) -> np.ndarray:
@@ -283,6 +295,144 @@ def _adopt(arm, me, bones: list[dict], lobes: list[dict], legs, arms, head, rig_
     return out
 
 
+def _surface(V: np.ndarray, E: np.ndarray):
+    """Welded surface graph: (vertex -> welded id, adjacency [(neighbour ids, lengths)])."""
+    _, wid = np.unique(np.round(V / WELD).astype(np.int64), axis=0, return_inverse=True)
+    wid = wid.reshape(-1)
+    n = int(wid.max()) + 1
+    P = np.zeros((n, 3))
+    P[wid] = V
+    e = wid[E]
+    e = e[e[:, 0] != e[:, 1]]
+    e = np.unique(np.sort(e, axis=1), axis=0)
+    L = np.linalg.norm(P[e[:, 0]] - P[e[:, 1]], axis=1)
+    a, b, w = np.r_[e[:, 0], e[:, 1]], np.r_[e[:, 1], e[:, 0]], np.r_[L, L]
+    o = np.argsort(a, kind="stable")
+    a, b, w = a[o], b[o], w[o]
+    starts = np.searchsorted(a, np.arange(n + 1))
+    adj = [(b[starts[i]:starts[i + 1]].tolist(), w[starts[i]:starts[i + 1]].tolist()) for i in range(n)]
+    return wid, adj
+
+
+def _surface_dist(wid: np.ndarray, adj: list, seeds: np.ndarray) -> np.ndarray:
+    """Geodesic distance (over the welded graph) from the seed vertices, per vertex; inf where unreachable."""
+    dist = np.full(len(adj), np.inf)
+    h = [(0.0, int(s)) for s in np.unique(wid[seeds])]
+    for _, s in h:
+        dist[s] = 0.0
+    heapq.heapify(h)
+    while h:
+        d, i = heapq.heappop(h)
+        if d > dist[i]:
+            continue
+        nb, ln = adj[i]
+        for j, l in zip(nb, ln):
+            nd = d + l
+            if nd < dist[j]:
+                dist[j] = nd
+                heapq.heappush(h, (nd, j))
+    return dist[wid]
+
+
+def _seg(V: np.ndarray, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    ab = b - a
+    t = np.clip(((V - a) @ ab) / max(float(ab @ ab), 1e-12), 0.0, 1.0)
+    return np.linalg.norm(V - (a + t[:, None] * ab), axis=1)
+
+
+def seam_blend(arm, me, arms: list[dict], chains: dict, height: float, rig_topology) -> dict:
+    """The arm-wing seam, per side with an inserted wing chain and an arm (upright plans).
+
+    SkinTokens skins by proximity, and on a winged biped the wing membrane behind the arm is
+    close to the forearm in space but far from it over the surface (the harpy roll_1's
+    membrane 0.23 m behind the forearm is 0.93 m away around the shoulder), so feathers
+    carried forearm weight and tore off the wing when the sword cut raised the hand (and the
+    wing chain's euclidean region put wing weight on the arm's skin). Here ownership follows
+    the surface: g_arm is the geodesic distance from the arm core (the skin within
+    SEAM["core"] of the arm's joint path shoulder -> elbow -> wrist -> hand tip, not of its
+    bones, which may run off the limb: roll_1's upper arm bone lies along the wing's leading
+    edge), g_wing from the wing core (vertices the wing chain owns, farther than
+    SEAM["wing_core"] from the arm core). The arm's share of a vertex's arm + wing weight is
+    a = 1 within SEAM["hold"] of the arm core, else g_wing / (g_arm - hold + g_wing), a
+    smooth falloff across the boundary, and only ever moves one way:
+
+    - arm -> wing where the arm holds more than a (a vertex with wing weight, or an arm-only
+      vertex nearer the wing than the arm over the surface),
+    - wing -> arm where the wing holds more than 1 - a (a vertex with arm weight, or the arm
+      skin itself).
+
+    Pure wing vertices never gain arm weight, the body's other bones keep their share, and
+    lobe vertices stay on the wing. Returns {side: counts} for the report."""
+    m = arm.matrix_world
+    segs = {b.name: (np.array((m @ b.head_local)[:]), np.array((m @ b.tail_local)[:])) for b in arm.data.bones}
+    kids = {b.name: [c.name for c in b.children] for b in arm.data.bones}
+    V = np.empty(len(me.data.vertices) * 3)
+    me.data.vertices.foreach_get("co", V)
+    mw = np.array(me.matrix_world)
+    V = V.reshape(-1, 3) @ mw[:3, :3].T + mw[:3, 3]
+    E = np.empty(len(me.data.edges) * 2, dtype=np.int64)
+    me.data.edges.foreach_get("vertices", E)
+    wid, adj = _surface(V, E.reshape(-1, 2))
+    names = {g.index: g.name for g in me.vertex_groups}
+    out = {}
+    for a_ in arms:
+        side = a_["side"]
+        if side not in chains:
+            continue
+        wing = list(chains[side]["bones"])
+        up, fo, hd = a_["upper"], a_["forearm"], a_.get("hand")
+        arm_b = [n for n in [up, *rig_topology._descendants(up, kids)] if n in segs and n not in wing]
+        pts = [segs[up][0], segs[fo][0], segs[hd][0] if hd else segs[fo][1]] + ([segs[hd][1]] if hd else [])
+        core = np.min([_seg(V, p, q) for p, q in zip(pts, pts[1:])], axis=0) < SEAM["core"] * height
+        cols = {n: i for i, n in enumerate(arm_b + wing)}
+        Wt = np.zeros((len(V), len(cols)))
+        tot = np.zeros(len(V))
+        for v in me.data.vertices:
+            for g in v.groups:
+                tot[v.index] += g.weight
+                j = cols.get(names[g.group])
+                if j is not None:
+                    Wt[v.index, j] = g.weight
+        na = len(arm_b)
+        A, Wg = Wt[:, :na].sum(1), Wt[:, na:].sum(1)
+        if not core.any():
+            continue
+        ga = _surface_dist(wid, adj, np.nonzero(core)[0])
+        wcore = (ga > SEAM["wing_core"] * height) & (Wg > 0.5 * np.maximum(tot, 1e-9))
+        if not wcore.any():
+            out[side] = {"arm": arm_b, "skipped": "no wing core"}
+            continue
+        gw = _surface_dist(wid, adj, np.nonzero(wcore)[0])
+        ga2 = np.maximum(ga - SEAM["hold"] * height, 0.0)
+        ok = np.isfinite(ga) | np.isfinite(gw)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            share = np.where(ga2 <= 0, 1.0, np.where(np.isfinite(gw), gw / np.maximum(ga2 + gw, 1e-12), 1.0))
+        T = A + Wg
+        to_wing = ok & (A > share * T + 1e-6) & ((Wg > 0) | (gw < ga2))
+        to_arm = ok & ~to_wing & (Wg > (1 - share) * T + 1e-6) & ((A > 0) | (ga2 <= 0))
+        dw = np.stack([_seg(V, *segs[n]) for n in wing], axis=1)
+        da = np.stack([_seg(V, *segs[n]) for n in arm_b], axis=1)
+        groups = [me.vertex_groups.get(n) or me.vertex_groups.new(name=n) for n in arm_b + wing]
+        for i in np.nonzero(to_wing | to_arm)[0]:
+            aw, ww = Wt[i, :na].copy(), Wt[i, na:].copy()
+            if aw.sum() <= 0:
+                aw[np.argmin(da[i])] = 1.0
+            if ww.sum() <= 0:  # the two nearest wing bones by inverse distance
+                o = np.argsort(dw[i])[:2]
+                inv = 1.0 / (dw[i, o] + 1e-4)
+                ww[o] = inv / inv.sum()
+            new = np.r_[share[i] * T[i] * aw / aw.sum(), (1 - share[i]) * T[i] * ww / ww.sum()]
+            for g, w in zip(groups, new):
+                if w > 1e-5:
+                    g.add([int(i)], float(w), "REPLACE")
+                else:
+                    g.remove([int(i)])
+        out[side] = {"arm": arm_b, "arm_core_verts": int(core.sum()), "wing_core_verts": int(wcore.sum()),
+                     "arm_to_wing": int(to_wing.sum()), "wing_to_arm": int(to_arm.sum()),
+                     **{k: round(v * height, 4) for k, v in SEAM.items()}}
+    return out
+
+
 def add_missing_wings(arm, me, rig_topology, rig_reweight, feet: int, upright: bool) -> dict | None:
     """In Blender: when the skeleton has fewer than 2 wing chains (find_wings, with the
     plan's foot count as the clips find legs), detect the missing sides' lobes on the mesh,
@@ -361,6 +511,8 @@ def add_missing_wings(arm, me, rig_topology, rig_reweight, feet: int, upright: b
         c = rep["chains"][lobe["side"]]
         rep["weights"].append(rig_reweight.reweight(arm, me, {**wing_spec(c["bones"], height), "lobe": lobe.pop("_verts"),
                                                             "clean": lobe.pop("_clean")}))
+    if arms and rep["chains"]:  # the arm-wing seam over the surface (winged bipeds)
+        rep["seam"] = seam_blend(arm, me, arms, rep["chains"], height, rig_topology)
     return rep
 
 

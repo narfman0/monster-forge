@@ -308,7 +308,9 @@ def wings_summary(w: dict) -> dict:
             "lobes": [{k: lb[k] for k in ("side", "reach", "verts", "share", "geodesic_m", "root_z", "tip_z")}
                       for lb in w["lobes"]],
             "weights": [{k: r[k] for k in ("bones", "moved_verts", "dominant", "reach", "bias", "blend")}
-                        for r in w["weights"]]}
+                        for r in w["weights"]],
+            # the arm-wing seam re-split over the surface (blender_wing_weights.seam_blend)
+            **({"seam": w["seam"]} if w.get("seam") else {})}
 
 
 def wings_changed(rep: dict) -> bool:
