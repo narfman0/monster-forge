@@ -347,9 +347,9 @@ def anim_supported(rec: dict) -> bool:
     return rec["body_plan"] in overrides.FEET_BY_PLAN or rec["body_plan"] in anim.LEGLESS
 
 
-def status(rec: dict, source: str) -> dict:
+def status(rec: dict, source: str, args=None) -> dict:
     """{done: {stage: bool}, pending: [...] in RUN_ORDER (with downstream invalidation),
-    skipped: {stage: why}, man, st} for one record."""
+    skipped: {stage: why}, man, st} for one record. `args` carries --reroll-changed-prompts."""
     d = mon_dir(source, rec["id"])
     man = fg.load_manifest(d) if d.is_dir() else {}
     st = viewer.stage_status(d, man)
@@ -359,6 +359,10 @@ def status(rec: dict, source: str) -> dict:
     why = ref_partial(d)
     if why:  # the viewer counts candidates alone as a reference; the mesh needs the pick
         done["ref"], stale["ref"] = False, why
+    elif done["ref"]:
+        why = prompt_stale(rec, d, man, args)
+        if why:  # forge skips an existing ref.png: --force (and mesh follows: ref.png newer)
+            done["ref"], stale["ref"] = False, why
     if done["mesh"]:
         why = mesh_stale(rec, d, man)
         if why:  # forge's mesh clears model.glb and the thumbs, so qa follows by itself
@@ -430,6 +434,117 @@ def mesh_stale(rec: dict, d: Path, man: dict) -> str | None:
     return None
 
 
+# ---------------------------------------------------------------- prompt fingerprints
+# A changed prompt (override prompt_extra / negative_extra / ref_template / swarm_unit / style,
+# a per-id or per-plan entry in data/prompt_tweaks.json) re-rolls the reference. forge records
+# the final strings in manifest.ref (prompt, negative, controlnet.template, n), so the batch
+# hashes those after each ref stage it runs (manifest.ref.prompt_fp) and status() compares
+# that stamp with the prompt forge would build now. A manifest with no stamp (every reference
+# made before this rule) is never stale by it: --reroll-changed-prompts covers those.
+PROMPT_FIELDS = ("prompt_extra", "negative_extra", "ref_template", "swarm_unit", "style")
+
+
+def prompt_fingerprint(prompt: str, negative: str, template: str | None, n: int | None) -> str:
+    import hashlib
+    blob = json.dumps([" ".join(str(prompt).split()), " ".join(str(negative).split()), template, n])
+    return hashlib.sha1(blob.encode()).hexdigest()[:12]
+
+
+def recorded_fingerprint(ref: dict) -> str | None:
+    """Fingerprint of what manifest.ref says the reference was drawn with (None: no record)."""
+    if not isinstance(ref, dict) or not ref.get("prompt"):
+        return None
+    return prompt_fingerprint(ref["prompt"], ref.get("negative", ""), (ref.get("controlnet") or {}).get("template"),
+                              ref.get("n"))
+
+
+def current_ref_prompt(rec: dict) -> tuple[str, str, str | None]:
+    """(positive, negative, template name) as forge.stage_ref would build them now, without
+    ComfyUI: the same steps in the same order; apply_template (an upload) is not called."""
+    mon = unit_rec(rec)
+    ov = fg.ov_for(mon)
+    wf = fg.load_workflow("ref_image.api.json")
+    prompt, tweak_neg, _ = fg.ref_prompt(mon)
+    if ov.get("prompt_extra"):
+        prompt = prompt.rstrip(" ,.") + ", " + ov["prompt_extra"]
+    style = fg.load_style(fg.resolve_style(ov.get("style")))
+    tpl = fg.ref_template(mon, style, ov)
+    if style:
+        keep = fg.apply_template
+        fg.apply_template = lambda wf_, tpl_: None  # apply_style uploads the pose image through it
+        try:
+            prompt = fg.apply_style(wf, style, prompt, mon, ov)
+        finally:
+            fg.apply_template = keep
+    if mon.get("unarmed_reference") and style.get("unarmed_suffix"):
+        prompt = prompt.rstrip(" ,.") + ", " + style["unarmed_suffix"]
+        if style.get("unarmed_negative"):
+            wf["neg"]["inputs"]["text"] += ", " + style["unarmed_negative"]
+    if tweak_neg:
+        wf["neg"]["inputs"]["text"] += ", " + tweak_neg
+    if ov.get("negative_extra"):
+        wf["neg"]["inputs"]["text"] += ", " + ov["negative_extra"]
+    return prompt, wf["neg"]["inputs"]["text"], (tpl or {}).get("name")
+
+
+def stamp_prompt_fp(d: Path) -> None:
+    """After a ref stage the batch ran: manifest.ref.prompt_fp from what forge recorded."""
+    man = fg.load_manifest(d)
+    ref = man.get("ref")
+    fp = recorded_fingerprint(ref)
+    if fp:
+        ref["prompt_fp"] = fp
+        fg.save_manifest(d, man)
+
+
+def prompt_stale(rec: dict, d: Path, man: dict, args=None) -> str | None:
+    """Why the reference must be re-rolled for a changed prompt, or None. Stamped manifests:
+    the prompt forge would build now differs from the stamp. With --reroll-changed-prompts,
+    also an override file with a prompt field (PROMPT_FIELDS) newer than ref.png, or a
+    data/prompt_tweaks.json entry for the id (or its plan) newer than ref.png."""
+    ref = man.get("ref") if isinstance(man.get("ref"), dict) else {}
+    pick = d / "ref.png"
+    if not ref or not pick.exists():
+        return None
+    stamp = ref.get("prompt_fp")
+    if stamp:
+        try:
+            pos, neg, tpl = current_ref_prompt(rec)
+        except Exception:  # a bad override fails the ref stage loudly in forge
+            return None
+        n = ref.get("n")
+        if prompt_fingerprint(pos, neg, tpl, n) != stamp:
+            return f"prompt changed since the reference (fingerprint {stamp})"
+    if getattr(args, "reroll_changed_prompts", False) and not stamp:
+        # unstamped (older) references: a prompt source edited after ref.png AND a prompt that
+        # differs from the one recorded (an override edited only for yaw or notes, or a
+        # tweak that was already in use, does not re-roll)
+        t_ref = pick.stat().st_mtime
+        try:
+            ov = overrides.load(rec["source"], rec["id"])
+        except Exception:
+            ov = {}
+        ovp = overrides.path_for(rec["source"], rec["id"])
+        fields = [k for k in PROMPT_FIELDS if k in ov]
+        newer = []
+        if fields and ovp.exists() and ovp.stat().st_mtime > t_ref + 1:
+            newer.append(f"override {', '.join(fields)}")
+        tw = ROOT / "data" / "prompt_tweaks.json"
+        if tw.exists() and tw.stat().st_mtime > t_ref + 1:
+            ent = fg.load_prompt_tweaks()
+            if rec["id"] in ent or unit_rec(rec)["body_plan"] in (ent.get("_plans") or {}):
+                newer.append("data/prompt_tweaks.json")
+        if newer:
+            try:
+                pos, neg, _ = current_ref_prompt(rec)
+            except Exception:
+                return None
+            if " ".join(pos.split()) != " ".join(str(ref.get("prompt", "")).split()) or \
+                    " ".join(neg.split()) != " ".join(str(ref.get("negative", "")).split()):
+                return f"{' and '.join(newer)} newer than ref.png and the prompt differs (--reroll-changed-prompts)"
+    return None
+
+
 def qa_stale(rec: dict, man: dict) -> str | None:
     """A `yaw` pinned in the override after qa ran (the facing gate's fix) makes model.glb
     stale; forge would skip qa because its files exist, so the batch runs it with --force."""
@@ -446,8 +561,13 @@ def qa_stale(rec: dict, man: dict) -> str | None:
     return None
 
 
-def ref_n(rec: dict, args) -> int:
-    return max(args.n, 4) if rec.get("unarmed_reference") else args.n
+def ref_n(rec: dict, args, force: bool = False) -> int:
+    n = max(args.n, 4) if rec.get("unarmed_reference") else args.n
+    if force:  # a re-roll keeps the monster's own candidate count (review re-rolls asked for 4)
+        ref = fg.load_manifest(mon_dir(args.source, rec["id"])).get("ref")
+        if isinstance(ref, dict) and isinstance(ref.get("n"), int):
+            n = max(n, ref["n"])
+    return n
 
 
 def rig_kind(rec: dict, d: Path) -> str:
@@ -628,7 +748,7 @@ def cmd_plan(args) -> int:
             cur = cls["tier"]
             print(f"\n== {names[cur]}")
             print(f"{'#':>4}  {'id':<30} {'plan':<17} {'size':<10} {'n':>2}  {'pending':<38} {'est':>7}  note")
-        s = status(rec, args.source)
+        s = status(rec, args.source, args)
         pend = [x for x in s["pending"] if want is None or x in want]
         if cls["tier"] == 0:
             left = ",".join(s["pending"]) or "-"
@@ -641,7 +761,7 @@ def cmd_plan(args) -> int:
         mark = "" if runnable(cls, rec, args) else " [not run by default]"
         sk = "".join(f"; {st} skipped: {why}" for st, why in s["skipped"].items())
         print(f"{k:>4}  {rec['id']:<30} {rec['body_plan']:<17} {rec['size']:<10} "
-              f"{ref_n(rec, args) if 'ref' in pend else '':>2}  {','.join(pend) or 'done':<38} {hms(t):>7}  "
+              f"{ref_n(rec, args, 'ref' in s['stale']) if 'ref' in pend else '':>2}  {','.join(pend) or 'done':<38} {hms(t):>7}  "
               f"{cls['status']}: {cls['note']}{sk}{mark}")
         if pend:
             counts["pending"] += 1
@@ -851,7 +971,7 @@ def last_manifest_error(d: Path, stage: str) -> str | None:
 def forge_cmd(stage: str, rec: dict, args, force: bool = False) -> list:
     cmd = [sys.executable, "-I", str(FORGE), stage, rec["id"], "--source", args.source]
     if stage == "ref":
-        cmd += ["--n", str(ref_n(rec, args))]
+        cmd += ["--n", str(ref_n(rec, args, force))]
     if force:
         cmd.append("--force")  # a stale stage (status()["stale"]): forge would skip it otherwise
     return cmd
@@ -976,9 +1096,16 @@ def run_facing_gate(rec: dict, d: Path, m: dict, prog: Progress, args) -> bool:
     except Exception as e:  # a Blender failure here is not a verdict: let rig decide
         f = {"ok": True, "error": str(e)[:300]}
         fg.log(f"batch: {rec['id']}: facing gate failed to run ({e}); continuing")
-    m["stages"]["facing"] = {"status": "ok" if f["ok"] else "refused", "angle_deg": f.get("angle_deg"),
-                             "confidence": f.get("confidence"), "suggested_yaw": f.get("suggested_yaw"),
+    # unverified: not refused, but the head end (or a disputed axis) is not settled; the
+    # monster goes on and the report lists it under "Facing to verify" (docs/batch.md)
+    m["stages"]["facing"] = {"status": "refused" if not f["ok"] else "unverified" if f.get("unverified") else "ok",
+                             "angle_deg": f.get("angle_deg"), "confidence": f.get("confidence"),
+                             "suggested_yaw": f.get("suggested_yaw"),
+                             **({"unverified": f["unverified"]} if f.get("unverified") else {}),
+                             **({"hint_yaw": f["hint_yaw"]} if f.get("hint_yaw") is not None else {}),
                              "seconds": round(time.time() - t0, 1), "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    if f["ok"] and f.get("unverified"):
+        fg.log(f"batch: {rec['id']}: facing UNVERIFIED ({f['unverified']}); listed for review, continuing")
     if not f["ok"]:
         m["errors"].append({"stage": "facing", "error": f"{f['angle_deg']} deg off +Y, confidence "
                             f"{f['confidence']}, suggested yaw {f.get('suggested_yaw')}",
@@ -1003,7 +1130,7 @@ def cmd_run(args) -> int:
     fg.log(f"batch: {len(items)} monsters, stages {','.join(want)}{' (dry run)' if args.dry_run else ''}")
     for i, (rec, cls) in enumerate(items, 1):
         mid = rec["id"]
-        s = status(rec, args.source)
+        s = status(rec, args.source, args)
         todo = [x for x in s["pending"] if x in want]
         if not todo:
             continue
@@ -1036,7 +1163,7 @@ def cmd_run(args) -> int:
         ran, gate_passed, fast_fail = set(), False, None
         with open(logdir / f"{mid}.log", "a") as logf:
             while True:
-                s = status(rec, args.source)
+                s = status(rec, args.source, args)
                 todo = [x for x in s["raw_pending"] if x in want]
                 if not todo:
                     break
@@ -1060,6 +1187,8 @@ def cmd_run(args) -> int:
                 res = run_stage(st, rec, d, args, prog, logf, force=st in s["stale"])
                 res["at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
                 m["stages"][st] = res
+                if st == "ref" and res["status"] == "ok":
+                    stamp_prompt_fp(d)  # the prompt this reference was drawn with (prompt_stale)
                 m["seconds"] = round(m.get("seconds", 0) + res["seconds"], 1)
                 sess["stages_run"] += 1
                 if res["status"] != "ok":
@@ -1079,7 +1208,7 @@ def cmd_run(args) -> int:
                     break  # move on to the next monster
                 # A ref,mesh,qa pass stops before paint, where the gate would run: check the
                 # facing right after qa so refusals (pin `yaw`) are known before the paint pass.
-                if st == "qa" and not gate_passed and needs_facing_gate(rec, d, status(rec, args.source)["pending"], args):
+                if st == "qa" and not gate_passed and needs_facing_gate(rec, d, status(rec, args.source, args)["pending"], args):
                     gate_passed = True
                     if not run_facing_gate(rec, d, m, prog, args):
                         failures += 1
@@ -1115,7 +1244,7 @@ def cmd_report(args) -> int:
     bj = viewer.load_json(bdir / "_batch.json") or {"monsters": {}, "sessions": [], "events": []}
     rows = []
     for rec in reg.values():
-        s = status(rec, args.source)
+        s = status(rec, args.source, args)
         rm = s["man"].get("rig") if isinstance(s["man"].get("rig"), dict) else {}
         q = viewer.rig_quality(rm) or {}
         found = set(s["st"]["found_clips"])
@@ -1170,6 +1299,15 @@ def cmd_report(args) -> int:
         for mid, err, at in by_stage[st]:
             L.append(f"- `{mid}` {at}: {' '.join(str(err).split())[:400]}")
         L.append("")
+    # facing gate results that are not refusals but need a look at thumb.png
+    L += ["## Facing to verify", "",
+          "The facing gate passed these without naming the head end (or with the mirror axis disputed): "
+          "look at thumb.png; pin `yaw` (QA's yaw + 180 for a backwards body) or leave it.", ""]
+    ver = [(r["rec"]["id"], ((r["b"].get("stages") or {}).get("facing") or {})) for r in rows]
+    ver = [(mid, fc) for mid, fc in ver if fc.get("status") == "unverified"]
+    L += [f"- `{mid}` {fc.get('angle_deg')} deg, confidence {fc.get('confidence')}: {fc.get('unverified')}"
+          + (f" (one cue's yaw {fc['hint_yaw']})" if fc.get("hint_yaw") is not None else "") for mid, fc in ver] or ["None."]
+    L.append("")
     # rig problems by plan
     L += ["## Rig problems by plan", ""]
     probs = collections.defaultdict(list)
@@ -1269,6 +1407,9 @@ def main(argv=None) -> int:
         p.add_argument("--restart-before", default=",".join(RESTART_BEFORE),
                        help="stages to restart ComfyUI before (default %(default)s)")
         p.add_argument("--no-facing-gate", action="store_true", help="no facing check before paint / rig")
+        p.add_argument("--reroll-changed-prompts", action="store_true",
+                       help="also re-roll refs whose override prompt fields (prompt_extra, negative_extra, "
+                            "ref_template, swarm_unit, style) or prompt_tweaks.json entry are newer than ref.png")
         p.add_argument("--batch-dir", help="where _batch.json / _batch.md / _batch_logs go (default out/<source>)")
         p.add_argument("--timeout-scale", type=float, default=TIMEOUT_SCALE)
         p.add_argument("--timeout-floor", type=float, default=TIMEOUT_FLOOR)

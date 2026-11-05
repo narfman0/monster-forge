@@ -56,27 +56,70 @@ mesh that does not face +Y in Blender (glTF -Z) gets a scrambled skeleton:
 - **Body axis:** the vertical plane the surface is most mirror-symmetric about (scan over
   180 degrees, refined to 0.5). Paired wings, legs and horns vote for the true axis instead
   of pulling it sideways, which is what fooled QA's footprint PCA on the dragon.
-- **Head end:** horizontal plans compare the surface in the top 40% of the height near the
-  centre plane at each end (the head end is higher; wings are excluded by the centre
-  band). Upright plans: the soles reach farther forward than the ankles. Insectoids and
-  ambiguous ends (`sign_confidence` < 0.2) report only how far the axis is off.
+- **Head end:** named by cues, each a sign along the axis with a confidence 0..1
+  (`blender_rig.HEAD_CUES`, `rig/facing.json` `cues`):
+  - `high_centre_end`: more surface in the top 40% of the height near the centre plane at
+    one end (head and neck; wings are outside the centre band). Quadrupeds, winged
+    quadrupeds, birds, fish. Weak or wrong for heads-down bodies that carry the rump
+    higher (boar, rhino, badger, polar bear).
+  - `toes` (quadrupeds, winged quadrupeds, insectoids): per foot (a connected patch of the
+    lowest 4% of the surface, not longer than 0.3 x the body, so a tail or slab on the
+    ground is skipped), how far the sole sits ahead of the leg above it (8-20% of the
+    height). Paws and hooves point forward and hocks bend back; the median over the feet,
+    scaled so 0.02 x height is sure, times the share of feet that agree. Not for birds
+    (hallux, tail fan) or fins.
+  - `abdomen_end` (insectoids): a spider's or beetle's high bulk is its abdomen, so the head
+    is the other end.
+  - `toes_ahead_of_ankles` (upright plans): the soles reach farther forward than the ankles.
+
+  The head end is **known** when two cues agree with no cue >= 0.2 against them, or one
+  cue reaches 0.8 with nothing >= 0.5 against it (not for aquatic: a reef shark's tall
+  tail fin reads as a head). Otherwise the result is **`unverified`** (no cue, cues too
+  weak, cues disagreeing, or one aquatic cue): the angle is the axis alone (sign-blind),
+  the stage does not refuse for it, and the batch lists the monster under "Facing to
+  verify" in its report; when one cue named an end, `hint_yaw` is the yaw it implies.
+- **Front-view references** (QA `facing_method` `front_view`: an upright or floating plan
+  whose reference is drawn front view and that QA turned by 180 with no `yaw` override):
+  the face is on +Y by construction, so the sign is not measured: the angle is the mirror
+  axis alone, as for a ghost. The toe rule is still recorded; when it says "backwards" the
+  report has `cue_disagrees`. Robe hems, cloaks, chains, tails on the ground and splayed
+  toes fooled it on 13 tier-1 bipeds that all faced front (archmage, lich, cultist,
+  chain-devil, ...: refused at ~180).
 - **Confidence:** how much better the best mirror plane is than a typical one,
   `clip((contrast - 0.1) / 0.3)`. A blob, or a curled or twisted pose, scores low.
-- Second opinions in the report: the ground footprint's long axis (legged horizontal
-  plans) and the bearing of QA's `head_region` from the body centre.
+- **Disputed axis:** a refusal needs confidence >= 0.75 (`rig.FACING_CONF_DISPUTED`, not
+  0.5) when a second opinion disputes the mirror axis: a front-view reference (only mesh
+  asymmetry can put its axis off: half-dragon's curled tail, 64 deg at 0.5) or a legged
+  horizontal body whose ground footprint (elongation >= 1.5) runs 45+ deg off the mirror
+  axis (young-bronze-dragon's asymmetric wings, 84 deg at 0.61). Below it: `unverified`.
+- Recorded, not a cue: the bearing of QA's `head_region` from the body centre. QA frames
+  the +Y end of a horizontal body, so it always points ahead and cannot catch a backwards one.
 
 `manifest.rig.facing` = `{method, angle_deg, confidence, ok, head_known, bearing_deg,
-suggested_yaw, ...}`; the full report is `rig/facing.json`. When `angle_deg` > 30 with
-confidence >= 0.5 the stage logs a warning and refuses to roll (it raises, `manifest.rig`
-gets `error` plus `facing`): pin `yaw` (the log prints `suggested_yaw` = QA's yaw plus the
-measured bearing) and re-run `qa`. The `rig_facing_check` override set to `false` rolls
+suggested_yaw, unverified?, hint_yaw?, cues, ...}`; the full report is `rig/facing.json`.
+When `angle_deg` > 30 with confidence >= 0.5 (0.75 when disputed) the stage logs a warning
+and refuses to roll (it raises, `manifest.rig` gets `error` plus `facing`): pin `yaw` (the
+log prints `suggested_yaw` = QA's yaw plus the measured bearing; for a backwards body that
+is QA's yaw + 180) and re-run `qa`. The `rig_facing_check` override set to `false` rolls
 anyway. Low confidence only warns. `--force` without rolling records the check and never
-refuses.
+refuses. Plans in `rig.FACING_ADVISORY` never refuse and are never `unverified`.
+
+Tier-1 validation (2026-11-05, 59 horizontal and centaur meshes on disk plus every
+upright one, judged against thumb.png; the new head-end code run outside Blender on each
+model.glb with the mirror axis from its rig/facing.json, so the angles are the recorded ones): the backwards boar, giant-badger, rhinoceros and
+polar-bear (QA's auto yaw, before the pins) are now refused at 177.5-179 with
+`suggested_yaw` within 2.5 deg of the yaw the review pinned by eye (boar 128.5 vs 126.5);
+all 13 robe / chain / tail false refusals pass; half-dragon and young-bronze-dragon are
+`unverified`; the real misfacings (crocodile 66, giant-weasel 30.5, red-dragon-wyrmling
+77.5, young-silver-dragon 60.5, salamander 43.5, giant-wolf-spider 62, giant-hyena 90) stay
+refused. Still missed: rust-monster (backwards; its insect legs fool `toes` and the
+high cue, both say forward). `unverified`: black-bear (cues disagree; the axis is wrong
+too), giant-owl, hunter-shark, reef-shark (backwards: the tail fin).
 
 | mesh | angle off +Y | confidence | result |
 |---|---|---|---|
 | goblin-warrior, harpy, giant-spider, wolf | 0-0.5 | 1.0 | ok |
-| owlbear | 4.0 (head end unknown) | 0.69 | ok |
+| owlbear | 4.0 (head end from `toes` since 2026-11-05) | 0.69 | ok |
 | young-red-dragon (yaw pinned) | 6.5 | 0.75 | ok |
 | young-red-dragon turned 65 degrees (QA's auto-yaw error) | 58.5 | 0.76 | refused |
 | owlbear turned -50, wolf 35 / 90, goblin 45, harpy -35, spider 40 | the turn (+ the mesh's own offset) to within 1 | as unturned | refused |

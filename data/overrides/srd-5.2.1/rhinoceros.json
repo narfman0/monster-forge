@@ -1,4 +1,4 @@
 {
   "yaw": 142.21,
-  "notes": "Tier-1 review 2026-11-05: ref_0 is a good front three-quarter rhino, 4 feet down, but the mesh is BACKWARDS: thumb.png front view shows the rump, the back view the horn and face, thumb_head framed the rump. QA auto yaw -37.79 (pca_upper_mass_end; the high shoulder hump read as the head end), gate passed 1.0 with head_known false (sign-blind). Pinned yaw 142.21 = -37.79 + 180; check thumb.png after the qa re-run."
+  "notes": "Tier-1 review 2026-11-05: ref_0 is a good front three-quarter rhino, 4 feet down, but the mesh is BACKWARDS: thumb.png front view shows the rump, the back view the horn and face, thumb_head framed the rump. QA auto yaw -37.79 (pca_upper_mass_end; the high shoulder hump read as the head end), gate passed 1.0 with head_known false (sign-blind). Pinned yaw 142.21 = -37.79 + 180; check thumb.png after the qa re-run. Facing (2026-11-05, fixed check): the fixed check (toes cue) refuses the pre-pin mesh as backwards with suggested_yaw within 2.5 deg of the pinned yaw; the pin stands."
 }

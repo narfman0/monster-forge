@@ -502,7 +502,25 @@ def quality() -> dict:
 
 UPRIGHT = {"biped", "winged_biped", "centauroid", "merfolk_naga", "floating"}
 HORIZONTAL = {"quadruped", "winged_quadruped", "avian", "insectoid", "serpentine", "aquatic"}
-SIGN_MIN = 0.2  # head-end cue below this: report only how far the body axis is off
+SIGN_MIN = 0.2  # a head-end cue below this does not vote
+# How the head end is named (docs/rig-anim.md "Facing check"). Each cue gives a sign along
+# the mirror axis and a confidence 0..1; the head end is known when two cues agree (no
+# cue >= SIGN_MIN against them), or one cue reaches SIGN_STRONG with nothing >= SIGN_VETO
+# against it. Anything else is `unverified`: the angle is the axis alone (sign-blind) and the
+# batch lists the monster for a look instead of passing it silently.
+SIGN_STRONG = 0.8
+SIGN_VETO = 0.5
+# Cues per plan. high_centre_end: more surface in the top 40% near the centre plane at the
+# head end (head and neck; wrong for heads-down boars, rhinos and badgers, which carry the
+# rump higher). toes: per foot, the sole reaches farther toward the head than the leg above
+# it (paws and hooves point forward, hocks bend back); not for birds (the hallux and the
+# tail fan) or fins. abdomen_end: a spider's or beetle's high bulk is its abdomen, so the
+# head is the other end. Upright plans: the soles ahead of the ankles.
+HEAD_CUES = {"quadruped": ("high_centre_end", "toes"), "winged_quadruped": ("high_centre_end", "toes"),
+             "avian": ("high_centre_end",), "aquatic": ("high_centre_end",),
+             "insectoid": ("abdomen_end", "toes")}
+# A single cue is not trusted alone for these: the reef shark's tall tail fin reads as a head.
+SINGLE_CUE_UNTRUSTED = {"aquatic"}
 # Plans with no head-end cue: a ghost has no feet (its robe train trails behind and reads as
 # toes pointing backwards), and a coiled snake, blob, fungus, swarm or octopus has no end
 # the surface can name. They report only how far the mirror axis is off.
@@ -592,37 +610,54 @@ def facing() -> dict:
         out["footprint_axis_deg"] = round(fp, 1)
         out["footprint_elongation"] = round(float(math.sqrt(w.max() / max(w.min(), 1e-12))), 2)
         out["footprint_vs_symmetry_deg"] = round(abs((fp - phi + 90) % 180 - 90), 1)
-    # head end, per plan
-    sign, sign_conf, sign_rule = 1.0, 0.0, "none"
+    # head end, per plan: each cue votes (sign along fwd, confidence); combine_cues decides
     span = t.max() - t.min()
-    if plan in NO_HEAD_CUE:
-        pass
-    elif plan in HORIZONTAL and plan != "insectoid":
-        # horizontal bodies carry the head high and the tail low: surface in the top 40%
-        # of the height, near the centre plane (wings are far out), at each end
-        mid = np.abs(side) < 0.15 * span
-        high = cen[:, 2] > z0 + 0.6 * h
-        fr = float(area[mid & high & (t > t.max() - 0.3 * span)].sum())
-        bk = float(area[mid & high & (t < t.min() + 0.3 * span)].sum())
-        sign = 1.0 if fr >= bk else -1.0
-        sign_conf = abs(fr - bk) / max(fr + bk, 1e-9)
-        sign_rule = "high_centre_end"
-        out["end_high_area"] = [round(bk, 4), round(fr, 4)]
-    elif plan in UPRIGHT:
+    cues = {}
+    for name in HEAD_CUES.get(plan, ()):
+        if name in ("high_centre_end", "abdomen_end"):
+            # surface in the top 40% of the height, near the centre plane (wings are far
+            # out), in the outer 30% of the length at each end
+            mid = np.abs(side) < 0.15 * span
+            high = cen[:, 2] > z0 + 0.6 * h
+            fr = float(area[mid & high & (t > t.max() - 0.3 * span)].sum())
+            bk = float(area[mid & high & (t < t.min() + 0.3 * span)].sum())
+            sg = 1.0 if fr >= bk else -1.0
+            cues[name] = (sg if name == "high_centre_end" else -sg, abs(fr - bk) / max(fr + bk, 1e-9))
+            out["end_high_area"] = [round(bk, 4), round(fr, 4)]
+        elif name == "toes":
+            votes = toe_votes(cen, area, t, side, z0, h, span)
+            out["toe_votes"] = [round(v, 4) for v in votes]
+            if votes:
+                med = float(np.median(votes))
+                agree = float(np.mean(np.sign(votes) == np.sign(med)))
+                # 0.02 x height of reach is a clear paw; one foot alone counts half
+                cues[name] = (1.0 if med >= 0 else -1.0, min(1.0, abs(med) / 0.02) * agree * min(1.0, len(votes) / 2))
+    if plan in UPRIGHT and plan not in NO_HEAD_CUE:
         # feet point forward: the sole (lowest 4%) reaches farther along the axis than the
         # ankles above it
         sole = cen[:, 2] < z0 + 0.04 * h
         shin = (cen[:, 2] > z0 + 0.08 * h) & (cen[:, 2] < z0 + 0.2 * h) & (np.abs(side) < 0.3 * h)
         if sole.sum() > 10 and shin.sum() > 10:
             d = float(np.average(t[sole], weights=area[sole]) - np.average(t[shin], weights=area[shin]))
-            sign = 1.0 if d >= 0 else -1.0
-            sign_conf = min(1.0, abs(d) / (0.04 * h))
-            sign_rule = "toes_ahead_of_ankles"
+            cues["toes_ahead_of_ankles"] = (1.0 if d >= 0 else -1.0, min(1.0, abs(d) / (0.04 * h)))
             out["toe_offset"] = round(d / h, 4)
+    out["cues"] = {k: [int(v[0]), round(v[1], 3)] for k, v in cues.items()}
+    sign, sign_conf, sign_rule, unverified = combine_cues(cues, plan)
+    if job.get("front_view") and plan in UPRIGHT:
+        # QA turned a front-view reference by 180 (no yaw override): the face is on +Y by
+        # construction. Robe hems, cloaks, chains, tails and splayed toes fool the toe rule
+        # (archmage, lich, cultist, chain-devil: all faced front), so the toe rule is only
+        # recorded here and the angle is the mirror axis alone, as for a ghost.
+        out["front_view_prior"] = True
+        if sign < 0 and sign_conf >= SIGN_MIN:
+            out["cue_disagrees"] = f"{sign_rule} says backwards ({sign_conf:.2f}); kept the front-view prior"
+        sign, sign_conf, sign_rule, unverified = 1.0, 1.0, "front_view", None
+    elif plan in NO_HEAD_CUE:
+        unverified = None  # nothing to verify: the check is the axis alone by design
     fwd = fwd * sign * (-1 if job.get("forward") == "+Z" else 1)  # a +Z export faces -Y here
     ang = math.degrees(math.atan2(fwd[0], fwd[1]))
     axis_off = abs((ang + 90) % 180 - 90)  # ignoring which end is the head
-    head_known = sign_conf >= SIGN_MIN
+    head_known = unverified is None and sign_rule != "none"
     # the yaw that would turn this estimate onto +Y: QA rotates by `yaw` about +Z, so
     # adding the measured bearing to QA's yaw lands the head (or the axis) on +Y
     turn = ang if head_known else (phi + 90) % 180 - 90
@@ -630,14 +665,90 @@ def facing() -> dict:
                 "angle_deg": round(abs(ang) if head_known else axis_off, 1), "bearing_deg": round(turn, 1),
                 "axis_off_deg": round(axis_off, 1), "head_known": head_known,
                 "confidence": round(float(np.clip((contrast - 0.1) / 0.3, 0, 1)), 2)})
-    # the head region QA framed (model space, so it already sits on the +Y side): its
-    # bearing from the body centre is a third opinion for plans with a head end
+    if unverified:
+        out["unverified"] = unverified
+        if sign_conf >= SIGN_MIN and sign_rule != "none":  # the best guess, for the reviewer
+            out["head_hint_bearing_deg"] = round(ang, 1)
+    # the head region QA framed (model space, so it already sits on the +Y side): recorded,
+    # but not a cue: QA frames the +Y end of horizontal plans, so it always points ahead
     hr = job.get("head_region")
     if hr and plan in HORIZONTAL:
         c = np.average(cen, axis=0, weights=area)
         v = np.array(hr["center"][:2]) - c[:2]
         out["head_region_bearing_deg"] = round(math.degrees(math.atan2(v[0], v[1])), 1)
     return out
+
+
+def _components(xy, cell: float) -> np.ndarray:
+    """Label per point: 8-connected components of the occupied grid cells."""
+    ij = np.floor(xy / cell).astype(np.int64)
+    keys, inv = np.unique(ij, axis=0, return_inverse=True)
+    inv = np.asarray(inv).ravel()
+    at = {(int(k[0]), int(k[1])): i for i, k in enumerate(keys)}
+    parent = list(range(len(keys)))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for i, k in enumerate(keys):
+        for di in (-1, 0, 1):
+            for dj in (-1, 0, 1):
+                j = at.get((int(k[0]) + di, int(k[1]) + dj))
+                if j is not None:
+                    ra, rb = find(i), find(j)
+                    if ra != rb:
+                        parent[ra] = rb
+    return np.array([find(i) for i in range(len(keys))])[inv]
+
+
+def toe_votes(cen, area, t, side, z0: float, h: float, span: float) -> list:
+    """Per foot: how far (fraction of height) the sole's centre sits ahead of the leg above
+    it along t. Feet are the connected patches of the lowest 4% of the surface; patches
+    longer than 0.3 x the body (a tail or a slab on the ground) or under 3% of the sole area
+    are skipped, and the leg is the surface at 8-20% of the height above the patch."""
+    sole = cen[:, 2] < z0 + 0.04 * h
+    if sole.sum() < 10:
+        return []
+    si = np.flatnonzero(sole)
+    lab = _components(cen[si, :2], 0.03 * span)
+    shin = (cen[:, 2] > z0 + 0.08 * h) & (cen[:, 2] < z0 + 0.2 * h)
+    tot = float(area[si].sum())
+    votes = []
+    for lb in np.unique(lab):
+        ii = si[lab == lb]
+        a = area[ii]
+        if a.sum() < 0.03 * tot or np.ptp(t[ii]) > 0.3 * span:
+            continue
+        c = np.average(cen[ii, :2], axis=0, weights=a)
+        r = max(0.08 * span, 0.6 * max(float(np.ptp(t[ii])), float(np.ptp(side[ii]))))
+        leg = shin & (np.hypot(cen[:, 0] - c[0], cen[:, 1] - c[1]) < r)
+        if leg.sum() < 5:
+            continue
+        votes.append(float(np.average(t[ii], weights=a) - np.average(t[leg], weights=area[leg])) / h)
+    return votes
+
+
+def combine_cues(cues: dict, plan: str):
+    """(sign, confidence, rule, unverified reason or None) from {cue: (sign, confidence)}."""
+    if not cues:
+        return 1.0, 0.0, "none", (f"no head-end cue for {plan}" if plan not in NO_HEAD_CUE else None)
+    ranked = sorted(cues.items(), key=lambda kv: -kv[1][1])
+    best, (sg, cf) = ranked[0]
+    voting = [(k, v) for k, v in ranked if v[1] >= SIGN_MIN]
+    agree = [k for k, v in voting if v[0] == sg]
+    against = [(k, v[1]) for k, v in voting if v[0] != sg]
+    if cf < SIGN_MIN:
+        return sg, cf, best, "head-end cues too weak (" + ", ".join(f"{k} {v[1]:.2f}" for k, v in ranked) + ")"
+    if len(agree) >= 2 and not against:
+        return sg, cf, "+".join(agree), None
+    if cf >= SIGN_STRONG and all(c < SIGN_VETO for _, c in against) and plan not in SINGLE_CUE_UNTRUSTED:
+        return sg, cf, best, None
+    if against:
+        return sg, cf, best, "head-end cues disagree (" + ", ".join(f"{k} {v[0]:+.0f} {v[1]:.2f}" for k, v in ranked) + ")"
+    return sg, cf, best, f"one head-end cue only ({best} {cf:.2f})"
 
 
 # --- fallback skeletons (mode "fallback", on model.glb, no SkinTokens) --------------------

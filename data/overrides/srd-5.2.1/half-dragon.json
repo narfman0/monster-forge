@@ -1,3 +1,3 @@
 {
-  "notes": "Tier-1 review 2026-11-05: the facing gate refused at 116 deg (confidence 0.5), but thumb.png shows the face and chest to the front camera (QA front_view yaw 180 right); the long tail curling round one side skews the symmetry axis. All 3 candidates have the tail swept to one side. Do NOT pin the suggested yaw; clear the refusal by hand."
+  "notes": "Tier-1 review 2026-11-05: the facing gate refused at 116 deg (confidence 0.5), but thumb.png shows the face and chest to the front camera (QA front_view yaw 180 right); the long tail curling round one side skews the symmetry axis. All 3 candidates have the tail swept to one side. Do NOT pin the suggested yaw; clear the refusal by hand. Facing (2026-11-05, fixed check): no longer refused: front-view prior, axis 64 deg at confidence 0.5 (the curled tail) is below the disputed-axis bar 0.75, so the check reads it unverified; thumb.png faces front. No yaw."
 }

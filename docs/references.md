@@ -4,6 +4,7 @@
 house style, `data/style.json`) and copies one to `ref.png`, which feeds the mesh stage.
 Which one: `--pick`, else the `ref_pick` override, else the unarmed check below, else 0.
 `manifest.ref.picked_by` says which rule chose (`pinned`, `unarmed_check`, `default`).
+A changed prompt (override `prompt_extra` / `negative_extra` / `ref_template`, a `prompt_tweaks.json` entry) needs `ref --force`; `batch.py` re-rolls it by itself (stamped `manifest.ref.prompt_fp`, or `--reroll-changed-prompts` for older references; docs/batch.md "Stale prompt").
 
 ## Unarmed check (`unarmed_reference` monsters)
 

@@ -128,6 +128,19 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       the old curled dragon warns (15 degrees, confidence 0.38, twisted pose). `docs/rig-anim.md`.
       Viewer: `viewer/app.js` FIELD_UI needs `rig_facing_check: { type: 'choice', opts: [true, false] }`
       (it renders as a text box until then), and a HUD for the index's `rig_quality`.
+- [x] Facing check after the tier-1 pass (2026-11-05, `docs/rig-anim.md` "Facing check"):
+      head-end cues per plan (`toes` per foot for quadrupeds / winged quadrupeds /
+      insectoids, `abdomen_end` for insectoids, beside `high_centre_end`); known when two
+      agree or one is >= 0.8, else `unverified` (not refused, listed by the batch). Front-view
+      references (QA `front_view`) take the sign by construction: the 13 robe / chain / tail
+      false refusals at ~180 pass; a refusal needs confidence 0.75 when the axis is disputed
+      (front view, or the footprint 45+ deg off): half-dragon, young-bronze-dragon go
+      `unverified`. The backwards boar, badger, rhino, polar bear are now refused with
+      `suggested_yaw` within 2.5 deg of the review's pins.
+- [ ] Facing misses left: rust-monster is backwards and passes (insect legs fool `toes`;
+      the high cue agrees wrongly); fish have one cue only (`unverified`; reef-shark is
+      backwards). A third cue (eyes / mouth from the paint, or the reference's own
+      left-right facing in ref.png) would cover them.
 - [x] Roll score v2 (2026-11-04): spine, head, tail, wing and arm chains per plan, leg count
       and pairs, joint band, joints outside the mesh, weight bleed, and a pose test (each
       part bent 30 degrees: torn edges, far vertices moving, skin not following). Terms in
@@ -921,8 +934,14 @@ untested variants; off-model fork, heavy crossbow, mace props.
       top-down phase spider, lizard gibbering mouther). Review every candidate strip and
       thumbnail before the paint pass; consider a reference check (e.g. a SigLIP prompt
       match per candidate like the unarmed check) before tier 1 at scale.
-- [ ] Facing check sign: with `head_known` false the suggested yaw can be 180 degrees off and
-      the gate passes either way (phase-spider); owner of rig.py.
+- [x] Facing check sign: with `head_known` false the suggested yaw can be 180 degrees off and
+      the gate passes either way (phase-spider); owner of rig.py. (2026-11-05) Head-end cues
+      (C): a backwards body is refused with QA's yaw + ~180; an unsettled one is `unverified`
+      and listed under "Facing to verify" in the report (docs/batch.md), not passed silently.
+- [x] (2026-11-05) Stale prompt: a changed prompt re-rolls the reference. The batch stamps
+      `manifest.ref.prompt_fp` after each ref it runs and re-rolls when the prompt built now
+      differs; unstamped (older) references only with `--reroll-changed-prompts` (prompt
+      source newer than `ref.png` and the prompt differs): the review's 24 re-roll ids.
 - [ ] Tier-1 pass review (2026-11-05): per-monster verdicts, re-roll / re-pick lists and the
       overrides written are in `docs/review-tier1.md`.
 - [ ] First batch run: `batch.py run --tier 1 --stages ref,mesh,qa` (~4.4 h), review the strips,

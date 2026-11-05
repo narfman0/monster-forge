@@ -1,4 +1,4 @@
 {
   "yaw": 126.5,
-  "notes": "Tier-1 review 2026-11-05: ref_0 is a good side-view wild boar, 4 hooves down, but the mesh is BACKWARDS: thumb.png front view shows the rump and tail, the back view shows the snout and tusks. QA auto yaw -53.5 (pca_upper_mass_end) and the facing gate passed at 2.0 deg with head_known false (sign-blind, as phase-spider). Pinned yaw 126.5 = -53.5 + 180 (the batch re-runs qa when yaw changes); check thumb.png after."
+  "notes": "Tier-1 review 2026-11-05: ref_0 is a good side-view wild boar, 4 hooves down, but the mesh is BACKWARDS: thumb.png front view shows the rump and tail, the back view shows the snout and tusks. QA auto yaw -53.5 (pca_upper_mass_end) and the facing gate passed at 2.0 deg with head_known false (sign-blind, as phase-spider). Pinned yaw 126.5 = -53.5 + 180 (the batch re-runs qa when yaw changes); check thumb.png after. Facing (2026-11-05, fixed check): the fixed check (toes cue) refuses the pre-pin mesh as backwards with suggested_yaw within 2.5 deg of the pinned yaw; the pin stands."
 }

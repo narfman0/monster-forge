@@ -74,6 +74,14 @@ def blender(fg, job: dict) -> dict:
 # about 1 degree; the dragon left at QA's auto yaw is ~60 degrees off.
 FACING_MAX_DEG = 30.0
 FACING_CONF = 0.5
+# A refusal also needs this much confidence when a second opinion disputes the mirror axis:
+# a front-view reference (QA turned it by 180 by construction, so only mesh asymmetry can
+# put the axis off: half-dragon's curled tail, 64 deg at 0.5) or a legged horizontal body
+# whose ground footprint runs 45+ deg off the mirror axis (young-bronze-dragon's spread
+# wings, 84 deg at 0.61). Below it the result is `unverified` (listed for a look, not refused).
+FACING_CONF_DISPUTED = 0.75
+FOOTPRINT_DISPUTE_DEG = 45.0
+FOOTPRINT_DISPUTE_ELONGATION = 1.5
 # Plans whose mirror plane says little about where the head points: a snake lying in an
 # S-curve (its best mirror plane cuts across the coils), a blob, a fungus, a swarm cluster,
 # a radial octopus. The check still runs and is recorded, but never refuses to roll.
@@ -236,31 +244,52 @@ def fallback_rig(fg, mon: dict, d: Path) -> dict:
 
 
 def facing_check(fg, mon: dict, d: Path) -> dict:
-    """Body axis of model.glb vs +Y (blender_rig.py "facing"), before any roll."""
+    """Body axis of model.glb vs +Y (blender_rig.py "facing"), before any roll. `ok` false =
+    refuse to roll; `unverified` (a reason) = not refused, but the head end or the axis is not
+    settled: the batch lists it for a look at thumb.png (docs/rig-anim.md "Facing check")."""
     (d / "rig").mkdir(exist_ok=True)
     man = fg.load_manifest(d)
+    qa = man.get("qa") or {}
     rep = blender(fg, {"mode": "facing", "src": str(d / "model.glb"), "report": str(d / "rig" / "facing.json"),
-                       "plan": mon["body_plan"], "head_region": (man.get("qa") or {}).get("head_region"),
+                       "plan": mon["body_plan"], "head_region": qa.get("head_region"),
+                       # QA turned a front-view reference by 180 (no yaw override): face on +Y
+                       "front_view": qa.get("facing_method") == "front_view",
                        "forward": overrides.load(mon["source"], mon["id"]).get("forward") or "-Z"})
     bad = rep["angle_deg"] > FACING_MAX_DEG
     advisory = mon["body_plan"] in FACING_ADVISORY
+    unverified = None if advisory else rep.get("unverified")
+    disputed = None
+    if rep.get("front_view_prior"):
+        disputed = "front-view reference"
+    elif rep.get("footprint_vs_symmetry_deg", 0) >= FOOTPRINT_DISPUTE_DEG and \
+            rep.get("footprint_elongation", 0) >= FOOTPRINT_DISPUTE_ELONGATION:
+        disputed = f"footprint axis {rep['footprint_vs_symmetry_deg']} deg off the mirror axis"
+    need = FACING_CONF_DISPUTED if disputed else FACING_CONF
+    refuse = bad and not advisory and rep["confidence"] >= need
+    if bad and not advisory and not refuse and disputed and rep["confidence"] >= FACING_CONF:
+        unverified = (f"axis {rep['angle_deg']} deg off at confidence {rep['confidence']} < "
+                      f"{FACING_CONF_DISPUTED} ({disputed})")
     out = {"method": "mirror_plane" + ("+" + rep["sign_rule"] if rep["head_known"] else ""),
-           "angle_deg": rep["angle_deg"], "confidence": rep["confidence"],
-           "ok": advisory or not (bad and rep["confidence"] >= FACING_CONF),
+           "angle_deg": rep["angle_deg"], "confidence": rep["confidence"], "ok": not refuse,
            **({"advisory": True} if advisory else {}),
+           **({"unverified": unverified} if unverified else {}),
            "head_known": rep["head_known"], "bearing_deg": rep["bearing_deg"],
            "symmetry_error": rep["symmetry_error"], "symmetry_contrast": rep["symmetry_contrast"]}
-    for k in ("footprint_axis_deg", "footprint_elongation", "head_region_bearing_deg"):
+    for k in ("footprint_axis_deg", "footprint_elongation", "head_region_bearing_deg", "cues", "cue_disagrees",
+              "head_hint_bearing_deg"):
         if k in rep:
             out[k] = rep[k]
-    yaw = (man.get("qa") or {}).get("yaw_deg")
+    yaw = qa.get("yaw_deg")
     if yaw is not None:  # QA turns by yaw about +Z; adding the bearing lands the estimate on +Y
         out["suggested_yaw"] = round(((yaw + rep["bearing_deg"] + 180) % 360) - 180, 1)
-    if bad or out["confidence"] < FACING_CONF:
+        if "head_hint_bearing_deg" in rep:  # unverified, but one cue named an end: its yaw
+            out["hint_yaw"] = round(((yaw + rep["head_hint_bearing_deg"] + 180) % 360) - 180, 1)
+    if bad or out["confidence"] < FACING_CONF or unverified:
         fg.log(f"{mon['id']}: WARNING rig facing: body axis {out['angle_deg']} deg off +Y "
                f"(confidence {out['confidence']}{', head end unknown' if not rep['head_known'] else ''})"
                + (f"; advisory only for {mon['body_plan']} (no mirror-plane body axis), rolling anyway" if advisory else
-                  f"; pin `yaw` (about {out.get('suggested_yaw')}) in data/overrides and re-run qa" if bad else
+                  f"; pin `yaw` (about {out.get('suggested_yaw')}) in data/overrides and re-run qa" if refuse else
+                  f"; UNVERIFIED ({unverified}): look at thumb.png" if unverified else
                   "; low confidence (asymmetric pose?), rolling anyway"))
     else:
         fg.log(f"{mon['id']}: rig facing ok: {out['angle_deg']} deg off +Y, confidence {out['confidence']}")

@@ -1,4 +1,4 @@
 {
   "ref_pick": 1,
-  "notes": "Tier-1 review 2026-11-05: ref_0 (default) is cropped to the head and front legs: the mesh is an upright bust 5.4 m tall standing on one leg (QA ambiguous_ends_assume_camera, facing gate refused 66 deg). ref_1: full side-view crocodile, whole tail in frame, four legs down. Re-pick 1 (ref_2 is cut off at the tail)."
+  "notes": "Tier-1 review 2026-11-05: ref_0 (default) is cropped to the head and front legs: the mesh is an upright bust 5.4 m tall standing on one leg (QA ambiguous_ends_assume_camera, facing gate refused 66 deg). ref_1: full side-view crocodile, whole tail in frame, four legs down. Re-pick 1 (ref_2 is cut off at the tail). Facing (2026-11-05, fixed check): refusal right (66 deg, thumb.png: an upright bust, snout toward +X); no yaw pinned because ref_pick 1 re-meshes it: check the new mesh's gate."
 }

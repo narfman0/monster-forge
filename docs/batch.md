@@ -272,6 +272,21 @@ lod, rig, anim), each as `forge.py <stage> <id> --source <source>` in its own pr
   (a ref killed after drawing left no pick and the mesh failed). forge cannot pick from
   kept candidates, so the ref is drawn again (same seed). `plan`, `run --dry-run` and the
   report show them (`stale mesh: ...`, `stale ref: 4 candidates but no ref.png ...`).
+- **Stale prompt** (ref re-rolled with `--force` and the monster's own candidate count,
+  the larger of `--n` and `manifest.ref.n`; the mesh then follows as stale): after every
+  ref stage it runs, the batch stamps `manifest.ref.prompt_fp`, a hash of what forge
+  recorded (final positive and negative prompt, `controlnet.template`, `n`). `status()`
+  rebuilds the prompt forge would draw now (`current_ref_prompt`: registry prompt, per-plan
+  and per-id `data/prompt_tweaks.json`, override `prompt_extra` / `negative_extra` /
+  `ref_template` / `style` / `swarm_unit`, the house style and unarmed suffixes; no ComfyUI)
+  and re-rolls when the hash differs. A manifest with no stamp (every reference made
+  before 2026-11-05) is never stale by this rule, so 150 good references are not redrawn.
+  For those, **`--reroll-changed-prompts`** (plan / run) treats the ref as stale when an
+  override with a prompt field, or the `prompt_tweaks.json` entry for the id or its plan,
+  is newer than `ref.png` AND the prompt built now differs from `manifest.ref.prompt`
+  (an override edited only for `yaw` or notes does not re-roll). On the tier-1 review that
+  is exactly its 24 re-roll ids (23 stale + warrior-infantry, which has no reference yet):
+  `batch.py plan --tier 1 --stages ref,mesh,qa --reroll-changed-prompts`.
 - `ref --n 3` (the pilots' practice; the viewer shows the candidates for a re-pick), and
   at least `--n 4` for `unarmed_reference` records (the unarmed check picks the first
   empty-handed one).
@@ -294,7 +309,10 @@ lod, rig, anim), each as `forge.py <stage> <id> --source <source>` in its own pr
   `rig.FACING_ADVISORY` plans, not when `rig_facing_check` is false or `rig/chosen.glb`
   exists): `rig.facing_check` on `model.glb` (Blender only, ~3-4 s). Refused = recorded
   (`_batch.json` stage `facing` with the suggested yaw, a `manifest.errors` entry) and the
-  monster is left before paint; a later pass clears that entry. `--no-facing-gate` turns it off.
+  monster is left before paint; a later pass clears that entry (and the `manifest.rig`
+  placeholder). `unverified` (the head end or a disputed axis not settled, docs/rig-anim.md
+  "Facing check") is not a refusal: the monster goes on, `_batch.json` keeps the reason and
+  `hint_yaw`, and the report lists it under "Facing to verify". `--no-facing-gate` turns it off.
 - **Timeouts**: 3x the slowest run seen of the stage (`--timeout-scale`), at least
   120 s (`--timeout-floor`): ref 180 s with 4 candidates, mesh 312, paint 513, rig 465
   (SkinTokens) or 120. On a timeout (or a hang) the process group is killed (Blender and
@@ -382,10 +400,13 @@ phase-spider (insectoid, large), gibbering-mouther (amorphous).
   (TODO "State": raise `MemoryHigh` or keep the restarts).
 - Facing refusals (winged bodies, and any mesh QA turned sideways): pin `yaw` from the
   suggested value in `data/overrides/srd-5.2.1/<id>.json` and run the monster again (the
-  batch re-runs qa with `--force` and the gate). Then look at `thumb.png`: when
-  `rig/facing.json` has `head_known` false the check is sign-blind and the suggestion can be
-  180 degrees off (phase-spider: 6.6 put the abdomen forward, -173.4 was right). The gate
-  passes either way, so only the thumbnail catches it.
+  batch re-runs qa with `--force` and the gate). Then look at `thumb.png`. Since
+  2026-11-05 a body the head-end cues call backwards is refused with `suggested_yaw` = QA's
+  yaw + ~180 (boar, giant-badger, rhinoceros); when they cannot tell (`head_known` false)
+  the gate passes it as `unverified` and the report's "Facing to verify" lists it: look at
+  `thumb.png` (the front tile shows the face, not the rump) and use `hint_yaw` or QA's yaw
+  + 180 if it is backwards. Front-view bipeds are no longer refused for a robe or tail
+  (their sign is the front view's, by construction).
 - Unarmed warnings ("every candidate scores armed"): look and pin `ref_pick`, or re-roll.
 - Rig problems by plan: winged bipeds without wings and quadrupeds without a spine or
   tail are the pilots' known failure modes; `forge.py rig <id> --rig-reroll` then
