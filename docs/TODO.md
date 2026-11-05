@@ -151,6 +151,30 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       outside `attack_ranged`. The lab also keeps the sword out during the shot: loadout
       swap per clip is the game's job.
 - [ ] Real export (`assets/monsters/*` in the export filter) is untested.
+- [x] Round 4 (2026-11-04, godot-dnd uncommitted at review time): the nine body-plan pilots
+      (centaur-trooper skipped, no clips). `check_monsters.gd` ALL PASS on 15 monsters. 81
+      clips bind 100% of their tracks. Every GLB channel that leaves rest has a Godot track,
+      scale included, and the blob/swarm/octopus scale keys play. 4 LODs share one skeleton
+      per rig, swarm included. Loop seams are 0, and every death ends at lowest y 0.000. No
+      clip goes below -0.03 m. godot-dnd: `Monster.move_clip()` (walk, else swim/fly),
+      `blend_time` cross-fade (lab 0.25 s), sync `--all` needs clips, ground/channel/
+      transition probes in the check. Pipeline findings, open:
+  - [ ] ghost death: the back of the robe stays upright as a ~0.9 m vertical sheet while
+        the body lies flat (the hem's weights go to bones the fall does not carry). The hit
+        clip dips the hem to -0.010 m, despite `lift`.
+  - [ ] merfolk-skirmisher: no `hand_r`/`grip_r` (raised arm missed), so the registry spear
+        is never shown. attack_melee barely moves the spread arms. Death leaves the raised
+        arm pointing straight up.
+  - [ ] swarm-of-rats mesh is a 1.44 m column of rats (bbox 0.83 x 1.44 x 1.50), not a
+        spread swarm. The death y-scale 0.15 squashes the rats flat.
+  - [ ] violet-fungus death topples the root clump with the stalk, so the base stands up
+        vertically.
+  - [ ] Height changes between clips are by design but pop without a blend: octopus idle on
+        the floor vs swim at 0.215 m, merfolk idle vs swim at 0.65 m, eagle idle vs fly at
+        0.41 m. Idle -> move in one frame moves vertices 0.14-1.31 m (a 0.25 s cross-fade
+        brings this down to 0.03-0.26 m). Decide whether to add a take-off clip or a lifted idle.
+  - [ ] Note: hunter-shark rest mesh is strongly curved (2.97 m tall for 4.5 m long). It
+        swims level at 0.74 m and death lies belly-up on its dorsal fin.
 
 ### F. Props (2026-11-04)
 - [x] `tools/props.py` + `tools/blender_prop_qa.py`: all 32 props in `out/props/<id>/` (prop
