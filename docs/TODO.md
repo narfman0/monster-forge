@@ -445,6 +445,10 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         re-run: another stream re-scales it), first-frame jump from the idle (Blender): fly
         0.616 -> 0.009 m, attack/hit/death 0.938 -> 0.137. Re-check in Godot after the
         eagle's re-run.
+        Godot round 8 (re-scaled rig): idle -> fly frame 0 0.010 m, one-shots 0.072 m. Idle 0%
+        and fly 0% screenshots are identical. The probe (switching after 0.5 s of idle) still
+        gives 1.121 m instant and 0.192 m cross-faded, because the idle itself beats its
+        wings (1.69 m from its own first frame mid-cycle).
   - [x] Eagle attack_melee at 25% draws the head back behind the near wing with a dark gap
         (tear) at the neck.
         (2026-11-04, clips3) The avian lunge rears neck and skull `AVIAN_REAR` 0.35 as far
@@ -454,9 +458,14 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         past 4x (vs bind pose) in every frame, the strike included: that is the held fly
         first-frame wing pose (fly 4-17), the lunge adds none; head forward travel 0.26 x body
         length. No change; Godot to re-check on the new rig.
-  - [ ] Eagle scale: 5.84 m wingspan (right for 20 ft), 5.29 m tall to the raised wing tips,
+        Godot round 8: no neck gap at 25%, beak forward and down at 50%, wings hold. It reads
+        as a small peck.
+  - [x] Eagle scale: 5.84 m wingspan (right for 20 ft), 5.29 m tall to the raised wing tips,
         head ~3.5 m; next to the 1 m goblin its legs alone are the goblin's height. Check
         that this is the intended size.
+        Godot round 8: avian max-dimension scale, bbox 3.00 x 2.97 x 1.54 m (56 bones). The
+        head is about at the 1.8 m capsule's top, and the goblin reaches the eagle's belly
+        (eagle-and-goblin screenshots).
   - [x] Snake strike is small: only the front 5 bones key (6 tracks), the head rears 0.3-0.5 m.
         Snake idle -> swim frame-0 jump 1.245 m (walk 0.717).
         (2026-11-04, clips3) Strike on the front third (a cobra S), a sideways coil and a
@@ -506,6 +515,9 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         neighbours; plus a floor feather of the wing on the ankle (`bone_20` 1.0). Body seam
         (C): fly 96 -> 4 edges past 4x, walk 5 -> 0; the 0% blades and the 25% strip are gone
         in Blender sheets. Godot to re-check.
+        Godot round 8: no blades at 0% and no strip at 25% (front). Only the wings' own long
+        tips hang, one to knee height at 25%. Walk side 0/50%: the feathers hang to the
+        floor with tapered tips and no strip.
         - At 0% (wings spread), the lower feathers stretch sideways from the hips into flat
           blades out past the wing span, longer on the right.
         - At 25% a thin strip runs from the hip down to the floor below the feet (side view).
@@ -523,6 +535,7 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         25% and 50% in Blender close-ups. The 14 left are on top of the right shoulder
         (`bone_11` vs `wing_r_00`/`bone_3`, the wing root beside the shoulder); a root 6 cm
         farther back gave 11 and looked the same (not kept). Godot to re-check.
+        Godot round 8: no armpit sheet in the longsword cut at 25% or 50% (three-quarter).
   - [x] Harpy idle frame 0 -> attack_melee frame 0 now jumps 0.167 m (round 5 0.014), and
         -> walk 0.175 m (0.113). Walk dips to -0.023 m (round 5 -0.008), still inside the
         check's -0.03 m limit.
@@ -542,6 +555,9 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         may not go lower for the feet than keeps them at -0.01, so the standing feet are up to
         2.2 cm short at the stride ends (`planted_foot_gap` 0.022). Stride 0.8, 33 frames as
         before. Godot to re-check.
+        Godot round 8: idle -> attack, hit, death frame 0 = 0, walk 0.122 (the same as
+        `from_idle_m`), walk lowest -0.010 m. In the side view the near wing hides most of
+        the feet, so the 2.2 cm gap cannot be seen.
   - [x] Harpy arms still not mirrored: `hand_r` at x +0.48 and `hand_l` at -0.37, elbows
         `bone_12`/`bone_8` at +0.37/-0.25 (round 5 hands +0.51/-0.48). The left fist sits
         nearer the body.
@@ -549,6 +565,51 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         +0.068), because the origin is the bbox centre and the wings are not mirrored (right
         wing 0.86 m from the centre line, left 0.97). About the centre line the arms mirror:
         hands 0.428/0.427 m, elbows 0.32/0.31, shoulders 0.19/0.16, legs within 3 cm. No `fit`.
+- [x] Round 8 (2026-11-05, godot-dnd uncommitted, on top of ff09909): re-sync after
+      1def4a4..f8bb67e. Synced with `--ids` for the 15 pilots; centaur and the GPU stream's
+      monsters were not synced. The smoke-run monsters have no rig.
+      - Updated: eagle (rig, LODs, clips), harpy (rig, LODs, 5 clips; fly unchanged),
+        snake, merfolk attack_ranged, goblin, wolf, owlbear, spider, dragon (clips and
+        LOD2-3), ghost (idle, attack, death).
+      - `check_monsters.gd` ALL PASS on 15 monsters and 32 props. Every clip binds 100%.
+        3 WARNs: harpy/dragon fly and merfolk swim heights, as before.
+      - godot-dnd change: the check's "clip moves a bone" probe falls back to 30% when 50% is
+        the rest pose. The snake's standing-wave idle failed it.
+      - **Godot frame-0 jumps equal `clips.json` `from_idle_m` on every clip of every monster.**
+        - Legged one-shots: 0, except dragon death 0.042. Round 6/7 values: goblin cut
+          0.522, dragon 0.76-0.79, harpy 0.167/0.060, wolf/owlbear/spider 0.05-0.07.
+        - Idle -> walk: goblin 0.099 -> 0.072, wolf 0.246 -> 0.197, owlbear 0.267 -> 0.219,
+          spider 0.414 -> 0.093, harpy 0.175 -> 0.122, dragon 0.423 -> 0.435.
+        - Snake: one-shots 0.270 -> 0, walk 0.717 -> 0.379, swim 1.245 -> 0.320.
+        - Merfolk throw: 0.614 -> 0.059.
+        - Ghost: one-shots 0.104 -> 0; fly 0.702 -> 0.801.
+      - Verified with Xvfb screenshots:
+        - Goblin idle/attack_melee/attack_ranged/hit/death frame 0 are pixel-identical.
+        - The snake's cobra strike rears about 0.6 m and strikes forward and down.
+        - The merfolk throw goes cocked -> release -> follow-through, spear in the fist.
+        - Harpy and eagle as noted in the items above.
+      New findings, open:
+  - [ ] Dragon idle tail: the in-phase 5-degree sway adds up along the 9-bone curled tail.
+        The tip (`bone_66`, lying on the floor at the left side) swings 1.66 m sideways at
+        0.62 s and 1.34 m the other way at 1.88 s.
+        - Frame 0 matches (one-shots 0), but a game switch is mid-idle. Godot's probe (walk
+          started after 0.5 s of idle) went 0.955 -> 1.506 m instant and 0.102 -> 0.269 m
+          with the 0.25 s cross-fade. Attack/hit/breath from mid-idle jump up to 1.66 m.
+        - The other legged idles wander 0.02-0.10 m. A smaller tail amplitude per joint
+          (scaled by chain length) would fix it.
+  - [ ] Note (not a bug): `from_idle_m` is frame 0 against frame 0. The game fires
+        one-shots mid-idle, so what it sees is idle(t) -> clip(0).
+        - Worst over the idle cycle (Godot scratch scan): goblin 0.05, wolf 0.09, owlbear
+          0.07, spider 0.02, harpy 0.10, ghost 0.23, snake 0.28, octopus 0.36, shark 0.28,
+          eagle 1.68 (the idle beats), dragon 1.66 (tail).
+        - Reporting a per-clip `from_idle_max_m` over the idle cycle would expose cases like
+          the dragon's.
+  - [ ] giant-eagle `anims/clips.json` (22:03) predates `from_idle_m`, so it has no Blender
+        jump values. Godot measures 0.072 (one-shots) and 0.010 (fly), matching the
+        scratch-run numbers in docs/rig-anim.md.
+  - [ ] The eagle lunge is a small peck: head travel 0.26 x body length, and from the side
+        the strike barely leaves the raised-wing silhouette. Fine for a bite; a giant eagle's
+        beak/talon attack may want more reach.
 
 ### F. Props (2026-11-04)
 - [x] `tools/props.py` + `tools/blender_prop_qa.py`: all 32 props in `out/props/<id>/` (prop
