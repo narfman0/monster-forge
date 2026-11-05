@@ -13,9 +13,9 @@ young-red-dragon) all the way to rigged + animated Godot-ready GLBs **before** t
 - `paint.enabled` now defaults to true: it adds ~3 min per monster, ~14-17 h over 330.
 - `forge.py rig` and `forge.py anim` work on all 6 (viewer: rig 6, anim 6). Each monster's
   skeleton is `rig/chosen.glb`: `--force` rebuilds the game files from it, only
-  `--rig-reroll` rolls again. Art is git-ignored and `qa --force` deletes `rig/`, so the
-  harpy's hand-built wing skeleton would need redoing: re-add the chains, skin with
-  `--use_skeleton`, run `tools/blender_wing_weights.py`.
+  `--rig-reroll` rolls again. Art is git-ignored and `qa --force` deletes `rig/`; the
+  harpy's wing chains are inserted by the rig stage from the mesh (no hand work since
+  2026-11-04 evening: `rig/chosen.glb` is SkinTokens roll_1).
 - ComfyUI is a user systemd unit: `systemctl --user start|stop comfyui`. Do not
   nohup it from a shell.
 - Viewer: `python3 -I tools/viewer.py` -> http://127.0.0.1:8787/
@@ -39,7 +39,7 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
 | wolf | `rig/model_rigged.glb` (28 joints) | good skeleton; no real tail chain, pose test not run |
 | owlbear | `rig/roll_3.glb` (27 joints) | good; pose test clean. No spine, legs hang off a back root. Bone counts varied 18-46 across rolls |
 | giant-spider | `rig/model_rigged.glb` (37 joints) | 8 legs, pose test not run. First run died with `assert res.skin_pred is not None`, the retry passed |
-| harpy | `rig/wings/model_fixed.glb` (34 joints) | no wing bones in 4 of 4 rolls; uses hand-added chains and fixed weights (below) |
+| harpy | `rig/chosen.glb` = roll_1 (SkinTokens, no wing bones in 4 of 4 rolls) | the rig stage inserts `wing_r/wing_l` chains from the mesh and blends the arm-wing seam (docs/rig-anim.md "Wing chains from the mesh"); the earlier hand-added chains are retired |
 | young-red-dragon | `rig/model_rigged.glb` (67 joints, roll 1) | best rig: spine, neck, 4 legs, tail, both wings. Clean at +/-25 degree flap, neck, leg and tail bends |
 
 - Manifold cleanup is **not** needed for rigging: the loose parts are slivers of mostly 3-9

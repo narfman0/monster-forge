@@ -131,8 +131,9 @@ hand-fixed rig shows its terms. `/api/index.json` carries both as `rig_quality`
 
 **`rig/chosen.glb` is the source of truth.** Once it exists, `rig --force` (and any
 `run --force`) only rebuilds the game files from it, for example after a new paint or new
-LODs. Only `--rig-reroll` rolls again and replaces it. A skeleton fixed by hand (the
-harpy's wing chains) survives re-runs by being saved as `rig/chosen.glb`. `qa --force` and
+LODs. Only `--rig-reroll` rolls again and replaces it. A skeleton fixed by hand survives
+re-runs by being saved as `rig/chosen.glb` (the harpy's was, until the stage learned to
+insert wing chains itself). `qa --force` and
 `mesh --force` change the geometry and delete `rig/` and `anims/`; `paint` and `lod` delete
 only the game files.
 
@@ -303,8 +304,9 @@ placeholder sword on `hand_r` and a bow on `hand_l` (`viewer/README.md`).
   -0.49 -> -0.71 over roll_2 -0.78 (v1 would have taken roll_2), roll_4 -4.0 (one wing,
   1/3 legs, torn); owlbear roll_1 -3.1 over the kept roll_3 -4.0 (no roll has a spine;
   roll_3's head bone moves no skin); harpy roll_1 -1.5 (no SkinTokens roll has wings);
-  the curled dragon's scrambled rolls -3.1 to -7.1. The hand-built harpy `chosen.glb`
-  scores -3.5: its wing tips hang near the ground and are counted as legs.
+  the curled dragon's scrambled rolls -3.1 to -7.1. The retired hand-built harpy rig
+  scored -3.5 (its wing tips hung near the ground and counted as legs); roll_1 with
+  inserted wings and the seam blend scores -0.84 with no problems.
 - `find_legs` rejects a foot that fans into several toes from an ankle above 9% of the
   height (owlbear roll_2, which is also the only owlbear roll with a back chain to the
   hind legs), so such a roll loses 1.0 for "missing" legs, and the anim stage would fail
@@ -315,11 +317,10 @@ placeholder sword on `hand_r` and a bow on `hand_l` (`viewer/README.md`).
   dragon went from scrambled to clean once its `yaw` was pinned. The facing check above
   catches a turned body; it cannot tell a twisted pose from a turned one (low confidence,
   warning only).
-- No wing bones on the harpy in 4 of 4 rolls. Its kept wings are hand-added chains,
-  re-skinned with `--use_skeleton` and re-weighted with `tools/blender_wing_weights.py`'s
-  stand-alone mode; clean up to about +/-20 degrees. The stage now inserts wing chains found
-  on the mesh (above), which beats the hand-built rig on `fly`, sockets and score but tears
-  twice as much in the harpy's sword cut, so the harpy keeps its hand-built rig.
+- No wing bones on the harpy in 4 of 4 rolls. The stage inserts wing chains found on the
+  mesh and blends the arm-wing seam (above); that rig replaced the hand-built one on
+  2026-11-04 (fly 96 vs 217 stretched edges, sword cut 48 vs 85). Remaining tears are the
+  hanging wing tips against the legs at the top of the upstroke.
 - The owlbear has no spine (its legs hang off a back root); the wolf has no real tail
   chain. The owlbear's tail (3 bones) is too short for the clips' 4.
 - Added hand bones point straight up in the bind pose, not along the forearm, so a prop
