@@ -266,8 +266,12 @@ lod, rig, anim), each as `forge.py <stage> <id> --source <source>` in its own pr
 - **Stale stages** run again with `--force` (forge skips a stage whose files exist):
   mesh when `ref.png` is newer than `model_raw.glb` (a `forge.py ref --force` re-roll) or
   the override's `ref_pick` is not the candidate the mesh was made from; qa when the
-  override's `yaw` is not the one qa ran with (the facing gate's fix). `plan`, `run
-  --dry-run` and the report show them (`stale mesh: ...`).
+  override's `yaw` is not the one qa ran with (the facing gate's fix); ref when it is
+  partial: done means the candidates (`ref_*.png`) AND the pick (`ref.png`, no older than
+  the candidates). The viewer counts candidates alone as a reference; the batch does not
+  (a ref killed after drawing left no pick and the mesh failed). forge cannot pick from
+  kept candidates, so the ref is drawn again (same seed). `plan`, `run --dry-run` and the
+  report show them (`stale mesh: ...`, `stale ref: 4 candidates but no ref.png ...`).
 - `ref --n 3` (the pilots' practice; the viewer shows the candidates for a re-pick), and
   at least `--n 4` for `unarmed_reference` records (the unarmed check picks the first
   empty-handed one).
@@ -280,7 +284,9 @@ lod, rig, anim), each as `forge.py <stage> <id> --source <source>` in its own pr
   twice; mesh reaches the same ceiling even from a fresh process, and after a ref (which
   leaves ~14 GB resident, 4.6 GB after `/free`) the Trellis2 texture-VAE decode stalled in
   reclaim past the 288 s timeout (smoke run, below). Before every ComfyUI stage (ref, mesh, paint, rig)
-  `/queue` must answer within 60 s, else restart. While a stage runs a watchdog polls
+  `/queue` must answer within 60 s, else restart, and must be empty within 60 s
+  (`QUEUE_BUSY_S`; forge's `wait_idle` would wait forever), else the queue is cleared and
+  the unit restarted. While a stage runs a watchdog polls
   `/queue` every 10 s; silent for 60 s means a hung ComfyUI: the stage is killed, the unit
   restarted and the stage retried once.
 - **Facing gate** right after qa (so a `ref,mesh,qa` pass knows the refusals before the
@@ -291,9 +297,17 @@ lod, rig, anim), each as `forge.py <stage> <id> --source <source>` in its own pr
   monster is left before paint; a later pass clears that entry. `--no-facing-gate` turns it off.
 - **Timeouts**: 3x the slowest run seen of the stage (`--timeout-scale`), at least
   120 s (`--timeout-floor`): ref 180 s with 4 candidates, mesh 312, paint 513, rig 465
-  (SkinTokens) or 120. On a timeout the process group is killed (Blender and SkinTokens
-  children too), ComfyUI gets `/interrupt` and the manifest an `errors` entry
-  (`batch: <stage> timed out after ...`).
+  (SkinTokens) or 120. On a timeout (or a hang) the process group is killed (Blender and
+  SkinTokens children too), then ComfyUI's queue is cleared (`POST /queue {"clear": true}`,
+  `/interrupt`) and the unit restarted before the next stage: `/interrupt` alone stops the
+  running job only, and a killed mesh had queued its decimation retry, which kept ComfyUI
+  busy for the next 1-3 refs until they timed out too (tier-1 pass 2026-11-05: 9 refs
+  lost that way). The stage's done-marker written in the killed attempt (`ref.png`,
+  `model_raw.glb`, `model.glb`, `base_color_painted.png`, `lods.json`, `model_rigged.glb`)
+  is removed so the stage reads pending and the next `run` redoes it; the log line says
+  `outputs: ... stage reads pending` (or `STILL READS DONE`: look by hand). The manifest
+  gets an `errors` entry (`batch: <stage> timed out after ...`), `_batch.json` the events
+  `stage_timeout`, `comfy_clear`, `comfy_restart`.
 - **Failures** do not stop the batch: forge records them in `manifest.errors`, the batch
   in `_batch.json`, and moves on to the next monster. `--stop-after-failures N` stops after
   N failed stages. A broken environment does stop it: 3 monsters in a row whose stage fails
@@ -352,7 +366,15 @@ phase-spider (insectoid, large), gibbering-mouther (amorphous).
   with EDQUOT: keep `/tmp` below its quota during a run.
 
 - Nothing else may use ComfyUI during a run: the batch restarts the unit before every
-  mesh and paint and `/interrupt`s it on a timeout.
+  mesh and paint, clears its queue and restarts it after every timeout, and clears and
+  restarts it when the queue is still busy 60 s before a ComfyUI stage.
+- Timeouts: `grep -E "timeout|killed|queue busy" <run log>`. One timeout followed by
+  more on the next monsters' refs was the leftover-queue bug (fixed: look for
+  `clearing the ComfyUI queue + restart` right after each `killed`). A timed-out stage
+  stays pending; `plan` lists it and the next `run` redoes it (a partial ref shows
+  `stale ref`). Mesh timeouts themselves (hobgoblin-warrior, earth-elemental, ogre,
+  stone-golem, black-bear on the tier-1 pass, all at 312 s) are a separate question: read
+  the monster's `_batch_logs/<id>.log` before raising `--timeout-scale`.
 - The first hours: `tail -f out/srd-5.2.1/_batch_logs/<id>.log`, the viewer (the dashboard
   counts per plan, the candidate strip, the rig HUD), and `batch.py report` every few
   dozen monsters.

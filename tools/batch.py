@@ -84,6 +84,14 @@ FAST_FAIL_S = 10.0  # a stage failing this fast is the environment (ComfyUI 500s
 MAX_FAST_FAILURES = 3  # stop the run after this many monsters in a row fail that way
 HANG_S = 60.0  # /queue silent this long = hung ComfyUI
 WATCH_POLL = 10.0  # seconds between the watchdog's /queue polls
+# Before a ComfyUI stage the queue must drain within this many seconds, else clear + restart.
+# Tier-1 pass 2026-11-05: a killed mesh stage left forge's second mesh job queued (/interrupt
+# stops the running job only), and the next 1-3 refs sat in forge.wait_idle until they timed out.
+QUEUE_BUSY_S = 60.0
+# What each stage's "done" reads from (viewer.stage_status, rig_done): a file a killed stage wrote
+# in the attempt is removed so the stage reads pending (the manifest record may be missing).
+DONE_MARKERS = {"ref": ["ref.png"], "mesh": ["model_raw.glb"], "qa": ["model.glb"],
+                "paint": ["textures/base_color_painted.png"], "lod": ["lods.json"], "rig": ["model_rigged.glb"]}
 
 # ---------------------------------------------------------------- coverage model
 # (body_plan, rig_template) pairs that run the same code path as a pilot. The code keys on
@@ -348,6 +356,9 @@ def status(rec: dict, source: str) -> dict:
     done = dict(st["stages"])
     done["rig"] = rig_done(d, man, st)
     stale = {}
+    why = ref_partial(d)
+    if why:  # the viewer counts candidates alone as a reference; the mesh needs the pick
+        done["ref"], stale["ref"] = False, why
     if done["mesh"]:
         why = mesh_stale(rec, d, man)
         if why:  # forge's mesh clears model.glb and the thumbs, so qa follows by itself
@@ -375,6 +386,29 @@ def status(rec: dict, source: str) -> dict:
             pend.add("rig")
     return {"done": done, "pending": [s for s in STAGES if s in pend], "raw_pending": raw,
             "skipped": skipped, "stale": stale, "man": man, "st": st, "dir": d}
+
+
+def ref_partial(d: Path) -> str | None:
+    """Why the reference is incomplete, or None (complete, or nothing drawn yet). Done means
+    the candidates (ref_*.png) AND the pick (ref.png, written by forge after the candidates)
+    exist, the pick no older than the candidates. A ref killed by a timeout after drawing
+    leaves candidates without ref.png (tier-1 pass: warrior-infantry, warrior-veteran,
+    efreeti); a `ref --force` killed mid-way leaves the old ref.png with no or newer
+    candidates. forge has no "pick from the kept candidates" path: its skip needs both files,
+    anything else deletes ref_*.png and draws again (same seed, so the same candidates), so
+    the batch re-runs ref, with --force (stale) because forge would skip an old ref.png
+    next to candidates."""
+    if not d.is_dir():
+        return None
+    refs = list(d.glob("ref_*.png"))
+    pick = d / "ref.png"
+    if refs and not pick.exists():
+        return f"{len(refs)} candidates but no ref.png (the ref stage stopped before the pick)"
+    if pick.exists() and not refs:
+        return "ref.png without candidates (a ref re-roll stopped after deleting them)"
+    if refs and pick.stat().st_mtime + 1 < max(p.stat().st_mtime for p in refs):
+        return "ref.png is older than the candidates (a ref re-roll stopped before the pick)"
+    return None
 
 
 def mesh_stale(rec: dict, d: Path, man: dict) -> str | None:
@@ -709,14 +743,55 @@ def restart_comfy(prog: Progress, why: str, wait_s: float = 300) -> bool:
     return up
 
 
-def ensure_comfy(prog: Progress) -> None:
-    """Before a ComfyUI stage: /queue must answer within HANG_S, else restart."""
+def comfy_queue_len(timeout: float = 10) -> int | None:
+    """Running + pending jobs on ComfyUI's /queue, None when it does not answer."""
+    try:
+        q = json.loads(fg.http("GET", "/queue", timeout=timeout))
+        return len(q.get("queue_running") or []) + len(q.get("queue_pending") or [])
+    except Exception:
+        return None
+
+
+def clear_comfy_queue() -> None:
+    """Drop the pending jobs (POST /queue {"clear": true}) and stop the running one
+    (POST /interrupt). /interrupt alone leaves a killed stage's queued jobs behind."""
+    for path, body in (("/queue", json.dumps({"clear": True}).encode()), ("/interrupt", b"")):
+        try:
+            fg.http("POST", path, body, headers={"Content-Type": "application/json"}, timeout=10)
+        except Exception as e:
+            fg.log(f"batch: POST {path} failed ({str(e)[:120]})")
+
+
+def recover_comfy(prog: Progress, why: str) -> bool:
+    """After a stage was killed (timeout, hang) or a queue that will not drain: clear the
+    queue, interrupt, restart the unit and wait for /system_stats, so the next stage starts
+    on an empty ComfyUI."""
+    fg.log(f"batch: clearing the ComfyUI queue + restart ({why})")
+    clear_comfy_queue()
+    prog.event("comfy_clear", why=why)
+    return restart_comfy(prog, why)
+
+
+def ensure_comfy(prog: Progress, label: str = "a stage") -> None:
+    """Before a ComfyUI stage: /queue must answer within HANG_S, else restart; then the queue
+    must be empty within QUEUE_BUSY_S (forge's stages wait_idle() for it forever), else
+    clear it and restart."""
     t0 = time.time()
-    while time.time() - t0 < HANG_S:
-        if comfy_ok():
+    while not comfy_ok():
+        if time.time() - t0 >= HANG_S:
+            restart_comfy(prog, f"/queue silent for {HANG_S:.0f}s before {label}")
+            break
+        time.sleep(5)
+    t0 = time.time()
+    while True:
+        n = comfy_queue_len()
+        if n == 0 or n is None:  # None: just restarted and still loading; the stage's watchdog takes it
+            return
+        if time.time() - t0 >= QUEUE_BUSY_S:
+            fg.log(f"batch: ComfyUI queue busy ({n} jobs) for {QUEUE_BUSY_S:.0f}s before {label}")
+            recover_comfy(prog, f"queue busy {QUEUE_BUSY_S:.0f}s before {label}")
             return
         time.sleep(5)
-    restart_comfy(prog, f"/queue silent for {HANG_S:.0f}s before a stage")
 
 
 def memory_gate(prog: Progress, min_gb: float, label: str) -> None:
@@ -782,13 +857,35 @@ def forge_cmd(stage: str, rec: dict, args, force: bool = False) -> list:
     return cmd
 
 
+def scrub_partial(stage: str, rec: dict, d: Path, t0: float, source: str) -> dict:
+    """After a killed stage: remove the done-markers (DONE_MARKERS) it wrote in this attempt
+    (mtime >= t0), since the stage never finished (manifest record, thumbs, the pick may be
+    missing), then check that status() reads the stage as pending, so a resumed run redoes it.
+    A ref's candidates stay: ref_partial() makes the ref pending without ref.png. anim has no
+    single marker (clips are files + manifest); a killed anim is redone by `anim --force`."""
+    removed = []
+    for name in DONE_MARKERS.get(stage, []):
+        p = d / name
+        try:
+            if p.exists() and p.stat().st_mtime >= t0 - 1:
+                p.unlink()
+                removed.append(name)
+        except OSError as e:
+            fg.log(f"batch: {rec['id']}: could not remove partial {name}: {e}")
+    s = status(rec, source)
+    pending = stage in s["pending"] or stage in s["skipped"]
+    note = (f"removed {', '.join(removed)}; " if removed else "") + \
+        ("stage reads pending" if pending else "STAGE STILL READS DONE (check the files by hand)")
+    return {"removed": removed, "pending": pending, "note": note}
+
+
 def run_stage(stage: str, rec: dict, d: Path, args, prog: Progress, logf, force: bool = False) -> dict:
     """One forge.py stage in its own process group with a timeout and the /queue watchdog.
     A hung ComfyUI kills the stage, restarts the unit and retries the stage once."""
     timeout = timeout_for(stage, rec, d, args)
     for attempt in (1, 2):
         if stage in COMFY_STAGES:
-            ensure_comfy(prog)
+            ensure_comfy(prog, f"{rec['id']} {stage}")
         cmd = forge_cmd(stage, rec, args, force)
         logf.write(f"\n=== {time.strftime('%H:%M:%S')} {' '.join(cmd)} (timeout {timeout:.0f}s)\n")
         logf.flush()
@@ -818,24 +915,26 @@ def run_stage(stage: str, rec: dict, d: Path, args, prog: Progress, logf, force:
                     pass
                 proc.wait()
         dt = round(time.time() - t0, 1)
+        if outcome != "exit":
+            # Killed: whatever forge queued (mesh queues a second job for the decimation retry)
+            # must not outlive it, and what it half wrote must not read as done.
+            how = f"/queue silent {HANG_S:.0f}s during" if outcome == "hung" else "timeout in"
+            recover_comfy(prog, f"{how} {rec['id']} {stage}")
+            check = scrub_partial(stage, rec, d, t0, args.source)
+            fg.log(f"batch: {rec['id']}: {stage} killed ({outcome}); outputs: {check['note']}")
         if outcome == "hung":
             prog.event("comfy_hung", id=rec["id"], stage=stage, seconds=dt, attempt=attempt)
-            restart_comfy(prog, f"/queue silent {HANG_S:.0f}s during {rec['id']} {stage}")
             if attempt == 1:
                 fg.log(f"batch: {rec['id']}: {stage} retry after the ComfyUI restart")
                 continue
             text = f"batch: ComfyUI stopped answering /queue during {stage} (twice); stage killed"
             add_manifest_error(d, stage, text)
-            return {"status": "failed", "seconds": dt, "error": text}
+            return {"status": "failed", "seconds": dt, "error": text, "outputs": check}
         if outcome == "timeout":
-            if stage in COMFY_STAGES:
-                try:
-                    fg.http("POST", "/interrupt", b"", timeout=10)
-                except Exception:
-                    pass
             text = f"batch: {stage} timed out after {timeout:.0f}s (killed)"
             add_manifest_error(d, stage, text)
-            return {"status": "timeout", "seconds": dt, "error": text}
+            prog.event("stage_timeout", id=rec["id"], stage=stage, seconds=dt, outputs=check["note"])
+            return {"status": "timeout", "seconds": dt, "error": text, "outputs": check}
         if proc.returncode != 0:
             return {"status": "failed", "seconds": dt,
                     "error": last_manifest_error(d, stage) or f"forge.py {stage} exited {proc.returncode}"}
@@ -965,6 +1064,9 @@ def cmd_run(args) -> int:
                 sess["stages_run"] += 1
                 if res["status"] != "ok":
                     m["errors"].append({"stage": st, "error": res.get("error"), "at": res["at"]})
+                    if res.get("outputs") and not res["outputs"]["pending"]:
+                        m["errors"].append({"stage": st, "error": f"batch: killed {st} still reads done: "
+                                            f"{res['outputs']['note']}", "at": res["at"]})
                     if res["status"] == "failed" and res["seconds"] < FAST_FAIL_S:
                         fast_fail = f"{st}: {str(res.get('error'))[:200]}"
                     failures += 1
