@@ -9,6 +9,11 @@ TOES = 0.09        # bones this low are toes: climbing past them finds the foot,
 MIN_DROP = 0.35    # a leg's drop over its length: rejects a tail lying on the ground
 WING_REACH = 0.4   # a wing reaches this far sideways (x height) from the centre line
 SNOUT_SIDE = 0.15  # find_snout: the head bone's midpoint is this close (x height) to the centre line
+WING_PREFIX = "wing_"  # chains the rig stage inserts (blender_wing_weights.py): wings, never legs or arms
+
+
+def _inserted_wing(name: str) -> bool:
+    return name.startswith(WING_PREFIX)
 
 
 def _children(bones: list[dict]) -> dict:
@@ -42,6 +47,8 @@ def find_legs(bones: list[dict], height: float, want: int, sprawl: bool = False)
     toes = height * TOES
     feet = set()
     for b in bones:
+        if _inserted_wing(b["name"]):
+            continue  # a hanging inserted wing (the harpy's) can reach the ground band
         if kids[b["name"]] or (not sprawl and min(b["head"][2], b["tail"][2]) > low):
             continue  # sprawled leg tips are unreliable: rank every chain by length instead
         foot = b["name"]
@@ -115,7 +122,8 @@ def find_arms(bones: list[dict], height: float, legs: list[dict]) -> list[dict]:
     on_head = {head, *_descendants(head, kids)} if head and by_name[head]["parent"] else set()
     best: dict[str, tuple] = {}
     for b in bones:
-        if b["name"] in leg_bones or b["name"] in on_head or not b["parent"] or len(kids[b["parent"]]) < 2:
+        if b["name"] in leg_bones or b["name"] in on_head or not b["parent"] or len(kids[b["parent"]]) < 2 \
+                or _inserted_wing(b["name"]):
             continue
         chain = longest_chain(b["name"], kids)
         tip = by_name[chain[-1]]["head"]
@@ -207,29 +215,45 @@ def find_wings(bones: list[dict], height: float, legs: list[dict], arms: list[di
     `exclude`d bone such as the head, which rules out a neck that bends sideways):
     {"side", "chain", "reach"}. Ties go to
     the shorter chain, so a chain that starts on the spine and only then turns into the
-    wing loses to the wing's own root. Facing +Y, +Z up, the right side is +X."""
+    wing loses to the wing's own root. Facing +Y, +Z up, the right side is +X.
+
+    Chains the rig stage inserted (`wing_<side>_00..`, blender_wing_weights.py) are wings
+    by name and win their side, wherever they reach. A chain that branches off an arm
+    bone (SkinTokens sometimes hangs the wing on the shoulder or upper arm) may start
+    farther than 0.2 x the height from the centre line; the arm itself stays the arm."""
     by_name = {b["name"]: b for b in bones}
     kids = _children(bones)
-    skip = {n for g in legs for n in g["chain"]} | {n for a in arms for n in a["chain"]} | set(exclude)
+    arm_bones = {n for a in arms for n in a["chain"]}
+    skip = {n for g in legs for n in g["chain"]} | arm_bones | set(exclude)
     cx = centre_x(bones, legs)
     cands = []
     for b in bones:
         if b["name"] in skip or not b["parent"] or len(kids[b["parent"]]) < 2:
             continue
-        if b["head"][2] < 0.25 * height or abs(b["head"][0] - cx) > 0.2 * height:
-            continue
         chain = longest_chain(b["name"], kids)
-        if len(chain) < 3 or any(n in skip for n in chain):
-            continue
         tip = max((by_name[n]["tail"] for n in chain), key=lambda p: abs(p[0] - cx))
         reach = abs(tip[0] - cx)
+        if _inserted_wing(b["name"]):
+            if not _inserted_wing(b["parent"]):
+                side = b["name"][len(WING_PREFIX)]
+                cands.append({"side": side if side in "rl" else "r" if tip[0] > cx else "l", "chain": chain,
+                              "reach": reach, "inserted": True})
+            continue
+        on_arm = b["parent"] in arm_bones
+        if b["head"][2] < 0.25 * height or (abs(b["head"][0] - cx) > 0.2 * height and not on_arm):
+            continue
+        if len(chain) < 3 or any(n in skip for n in chain):
+            continue
         if reach < WING_REACH * height:
             continue
         cands.append({"side": "r" if tip[0] > cx else "l", "chain": chain, "reach": reach})
     wings = []
     for side in ("r", "l"):
         mine = [c for c in cands if c["side"] == side]
-        if mine:
+        ins = [c for c in mine if c.get("inserted")]
+        if ins:
+            wings.append({k: v for k, v in ins[0].items() if k != "inserted"})
+        elif mine:
             top = max(c["reach"] for c in mine)
             wings.append(min((c for c in mine if c["reach"] >= 0.95 * top), key=lambda c: len(c["chain"])))
     return wings
@@ -255,7 +279,7 @@ def find_snout(bones: list[dict], height: float, legs: list[dict]) -> str | None
         if max(abs(by_name[n]["tail"][0] - cx) for n in chain) >= WING_REACH * height:
             wing |= {n for n in chain
                      if abs((by_name[n]["head"][0] + by_name[n]["tail"][0]) / 2 - cx) > SNOUT_SIDE * height}
-    cands = [b for b in bones if b["name"] not in leg_bones and b["parent"]
+    cands = [b for b in bones if b["name"] not in leg_bones and b["parent"] and not _inserted_wing(b["name"])
              and (b["head"][2] + b["tail"][2]) / 2 > height / 3]
     cands = [b for b in cands if b["name"] not in wing] or cands
     if not cands:

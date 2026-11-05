@@ -200,6 +200,68 @@ bone_8/bone_9 own 299/120 vertices (148/106); edges past 4x over `fly` 223 -> 21
 84 -> 78), over the sword cut 77 -> 85 (left 7 -> 15). With `far` 0.3, as on the right, the
 left wing-arm seam tore more in `fly` (246, left 107).
 
+**Wing chains from the mesh** (`tools/blender_wing_weights.py`, 2026-11-04). On a winged
+plan (winged_biped, winged_quadruped, avian but `custom.theropod`: `rig.adds_wings`) whose
+skeleton has fewer than 2 wing chains (`find_wings`, legs found with the plan's foot count as
+the clips find them), finalize finds the missing wings on the rest mesh and inserts them before
+the `rig_reweight` entries and the sockets; the chosen-rig score runs the same step, so
+`rig/chosen.json` measures the game skeleton (`rig/chosen.glb` itself is unchanged, like the
+reweight). The rule:
+
+- Body axis: the skeleton's centre line (`centre_x`). Shoulder height: the first ancestor of
+  the head bone that branches (`shoulder_height`).
+- Lobe: the vertices more than `MARGIN` (0.15) x the height from the centre line on one side,
+  minus the body band (closer than `BAND` 0.3 x the height and lower than 0.05 x the height
+  below the shoulders: arms, hips, a tail fan's root), cut into pieces by proximity (voxels of
+  0.02 x the height, 26-neighbours, so loose feather sheets join). Per side the piece that
+  reaches farthest is a wing when it reaches `WING_REACH` (0.4) x the height, holds 2% of the
+  vertices and touches the inner rim (within 0.05 x the height of the margin). Loose pieces
+  within 0.08 x the height of it join it for the weights.
+- Chain: root = centroid of the inner rim above the shoulders (where the lobe meets the back);
+  tip = geodesic far end (over the voxel graph, from the root) of the lobe's part past 0.75 of
+  its reach, so the chain runs out to the span and down a hanging wing; 3 joints between at the
+  centroids of the geodesic level sets near the root-tip path. 4 bones, `wing_<side>_00..03`,
+  on the trunk bone nearest the root.
+- Weights: a `rig_reweight` entry per chain ({bones, reach 0.3, bias 1.0, blend 0.1, far 0.15,
+  all x the height but bias}) plus the lobe's vertex indices: those join the chain with bias
+  0.5 and no reach limit (feathers past the tip), and the side's outer vertices lose weights of
+  bones farther than `far` (the harpy's ground-level feather tips were 0.99 on the forearm and
+  shot across the body in the sword cut). The body keeps its weights.
+- A SkinTokens chain that falls short of `find_wings`' reach but owns half of a lobe's vertices
+  (one-sided, not a leg, arm or central head) is renamed `wing_<side>_00..` instead of getting a
+  second chain beside it (eagle roll_1: 0.39 x the height, both sides adopted, score -5.27 ->
+  -4.27).
+- `rig_topology`: `wing_*` chains are wings by name (`find_wings` takes them whatever they
+  reach) and never feet, arms or the snout; a chain that branches off an arm bone may start
+  farther than 0.2 x the height from the centre line. The finders give the same parts as before
+  on every kept skeleton (14 chosen rigs in `out/`, the eagle's backup, and the harpy, eagle,
+  dragon and goblin rolls).
+- Recorded in `rig.json` (`wings_added`: lobes, chains, weights) and `manifest.rig.wings_added`
+  (bones, parent, adopted, lobe numbers, owned vertices); the stage logs the chains, or a
+  warning when a side has no lobe.
+
+Lobes (reach / vertices / root and tip height, x the height): harpy (every roll) right 0.50 /
+2810 / 0.80 -> 0.29, left 0.52 / 2969 / 0.83 -> 0.37; dragon 0.63 / 2807 and 0.67 / 1604 (both
+wings present: nothing added); eagle 0.45 / 2226 and 0.43 / 1937 (present: nothing added; its
+tail fan, 616 vertices below 0.23, is not taken); goblin (not winged, never run) would show a
+0.43-reach left piece of 772 vertices, so the plan gate matters. Harpy roll_1 (best SkinTokens
+roll, -1.54, no wings) with the inserted chains, against the hand-built rig (edges past 4x over
+the clip, right/left; sockets: distance outside the skin):
+
+| | hand-built `chosen.glb` | roll_1 + inserted wings |
+|---|---|---|
+| wings found (`find_wings`, clips) | yes | yes |
+| `fly` | 217 (139/78) | 126 (79/47) |
+| `attack_melee` (sword cut) | 85 (70/15) | 172 (132/40) |
+| `idle` / `walk` | 0 / 5 | 3 / 13 |
+| `hand_r`/`grip_r`/`hand_l`/`grip_l` | 0/0/0.3/0 cm | 0/0.5/0.8/0 cm |
+| score (chosen.json) | -3.47 (wing tips counted as legs; -1.47 without) | -1.09, no problems |
+
+The sword cut tears at the right arm-wing seam (forearm vs `wing_r_00`/`01`): roll_1 hangs the
+whole right wing on the arm, and this roll's cut raises the hand above the head. The harpy's
+`rig_reweight` arm entries, mapped onto roll_1's arm bones, made it worse (274-310), so the
+hand-built rig stays in `out/` (scratch only).
+
 A successful `rig` or `anim` run drops that stage's entries from `manifest.errors` (which
 forge.py appends on every failure), so a fixed monster no longer reads as broken.
 The viewer's `sockets` toggle draws each socket bone with its axes, and `prop` hangs a
@@ -224,11 +286,11 @@ placeholder sword on `hand_r` and a bow on `hand_l` (`viewer/README.md`).
   dragon went from scrambled to clean once its `yaw` was pinned. The facing check above
   catches a turned body; it cannot tell a twisted pose from a turned one (low confidence,
   warning only).
-- No wing bones on the harpy in 4 of 4 rolls. Its wings are hand-added chains, re-skinned
-  with `--use_skeleton` and re-weighted with `tools/blender_wing_weights.py`; clean up to
-  about +/-20 degrees. The stage does not do this yet, so other winged bipeds will hit the
-  same gap. `--use_skeleton`'s `trim` step deletes joints with no weights, so new bones
-  need placeholder weights in the input.
+- No wing bones on the harpy in 4 of 4 rolls. Its kept wings are hand-added chains,
+  re-skinned with `--use_skeleton` and re-weighted with `tools/blender_wing_weights.py`'s
+  stand-alone mode; clean up to about +/-20 degrees. The stage now inserts wing chains found
+  on the mesh (above), which beats the hand-built rig on `fly`, sockets and score but tears
+  twice as much in the harpy's sword cut, so the harpy keeps its hand-built rig.
 - The owlbear has no spine (its legs hang off a back root); the wolf has no real tail
   chain. The owlbear's tail (3 bones) is too short for the clips' 4.
 - Added hand bones point straight up in the bind pose, not along the forearm, so a prop

@@ -91,12 +91,24 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
 ### C. M3 Rig
 - [x] `forge.py rig`: N rolls, retry, score, keep the winner, rigged LODs, manifest `rig` key.
 - [ ] Add wing chains and wing weights to the stage (harpy is by hand; other winged bipeds will
-      hit the same gap). The dragon's came from SkinTokens.
+      hit the same gap). The dragon's came from SkinTokens. (2026-11-04) Done in the stage:
+      finalize (and the chosen-rig score) finds missing wings on the mesh and inserts
+      `wing_<side>_00..03` with geometric weights (`blender_wing_weights.add_missing_wings`, a
+      `rig_reweight` entry with the lobe's vertices; `manifest.rig.wings_added`), or renames a
+      SkinTokens chain that falls short of `find_wings`' reach (eagle roll_1). No-op on the
+      dragon, eagle, goblin, wolf, owlbear, spider (`rig --force`: sockets and scores identical).
+      Harpy roll_1 + inserted wings vs the hand-built rig (scratch): `fly` 126 vs 217 edges past
+      4x, sockets <= 0.8 cm, score -1.09 vs -3.47, but the sword cut 172 vs 85 (right arm-wing
+      seam), `idle` 3 vs 0, `walk` 13 vs 5, so the harpy keeps its hand-built rig. Left: the
+      arm-wing seam when SkinTokens hangs the wing on the arm (a seam-aware blend, or an arm
+      re-weight that holds on roll_1: the harpy's mapped entries made it worse); the inserted
+      chains on the 20 other winged bipeds are unverified (docs/rig-anim.md "Wing chains from
+      the mesh").
 - [x] (2026-11-04) `rig_reweight` override (`tools/rig_reweight.py`, applied in the finalize
       path before sockets, so `rig --force` keeps it): geometric re-weight of a chain
       ({bones, reach, bias, blend, strip, fit, hand_room, far}), optionally fitting its
       joints into the limb. Harpy right arm (`[bone_18, bone_19]`, fit): see E. The wing
-      re-weight (`blender_wing_weights.py`) could become a `rig_reweight` entry too (not done).
+      re-weight is now a `rig_reweight` entry with a `lobe` (inserted wing chains, above).
 - [x] Facing check before rigging (see Rig findings). (2026-11-04) Mirror-plane body axis +
       head-end cue on `model.glb`, `manifest.rig.facing`; refuses to roll past 30 degrees at
       confidence >= 0.5 (`rig_facing_check` override to skip). All 6 pilots pass (0-6.5
@@ -531,7 +543,8 @@ tier. Blocking gaps (reference-stage fixes; their records are tier 4 and not run
       on its new centaur reference.
 - [ ] Specter, wraith (2): the ghost's legless-robe prompt tweak.
 Fixable after the batch (re-run `anim` or `rig,anim` only; counts and lists: `batch.py audit`):
-`attack_ranged` 3 clips; winged_biped wing chains (20); tiny / huge / gargantuan budgets; the 31
+`attack_ranged` 3 clips; winged_biped wing chains (20: the rig stage now
+inserts them from the mesh, C; check the arm-wing seam in each sword cut); tiny / huge / gargantuan budgets; the 31
 untested variants; off-model fork, heavy crossbow, mace props.
 - [x] (2026-11-04, clips2) `cast` 48, `swim` 39, `burrow` 18, `breath` 11 and `fly` 8 of 9 (not
       the flying sword) have builders (D); the anim thresholds are size-relative outside the

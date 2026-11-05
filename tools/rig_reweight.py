@@ -23,6 +23,14 @@ crease. Options:
   the limb's end, for an arm whose skeleton ends at the forearm: the hand bone
   add_sockets adds there (4% of the height) then spans the fist, grip_r at its middle.
 
+- lobe (vertex indices, set by blender_wing_weights.py for the wing chains it inserts,
+  not an override key): those vertices were found on the mesh as the wing, so they join
+  the chain with `lobe_bias` (default 0.5) instead of `bias` and no `reach` limit (a
+  feather hanging past the chain's tip), and outside the region the `far` test runs on
+  the lobe's vertices only, or on `clean` (vertex indices) when given: the body next to a
+  wing keeps its weights. The harpy's lower wing feathers had kept
+  SkinTokens' forearm weight and flew across the body in the sword cut.
+
 Used by blender_rig.py "finalize" (job key `reweight`, from the override) before the
 sockets are placed, so hand_r/grip_r follow fitted bones. rig/chosen.glb is not changed.
 
@@ -32,7 +40,8 @@ sockets are placed, so hand_r/grip_r follow fitted bones. rig/chosen.glb is not 
 import numpy as np
 from mathutils import Vector
 
-DEFAULTS = {"bias": 1.0, "reach": 0.15, "blend": 0.03, "strip": True, "fit": False, "hand_room": 0.0, "far": 0.3}
+DEFAULTS = {"bias": 1.0, "reach": 0.15, "blend": 0.03, "strip": True, "fit": False, "hand_room": 0.0, "far": 0.3,
+            "lobe_bias": 0.5}
 
 
 def _verts(me) -> np.ndarray:
@@ -63,6 +72,9 @@ def _region(V, segs, chain, sp):
     d_other = np.min(others, axis=0) if others else np.full(len(V), np.inf)
     k = np.clip((d_other - sp["bias"] * near) / sp["blend"] + 0.5, 0.0, 1.0)
     k[near > sp["reach"]] = 0.0
+    if sp.get("lobe") is not None:  # vertices found on the mesh as this chain's wing
+        lobe = np.asarray(sp["lobe"], dtype=np.int64)
+        k[lobe] = np.clip((d_other[lobe] - sp["lobe_bias"] * near[lobe]) / sp["blend"] + 0.5, 0.0, 1.0)
     return k, d_chain
 
 
@@ -125,6 +137,12 @@ def reweight(arm, me, spec: dict) -> dict:
     other_bones = [n for n in segs if n not in chain]
     moved = stripped = orphan = dropped = 0
     d_all = {n: _seg_dist(V, *segs[n]) for n in segs if n not in chain}
+    # wing mode: the far test outside the region runs on the lobe's own vertices only (a
+    # feather the chain did not take still loses the forearm's weight), not on the body
+    lobe_mode = sp.get("lobe") is not None
+    in_lobe = np.zeros(len(V), dtype=bool)
+    if lobe_mode:
+        in_lobe[np.asarray(sp["clean"] if sp.get("clean") is not None else sp["lobe"], dtype=np.int64)] = True
     for v in me.data.vertices:
         i = v.index
         if k[i] > 0.0:
@@ -153,7 +171,7 @@ def reweight(arm, me, spec: dict) -> dict:
             mine = [g.group for g in v.groups if g.group in gidx and g.weight > 0] if sp["strip"] else []
             # next to the limb (within 2 x reach), far bones' weights are bleed too: the harpy's
             # right-side feathers by the arm followed the left wing and tore off the fixed arm
-            nearby = near[i] < 2 * sp["reach"]
+            nearby = in_lobe[i] if lobe_mode else near[i] < 2 * sp["reach"]
             far_old = [g.group for g in v.groups if g.group not in gidx and names[g.group] in d_all
                        and d_all[names[g.group]][i] > sp["far"]] if nearby else []
             if not mine and not far_old:
@@ -181,5 +199,6 @@ def reweight(arm, me, spec: dict) -> dict:
             if g.group in gidx and g.weight > 0.5:
                 dom[names[g.group]] += 1
     rep.update({"moved_verts": moved, "stripped_verts": stripped, "orphans": orphan, "far_weights_dropped": dropped,
-                "dominant": dom, **{x: sp[x] for x in ("bias", "reach", "blend", "strip", "fit", "hand_room", "far")}})
+                "dominant": dom, **{x: sp[x] for x in ("bias", "reach", "blend", "strip", "fit", "hand_room", "far")},
+                **({"lobe_verts": len(sp["lobe"]), "lobe_bias": sp["lobe_bias"]} if sp.get("lobe") is not None else {})})
     return rep

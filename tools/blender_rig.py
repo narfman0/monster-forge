@@ -12,9 +12,15 @@ dst, report, kind, plan); see fallback() below. tools/rig.py RIG_STRATEGY says w
 mode "finalize": from the chosen rig write the game files (job: src, base_color,
 lods {k: path}, out_dir, report, hands, sockets, reweight):
 
+- add_wings (winged plans): when find_wings finds fewer than 2 wing chains, the missing
+  wings are found on the mesh and wing_<side>_00.. chains inserted on the spine and
+  weighted (blender_wing_weights.add_missing_wings; report key wings_added). Mode "score"
+  does the same with this key, so rig/chosen.json measures the skeleton the game files
+  get; rig/chosen.glb itself is not changed.
 - reweight (optional, the `rig_reweight` override): chains re-weighted geometrically and
-  optionally fitted into the limb (tools/rig_reweight.py) before anything else. Only the
-  game files see it; rig/chosen.glb and its quality score keep SkinTokens' weights.
+  optionally fitted into the limb (tools/rig_reweight.py) before anything else but the
+  wings. Only the game files see it; rig/chosen.glb and its quality score keep SkinTokens'
+  weights.
 
 - model_rigged.glb: the rig with the current albedo, so a later paint needs no new rig.
   Sockets (docs/equipment.md) are added first: the hand bones are renamed hand_r/hand_l
@@ -42,6 +48,7 @@ from mathutils.bvhtree import BVHTree
 from mathutils.kdtree import KDTree
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import blender_wing_weights  # noqa: E402
 import rig_reweight  # noqa: E402
 import rig_topology  # noqa: E402
 
@@ -967,12 +974,19 @@ def fallback() -> dict:
     return rep
 
 
+wings_added = None
+if job["mode"] in ("score", "finalize") and job.get("add_wings"):
+    # before stats(), so joints and empty bones count the inserted chains
+    wings_added = blender_wing_weights.add_missing_wings(arm, me, rig_topology, rig_reweight,
+                                                         int(job.get("feet", 0)), bool(job.get("upright")))
 if job["mode"] == "facing":
     report = facing()
 elif job["mode"] == "fallback":
     report = fallback()
 else:
     report = stats()
+if wings_added is not None:
+    report["wings_added"] = wings_added
 if job["mode"] == "score" and job.get("quality", True):
     report.update(quality())
 if job["mode"] == "finalize":

@@ -299,6 +299,31 @@ def roll(fg, mon: dict, d: Path, rolls: int) -> dict:
     return {"rolls": [summary(r) for r in results], "picked": best["file"]}
 
 
+def wings_summary(w: dict) -> dict:
+    """manifest rig.wings_added: bone names per side, the lobes' numbers, the weights' counts."""
+    return {"bones": {s: c["bones"] for s, c in w["chains"].items()},
+            # a SkinTokens chain short of find_wings' reach that owns the lobe: renamed, not doubled
+            **({"adopted": w["adopted"]} if w.get("adopted") else {}),
+            "parent": {s: c["parent"] for s, c in w["chains"].items()},
+            "lobes": [{k: lb[k] for k in ("side", "reach", "verts", "share", "geodesic_m", "root_z", "tip_z")}
+                      for lb in w["lobes"]],
+            "weights": [{k: r[k] for k in ("bones", "moved_verts", "dominant", "reach", "bias", "blend")}
+                        for r in w["weights"]]}
+
+
+def wings_changed(rep: dict) -> bool:
+    w = rep.get("wings_added") or {}
+    return bool(w.get("chains") or w.get("adopted"))
+
+
+def adds_wings(mon: dict) -> bool:
+    """Plans whose rig gets wing chains found on the mesh when the skeleton has fewer than
+    two (blender_wing_weights.py): the winged plans and avians but the theropods, the
+    plans score_terms counts wings for."""
+    plan = mon["body_plan"]
+    return plan in WINGED or (plan == "avian" and mon.get("rig_template") != "custom.theropod")
+
+
 def stage_rig(fg, mon: dict, d: Path, args) -> None:
     man = fg.load_manifest(d)
     if not (d / "model.glb").exists():
@@ -342,9 +367,12 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
                        "lods": lod_paths, "out_dir": str(d), "report": str(d / "rig.json"),
                        "sprawl": mon["body_plan"] in SPRAWLED, "hands": bool(mon.get("hands")),
                        "sockets": mon.get("sockets") or [], "feet": FEET.get(mon["body_plan"], 0),
+                       "upright": mon["body_plan"] in UPRIGHT_BODY, "add_wings": adds_wings(mon),
                        "reweight": overrides.load(mon["source"], mon["id"]).get("rig_reweight") or []})
-    # the kept skeleton's quality terms, also when it was not rolled now (a hand-fixed rig)
-    q = scored(blender(fg, score_job(mon, chosen, d / "rig" / "chosen.json")), mon["body_plan"], bool(mon.get("hands")))
+    # the kept skeleton's quality terms, also when it was not rolled now (a hand-fixed rig);
+    # with the wing chains finalize inserted, so the score is that of the game skeleton
+    q = scored(blender(fg, {**score_job(mon, chosen, d / "rig" / "chosen.json"), "add_wings": adds_wings(mon),
+                            "feet": FEET.get(mon["body_plan"], 0)}), mon["body_plan"], bool(mon.get("hands")))
     (d / "rig" / "chosen.json").write_text(json.dumps(q, indent=1))
     man = fg.load_manifest(d)
     missing = [s for s in (mon.get("sockets") or []) if s not in rep["sockets"]]
@@ -358,8 +386,16 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
                   "facing": facing, "quality": summary(q),
                   # rest pose lowered onto the feet (blender_rig.ground_feet), e.g. off a tail fan
                   **({"grounded": rep["grounded"]} if rep.get("grounded") else {}),
+                  # wing chains found on the mesh and inserted (blender_wing_weights.py)
+                  **({"wings_added": wings_summary(rep["wings_added"])} if wings_changed(rep) else {}),
                   **({"picked": info["picked"], "rolls": info["rolls"]} if info else
                      {k: v for k, v in (man.get("rig") or {}).items() if k in ("picked", "rolls")} or {"picked": "chosen.glb"})}
+    if wings_changed(rep):
+        fg.log(f"{mon['id']}: rig added wing chains {man['rig']['wings_added']['bones']} (found on the mesh)"
+               + (f", adopted {man['rig']['wings_added']['adopted']}" if man["rig"]["wings_added"].get("adopted") else ""))
+    elif rep.get("wings_added"):
+        fg.log(f"{mon['id']}: WARNING rig has wings on {sorted(rep['wings_added']['had'])} only and found no "
+               f"wing lobe on the mesh for {rep['wings_added']['missing']}")
     man.setdefault("timings", {})["rig"] = man["rig"]["seconds"]
     clear_stage_errors(man, "rig")
     fg.save_manifest(d, man)
