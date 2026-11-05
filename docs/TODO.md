@@ -195,6 +195,8 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       of flying into the wing). Clip and frame counts unchanged. Checked in Blender sheets
       only: Godot not re-synced. The "+6.8 cm off centre" is the bbox (asymmetric wings):
       the torso's own centre is x 0.01-0.03, so the spine sits ~4-5 cm right; not changed.
+      Godot round 5 confirms it: `grip_r` 2.9 cm from the skin in walk (11.7), 0.9/2.0/2.4 cm
+      over the cut (3.3/26.9/6.7), and a longsword's hilt sits in the gauntlet.
 - [ ] Bows and shields need a per-prop carry pose: at rest a bow on `grip_l` lies on its
       side. Options: a `carry` offset per prop in props.json, or stow it on `back`/`hip`
       outside `attack_ranged`. The lab also keeps the sword out during the shot: loadout
@@ -244,8 +246,50 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         0.341 m (= swim), merfolk 0 -> 0.18 (= swim), eagle hovers at 0.32 like fly (a slow
         small-beat fly loop). The merfolk's swim still pitches the body 55 degrees, so its
         idle -> swim change is a turn, not a height pop. Re-check in Godot.
+        Godot round 5: heights match (eagle idle 0.357 / fly 0.373 m first frame), but an
+        instant idle -> move switch still moves a vertex 1.07 m (eagle), 1.03 (merfolk) and
+        0.34 (octopus) in one frame (round 4: 1.31 / 1.18 / 0.41); 0.25 s cross-fade 0.12-0.16 m
+        as before. Pose, not height, now: leave open until the game decides on the blend.
   - [ ] Note: hunter-shark rest mesh is strongly curved (2.97 m tall for 4.5 m long). It
         swims level at 0.74 m and death lies belly-up on its dorsal fin.
+- [x] Round 5 (2026-11-04, godot-dnd uncommitted, on top of 227a759): re-sync after df2a463,
+      81c8194, 6a804d3; `check_monsters.gd` ALL PASS on 15 monsters and 32 props, every clip
+      binds 100%. Verified in Godot 4.7.1 (check numbers + Xvfb screenshots):
+      merfolk `hand_r`/`grip_r` and the registry spear in the fist (3.3-3.4 cm from the skin);
+      harpy `grip_r` in the fist (longsword via the lab's new `loadout_override`); eagle
+      stands on its talons at rest (lowest 0.000, 3.81 m tall) and idles at the fly height;
+      ghost death flat (top 0.78 m, no sheet; hit min 0.000); fungus death with the root bone
+      unturned (0.0 deg, 0.00 m); swarm death scale (1.7, 0.3, 1.7) + 12 deg; bow `string`
+      node in all 4 LODs, hideable (`Monster.set_bowstring_visible`, lab `S`); whip,
+      glaive, harpoon, greatclub forward (-Z) through the fist. godot-dnd: `load_prop` took
+      exactly one mesh, so the new bows would not load (now stave + optional `string`);
+      `prop_r=`/`prop_l=`/`bowstring=` in `lab_screenshot.gd`; the check attaches a longsword
+      to unarmed rigs with `grip_r` and prints each death's end pose. New findings, open:
+  - [ ] Lifted idle vs grounded one-shots: eagle, octopus and merfolk attack_melee,
+        attack_ranged, hit and death all start with the lowest vertex at 0.000 while idle
+        hovers (0.357 / 0.348 / 0.180). Every settle back to idle lifts them and every
+        one-shot drops them: largest vertex jump idle -> one-shot frame 0 is eagle 1.01-1.03 m,
+        octopus 0.55, merfolk 0.19. Round 4 had them all on the floor. Lift the one-shots by
+        the same `idle_lift` (death could still end on the floor), or ground the idle.
+  - [ ] Octopus idle vs swim still differ by 0.13 m at the lowest vertex (0.348 vs 0.215):
+        the body lift matches, the tentacles hang lower in swim.
+  - [ ] Harpy left arm: `grip_l` 11.2 cm and `hand_l` 8.2 cm from the skin, nothing within
+        10 cm of the grip (unchanged since round 4). The right-arm `rig_reweight` fix is
+        needed on the left chain too before the harpy holds anything left-handed.
+  - [ ] Merfolk spear attack is a sword cut: overhead, then the point chops down to the floor
+        in front (50%: tip (-0.35, -0.93, -0.11)) and sweeps across the body (75%). A spear
+        wants a forward thrust (a per-category attack style). Idle holds the spear level above
+        the head (grip at y 1.87 m), because the rest pose has the right arm raised.
+  - [ ] Bow string: straight, 0.18 m behind the grip (longbow, 1.8 m wielder), so in the goblin's
+        attack_ranged it passes through the left forearm and shoulder. Fine for a static
+        string; a drawn string needs the game to replace it.
+  - [ ] Whip is one rigid mesh: the lash sags forward at idle but in attack_melee it is a
+        straight 1.4 m rod overhead (goblin scale). Needs lash bones or game-side simulation.
+  - [ ] Swarm death squashes each rat to 30% height (one bone, uniform scale): reads as a
+        pile of flattened rats, not scattered ones. Expected with the one-unit swarm mesh (H).
+  - [ ] Fungus death: the cap ends standing on its rim as a vertical disc 1.22 m high next
+        to the planted base. Plausible for a fallen mushroom; noting it in case a flat cap is
+        wanted.
 
 ### F. Props (2026-11-04)
 - [x] `tools/props.py` + `tools/blender_prop_qa.py`: all 32 props in `out/props/<id>/` (prop
