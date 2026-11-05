@@ -767,6 +767,9 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         pass lowers the body for a short foot as the floor clips do. `from_idle_m` 0 on the
         centaur's attack, hit and death and on every legged pilot's one-shots (dragon death
         0.042 as before).
+        Godot round 11: confirmed. Centaur death frame 0 is 0 from idle frame 0 (attack, hit
+        also 0; walk 0.161, `from_idle_max_m` 0.1284 / 0.2585 match). Owlbear and wolf
+        one-shots 0.
   - [x] Hanging tails in death stay level with the rolled body instead of lying on the floor:
         - Centaur: tail vertices at y 0.87-1.47 m in the last frame (body top 1.58), sticking
           out sideways beside the rump, parallel to the legs.
@@ -779,12 +782,18 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         the tail's base (wolf 20 degrees: 5 edges past 4x, was 3; on the floor: 34). Partly
         done: open item in D. Dragon (level tail): 0.45-2.12 m against its body top 3.22,
         unchanged.
+        Godot round 11: confirmed. Lowest tail vertex on death's last frame wolf 0.131,
+        owlbear 0.393, centaur 0.652 m (`tail_03` head 0.211 / 0.619 / 0.859). From behind,
+        the wolf's tail curls down under the body and the centaur's sheet droops with its end
+        bent toward the floor (round 10: level beside the rump). No tear seen.
   - [x] Wolf walk 75%, back view: a dark patch (fold or back faces) at the tail end beside the
         hind hock, where the swung tail meets the leg. At 25% the end looks squared off. Blender
         counts 0 stretched edges in walk, because this is interpenetration, not stretch.
         (2026-11-05, clips7) `tail_clearance`: the sway is cut per frame where the tail line
         (below its root bone) comes within 0.9 x its rest distance (0.060 m) of a hind leg's
         joint path; closest approach over the walk 0.0003 -> 0.036 m, edges 0.
+        Godot round 11: confirmed. Walk 75%, back view: the dark patch is down to a sliver of
+        a few pixels at the tail's edge beside the hock; at 25% the end is rounded.
   - [x] Centaur walk swings the pike with the right arm: its head drops to near the floor
         ahead at 25% and rises above head height at 75% (3.5 m pike, three-quarter view). A
         held polearm may want a steadier arm in the walk.
@@ -792,11 +801,43 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         turned back so the grip keeps its idle direction: grip +Y over the walk 18.9 -> 0.0
         degrees. Goblin scimitar 23.8 -> 11.9 (x0.5), bow 23.8 -> 0.0; merfolk swim spear
         30.2 -> 2.9; unarmed walks unchanged.
+        Godot round 11: confirmed. `grip_r` +Y change over the walk: pike 0.0 deg (round 10's
+        clips reloaded: 23.4), goblin scimitar 11.9, bow (`grip_l`) 0.0, merfolk spear in swim
+        2.9. Pike head (2.73 m along `grip_r` +Y) world y over the walk 0.40..1.91 m (25% 0.48,
+        75% 1.82) -> 1.13..1.16 m: level and straight ahead in side shots at 0/25/50/75%.
+        The goblin's bow looks the same at walk 0/50% as at idle frame 0.
   - [x] The centaur's -0.030 m tail end is by design (`DIP_MAX`) but sits on godot-dnd's
         -0.03 WARN limit and starts there on idle frame 0. Either side can move by a
         millimetre (note, not a bug).
         (2026-11-05, clips7) `TAIL_DIP` = `DIP_MAX` x 0.8: centaur lowest vertex -0.0239 m in
         idle, walk, attack and hit, -0.024 in death.
+        Godot round 11: confirmed. -0.0239..-0.0243 m (`tail_03`) in every clip; the four
+        -0.0301 WARNs are gone (only the three fly/swim WARNs remain).
+- [x] Round 11 (2026-11-05, godot-dnd uncommitted, on top of 53333f8): owlbear, wolf,
+      centaur-trooper, goblin-warrior, merfolk-skirmisher re-synced with `--ids` after 81628b1
+      and c424467 (manifests 12:27-12:33). The sync has no dry run; a scratch compare with its
+      own functions showed exactly these five changed among the 17 synced monsters (props
+      unchanged). `check_monsters.gd` ALL PASS on all 17 (32 props), every clip binds 100%:
+      owlbear 24/24/24/23/22, wolf 25/27/25/26/22, centaur 22/23/23/25/22 (attack, death, hit,
+      idle, walk), goblin walk 10, merfolk swim 16. Bones: owlbear 24, wolf 32, centaur 42, each
+      with `tail_00..03` (on `bone_11`, `bone_17`, `bone_15`).
+      - Lowest point per clip: owlbear -0.008..-0.012 m, walk -0.024 (`bone_10`, a foot);
+        wolf -0.001..-0.009; centaur -0.024 everywhere (`tail_03`); goblin walk -0.000;
+        merfolk swim 0.428 (lifted).
+      - Frame-0 jumps from idle frame 0 equal `from_idle_m`, and the idle-cycle scan equals
+        `from_idle_max_m` (within 0.4 mm) on all five: one-shots 0 (merfolk 0.059), walks
+        owlbear 0.219, wolf 0.197, centaur 0.161 (tail end), goblin 0.072, merfolk swim 1.040.
+      - Screenshots: owlbear fan tail hangs over the hind legs and swings in walk, no tear;
+        tails droop in death; wolf hock fold nearly gone; pike level; goblin bow and merfolk
+        spear steady. No godot-dnd code change.
+      New findings, open:
+  - [ ] Centaur walk: the pike is level now, but its butt end (0.77 m behind the grip, `grip_r`
+        at x -0.07, y 1.16) runs back into the horse's chest (top view, walk 50%). Same arm
+        pose as idle, so likely also in idle. A carry with the hand out to the side, or the
+        pike angled outward, would keep the shaft clear.
+  - [ ] Owlbear: the fan tail shows a thin light sliver along its edge at walk 50% (back view),
+        and on death's last frame a dark rim around the fan's base where it bends (back view).
+        Small; maybe back faces at the base bend.
 
 ### F. Props (2026-11-04)
 - [x] `tools/props.py` + `tools/blender_prop_qa.py`: all 32 props in `out/props/<id>/` (prop
