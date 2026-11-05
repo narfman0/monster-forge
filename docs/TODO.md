@@ -127,6 +127,12 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
 - [x] (2026-11-04) `manifest.errors`: `rig` and `anim` drop their stage's entries when they
       succeed (`rig.clear_stage_errors`). Other stages still keep theirs (the goblin's two
       paint timeouts): a generic clear belongs in forge.py's stage loop.
+- [x] (2026-11-04) Generic clear: `forge.py`'s run loop drops a stage's `manifest.errors`
+      entries when that stage ran and succeeded (its `manifest.timings` value changed; a
+      skip leaves it alone, so a skipped stage keeps its errors). Tested on the eagle with
+      seeded stale entries: a skipped `lod` kept both; `run --stages lod,rig,anim` cleared the
+      lod entry ("lod ok, cleared its old manifest errors") and kept the paint one. The
+      goblin's two paint timeouts stay until its paint really runs.
 - [ ] Rigify landmark-fit fallback for biped/quadruped if SkinTokens output is bad.
 
 ### D. M4 Animate (core set: idle, move, attack, hit, death)
@@ -168,6 +174,21 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       frame counts, numbers change only on giant-octopus and merfolk-skirmisher (lifted
       one-shots, octopus idle 0.341 -> 0.205); ghost death changes only its first 0.3 (starts
       at its idle height), harpy only its left arm.
+- [x] (2026-11-04, clips2) The clips the SRD sets ask for and nothing built: `cast` (arms:
+      hand_r up over the head, hold, throw forward; no arms: head/neck rear and snap; 1.2 s),
+      `swim` for legged plans (lifted 0.5 x drop, diagonal paddle, wings folded; `lift`, so a
+      swim-only monster idles at its height) and floating, `burrow` (dig with the front limbs,
+      sink half the body height; the one clip allowed below the ground), `breath` on any head
+      chain (upright: torso lean back), `fly` without wings (a levitation at `HOVER`);
+      serpentine cast, breath, burrow, fly. Metre thresholds (`FLOOR_TOL`, `FOOT_TOL`,
+      `DIP_MAX`, `HOVER`, fly bob) scale with the body outside the pilots' 0.95-6.5 m band
+      (`SIZE_BAND`, `SCALE`). Gate on 13 pilots: every clip report identical (no pilot's set
+      has a new clip). docs/rig-anim.md "cast, swim, burrow, breath and fly".
+- [ ] `tools/batch.py` `buildable_clips()` still models the old builders: teach it the new
+      clips so `batch.py audit` stops listing them (owner of batch.py).
+- [ ] Clips still without a builder: `fly` for plant_object (flying sword), `attack_ranged`
+      without two arms (djinni, manticore, spirit naga), the xorn (radial); avian `cast`
+      (giant owl) builds but no avian rig was available to test it.
 - [ ] UniMate text-to-motion for attacks (own uv venv under tools/).
 - [x] Bake to actions -> one armature-only `anims/<clip>.glb` per clip (viewer/README.md).
 
@@ -510,7 +531,10 @@ tier. Blocking gaps (reference-stage fixes; their records are tier 4 and not run
       on its new centaur reference.
 - [ ] Specter, wraith (2): the ghost's legless-robe prompt tweak.
 Fixable after the batch (re-run `anim` or `rig,anim` only; counts and lists: `batch.py audit`):
-`cast` 48, `swim` on legged plans 39, `burrow` 18, `breath` 11, `fly` 9, `attack_ranged` 3
-clips; winged_biped wing chains (20); tiny / huge / gargantuan thresholds and budgets; the 31
+`attack_ranged` 3 clips; winged_biped wing chains (20); tiny / huge / gargantuan budgets; the 31
 untested variants; off-model fork, heavy crossbow, mace props.
+- [x] (2026-11-04, clips2) `cast` 48, `swim` 39, `burrow` 18, `breath` 11 and `fly` 8 of 9 (not
+      the flying sword) have builders (D); the anim thresholds are size-relative outside the
+      pilots' band (tiny / huge / gargantuan). Records made before this need `anim --force`;
+      `batch.py`'s `buildable_clips()` must learn the new clips for the audit counts.
 - [ ] First batch run: `batch.py run --tier 1`, `report` after the first 20.

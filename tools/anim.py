@@ -2,9 +2,11 @@
 
 SkinTokens bones have no names, so library clips cannot be retargeted without a bone map;
 blender_clips.py builds every clip of the monster's `animation_set` it knows how to make
-from the skeleton itself (walk, idle, attack_melee, hit, death; fly when it finds wings,
-breath for winged quadrupeds, attack_ranged for two-armed plans), in one Blender run.
-Clips it cannot make are listed in manifest.anim.missing.
+from the skeleton itself (walk, idle, attack_melee, hit, death; fly: a wing beat when it
+finds wings, else a levitation; breath on any head chain; cast, swim, burrow on the legged
+plans, cast and swim for floating, cast, breath, burrow and fly for serpentine;
+attack_ranged for two-armed plans), in one Blender run. Clips it cannot make are listed in
+manifest.anim.missing.
 """
 import json
 import subprocess

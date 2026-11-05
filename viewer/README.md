@@ -242,14 +242,22 @@ after the clip, 30 fps, starting at t=0) plus `anims/<clip>.json` (its report) a
 | `attack_ranged` | two-armed: bow draw (bow at `hand_l`) | once | 1.6 s |
 | `hit` | all legged | once | 0.5 s |
 | `death` | all legged; ends on the lying pose (hold the last frame) | once | 1.8 s |
-| `fly` | when wing chains are found (hover, the lowest vertex 0.32 m+ above the ground) | yes | 1.2-1.6 s |
-| `breath` | winged quadrupeds (rear, thrust, hold ~1 s) | once | 2.2 s |
+| `fly` | when wing chains are found: wing beat, hover (the lowest vertex `HOVER` above the ground: 0.32 m on a pilot-sized body); without wings (giants, efreeti, nightmare): a levitation, the same hover, legs hanging, a slow bob | yes | 1.2-1.6 s; levitation 2 s |
+| `breath` | any skeleton with a head chain: four legs rear with a nose-up pitch (the dragon's), upright bodies lean the torso back; thrust, hold ~1 s | once | 2.2 s |
+| `cast` | arms: the casting hand (`hand_r`) rises forward over the head, holds, throws forward, the other hand pushes with it; no arms: head and neck rear, hold, snap forward, the body rises a little, wings lift. Starts and ends on the rest (relaxed-arm) pose; a lifted monster's is held at its idle height | once | 1.2 s |
+| `swim` | legged plans: the body held 0.5 x the leg's drop up (`lift`), pitched (nose up 6 degrees; upright bodies lean 35 degrees forward), legs paddle in diagonal pairs (a flutter kick upright, a fore-aft sweep when sprawled), arms dog-paddle, wings folded back, tail sways | yes | 1.8 s |
+| `burrow` | legged plans: crouch, the front legs (a spider's front pair, a biped's arms) dig three strokes into the ground, head down, the body sinks by half its height (wings left out). Ends sunk (hold the last frame); the only clip whose vertices go below the ground, `min_z` is reported as it is | once | 1.5 s |
 
 Legless plans (serpentine, floating, amorphous, plant_object, tentacled, aquatic,
 merfolk_naga, swarm; `anim.LEGLESS`) get the same clip names from the "legless" builders
 in `blender_clips.py`, driven by the body chain, tentacles or arms instead of feet: `walk`
 and `swim` are a slither, ooze, crawl wave, tail kick or scurry, `attack_melee` a strike,
-engulf, whip, lash or surge, `death` a slump, puddle, topple or belly-up roll. Floating,
+engulf, whip, lash or surge, `death` a slump, puddle, topple or belly-up roll. Floating
+also has `cast` (the arm or head gesture above) and `swim` (a forward lean with a
+breaststroke and hem kick); serpentine has `cast` and `breath` (the front quarter rears and
+thrusts), `burrow` (the head dives, the body follows down by half its height) and `fly` (the
+slither held `HOVER` up). Still without a builder: `fly` for plant_object (the flying sword),
+`attack_ranged` without two arms, and every clip of the radial xorn. Floating,
 aquatic and swim clips hover at one constant height for every clip of the monster (`lift`);
 the other legless clips keep the lowest vertex on the ground (`contact`). Blobs also key
 bone scale (squash and stretch). The plan table is in `docs/rig-anim.md`, "Body plans".
@@ -266,8 +274,9 @@ Looping clips have identical first and last frames. Manifest shape:
 ```
 
 `clips` lists the files written, `missing` the `animation_set` entries the stage cannot
-make for this plan; per clip: `min_z` (lowest skinned vertex over the clip, metres; below
-0 is in the ground), `min_z_last` (death: 0 = lying on the ground), `loop_delta` (largest
+make for this plan; `clips.json` also has `size` (max of height and length) and
+`size_scale` (the threshold scale, 1 for pilot-sized bodies); per clip: `min_z` (lowest
+skinned vertex over the clip, metres; below 0 is in the ground, by design only in `burrow`), `min_z_last` (death: 0 = lying on the ground), `loop_delta` (largest
 vertex distance between the first and last frame), `ik_reach_gap` (how far a standing
 foot falls short of its target), `stride_scale`/`body_scale` (< 1 when the walk or lunge
 was toned down to keep a part out of the ground). `parts` are the bones each clip drives.

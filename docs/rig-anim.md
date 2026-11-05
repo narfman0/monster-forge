@@ -252,8 +252,9 @@ their targets (a stride or lunge is rebuilt smaller when they cannot: `stride_sc
 `body_scale` in the report). Clips: `idle`, `walk`, `attack_melee` (biped sword cut over the
 right shoulder, quadruped lunge and bite, spider front-leg strike), `attack_ranged` (bow
 draw), `hit`, `death` (bipeds topple backward, quadrupeds roll onto the right side, spider
-legs fold; the last frame lies on the ground and holds), `fly` (hover with wing flap),
-`breath`. Loops start and end on the same pose; all clips start at t=0 and stay in place.
+legs fold; the last frame lies on the ground and holds), `fly` (hover with wing flap, or a
+levitation without wings), `breath`, `cast`, `swim`, `burrow` (below). Loops start and end
+on the same pose; all clips start at t=0 and stay in place.
 
 Output: `anims/<clip>.glb` (armature only, one clip per file, 30 fps), `anims/<clip>.json`
 and `anims/clips.json` (reports), `manifest.anim` (`clips`, `missing`, per-clip report,
@@ -336,6 +337,84 @@ can still push a part through the floor (the ghost's hit tilts its robe train to
 those frames, and only those, are raised by the dip (ghost hit: lowest vertex -0.013 -> 0,
 lift 0.18 -> at most 0.193 m).
 
+**cast, swim, burrow, breath and fly for every plan that asks (2026-11-04, clips2).** The
+SRD animation sets ask for `cast` 48 times, `swim` on legged plans and floating 39, `burrow`
+18, `breath` off the winged quadrupeds 11 and `fly` without wing chains 9; the legged
+framework (`plan_clips`), floating and serpentine now build them:
+
+- `cast` (1.2 s, once; `CAST_T`: gather to 0.3, hold with a small pulse to 0.58, release at
+  0.7, hold to 0.8, recover). With arms (`cast_arms`, FK-aimed like the thrust): the
+  `hand_r` arm rises forward and up over the head (grip +Y up), then throws forward at
+  shoulder height (grip +Y forward); the other hand comes up before the chest and pushes
+  forward with it; the torso leans back 5 degrees and forward 7, the head tips up. Without
+  arms (`cast_head`: dragons, beasts, the owl): neck rears 28 degrees with a 3 degree pulse,
+  snaps forward 8, the body pitches nose-up 5 degrees about the hind hips (upright and
+  floating bodies rise 0.03 x drop instead), wings lift, tail curls. It starts and ends on the
+  rest pose (the relaxed arm where the idle has one), on the floor; a lifted monster's is
+  held at its idle height like the attacks. It has the walk/lunge `DIP_MAX` retry
+  (`body_scale`): the owlbear's front paws, stretched by the pitch, dip 2.8 cm at 0.8 (4.5 cm
+  at full pitch with a body lift on top, which four legs therefore do not get). Floating uses the same builder on
+  `hover_clip`, serpentine its own (`cast_serpent`: the front quarter rears 40 degrees).
+- `swim` (1.8 s, loop; `swim_legged`): ground `lift`, body lifted `SWIM_LEGS` (0.5) x the leg
+  drop with IK off, pitched nose-up 6 degrees about the hind hips (upright bodies lean 35
+  degrees forward about the middle), a 0.012 x height double bob. Legs paddle in diagonal
+  pairs (front-right with hind-left): upper leg +-24 degrees, the paw curling on the forward
+  swing; upright legs flutter-kick; sprawled legs sweep fore and aft about Z. Arms
+  dog-paddle over the relax layer, wings fold back (`fold_wings`: 40 degrees about Z, 15 up),
+  the tail sways as a rudder, the neck holds the head up. Because it is `lift`, a monster
+  whose set has no walk idles at the swim's body height (`match_move`), and its one-shots
+  are held there: a wolf with `[idle, swim, cast, hit, death]` (scratch) holds idle 0.396 /
+  swim 0.394 / cast and hit 0.396 m body lift. With a walk the swim simply hovers and the
+  game blends. Floating: `swim_float` (lean 25 degrees, arms breaststroke, hem kick).
+- `burrow` (1.5 s, once; ends sunk, hold the last frame): ground `none`, so it is the one
+  clip that goes below the ground on purpose; `min_z` is the real lowest vertex and
+  `below_ground: "allowed"` is in its report. Crouch 0.15 x drop, the front legs (a
+  spider's front pair; a biped's arms) dig three alternating strokes (up and forward, then
+  0.2 x drop down into the ground and back), the head goes down, the body pitches nose-down
+  to 14 degrees, then from 0.62 the body and every foot sink `BURROW_SINK` (0.5) x the body
+  height. The body height leaves the wings out (`body_h`): the dragon's raised wings make
+  its height 6.2 m against a 4 m body (sink 3.1 -> 1.98 m). It is never lifted (a swim-only
+  burrower would start from the floor; no SRD record is one). Serpentine:
+  `burrow_serpent` (the head pitches down 40 degrees, the body slides forward and down).
+- `breath` on any skeleton with a head chain (was: non-upright and winged). Four legs keep
+  the dragon's clip exactly; upright bodies (half-dragon, iron golem, mephits) lean the
+  torso back 16 degrees and thrust it forward 10, the neck doing half the dragon's share,
+  arms swinging back and forward with it. Serpentine: `breath_serpent` (front quarter).
+- `fly` without wing chains (`levitate`, 2 s loop): ground `hover` at `HOVER`, IK off, a
+  slow bob (half the winged bob), a 6 degree forward lean upright (3 nose-up on four legs),
+  legs hanging and trailing a little, arms slightly out. Wing chains found: the wing-beat
+  `fly` as before. The 9 records: cloud-giant, efreeti, oni, storm-giant (biped),
+  nightmare (quadruped), couatl and flying-snake (serpentine: `fly_serpent`, the slither
+  held `HOVER` up), giant-wasp (insectoid: the wing beat if `find_wings` finds its wings,
+  else the levitation), animated-flying-sword (plant_object: still no builder).
+
+Pilots tested in scratch jobs (`anims` in the scratchpad, the real record untouched): goblin
+(cast arms, swim, burrow, upright breath, levitate), wolf and owlbear (head cast, swim,
+burrow, breath, levitate), giant-spider (swim, burrow, levitate), young-red-dragon and harpy
+(cast, swim, burrow, breath; their wing-beat fly unchanged), ghost (cast with arms, swim),
+constrictor-snake on a copy of its current rig (cast, breath, burrow, fly). No pilot's
+registry `animation_set` contains any of the new clips (the four with `swim` already had
+it), so the real re-run changed no clip list.
+
+**Size-relative thresholds.** The metre constants were the pilots': a 0.1-0.6 m tiny body got
+a 0.32 m hover, a 15 m roc the same. Each is now multiplied by `SCALE`: with `SIZE` = max(mesh
+height, mesh length) and `SIZE_BAND` = (0.95, 6.5) m (the 15 pilots: goblin 1.0 to dragon
+6.3), `SCALE` = SIZE / 0.95 below the band, SIZE / 6.5 above it, 1 inside, so every pilot
+keeps its numbers exactly:
+
+| constant | was | now |
+|---|---|---|
+| `FLOOR_TOL` | 0.008 m | 0.008 x SCALE (0.0084 x SIZE below the band, 0.00123 x SIZE above) |
+| `FOOT_TOL` | 0.004 m | 0.004 x SCALE (0.0042 x SIZE / 0.00062 x SIZE) |
+| `DIP_MAX` | 0.03 m | 0.03 x SCALE (0.0316 x SIZE / 0.0046 x SIZE) |
+| `HOVER` | 0.32 m | 0.32 x SCALE (0.337 x SIZE / 0.049 x SIZE) |
+| fly bob | 0.06 / 0.1 m (height under / over 3 m) | `FLY_BOB` x SCALE |
+
+`REACH_MAX` was already x height; `FLOAT`, `SWIM_LIFT` and the other clip sizes were already
+fractions of height, drop or body length. `clips.json` reports `size` and `size_scale`. A
+0.3x copy of the goblin (scratch, SIZE 0.3, SCALE 0.316): fly hovers at 0.101 m, `DIP_MAX`
+0.0095 m, swim lift 0.047 m, burrow sinks 0.15 m.
+
 Known limits: the owlbear walk and lunge run at half size. The kept skeleton
 (`rig/chosen.glb` = roll_1 since score v2) skins the tail fan to the tail chain (`bone_13`);
 the fan on a hind shin was reported on roll_3 (`rig/chosen_roll3_backup.glb`), kept before score v2. At full stride the front
@@ -403,6 +482,7 @@ Ground modes (`Clip.ground`): `floor` (legged), `hover` (fly: lowest vertex `HOV
 ground, per clip), `rest` (death), `contact` (legless: lowest vertex on the ground every frame),
 `lift` (floating, aquatic, swim: the same constant height in every clip, so clips do not pop
 against each other; a frame whose pose dips below the ground is raised by the dip), `none`
-(a rooted fall: `Clip.fit` bisects the clip's fall angle until the last frame's lowest
-vertex not owned by the planted root bone touches the ground). Bone scale layers:
+(no correction: a rooted fall, where `Clip.fit` bisects the clip's fall angle until the last
+frame's lowest vertex not owned by the planted root bone touches the ground; and `burrow`,
+which sinks into the ground on purpose). Bone scale layers:
 `Clip.scale`, keyed with the rotations.

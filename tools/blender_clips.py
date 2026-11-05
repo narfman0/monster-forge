@@ -55,12 +55,17 @@ CROUCH = 0.05       # hips lowered by this fraction of the leg's drop
 BOB = 0.025
 ARM_SWING = 16.0    # degrees
 TAIL_SWAY = 4.0     # degrees per tail bone
-# ground
+# ground. The metre values are the pilots' (a 1-6.3 m body): every one is multiplied by
+# SCALE (below), which is 1 for a body inside SIZE_BAND and grows or shrinks in proportion
+# to the body's size outside it, so a 0.3 m sprite and a 15 m roc get the same fractions of
+# their size as the smallest and the largest pilot.
 FLOOR_TOL = 0.008   # metres a loose part may sit below the ground before the body is raised
 FOOT_TOL = 0.004    # metres a standing leg may fall short of its IK target before the body is lowered
 DIP_MAX = 0.03      # walk: deepest any vertex may go below the ground before the steps shorten
 REACH_MAX = 0.015    # ... or a standing foot falls short of its target by more than this x height
 HOVER = 0.32        # fly: lowest vertex over the cycle, metres above the ground
+FLY_BOB = (0.06, 0.1)  # fly: body bob, metres (height under / over 3 m)
+SIZE_BAND = (0.95, 6.5)  # body size (max of height and length, m) the metre values are for: the pilots' range
 
 job = json.loads(sys.argv[sys.argv.index("--") + 1])
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -75,6 +80,10 @@ z_all = [(o.matrix_world @ v.co).z for o in meshes for v in o.data.vertices]
 height = max(z_all) - min(z_all)
 _y_all = [(o.matrix_world @ v.co).y for o in meshes for v in o.data.vertices]
 mesh_len = max(_y_all) - min(_y_all)  # front-to-back extent of the surface (a blob's bones are all vertical)
+SIZE = max(height, mesh_len)
+SCALE = SIZE / SIZE_BAND[0] if SIZE < SIZE_BAND[0] else SIZE / SIZE_BAND[1] if SIZE > SIZE_BAND[1] else 1.0
+FLOOR_TOL, FOOT_TOL, DIP_MAX, HOVER = (v * SCALE for v in (FLOOR_TOL, FOOT_TOL, DIP_MAX, HOVER))
+FLY_BOB = tuple(v * SCALE for v in FLY_BOB)
 
 
 # --- skeleton -------------------------------------------------------------------------
@@ -196,6 +205,18 @@ def tail_mask() -> np.ndarray:
     return np.array(out, dtype=bool)
 
 
+def body_height() -> float:
+    """Top of the surface not owned by a wing chain: a dragon's raised wings make `height`
+    twice its body's."""
+    if not wings:
+        return height
+    wing = {n for w in wings for n in [w["chain"][0]] + rig_topology._descendants(w["chain"][0], kids)}
+    zs = [(o.matrix_world @ v.co).z for o in meshes for v in o.data.vertices
+          if not v.groups or o.vertex_groups[max(v.groups, key=lambda g: g.weight).group].name not in wing]
+    return (max(zs) - min(z_all)) if zs else height
+
+
+body_h = body_height()
 is_foot, foot_of = sole_masks()
 rest_foot = [float(np.array(z_all)[m].min()) if m.any() else 0.0 for m in foot_of]
 is_tail = tail_mask()
@@ -854,7 +875,7 @@ def fly(name: str = "fly", amp: float = 1.0, seconds: float | None = None) -> Cl
     c = Clip(name, seconds or (1.2 if height < 3 else 1.6), True)
     c.ground = "hover"
     c.ik = lambda g, t: 0.0
-    bob = (0.06 if height < 3 else 0.1) * amp
+    bob = FLY_BOB[0 if height < 3 else 1] * amp
     c.lift = lambda t: Vector((0, 0, bob * math.sin(2 * math.pi * (t - 0.1))))
     lean = -12 if job["upright"] else 4
     c.tilt = lambda t: Quaternion(AXES["X"], math.radians(lean + 2 * math.sin(2 * math.pi * (t - 0.3))))
@@ -881,12 +902,22 @@ def fly(name: str = "fly", amp: float = 1.0, seconds: float | None = None) -> Cl
 
 def breath() -> Clip:
     """Rear the head back, thrust it forward and down and hold it there ~1 s for the
-    game's fire, then recover."""
+    game's fire, then recover. Any skeleton with a head chain: four legs rear with a
+    nose-up pitch of the body (the dragon's), an upright body (half-dragon, mephits) leans
+    its torso back instead and thrusts it forward, the neck doing a smaller share."""
     c = Clip("breath", 2.2, False)
-    c.turn_chain(neck, "X", keys((0, 0), (0.22, 35), (0.32, -12), (0.82, -12), (1, 0)))
+    up = job["upright"]
+    k = 0.5 if up else 1.0
+    c.turn_chain(neck, "X", keys((0, 0), (0.22, 35 * k), (0.32, -12 * k), (0.82, -12 * k), (1, 0)))
     c.turn(skull, "X", keys((0, 0), (0.22, 10), (0.32, -6), (0.82, -6), (1, 0)))
     c.turn(skull, "Z", lambda t: 3 * math.sin(2 * math.pi * 3 * smooth((t - 0.32) / 0.5)))
-    c.tilt = lambda t: Quaternion(AXES["X"], math.radians(keys((0, 0), (0.22, 5), (0.32, -3), (0.82, -3), (1, 0))(t)))
+    if up:
+        c.turn_chain(torso, "X", keys((0, 0), (0.22, 16), (0.32, -10), (0.82, -10), (1, 0)))
+        relax_arms(c)
+        for a in arms:  # arms swing back with the rear, forward with the thrust
+            c.turn(a["upper"], "X", keys((0, 0), (0.22, -12), (0.32, 8), (0.82, 8), (1, 0)))
+    else:
+        c.tilt = lambda t: Quaternion(AXES["X"], math.radians(keys((0, 0), (0.22, 5), (0.32, -3), (0.82, -3), (1, 0))(t)))
     c.lift = lambda t: Vector((0, body_len * 0.04 * keys((0, 0), (0.22, -1), (0.32, 0.6), (0.82, 0.6), (1, 0))(t),
                                -0.04 * drop))
     for w in wings:
@@ -1060,6 +1091,214 @@ def attack_ranged() -> Clip:
     return c
 
 
+# --- cast, swim, burrow, levitate (2026-11-04) ---------------------------------------------
+# cast: gather (0-0.3), hold with a small pulse (0.3-0.58), release (0.58-0.7), hold the
+# release (0.7-0.8), recover (0.8-1). Every clip below starts on the rest pose (the relaxed
+# arm where the idle has one); burrow alone ends elsewhere (sunk into the ground).
+CAST_T = (0, 0.3, 0.58, 0.7, 0.8, 1.0)
+
+
+def fold_wings(c: Clip, w) -> None:
+    """Wings swept back along the body and up a little (swim, burrow); `w(t)` 0-1."""
+    for wg in wings:
+        s = wg["side"]
+        c.turn(wg["chain"][0], "Z", lambda t, s=s: sym(s, -40 * w(t)))
+        c.turn(wg["chain"][0], "Y", lambda t, s=s: sym(s, -15 * w(t)))
+        for n in wg["chain"][1:3]:
+            c.turn(n, "Z", lambda t, s=s: sym(s, -15 * w(t)))
+
+
+def cast_arms(c: Clip) -> None:
+    """Spell gesture on the arms (FK-aimed, like the thrust): the casting hand (hand_r)
+    rises forward and up over the head, holds with a small pulse, then throws forward at
+    shoulder height, holds the release and recovers; the other hand comes up in front of
+    the chest and pushes forward with it. The grip's +Y (a staff, a wand, the hand) points
+    up while raised and forward on the release."""
+    a = arm_by_side.get("r") or arms[0]
+    pulse = lambda t: 0.06 * math.sin(2 * math.pi * 3 * smooth((t - 0.3) / 0.28)) if 0.3 < t < 0.58 else 0.0
+    for arm_, main in [(a, True)] + [(o, False) for o in arms if o is not a][:1]:
+        sx = 1 if arm_["side"] == "r" else -1
+        u0, f0, g0 = RELAXED.get(arm_["side"]) or rest_dirs(arm_)
+        if main:
+            u1, f1 = Vector((0.3 * sx, 0.55, 0.78)), Vector((0.05 * sx, 0.35, 0.94))
+            u2, f2 = Vector((0.15 * sx, 1.0, 0.2)), Vector((0.0, 1.0, 0.08))
+        else:
+            u1, f1 = Vector((0.3 * sx, 0.45, -0.35)), Vector((-0.45 * sx, 0.85, 0.3))
+            u2, f2 = Vector((0.2 * sx, 1.0, 0.0)), Vector((0.05 * sx, 1.0, 0.0))
+        uk = vkeys(*zip(CAST_T, (u0, u1, u1, u2, u2, u0)))
+        fk = vkeys(*zip(CAST_T, (f0, f1, f1, f2, f2, f0)))
+        up1, up2 = Vector((0.0, 0.3, 0.95)), Vector((0.0, 0.95, 0.3))
+        gk = vkeys(*zip(CAST_T, (g0, up1, up1, up2, up2, g0))) if g0 is not None else None
+        aim_arm(c, arm_, lambda t, uk=uk: (uk(t) + Vector((0, 0, pulse(t)))).normalized(),
+                lambda t, fk=fk: fk(t).normalized(), lambda t: 1.0,
+                up=(lambda t, gk=gk: gk(t).normalized()) if gk else None)
+    c.turn_chain(torso, "X", keys(*zip(CAST_T, (0, 5, 5, -7, -7, 0))))
+    c.turn(skull, "X", keys(*zip(CAST_T, (0, 8, 8, -4, -4, 0))))
+    c.info = {**c.info, "cast": "arms", "hand": a["side"], **({"arms_relaxed": sorted(RELAXED)} if RELAXED else {})}
+
+
+def cast_head(c: Clip, scale: float = 1.0) -> None:
+    """Spell gesture without arms (dragons, beasts): the head and neck rear up, hold with a
+    small pulse, then snap forward and down on the release; the body rises a little (four
+    legs: a nose-up pitch about the hind hips, the floor pass keeps the front feet planted;
+    upright and floating bodies: 0.03 x drop up), wings
+    lift and tail curls up with the same timing. `scale` shrinks the body's part (the
+    DIP_MAX retry, as the lunge)."""
+    pulse = lambda t: 3 * math.sin(2 * math.pi * 3 * smooth((t - 0.3) / 0.28)) if 0.3 < t < 0.58 else 0.0
+    rear = keys(*zip(CAST_T, (0, 28, 28, -8, -8, 0)))
+    c.turn_chain(neck, "X", lambda t: rear(t) + pulse(t))
+    c.turn(skull, "X", keys(*zip(CAST_T, (0, 10, 10, -6, -6, 0))))
+    if not job["upright"] and PLAN != "avian":  # a bird's tail fan rests on the ground (hit)
+        c.tilt = lambda t: Quaternion(AXES["X"], math.radians(scale * keys(*zip(CAST_T, (0, 5, 5, -1, -1, 0)))(t)))
+    elif job["upright"]:
+        c.turn_chain(torso, "X", keys(*zip(CAST_T, (0, 8, 8, -5, -5, 0))))
+    rise = keys(*zip(CAST_T, (0, 1, 1, 0.3, 0.3, 0)))
+    if job["upright"] or legless:  # four legs rise by the pitch alone: a lift on top stretched the
+        c.lift = lambda t: Vector((0, 0, scale * 0.03 * drop * rise(t)))  # owlbear's front paws 4.5 cm into the ground
+    for wg in wings:
+        c.turn(wg["chain"][0], "Y", lambda t, s=wg["side"]: sym(s, -20 * rise(t)))
+    for n in tail:
+        c.turn(n, "X", lambda t: 3 * rise(t))
+    c.info = {**c.info, "cast": "head", "body_scale": scale}
+
+
+def cast(base=None, scale: float = 1.0) -> Clip:
+    """`cast` (1.2 s, once): the arms when the plan has them, else the head (above)."""
+    c = base("cast", 1.2, False) if base else Clip("cast", 1.2, False)
+    if arms:
+        cast_arms(c)
+    else:
+        cast_head(c, scale)
+    return c
+
+
+SWIM_LEGS = 0.5     # legged swim: the body is lifted this fraction of the leg's drop
+
+
+def swim_legged() -> Clip:
+    """Swim in place for legged plans: the body is held SWIM_LEGS x drop up (`lift`, the
+    aquatic swim's mode, so a monster that only swims idles at the same height), pitched a
+    little (nose up for four legs, leaning forward for upright bodies), the legs paddle in a
+    slow alternating stroke with IK off (diagonal pairs; sprawled legs sweep fore and aft),
+    the arms stroke, wings fold back, the tail sways as a rudder, a slow bob."""
+    c = Clip("swim", 1.8, True)
+    c.ground, c.hover = "lift", SWIM_LEGS * drop
+    c.ik = lambda g, t: 0.0
+    up = job["upright"]
+    pitch = -35.0 if up else 6.0
+    c.pivot = Vector((cx, leg_y, 0.5 * height)) if up else PIVOT.copy()
+    c.tilt = lambda t: Quaternion(AXES["X"], math.radians(pitch + 2 * math.sin(2 * math.pi * t)))
+    c.lift = lambda t: Vector((0, 0, 0.012 * height * math.sin(2 * math.pi * 2 * t)))
+    for g in legs:
+        if job["sprawl"]:
+            i = sorted((x for x in legs if x["side"] == g["side"]), key=lambda x: -x["y"]).index(g)
+            ph = 0.5 * ((i + (g["side"] == "r")) % 2)
+            c.turn(g["chain"][0], "Z", lambda t, ph=ph, s=g["side"]: sym(s, 14 * math.sin(2 * math.pi * (t - ph))))
+            continue
+        fore = g in front
+        ph = 0.0 if (g["side"] == "r") == (fore or up) else 0.5
+        if up:  # flutter kick, knees bending on the up-beat
+            c.turn(g["chain"][0], "X", lambda t, ph=ph: -6 + 16 * math.sin(2 * math.pi * (t - ph)))
+            if len(g["chain"]) > 1:
+                c.turn(g["chain"][1], "X", lambda t, ph=ph: -18 - 12 * math.cos(2 * math.pi * (t - ph)))
+            continue
+        c.turn(g["chain"][0], "X", lambda t, ph=ph, k=1 if fore else -1:
+               (8 * k) + 24 * math.sin(2 * math.pi * (t - ph)))
+        if len(g["chain"]) > 1:  # the paw curls on the forward (recovery) swing
+            c.turn(g["chain"][1], "X", lambda t, ph=ph, k=-1 if fore else 1:
+                   k * 22 * max(0.0, math.cos(2 * math.pi * (t - ph))))
+    relax_arms(c)
+    for a in arms:  # dog paddle, alternating
+        ph = 0.0 if a["side"] == "r" else 0.5
+        c.turn(a["upper"], "X", lambda t, ph=ph: 45 + 30 * math.sin(2 * math.pi * (t - ph)))
+        c.turn(a["forearm"], "X", lambda t, ph=ph: 20 + 15 * math.cos(2 * math.pi * (t - ph)))
+    fold_wings(c, lambda t: 1.0)
+    c.turn_chain(neck, "X", lambda t: (30.0 if up else 6.0) + 2 * math.sin(2 * math.pi * (t - 0.2)))
+    for i, n in enumerate(tail):
+        c.turn(n, "Z", lambda t, i=i: 6 * math.sin(2 * math.pi * (t - 0.08 * i)))
+        c.turn(n, "X", lambda t: 2.0)
+    c.info = {"swim_lift_m": round(c.hover, 4), "pitch_deg": pitch}
+    return c
+
+
+BURROW_SINK = 0.5   # burrow: the body ends this fraction of the height lower (half sunk)
+
+
+def burrow() -> Clip:
+    """Dig in (1.5 s, once; ends sunk, hold the last frame): crouch, the front limbs (front
+    legs, a spider's front pair, a biped's arms) dig in three alternating strokes that
+    drive below the ground and pull back, the head goes down, then the body sinks by
+    BURROW_SINK x its height (wings left out: `body_h`) with the feet going down with it. Ground mode `none`: this is the
+    one clip whose vertices go below the ground (`min_z` is reported as it is)."""
+    c = Clip("burrow", 1.5, False)
+    c.ground = "none"
+    crouch = keys((0, 0), (0.2, 1), (1, 1))
+    sink = keys((0, 0), (0.62, 0), (1, 1))
+    depth = BURROW_SINK * body_h
+    env = lambda t: smooth((t - 0.12) / 0.1) * (1 - smooth((t - 0.66) / 0.1))
+    strokes = lambda t: 3 * min(1.0, max(0.0, (t - 0.12) / 0.62))
+    diggers = [] if job["upright"] else sorted(legs, key=lambda g: -g["y"])[:2] if job["sprawl"] else front
+
+    def foot(g, t):
+        down = Vector((0, 0, -depth * sink(t)))
+        if g not in diggers:
+            return down
+        ph = 0.5 if g["side"] == "l" else 0.0
+        a = 2 * math.pi * (strokes(t) - ph)
+        # up and forward over the top, down below the ground and back: a digging stroke
+        return down + env(t) * drop * Vector((0, 0.14 * math.sin(a - math.pi / 2), 0.2 * math.sin(a)))
+
+    c.foot = foot
+    c.lift = lambda t: Vector((0, 0, -drop * 0.15 * crouch(t) - depth * sink(t)))
+    if job["upright"]:
+        c.turn_chain(torso, "X", keys((0, 0), (0.2, -25), (0.7, -30), (1, -20)))
+        relax_arms(c, lambda t: 1 - smooth(t / 0.2))
+        for a in arms:
+            ph = 0.5 if a["side"] == "l" else 0.0
+            c.turn(a["upper"], "X", lambda t, ph=ph: env(t) * (55 + 35 * math.sin(2 * math.pi * (strokes(t) - ph))))
+            c.turn(a["forearm"], "X", lambda t: 25 * env(t))
+    else:
+        c.tilt = lambda t: Quaternion(AXES["X"], math.radians(keys((0, 0), (0.2, -4), (0.62, -8), (1, -14))(t)))
+    c.turn_chain(neck, "X", keys((0, 0), (0.25, -18), (1, -25)))
+    fold_wings(c, keys((0, 0), (0.3, 1), (1, 1)))
+    c.info = {"sinks_m": round(depth, 4), "diggers": [g["foot"] for g in diggers] or [a["upper"] for a in arms],
+              "below_ground": "allowed"}
+    return c
+
+
+def levitate() -> Clip:
+    """`fly` with no wing chains (giants, efreet, a flying horse): rise to HOVER and float,
+    a slow bob and sway, legs hanging and trailing a little, arms held slightly out."""
+    c = Clip("fly", 2.0, True)
+    c.ground = "hover"
+    c.ik = lambda g, t: 0.0
+    bob = 0.5 * FLY_BOB[0 if height < 3 else 1]  # half the winged bob
+    c.lift = lambda t: Vector((0, 0, bob * math.sin(2 * math.pi * t)))
+    lean = -6 if job["upright"] else 3
+    c.pivot = Vector((cx, leg_y, 0.6 * height))
+    c.tilt = lambda t: Quaternion(AXES["X"], math.radians(lean + 1.5 * math.sin(2 * math.pi * (t - 0.25))))
+    for g in legs:
+        if job["upright"]:
+            ph = 0.0 if g["side"] == "r" else 0.5
+            c.turn(g["chain"][0], "X", lambda t, ph=ph: -4 + 3 * math.sin(2 * math.pi * (t - ph)))
+            if len(g["chain"]) > 1:
+                c.turn(g["chain"][1], "X", lambda t, ph=ph: -14 + 3 * math.sin(2 * math.pi * (t - ph - 0.1)))
+        elif job["sprawl"]:
+            c.turn(g["chain"][0], "X", lambda t: -6 + 2 * math.sin(2 * math.pi * t))
+        else:
+            fore = g in front
+            c.turn(g["chain"][0], "X", lambda t, fore=fore: (15 if fore else -20) + 2 * math.sin(2 * math.pi * t))
+    relax_arms(c)
+    for a in arms:
+        c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, -10 - 3 * math.sin(2 * math.pi * (t - 0.3))))
+        c.turn(a["forearm"], "X", lambda t: 10 + 3 * math.sin(2 * math.pi * (t - 0.4)))
+    for i, n in enumerate(tail):
+        c.turn(n, "X", lambda t, i=i: 3 * math.sin(2 * math.pi * (t - 0.1 * i)))
+    c.turn_chain(neck, "X", lambda t: 2 * math.sin(2 * math.pi * (t - 0.2)))
+    c.info = {"wings": {}, "hover_m": round(HOVER, 4), "levitate": True}
+    return c
+
+
 def plan_clips() -> dict:
     """Clip name -> maker(scale); scale < 1 tones down the body motion (see the retry)."""
     sets = {"walk": walk, "idle": lambda s: idle(), "hit": lambda s: hit(), "death": lambda s: death()}
@@ -1071,12 +1310,14 @@ def plan_clips() -> dict:
         big = height > 3
         sets["attack_melee"] = lambda s: lunge("attack_melee", 1.1 if big else 0.9, 30 if big else 25,
                                                -25 if big else -22, 0.08, s)
-    if wings:
-        sets["fly"] = lambda s: fly()
-    if neck and not job["upright"] and wings:
+    sets["fly"] = (lambda s: fly()) if wings else lambda s: levitate()
+    if neck:
         sets["breath"] = lambda s: breath()
     if "l" in arm_by_side and "r" in arm_by_side:
         sets["attack_ranged"] = lambda s: attack_ranged()
+    sets["cast"] = lambda s: cast(scale=s)
+    sets["swim"] = lambda s: swim_legged()
+    sets["burrow"] = lambda s: burrow()
     return sets
 
 
@@ -1228,6 +1469,51 @@ def death_serpent() -> Clip:
     return c
 
 
+def cast_serpent() -> Clip:
+    """Rear the front quarter up, hold with a small sway, thrust the head forward on the
+    release, recover (the head-cast timing, CAST_T)."""
+    c = Clip("cast", 1.2, False)
+    c.ground = "contact"
+    body_pitch(c, keys(*zip(CAST_T, (0, 40, 40, -8, -8, 0))), NECK_S)
+    c.turn(BODY["head"], "X", keys(*zip(CAST_T, (0, 12, 12, -10, -10, 0))))
+    c.turn(BODY["head"], "Z", lambda t: 4 * math.sin(2 * math.pi * 3 * smooth((t - 0.3) / 0.28)) if 0.3 < t < 0.58 else 0)
+    c.info = {"cast": "head"}
+    return c
+
+
+def breath_serpent() -> Clip:
+    """The breath timing on the body chain: rear the front quarter, thrust it forward and
+    down, hold ~1 s, recover."""
+    c = Clip("breath", 2.2, False)
+    c.ground = "contact"
+    body_pitch(c, keys((0, 0), (0.22, 30), (0.32, -8), (0.82, -8), (1, 0)), NECK_S)
+    c.turn(BODY["head"], "X", keys((0, 0), (0.22, 10), (0.32, -6), (0.82, -6), (1, 0)))
+    c.turn(BODY["head"], "Z", lambda t: 3 * math.sin(2 * math.pi * 3 * smooth((t - 0.32) / 0.5)))
+    return c
+
+
+def burrow_serpent() -> Clip:
+    """Dive: the head turns down into the ground and the body follows it forward and down,
+    half the height sunk at the end (ground `none`: below the ground is allowed)."""
+    c = Clip("burrow", 1.5, False)
+    c.ground = "none"
+    body_pitch(c, keys((0, 0), (0.3, -35), (1, -40)), NECK_S)
+    body_wave(c, lambda t: 8 * smooth(t / 0.3), 1.0)
+    k = keys((0, 0), (0.3, 0.2), (1, 1))
+    c.lift = lambda t: Vector((0, 0.08 * body_len * k(t), -BURROW_SINK * height * keys((0, 0), (0.35, 0), (1, 1))(t)))
+    c.info = {"sinks_m": round(BURROW_SINK * height, 4), "below_ground": "allowed"}
+    return c
+
+
+def fly_serpent() -> Clip:
+    """A lifted slither (couatl, flying snake): the swim wave held HOVER above the ground."""
+    c = slither("fly", 2.0, 12.0, 1.0)
+    c.ground, c.hover = "lift", HOVER
+    c.lift = lambda t: Vector((0, 0, 0.02 * height * math.sin(2 * math.pi * t)))
+    c.info["lift_m"] = round(HOVER, 4)
+    return c
+
+
 # floating (ghost, wraith, specter, elementals): a humanoid upper body over a robe or a
 # tail of mist. SkinTokens rigs the ghost like a biped under its robe (legs to the hem);
 # every clip hovers (ground "hover": the lowest vertex FLOAT x height above the ground
@@ -1277,6 +1563,22 @@ def fly_float() -> Clip:
     for a in arms:
         c.turn(a["upper"], "X", lambda t: -15 + 4 * math.sin(2 * math.pi * (t - 0.3)))
     hem_sway(c, 6.0, back=12.0)
+    return c
+
+
+def swim_float() -> Clip:
+    """Swim in place (water elemental): lean forward into the stroke, both arms sweep out and
+    back together (a breaststroke), the hem kicks, a slow bob; held like every floating clip."""
+    c = hover_clip("swim", 1.8, True)
+    bob = 0.03 * height
+    c.lift = lambda t: Vector((0, 0, bob * math.sin(2 * math.pi * t)))
+    c.tilt = lambda t: Quaternion(AXES["X"], math.radians(-25 + 3 * math.sin(2 * math.pi * (t - 0.2))))
+    c.turn_chain(neck, "X", lambda t: 15.0)
+    relax_arms(c)
+    for a in arms:
+        c.turn(a["upper"], "X", lambda t: 40 + 25 * math.sin(2 * math.pi * t))
+        c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, -20 - 20 * math.cos(2 * math.pi * t)))
+    hem_sway(c, 10.0, back=10.0)
     return c
 
 
@@ -1876,7 +2178,9 @@ def legless_clips() -> dict:
     if PLAN == "serpentine":
         sets = {"walk": lambda s: slither("walk"), "swim": lambda s: slither("swim", 2.0, 18.0, 1.0),
                 "idle": lambda s: idle_serpent(), "attack_melee": lambda s: strike_serpent(),
-                "hit": lambda s: hit_serpent(), "death": lambda s: death_serpent()}
+                "hit": lambda s: hit_serpent(), "death": lambda s: death_serpent(),
+                "cast": lambda s: cast_serpent(), "breath": lambda s: breath_serpent(),
+                "burrow": lambda s: burrow_serpent(), "fly": lambda s: fly_serpent()}
     elif PLAN == "amorphous" and STACK:
         sets = {"idle": lambda s: idle_blob(), "walk": lambda s: walk_blob(), "attack_melee": lambda s: attack_blob(),
                 "hit": lambda s: hit_blob(), "death": lambda s: death_blob()}
@@ -1905,7 +2209,8 @@ def legless_clips() -> dict:
     elif PLAN == "floating":
         sets = {"idle": lambda s: idle_float(), "fly": lambda s: fly_float(), "walk": lambda s: fly_float(),
                 "attack_melee": lambda s: attack_float(), "hit": lambda s: hit_float(),
-                "death": lambda s: death_float()}
+                "death": lambda s: death_float(), "swim": lambda s: swim_float(),
+                "cast": lambda s: cast(hover_clip)}
     return sets
 
 
@@ -1990,9 +2295,10 @@ LIFTED = job.get("idle_lift") not in (None, False, 0) and "idle" in makers and "
 if LIFTED:
     makers["idle"] = lifted_idle(makers["idle"])
     for _n in list(makers):
-        if _n != "idle" and _n not in MOVE_CLIPS:
+        if _n != "idle" and _n not in MOVE_CLIPS and _n != "burrow":  # burrow digs into the floor
             makers[_n] = lifted_oneshot(makers[_n])
-report = {"height": round(height, 3), "drop": round(drop, 3), "root": root, "head": head, "neck": neck,
+report = {"height": round(height, 3), "drop": round(drop, 3), "size": round(SIZE, 3), "size_scale": round(SCALE, 4),
+          "root": root, "head": head, "neck": neck,
           "spine": spine, "tail": tail, "arms": {a["side"]: a["chain"] for a in arms},
           "wings": {w["side"]: w["chain"] for w in wings}, "legs": [g["chain"] for g in legs],
           "clips": {}, "skipped": [], **({"body": BODY["path"]} if BODY else {}),
@@ -2006,7 +2312,7 @@ for name in order:
     report["clips"][name] = build(makers[name](1.0))
     if name == "idle" and LIFTED:
         IDLE_Z["z"] = report["clips"]["idle"]["body_z_first"]
-    if name in ("walk", "attack_melee"):  # a part skinned to a leg (owlbear: tail fan on a hind
+    if name in ("walk", "attack_melee", "cast"):  # a part skinned to a leg (owlbear: tail fan on a hind
         for k in (0.8, 0.65, 0.5):  # shin) sweeping through the ground, or feet that cannot
             r = report["clips"][name]  # reach it with the body raised: smaller steps
             if r["min_z"] >= -DIP_MAX and r.get("ik_reach_gap", 0) <= REACH_MAX * height:
