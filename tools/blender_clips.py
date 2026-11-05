@@ -88,6 +88,10 @@ SIZE = max(height, mesh_len)
 SCALE = SIZE / SIZE_BAND[0] if SIZE < SIZE_BAND[0] else SIZE / SIZE_BAND[1] if SIZE > SIZE_BAND[1] else 1.0
 FLOOR_TOL, FOOT_TOL, DIP_MAX, HOVER = (v * SCALE for v in (FLOOR_TOL, FOOT_TOL, DIP_MAX, HOVER))
 FLY_BOB = tuple(v * SCALE for v in FLY_BOB)
+# A hanging tail's end may drag this far into the ground (the floor clips' lift lets it down
+# to here, the death's drape never below it): DIP_MAX x 0.8, so it never reads as DIP_MAX
+# itself (Godot's check WARNs at -0.0301 on the centaur's -0.030)
+TAIL_DIP = 0.8 * DIP_MAX
 
 
 # --- skeleton -------------------------------------------------------------------------
@@ -254,6 +258,26 @@ REST_V = np.array([(o.matrix_world @ v.co)[:] for o in meshes for v in o.data.ve
 GROUND = (REST_V[:, 2] <= FLOOR_TOL) & ~is_foot & ~is_tail & ~np.any(leg_of, axis=0) if legs else \
     np.zeros(len(REST_V), bool)
 CONTACT_DIP = DIP_MAX / 3
+# Mesh edges (all meshes, the vertex order of sample()) and their rest lengths: a clip's edges
+# stretched past TEAR x rest on any IDLE_STEP-th frame are counted (Clip.torn)
+_E, _o = [], 0
+for _m in meshes:
+    _e = np.empty(len(_m.data.edges) * 2, dtype=np.int64)
+    _m.data.edges.foreach_get("vertices", _e)
+    _E.append(_e.reshape(-1, 2) + _o)
+    _o += len(_m.data.vertices)
+EDGES = np.concatenate(_E) if _E else np.zeros((0, 2), np.int64)
+EDGE_L0 = np.maximum(np.linalg.norm(REST_V[EDGES[:, 0]] - REST_V[EDGES[:, 1]], axis=1), 1e-6)
+TEAR = 4.0
+TEAR_MAX = 20       # walk: a stride whose clip tears more edges than this is retried shorter (below)
+
+
+def torn_edges(pos: list) -> int:
+    """Edges stretched past TEAR x their rest length on any IDLE_STEP-th frame."""
+    bad = np.zeros(len(EDGES), bool)
+    for co in pos[::IDLE_STEP]:
+        bad |= np.linalg.norm(co[EDGES[:, 0]] - co[EDGES[:, 1]], axis=1) > TEAR * EDGE_L0
+    return int(bad.sum())
 # a tail that lies on the ground is lifted by turning its root, not by raising the body
 if tail:
     _r, _t = Vector(by_name[tail[0]]["head"]), Vector(by_name[tail[-1]]["tail"])
@@ -306,6 +330,155 @@ def tail_curl(c, n: str, fn) -> None:
         c.rot.setdefault(n, []).append((TAIL_AXIS, fn))
     else:
         c.turn(n, "X", fn)
+
+
+# A hanging tail in a fall goes limp (death_drape): as the body rolls onto its side each tail
+# bone eases toward the ground, root first, and what reaches the floor lies along it. Rolled
+# with the body it stuck out level beside the rump (centaur: 0.87-1.47 m up with the body top
+# at 1.58; wolf 0.18-0.43 m), parallel to the legs.
+DRAPE_BEND = 12.0   # degrees a draped bone turns at most off the line it would hold riding with its parent
+DRAPE_ROOT = 0.0    # ... the root bone off the rump. More tears the tail's base on these rigs (edges past
+                    # 4x in the death, root / joint limit: wolf 0/15: 3 (as before), 0/20: 5, 10/30: 42,
+                    # 20/15: 34 with the tail on the floor; owlbear 0/12: 5 (as before), 0/15: 6; centaur
+                    # 0/0..0/15: 39, 0/25: 42, 20/15: 49, 40/15: 60): the wolf's rump stub bone_27 shares
+                    # the tail's base, the owlbear's fan tip meets its left hind foot, the centaur's sheet is
+                    # fused to its left hind leg. So the tail drops part of the way (docs/rig-anim.md).
+DRAPE_BACK = 0.6    # the fall leans back (away from the rump) this much per unit down, and the part on
+                    # the ground lies back along the body's line and the way the tail pointed
+DRAPE_EASE = 0.3    # the idle's first-frame tail lift eases out over the buckle (to t = 0.3)
+DRAPE_SLOPE = 1 / math.sqrt(1 + DRAPE_BACK ** 2)  # steepest a draped bone points down (sine)
+
+
+def drape_w(t: float) -> float:
+    """How limp the tail is: 0 until the roll is under way (0.3), 1 when it lands (0.75)."""
+    return smooth((t - 0.3) / 0.45)
+
+
+def death_drape(c) -> None:
+    """Lay a hanging tail on the ground in a fall (ground "rest"): per frame quaternions
+    from drape_solve, blended in by drape_w; before that the tail keeps the floor clips' lift
+    (tail_up on the root, about TAIL_AXIS), so frame 0 is the idle's. Each tail bone gets one
+    layer (nothing else turns it in a death)."""
+    c.drape = True
+    n = c.frames + 1
+    c.drape_q = [[Quaternion() for _ in range(n)] for _ in tail]
+    c.drape_line = [0.02 * height] * n  # height of the bone line where it lies on the ground
+    c.tail_up = [FIRST.get("tail_up0", 0.0) * (1 - smooth(f / c.frames / DRAPE_EASE)) for f in range(n)]  # drape_settle
+    for i, b in enumerate(tail):
+        def comp(t, i=i):
+            f = round(t * c.frames)
+            base = Quaternion(TAIL_AXIS, math.radians(c.tail_up[f])) if i == 0 else Quaternion()
+            return base.slerp(c.drape_q[i][f], drape_w(t))
+        c.rot[b] = [(None, comp)]
+
+
+def drape_solve(c) -> None:
+    """Per frame, the tail chain from its posed root: a bone with room below it points down
+    and back (DRAPE_BACK), one that would pass the bone line's ground height (drape_line)
+    points at it, the rest lie along the ground; each turned at most DRAPE_BEND off the
+    direction it would have riding with its parent (the root: with the rump). Read from the
+    posed parent (the body's roll, the ground correction), so call it after key_root."""
+    parent = by_name[tail[0]]["parent"]
+    prest = (world @ arm.data.bones[parent].matrix_local).to_quaternion()
+    dirs = [Vector(by_name[b]["tail"]) - Vector(by_name[b]["head"]) for b in tail]
+    offs = [Vector(by_name[tail[i]]["head"]) - Vector(by_name[tail[i - 1]]["head"]) for i in range(1, len(tail))]
+    for f in range(c.frames + 1):
+        scene.frame_set(f + 1)
+        D = (world @ arm.pose.bones[parent].matrix).to_quaternion() @ prest.inverted()
+        P = world @ arm.pose.bones[tail[0]].head
+        line = c.drape_line[f]
+        for i in range(len(tail)):
+            if i:
+                P = P + D @ offs[i - 1]
+            ride = (D @ dirs[i]).normalized()
+            h = Vector((ride.x, ride.y, 0.0))
+            u = (h.normalized() if h.length > 1e-3 else Vector()) - AXES["Y"]
+            u = u.normalized() if u.length > 1e-3 else -AXES["Y"]
+            dz = max(-DRAPE_SLOPE, min(1.0, (line - P.z) / dirs[i].length))
+            want = u * math.sqrt(max(0.0, 1 - dz * dz)) + AXES["Z"] * dz
+            maxb = math.radians(DRAPE_ROOT if i == 0 else DRAPE_BEND)
+            ang = ride.angle(want, 0.0)
+            if ang > maxb:
+                ax = ride.cross(want)
+                if ax.length > 1e-6:
+                    want = Quaternion(ax.normalized(), maxb) @ ride
+            Dn = ride.rotation_difference(want) @ D
+            c.drape_q[i][f] = D.inverted() @ Dn
+            D = Dn
+
+
+def drape_settle(c) -> None:
+    """After a sample: limp frames raise the ground line where the tail dips past TAIL_DIP,
+    and on the lying frames (drape_w 1) set it so the lowest tail vertex touches the ground.
+    Before the roll the tail keeps the idle's first-frame lift (tail_up0), so a death starts
+    on the idle's tail pose; a deeper dip in the buckle raises the body (correction), as
+    before: lifting the tail further (48 degrees on the centaur) tore its sheet off the hind leg."""
+    for f, z in enumerate(c.tail_low):
+        w = drape_w(f / c.frames)
+        c.tail_up[f] = FIRST.get("tail_up0", 0.0) * (1 - smooth(f / c.frames / DRAPE_EASE))
+        if w >= 1:
+            c.drape_line[f] = max(0.0, c.drape_line[f] - z)
+        elif w > 0 and z < -TAIL_DIP:
+            c.drape_line[f] += 1.2 * (-z - TAIL_DIP)
+    drape_solve(c)
+
+
+def seg_dist(a0, a1, b0, b1) -> float:
+    """Closest distance between segments a0-a1 and b0-b1 (numpy 3-vectors)."""
+    u, v, w0 = a1 - a0, b1 - b0, a0 - b0
+    A, B, C, Dd, E = u @ u, u @ v, v @ v, u @ w0, v @ w0
+    den = A * C - B * B
+    sc = 0.0 if den < 1e-12 else min(1.0, max(0.0, (B * E - C * Dd) / den))
+    tc = min(1.0, max(0.0, (B * sc + E) / C)) if C > 1e-12 else 0.0
+    sc = min(1.0, max(0.0, (B * tc - Dd) / A)) if A > 1e-12 else 0.0
+    return float(np.linalg.norm(w0 + sc * u - tc * v))
+
+
+HIND_BONES = [b for g in hind for b in g["chain"][1:]]
+
+
+def tail_leg_dist(posed: bool = True) -> float:
+    """Closest distance between the tail line below its root bone and the hind legs' joint
+    paths below the hip (knee -> hock -> toe: their bones), posed on the current frame or at
+    rest. The root bone and the hip bones meet at the rump (wolf: 0.02 m apart at rest)."""
+    if posed:
+        seg = lambda b: (np.array((world @ arm.pose.bones[b].head)[:]), np.array((world @ arm.pose.bones[b].tail)[:]))
+    else:
+        seg = lambda b: (np.array(by_name[b]["head"]), np.array(by_name[b]["tail"]))
+    ts, ls = [seg(b) for b in tail[1:] or tail], [seg(b) for b in HIND_BONES]
+    return min((seg_dist(*a, *b) for a in ts for b in ls), default=1e9)
+
+
+# Hanging tail vs the hind legs (wolf walk: the tail end folded into the hind hock at 75%,
+# interpenetration, not stretch): the sway is scaled down per frame where the tail line comes
+# closer to a hind leg's joint path than TAIL_CLEAR x their distance at rest.
+TAIL_CLEAR = 0.9
+TAIL_CLEAR_MIN = 0.2  # least share of the sway kept on any frame
+TAIL_FUSED = 0.02   # a tail this close (x height) to a hind leg at rest is fused to it and sways with it
+                    # (centaur: 0.008 m; its walk tore 88 edges past 4x with the clearance, 83 without)
+
+
+def tail_clearance(c) -> None:
+    """After a sample: where the posed tail line is within the clearance of a hind leg, cut
+    that frame's sway share (sway_k) in proportion, smoothed over the loop (circular, so the
+    first and last frames stay the same pose)."""
+    clear = TAIL_CLEAR * TAIL_REST_CLEAR
+    n = c.frames
+    d = []
+    for f in range(n):
+        scene.frame_set(f + 1)
+        d.append(tail_leg_dist())
+    k = np.array(c.sway_k[:n])
+    for f in range(n):
+        if d[f] < clear:
+            k[f] = max(TAIL_CLEAR_MIN, k[f] * (d[f] / clear) ** 2)
+    win = max(1, n // 12)  # a moving minimum, then a moving mean: no frame-to-frame snap
+    lo = np.array([k[[(f + j) % n for j in range(-win, win + 1)]].min() for f in range(n)])
+    k = np.array([lo[[(f + j) % n for j in range(-win, win + 1)]].mean() for f in range(n)])
+    c.sway_k = [float(x) for x in k] + [float(k[0])]
+
+
+TAIL_REST_CLEAR = tail_leg_dist(False) if HANG and hind else 0.0
 
 
 # --- curves ---------------------------------------------------------------------------
@@ -371,6 +544,8 @@ class Clip:
         self.hover = HOVER                          # hover: lowest vertex this high, metres
         self.fit = None                             # {"set", "lo", "hi", "bone"}: see fit_angle()
         self.start_lift = 0.0                       # rest: body raise at t=0, eased out (a lifted death)
+        self.drape = False                          # rest: a hanging tail goes limp onto the ground (drape_solve)
+        self.sway_k = None                          # per frame: share of a hanging tail's sway (tail_clearance)
 
     def turn(self, bone, axis: str, fn) -> None:
         if bone:
@@ -519,6 +694,7 @@ def sample(clip: Clip) -> tuple[np.ndarray, np.ndarray, list[np.ndarray]]:
     """Per frame: lowest vertex, lowest non-foot vertex, and all vertex positions."""
     lows, loose, pos = [], [], []
     clip.foot_low, clip.tail_low, clip.reach, clip.leg_low, clip.contact_low = [], [], [], [], []
+    clip.notail_low = []
     for f in range(1, clip.frames + 2):
         scene.frame_set(f)
         dg = bpy.context.evaluated_depsgraph_get()
@@ -536,6 +712,7 @@ def sample(clip: Clip) -> tuple[np.ndarray, np.ndarray, list[np.ndarray]]:
         lows.append(co[:, 2].min())
         body = ~is_foot & ~is_tail
         loose.append(co[body, 2].min() if body.any() else co[:, 2].min())
+        clip.notail_low.append(float(co[~is_tail, 2].min()) if is_tail.any() else float(co[:, 2].min()))
         clip.tail_low.append(float(co[is_tail, 2].min()) if is_tail.any() else 1.0)
         clip.contact_low.append(float(co[GROUND, 2].min()) if GROUND.any() else 1.0)
         clip.foot_low.append([float(co[m, 2].min()) if m.any() else 0.0 for m in foot_of])
@@ -577,11 +754,24 @@ def correction(clip: Clip, lows: np.ndarray, loose: np.ndarray) -> list[float]:
         return [-float(z) for z in lows]
     if clip.ground == "rest":
         out = []
+        stand = [max(0.0, -z - FLOOR_TOL) for z in lows]
+        if clip.drape:  # a limp tail is laid on the ground by drape_solve: lying, the body does not
+            # lift for it; standing, it may dip TAIL_DIP like the floor clips' (the idle's frame 0)
+            # and while the legs stand (IK fully on) the feet are the IK's, as in the floor clips
+            # (and lower the body where a standing foot falls short: the idle's frame 0 is
+            # lowered so, the centaur's by 0.016 m)
+            stand = []
+            for f in range(n):
+                up = clip.ik(legs[0], f / clip.frames) >= 1 if legs else False
+                gap = max((clip.reach[f][i] for i in planted(clip, f)), default=0.0) if up else 0.0
+                stand.append(-0.9 * gap if gap > FOOT_TOL else
+                             max(0.0, -(loose[f] if up else clip.notail_low[f]) - FLOOR_TOL, -clip.tail_low[f] - TAIL_DIP))
+            lows = np.array(clip.notail_low)
         for f in range(n):
             w = smooth((f / clip.frames - clip.rest_from + 0.12) / 0.12)
             # standing part: as the floor clips, a part may sit FLOOR_TOL below the ground
             # (else the first frame is raised off the idle's and the legs' IK finds other knees)
-            out.append(max(0.0, -lows[f] - FLOOR_TOL) * (1 - w) - lows[f] * w)
+            out.append(stand[f] * (1 - w) - lows[f] * w)
         return out
     return [0.0] * n
 
@@ -679,16 +869,25 @@ def build(clip: Clip) -> dict:
             end = 0.3 if clip.start_lift < 0 else max(0.1, clip.rest_from - 0.15)
             corr = [clip.start_lift * (1 - smooth((f / clip.frames) / end)) for f in range(clip.frames + 1)]
             key_root(clip, corr)
+        if clip.drape:
+            drape_solve(clip)
+            key_fk(clip)
         for it in range(4):  # body height, tail and feet move each other a little; settle
             lows, loose, _ = sample(clip)
             corr = [a + b for a, b in zip(corr, correction(clip, lows, loose))]
             key_root(clip, corr)
             sample(clip)
+            if clip.drape:
+                drape_settle(clip)
+                key_fk(clip)
+            if clip.sway_k is not None and clip.ground == "floor" and it < 3:
+                tail_clearance(clip)
+                key_fk(clip)
             if tail and clip.ground == "floor":
                 for f, z in enumerate(clip.tail_low):
-                    if HANG:  # its end drags on the ground: down to DIP_MAX in it (see hang_lift)
-                        if z < -DIP_MAX:
-                            tail_up[f] += hang_lift(tail_up[f], 1.2 * (-z - DIP_MAX))
+                    if HANG:  # its end drags on the ground: down to TAIL_DIP in it (see hang_lift)
+                        if z < -TAIL_DIP:  # aimed at 0.8 of it: the passes converge from below
+                            tail_up[f] += hang_lift(tail_up[f], -z - 0.8 * TAIL_DIP)
                     elif z < 0:
                         tail_up[f] += math.degrees(math.asin(min(1.0, 1.2 * -z / TAIL_REACH)))
                     elif fan and it < 3 and z > FLOOR_TOL and tail_up[f] > 0:
@@ -726,6 +925,9 @@ def build(clip: Clip) -> dict:
             bpy.data.actions.remove(a)
     lows, loose, pos = sample(clip)
     clip.pos = pos
+    clip.torn = TORN["n"] = torn_edges(pos)
+    if clip.drape:
+        tail_up = clip.tail_up
     scene.frame_set(1)
     body_z = (world @ arm.pose.bones[root].head).z - by_name[root]["head"][2]  # root raise on the first frame
     rep = {"seconds": round(clip.frames / FPS, 2), "frames": clip.frames, "loop": clip.loop,
@@ -739,7 +941,41 @@ def build(clip: Clip) -> dict:
     if gaps and clip.ground != "hover":
         rep["planted_foot_gap"] = round(max(gaps), 4)  # highest a standing foot's lowest vertex floats
         rep["ik_reach_gap"] = round(max(reach[f][i] for f in range(clip.frames + 1) for i in planted(clip, f)), 4)
+    if tail and clip.ground == "rest":  # where the tail ends up against the lying body
+        last = pos[-1]
+        rep["tail_z_last"] = [round(float(last[is_tail, 2].min()), 3), round(float(last[is_tail, 2].max()), 3)]
+        rep["body_top_last"] = round(float(last[~is_tail, 2].max()), 3)
+    if clip.drape:
+        rep["tail_drape"] = True
+    if getattr(clip, "swing", None):  # the arms' swing share from the loadout, and how far each grip's
+        rep["arm_swing"] = clip.swing  # +Y turns from the idle's first frame over the clip
+        dev, cyc, first = {}, {}, {}
+        for f in range(1, clip.frames + 2):
+            scene.frame_set(f)
+            for a in arms:
+                g, g0, sd = grip_world(a), FIRST.get("grip", {}).get(a["side"]), a["side"]
+                if sd not in clip.swing or g is None:
+                    continue
+                first.setdefault(sd, g)
+                cyc[sd] = max(cyc.get(sd, 0.0), math.degrees(g.angle(first[sd], 0.0)))
+                if g0 is not None:
+                    dev[sd] = max(dev.get(sd, 0.0), math.degrees(g.angle(g0, 0.0)))
+        if dev:
+            rep["grip_from_idle_deg"] = {k: round(v, 1) for k, v in dev.items()}
+        if cyc:  # over the cycle, from the clip's own first frame
+            rep["grip_cycle_deg"] = {k: round(v, 1) for k, v in cyc.items()}
+    if clip.sway_k is not None:
+        dl = []
+        for f in range(1, clip.frames + 1):
+            scene.frame_set(f)
+            dl.append(tail_leg_dist())
+        rep["tail_leg_min_m"] = round(min(dl), 4)
+        rep["tail_leg_rest_m"] = round(TAIL_REST_CLEAR, 4)
+        rep["tail_sway_min_k"] = round(min(clip.sway_k), 3)
     if clip.name == "idle":
+        FIRST["tail_up0"] = tail_up[0]
+        scene.frame_set(1)
+        FIRST["grip"] = {a["side"]: grip_world(a) for a in arms}
         FIRST["idle"] = pos[0]
         FIRST["idle_cycle"] = pos[:clip.frames:IDLE_STEP]
     elif "idle" in FIRST:  # the first frame's largest vertex move from the idle's first frame
@@ -778,6 +1014,7 @@ def start_phase(make) -> tuple[float, float, float]:
     return f / c.frames, dev[0], dev[f]
 
 
+TORN: dict = {}  # "n": the last built clip's torn edges (the walk retry)
 FIRST: dict = {}  # "idle": its first frame's skinned vertices, once built (start_phase, from_idle_m);
 # "idle_cycle": every IDLE_STEP-th frame of it (from_idle_max_m)
 IDLE_STEP = 3
@@ -826,9 +1063,12 @@ def walk(scale: float = 1.0, phase: float | None = None) -> Clip:
     for a in arms:
         leg = next((g for g in legs if g["side"] == a["side"]), None)
         p = leg["phase"] if leg else 0.0
-        c.turn(a["upper"], "X", lambda t, p=p: ARM_SWING * math.sin(2 * math.pi * (t + phase - p + 0.19)))
+        arm_swing(c, a, lambda t: 0.0, lambda t, p=p: ARM_SWING * math.sin(2 * math.pi * (t + phase - p + 0.19)))
+    if HANG and hind and TAIL_REST_CLEAR > TAIL_FUSED * height:  # kept clear of the hind legs (tail_clearance)
+        c.sway_k = [1.0] * (c.frames + 1)
+    k = lambda t: c.sway_k[round(t * c.frames)] if c.sway_k else 1.0
     for i, n in enumerate(tail):
-        tail_sway(c, n, lambda t, i=i: TAIL_SWAY * math.sin(2 * math.pi * (t + phase - 0.09 * i)))
+        tail_sway(c, n, lambda t, i=i: k(t) * TAIL_SWAY * math.sin(2 * math.pi * (t + phase - 0.09 * i)))
     c.info = {"stride_scale": scale, "legs": len(legs), "feet": [g["foot"] for g in legs],
               "phases": [g["phase"] for g in legs],
               "arms": [a["upper"] for a in arms], "tail": tail}
@@ -1047,8 +1287,10 @@ def death() -> Clip:
     for g in legs:  # legs bend a little and go slack
         c.turn(g["chain"][0], "X", keys((0, 0), (0.6, 15 if g in front else -15), (1, 15 if g in front else -15)))
     if tail and not HANG:  # the tail turns back against the roll, so it lies along the ground
-        # (a hanging tail lies with the body as it is: turned back, it swung down through the floor)
         c.turn(tail[0], "Y", lambda t: -0.9 * roll(t))
+    elif HANG:  # a hanging tail goes limp onto the ground (death_drape; turned back against the
+        # roll, it swung down through the floor; left with the body, it stuck out level)
+        death_drape(c)
     for w in wings:  # wings fold up over the back, away from the ground
         c.turn(w["chain"][0], "Y", lambda t, s=w["side"]: sym(s, keys((0, 0), (0.6, -45), (1, -45))(t)))
     return c
@@ -1210,6 +1452,64 @@ def relax_arms(c: Clip, w=lambda t: 1.0) -> None:
 WEAPON = job.get("weapon_r") or {}
 THRUST_CATEGORIES = {"polearm", "thrown"}
 STYLE = "thrust" if WEAPON.get("category") in THRUST_CATEGORIES else "cut"
+# Arm swing in the walk and swim from the same loadout (job weapon_r, weapon_l: anim.wielded on
+# each hand). A long or two-handed prop (polearm, thrown, bow, crossbow, props.json grip 2) is
+# held steady: the shoulder swings STEADY_SWING of the empty-hand swing, the elbow keeps its
+# mean bend, and the hand turns back against the shoulder's swing so the shaft keeps its idle
+# direction (the centaur's 3.5 m pike swung by the walk's 16 degrees dropped its head to the
+# floor ahead at 25% and raised it over the head at 75%). Other weapons (sword, club, a
+# shield) swing LIGHT_SWING of it; empty hands the full swing.
+WEAPON_L = job.get("weapon_l") or {}
+STEADY_CATEGORIES = THRUST_CATEGORIES | {"bow", "crossbow"}
+STEADY_SWING, LIGHT_SWING = 0.2, 0.5
+
+
+def swing_share(side: str) -> float:
+    w = WEAPON if side == "r" else WEAPON_L
+    if not w.get("id"):
+        return 1.0
+    return STEADY_SWING if w.get("category") in STEADY_CATEGORIES or (w.get("grip") or 1) >= 2 else LIGHT_SWING
+
+
+def layers_q(c, bone: str, t: float, upto: int | None = None) -> Quaternion:
+    """A bone's FK layers composed at t (key_fk's order), the first `upto` of them."""
+    q = Quaternion()
+    for ax, fn in c.rot.get(bone, [])[:upto]:
+        q = (fn(t) if ax is None else Quaternion(ax, math.radians(fn(t)))) @ q
+    return q
+
+
+def arm_swing(c, a: dict, base, osc, axis: str = "X", fore=None) -> None:
+    """The upper arm turns base(t) + k x osc(t) about `axis`, k = swing_share (the loadout);
+    `fore` (base, osc) the same on the forearm (its swing dropped for a held prop). A held
+    prop's hand (else the forearm) gets the swing's turn back, taken through the arm's other
+    layers (the relax layer), so the grip keeps its direction over the cycle."""
+    k = swing_share(a["side"])
+    n_up = len(c.rot.get(a["upper"], []))
+    c.turn(a["upper"], axis, lambda t: base(t) + k * osc(t))
+    steady = k <= STEADY_SWING
+    if fore:
+        fb, fo = fore
+        c.turn(a["forearm"], axis, (lambda t: fb(t)) if steady else (lambda t: fb(t) + k * fo(t)))
+    if steady:
+        hold = a["hand"] or a["forearm"]
+        n_f = len(c.rot.get(a["forearm"], []))
+
+        def held(t):
+            A = layers_q(c, a["upper"], t, n_up)
+            if hold != a["forearm"]:
+                A = A @ layers_q(c, a["forearm"], t, n_f)
+            return A.inverted() @ Quaternion(AXES[axis], math.radians(-k * osc(t))) @ A
+        c.rot.setdefault(hold, []).append((None, held))
+    if k < 1:
+        c.swing = {**getattr(c, "swing", {}), a["side"]: k}
+
+
+def grip_world(a: dict) -> Vector | None:
+    """The grip bone's +Y (the prop's shaft) on the posed frame, world; None without a hand."""
+    hand = a["hand"]
+    grip = next((k for k in kids.get(hand, []) if k.startswith("grip_")), hand) if hand else None
+    return ((world @ arm.pose.bones[grip].matrix).to_3x3() @ Vector((0, 1, 0))).normalized() if grip else None
 
 
 def attack_thrust() -> Clip:
@@ -1443,10 +1743,10 @@ def swim_legged() -> Clip:
             c.turn(g["chain"][1], "X", lambda t, ph=ph, k=-1 if fore else 1:
                    k * 22 * max(0.0, math.cos(2 * math.pi * (t - ph))))
     relax_arms(c)
-    for a in arms:  # dog paddle, alternating
+    for a in arms:  # dog paddle, alternating (a held prop: steadier, arm_swing)
         ph = 0.0 if a["side"] == "r" else 0.5
-        c.turn(a["upper"], "X", lambda t, ph=ph: 45 + 30 * math.sin(2 * math.pi * (t - ph)))
-        c.turn(a["forearm"], "X", lambda t, ph=ph: 20 + 15 * math.cos(2 * math.pi * (t - ph)))
+        arm_swing(c, a, lambda t: 45.0, lambda t, ph=ph: 30 * math.sin(2 * math.pi * (t - ph)),
+                  fore=(lambda t: 20.0, lambda t, ph=ph: 15 * math.cos(2 * math.pi * (t - ph))))
     fold_wings(c, lambda t: 1.0)
     c.turn_chain(neck, "X", lambda t: (30.0 if up else 6.0) + 2 * math.sin(2 * math.pi * (t - 0.2)))
     for i, n in enumerate(tail):
@@ -2390,8 +2690,8 @@ def swim_naga() -> Clip:
     tail_kick(c, 18.0, "X", 0.8)
     c.turn_chain(neck, "X", lambda t: 30.0)
     relax_arms(c)
-    for a in arms:
-        c.turn(a["upper"], "X", lambda t: -30 + 15 * math.sin(2 * math.pi * (t - 0.2)))
+    for a in arms:  # a held prop: steadier (arm_swing)
+        arm_swing(c, a, lambda t: -30.0, lambda t: 15 * math.sin(2 * math.pi * (t - 0.2)))
         c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, 20.0))
     return c
 
@@ -2403,7 +2703,7 @@ def crawl_naga() -> Clip:
     c.turn_chain(torso, "Z", wave(5.0, 1, 0.5))
     relax_arms(c)
     for a in arms:
-        c.turn(a["upper"], "X", lambda t, s=a["side"]: (1 if s == "r" else -1) * 10 * math.sin(2 * math.pi * t))
+        arm_swing(c, a, lambda t: 0.0, lambda t, s=a["side"]: (1 if s == "r" else -1) * 10 * math.sin(2 * math.pi * t))
     return c
 
 
@@ -2658,15 +2958,19 @@ for name in order:
     if name not in makers:
         report["skipped"].append(name)
         continue
+    TORN.clear()
     report["clips"][name] = build(makers[name](1.0))
     if name == "idle" and LIFTED:
         IDLE_Z["z"] = report["clips"]["idle"]["body_z_first"]
     if name in ("walk", "attack_melee", "cast"):  # a part skinned to a leg (owlbear: tail fan on a hind
         for k in (0.8, 0.65, 0.5):  # shin) sweeping through the ground, or feet that cannot
             r = report["clips"][name]  # reach it with the body raised: smaller steps
-            if r["min_z"] >= -DIP_MAX and r.get("ik_reach_gap", 0) <= REACH_MAX * height:
+            if r["min_z"] >= -DIP_MAX and r.get("ik_reach_gap", 0) <= REACH_MAX * height \
+                    and (name != "walk" or TORN.get("n", 0) <= TEAR_MAX):
                 break
             report["clips"][name] = build(makers[name](k))
+            if name == "walk" and TORN.get("n", 0) > TEAR_MAX:
+                report["clips"][name]["torn_edges"] = TORN["n"]
     print(f"clip {name}: {report['clips'][name]}")
 with open(job["report"], "w") as f:
     json.dump(report, f, indent=1)

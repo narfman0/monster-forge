@@ -485,15 +485,16 @@ do not, so their clips are byte-for-byte the old ones. For a hanging tail:
   30 degrees sideways. `TAIL_REACH` is the chain's arc length (the horizontal reach, 0.24 m of a
   1.6 m tail, lifted it 40 degrees), and the step is `hang_lift`: the end sits `TAIL_REACH` x
   cos(slant + lift) below the root, so the turn that raises it dz is solved exactly (the level
-  tail's asin step left the centaur's tail 4 cm under). The end is let down to `DIP_MAX` into
-  the ground, not lifted clear: the centaur's lower tail is fused to its left hind leg and every
+  tail's asin step left the centaur's tail 4 cm under). The end is let down to `TAIL_DIP`
+  (`DIP_MAX` x 0.8 since clips7, below; it was `DIP_MAX`) into the ground, not lifted clear: the centaur's lower tail is fused to its left hind leg and every
   degree pulls the sheet off it (walk edges past 4x with the end at -0.03 m: 114; -0.025 m: 237;
   clear of the ground: 250; no lift at all: 110 with the end 10 cm under). Centaur turns: idle 9,
   walk 15, attack 15, hit 11 degrees; lowest vertex -0.030 m (was -0.006 with the old rig).
 - Attack, hit, fly, cast curls (`tail_curl`): about `TAIL_AXIS` (+ lifts it backwards); about X
   a hanging tail swung forward into the hind legs.
-- Death: no counter-turn. The roll lays a hanging tail along the ground with the body; turned
-  back against the roll it swung down through the floor (wolf death 292 edges past 4x).
+- Death: no counter-turn (turned back against the roll it swung down through the floor, wolf
+  death 292 edges past 4x); since clips7 it goes limp toward the ground as the body rolls
+  (`death_drape`, "Round 10 clip fixes" below).
 - The walk report has `tail_hangs: true`.
 
 Results in `out/` (`rig --force` + `anim --force`, the tail chain on by default; edges past 4x
@@ -791,6 +792,80 @@ first frame. It is the instant-switch worst case: anything the idle wanders adds
   shark swim 0.620 (0.280), merfolk swim 1.091 (0.076), swarm of rats 0.084 (all clips),
   giant eagle fly 1.701 (one-shots 1.683: its idle is a slow wing beat, 1.694 from its own
   first frame).
+
+**Round 10 clip fixes (2026-11-05, clips7; Godot round 10, wolf and centaur tail chains).**
+`anim --force` on all 16 pilots: the same clips and frame counts; numbers changed only on the
+tailed pilots, the centaur and the armed walks (and the merfolk swim). Edges past 4x below are
+against the bind pose, every 3rd frame, largest mesh (the gate of the tail work).
+
+- Hanging tails in death (`death_drape`, `drape_solve`, `drape_settle`; report `tail_drape`,
+  and on every death with a tail `tail_z_last` [lowest, highest tail vertex on the last frame]
+  and `body_top_last`). Each tail bone has one layer: the floor clips' root lift
+  (`tail_up`) blended into a per-frame drape by `drape_w` (0 until t 0.3, 1 when the roll
+  lands at 0.75). The drape is solved from the posed parent bone on every frame: a bone with
+  room below it points down and back (`DRAPE_BACK` 0.6 back per unit down), one that would
+  pass the ground line points at it, the rest lie along the ground (back along the body and
+  the way the tail pointed); each bone turns at most `DRAPE_BEND` (12 degrees) off the line it
+  would hold riding with its parent, the root `DRAPE_ROOT` (0) off the rump. The ground line
+  is settled per frame so the lying tail's lowest vertex touches the floor, raised where a
+  falling one dips past `TAIL_DIP`; the lying body is set on the ground without the tail
+  (`notail_low`). The bend limit is what the rigs allow: more tears the tail's base (death
+  edges past 4x, root / joint limit: wolf 0/12-0/15: 3 (as before), 0/20: 5, 10/30: 42,
+  20/15: 34 with the tail on the floor; owlbear 0/12: 5 (as before), 0/15: 6; centaur 0/0-
+  0/15: 39, 0/25: 42, 20/15: 49, 40/15: 60): the wolf's rump stub `bone_27` shares the tail's
+  base, the owlbear's fan tip meets the left hind foot, the centaur's sheet is fused to its
+  left hind leg. So the tail drops part of the way. Lying tail, lowest vertex (no drape ->
+  now; body top): wolf 0.18 (Godot round 10) -> 0.13 m (0.57), owlbear 0.46 -> 0.39 (1.86), centaur 0.87 ->
+  0.65 (1.58). Level tails keep the counter-turn: the dragon's lies at 0.45-2.12 m against its
+  body top 3.22, not above the lying body, so it is unchanged.
+- Same tail pose at every clip's start. A draped death starts on the idle's first-frame root
+  lift (`FIRST["tail_up0"]`, the centaur's 12.3 degrees) and eases it out over the buckle
+  (`DRAPE_EASE` 0.3; held through the buckle, or raised further for the dip, it tore the sheet
+  off the hind leg: 41 and 156 edges); while the legs stand, the fall's ground pass lowers
+  the body for a foot that falls short and lets the tail dip `TAIL_DIP`, as the floor clips do
+  (it raised the body 0.016 m off the idle's). Centaur death `from_idle_m` 0.193 -> 0
+  (`from_idle_max_m` 0.319 -> 0.128). One-shot `from_idle_m` on all 16: 0 on every legged
+  pilot's attack, hit, breath and death (goblin, wolf, owlbear, spider, harpy, centaur,
+  dragon but its death 0.042 as before; snake, ghost and swarm 0 too); lifted and legless
+  ones unchanged (eagle 0.072, pudding 0.041, fungus 0.051, octopus 0.225, shark 0.14,
+  merfolk 0.059). The centaur death's one extra edge past 4x (39, was 38) is that start
+  pose: the idle's own first frame (same count with no drape at all).
+- `TAIL_DIP` = `DIP_MAX` x 0.8: the floor lift aims at 0.8 of it when the end trips it (the
+  passes converge from below). Centaur lowest vertex idle -0.0316 -> -0.0239, walk -0.0306 ->
+  -0.0239, attack, hit -0.0313 -> -0.0239/-0.024; tail turn idle 16.0 -> 17.4, walk 24.1 ->
+  25.0 degrees; idle edges past 4x 21 -> 24 (the higher lift pulls the sheet off the leg).
+  The centaur's walk ran at half stride only because its tail end converged just past
+  `-DIP_MAX`, which tripped the walk retry; at full stride it tears 209 edges (was 100 at
+  0.5). The walk retry now also shortens the stride while the clip tears more than
+  `TEAR_MAX` (20) edges past `TEAR` (4) x rest (`torn_edges`, counted in the build on every
+  `IDLE_STEP`-th frame; report `torn_edges` when the last stride still does): centaur 1.0 ->
+  0.5 (85 there), every other walk keeps its stride. Centaur walk edges 100 -> 83.
+- Arm swing from the loadout (`swing_share`, `arm_swing`; job `weapon_l` next to `weapon_r`,
+  `anim.wielded` with props.json `grip`). A polearm, thrown weapon, bow or crossbow, or a
+  two-hander (`grip` 2) is held steady: the shoulder swings `STEADY_SWING` (0.2) of the walk's
+  16 degrees, the elbow keeps its mean bend, and the hand (else the forearm) turns back
+  against the shoulder's swing through the arm's other layers (the relax layer), so the grip
+  keeps its direction. Other weapons swing `LIGHT_SWING` (0.5); empty hands the full swing.
+  Same in `swim_legged`, `swim_naga` and `crawl_naga` (on the oscillating part; the offsets
+  stay). Report `arm_swing` {side: share}, `grip_cycle_deg` (most the grip's +Y turns over the
+  clip from its first frame) and `grip_from_idle_deg` (from the idle's first frame). Grip +Y
+  over the cycle, before -> after: centaur pike 18.9 -> 0.0 degrees (from the idle 15.6 ->
+  0.0: the pike no longer sweeps to the floor and over the head), goblin scimitar 23.8 ->
+  11.9, goblin bow 23.8 -> 0.0, merfolk spear in the swim 30.2 -> 2.9 (its empty left hand
+  30.2 as before). Unarmed walks (harpy, wolf, ...) unchanged.
+- Hanging tail clear of the hind legs (`tail_clearance`; walk report `tail_leg_min_m`,
+  `tail_leg_rest_m`, `tail_sway_min_k`). Distance: the tail line below its root bone against
+  the hind legs' joint paths below the hip (`tail_leg_dist`; the root and hip bones meet at the
+  rump). Per frame, where it is under `TAIL_CLEAR` (0.9) x the rest distance, the sway's
+  share (`sway_k`) is cut by (d / clearance)^2, down to `TAIL_CLEAR_MIN` (0.2), smoothed over
+  the loop (moving minimum, then mean, circular); three passes. A tail within `TAIL_FUSED`
+  (0.02 x height) of a hind leg at rest sways with it (centaur, 0.008 m: its walk tore 88
+  edges with the clearance, 83 without). Wolf walk min distance 0.0003 -> 0.036 m (rest
+  0.060; the tail end passed through the hind hock at 75%), owlbear 0.233 (rest 0.442);
+  edges unchanged (0, 2).
+
+Gate (edges past 4x, walk / death; limits wolf 0/3, owlbear 2/5, centaur 100/38): wolf 0/3,
+owlbear 2/5, centaur 83/39 (the one over is the start pose above).
 
 **cast, swim, burrow, breath and fly for every plan that asks (2026-11-04, clips2).** The
 SRD animation sets ask for `cast` 48 times, `swim` on legged plans and floating 39, `burrow`

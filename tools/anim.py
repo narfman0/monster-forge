@@ -33,13 +33,15 @@ PROPS = ROOT / "data" / "registry" / "props.json"
 def wielded(mon: dict, socket: str = "hand_r") -> dict | None:
     """The prop in `socket` by default, the way the viewer picks it: the first of the
     record's `wields` whose props.json `grip_socket` is that socket. blender_clips.py picks
-    the attack style from its category (a spear thrusts, a sword cuts); None: unarmed."""
+    the attack style from its category (a spear thrusts, a sword cuts) and, for both hands,
+    how much that arm swings in the walk and swim (a pike or a bow is held steady); `grip`
+    is props.json's hand count (2: a two-hander). None: unarmed."""
     wields = mon.get("wields") or []
     if not wields or not PROPS.exists():
         return None
     props = {p["id"]: p for p in json.loads(PROPS.read_text()).get("props", [])}
     pid = next((w for w in wields if (props.get(w) or {}).get("grip_socket") == socket), None)
-    return {"id": pid, "category": props[pid].get("category")} if pid else None
+    return {"id": pid, "category": props[pid].get("category"), "grip": props[pid].get("grip", 1)} if pid else None
 
 
 def idle_lift(mon: dict, want: list) -> tuple:
@@ -76,7 +78,8 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
     job = {"idle_lift": lift, "move_clip": move,
            "src": str(d / "model_rigged.glb"), "out_dir": str(adir), "report": str(report), "clips": want,
            "feet": overrides.FEET_BY_PLAN.get(plan, 0), "sprawl": plan in SPRAWLED, "upright": plan in UPRIGHT,
-           "arms": plan in ARMED and bool(mon.get("hands")), "plan": plan, "weapon_r": wielded(mon)}
+           "arms": plan in ARMED and bool(mon.get("hands")), "plan": plan, "weapon_r": wielded(mon),
+           "weapon_l": wielded(mon, "hand_l")}
     t0 = time.time()
     proc = subprocess.run([fg.BLENDER, "-b", "--factory-startup", "--python-exit-code", "1", "-P", str(BLENDER_CLIPS),
                            "--", json.dumps(job)], capture_output=True, text=True, timeout=1800)

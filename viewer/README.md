@@ -237,11 +237,11 @@ after the clip, 30 fps, starting at t=0) plus `anims/<clip>.json` (its report) a
 | clip | plans | loop | length |
 |---|---|---|---|
 | `idle` | all legged | yes | 2.5 s |
-| `walk` | all legged | yes | 0.7-2 s (from the leg length) |
+| `walk` | all legged; arms swing with the legs, less with a prop in the hand (x0.5 for a sword or club, x0.2 with the grip held on its idle line for a polearm, javelin, bow or two-hander: report `arm_swing`, `grip_cycle_deg`); a hanging tail sways clear of the hind legs (`tail_leg_min_m`) | yes | 0.7-2 s (from the leg length) |
 | `attack_melee` | biped: sword cut from `hand_r`; quadruped: lunge bite; insectoid: front-leg stab + bite | once | 0.9-1.1 s |
 | `attack_ranged` | two-armed: bow draw (bow at `hand_l`); merfolk_naga: overhand throw from the relaxed `hand_r` arm (1.0 s) | once | 1.6 s |
 | `hit` | all legged | once | 0.5 s |
-| `death` | all legged; ends on the lying pose (hold the last frame) | once | 1.8 s |
+| `death` | all legged; ends on the lying pose (hold the last frame); a hanging tail goes limp toward the ground as the body rolls (`tail_drape`, `tail_z_last`) | once | 1.8 s |
 | `fly` | when wing chains are found: wing beat, hover (the lowest vertex `HOVER` above the ground: 0.32 m on a pilot-sized body); without wings (giants, efreeti, nightmare): a levitation, the same hover, legs hanging, a slow bob | yes | 1.2-1.6 s; levitation 2 s |
 | `breath` | any skeleton with a head chain: four legs rear with a nose-up pitch (the dragon's), upright bodies lean the torso back; thrust, hold ~1 s | once | 2.2 s |
 | `cast` | arms: the casting hand (`hand_r`) rises forward over the head, holds, throws forward, the other hand pushes with it; no arms: head and neck rear, hold, snap forward, the body rises a little, wings lift. Starts and ends on the rest (relaxed-arm) pose; a lifted monster's is held at its idle height | once | 1.2 s |

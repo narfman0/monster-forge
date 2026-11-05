@@ -292,6 +292,20 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       pilots (the eagle for real): identical clip lists and frame counts; besides the new key
       only the dragon changes (idle `tail_raise_max_deg` 1.92 -> 1.72, `planted_foot_gap`
       0.0002 -> 0.0001, `from_idle_max_m` values). docs/rig-anim.md "round 8".
+- [x] (2026-11-05, clips7) Godot round 10 (E): hanging tails go limp in death
+      (`death_drape`, bend-limited by the rigs' weights: the tail drops part of the way), every
+      floor clip starts on the idle's tail lift (centaur death `from_idle_m` 0.119-0.193 -> 0),
+      `TAIL_DIP` = `DIP_MAX` x 0.8, arm swing from the loadout (`arm_swing`: pike, spear, bow
+      steady with the grip held; sword x0.5), the hanging tail sways clear of the hind legs
+      (`tail_clearance`), the walk retry also shortens a stride that tears more than 20 edges
+      (keeps the centaur's 0.5). Gate on the 16 pilots: identical clip lists and frame counts,
+      changes only on the tailed pilots, the centaur and the armed walks/swim; edges past 4x
+      wolf 0/3, owlbear 2/5, centaur 83/39 (38 before: the death now starts on the idle's
+      first frame). docs/rig-anim.md "Round 10 clip fixes".
+- [ ] Hanging tails still do not reach the floor in death (lowest vertex wolf 0.13 m, owlbear
+      0.39, centaur 0.65): more than 12 degrees per joint tears the tail's base on these rigs
+      (wolf `bone_27` rump stub, centaur sheet fused to the left hind leg). Needs the rig's tail
+      weights (a softer base blend) before the drape can go further (`DRAPE_BEND`).
 - [ ] Clips still without a builder: `fly` for plant_object (flying sword), `attack_ranged`
       without two arms (djinni, manticore, spirit naga), the xorn (radial); avian `cast`
       (giant owl) builds but no avian rig was available to test it.
@@ -739,7 +753,7 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         - Both deaths end lying on the side.
         - The centaur's tail hangs and swings behind (ticked above).
       New findings, open:
-  - [ ] Centaur death frame 0 jumps 0.119 m from the idle's frame 0 (`from_idle_m` 0.1186;
+  - [x] Centaur death frame 0 jumps 0.119 m from the idle's frame 0 (`from_idle_m` 0.1186;
         round 7 had 0 on every legged one-shot except dragon death 0.042). The vertex is the
         tail end:
         - The idle's floor lift has `tail_05` at z 1.00, y 0.22 on frame 0 (rest: z 0.90,
@@ -748,20 +762,41 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
           start turn.
         - Attack and hit start at 0.
         - The wolf is not affected: its idle's frame 0 has no lift.
-  - [ ] Hanging tails in death stay level with the rolled body instead of lying on the floor:
+        (2026-11-05, clips7) A death with a hanging tail starts on the idle's first-frame tail
+        lift (12.3 degrees) and eases it out over the buckle; while the legs stand its ground
+        pass lowers the body for a short foot as the floor clips do. `from_idle_m` 0 on the
+        centaur's attack, hit and death and on every legged pilot's one-shots (dragon death
+        0.042 as before).
+  - [x] Hanging tails in death stay level with the rolled body instead of lying on the floor:
         - Centaur: tail vertices at y 0.87-1.47 m in the last frame (body top 1.58), sticking
           out sideways beside the rump, parallel to the legs.
         - Wolf: tail vertices at y 0.18-0.43 m (body top 0.57).
         - No tear, but the tail does not drape.
-  - [ ] Wolf walk 75%, back view: a dark patch (fold or back faces) at the tail end beside the
+        (2026-11-05, clips7) `death_drape`: from t 0.3 to 0.75 each tail bone eases toward the
+        ground (down and back, then along it), at most 12 degrees per joint, the lying tail's
+        lowest vertex settled onto the floor where it reaches. Lowest tail vertex on the last
+        frame: wolf 0.18 -> 0.13 m, centaur 0.87 -> 0.65, owlbear 0.46 -> 0.39; more bend tears
+        the tail's base (wolf 20 degrees: 5 edges past 4x, was 3; on the floor: 34). Partly
+        done: open item in D. Dragon (level tail): 0.45-2.12 m against its body top 3.22,
+        unchanged.
+  - [x] Wolf walk 75%, back view: a dark patch (fold or back faces) at the tail end beside the
         hind hock, where the swung tail meets the leg. At 25% the end looks squared off. Blender
         counts 0 stretched edges in walk, because this is interpenetration, not stretch.
-  - [ ] Centaur walk swings the pike with the right arm: its head drops to near the floor
+        (2026-11-05, clips7) `tail_clearance`: the sway is cut per frame where the tail line
+        (below its root bone) comes within 0.9 x its rest distance (0.060 m) of a hind leg's
+        joint path; closest approach over the walk 0.0003 -> 0.036 m, edges 0.
+  - [x] Centaur walk swings the pike with the right arm: its head drops to near the floor
         ahead at 25% and rises above head height at 75% (3.5 m pike, three-quarter view). A
         held polearm may want a steadier arm in the walk.
-  - [ ] The centaur's -0.030 m tail end is by design (`DIP_MAX`) but sits on godot-dnd's
+        (2026-11-05, clips7) `arm_swing` from the loadout: pike shoulder swing x0.2, the hand
+        turned back so the grip keeps its idle direction: grip +Y over the walk 18.9 -> 0.0
+        degrees. Goblin scimitar 23.8 -> 11.9 (x0.5), bow 23.8 -> 0.0; merfolk swim spear
+        30.2 -> 2.9; unarmed walks unchanged.
+  - [x] The centaur's -0.030 m tail end is by design (`DIP_MAX`) but sits on godot-dnd's
         -0.03 WARN limit and starts there on idle frame 0. Either side can move by a
         millimetre (note, not a bug).
+        (2026-11-05, clips7) `TAIL_DIP` = `DIP_MAX` x 0.8: centaur lowest vertex -0.0239 m in
+        idle, walk, attack and hit, -0.024 in death.
 
 ### F. Props (2026-11-04)
 - [x] `tools/props.py` + `tools/blender_prop_qa.py`: all 32 props in `out/props/<id>/` (prop
