@@ -193,7 +193,12 @@ bone_18/bone_19's weights on the right thigh, and the arm bones ran along the ou
 arm. After: `hand_r`/`grip_r` 1.3/0.2 cm from the skin (5.5/8.0 before), 3.3/3.0 cm from the
 fist centre (10/12 before); bone_18/bone_19 own 197/108 vertices (0/0); edges stretched
 past 4x over the sword cut 175 -> 77, over `fly` 211 -> 223 (right side 129 -> 139, the arm
-now stays at the side while the wing beats; it used to fly up into the wing).
+now stays at the side while the wing beats; it used to fly up into the wing). The left chain
+(`bone_8`, `bone_9`, the mirror) got the same entry with `far` 0.5 (2026-11-04, Godot round 5:
+`grip_l` 11.2 cm off the skin): `grip_l`/`hand_l` 11.5/8.2 -> 2.7/2.4 cm from the skin,
+bone_8/bone_9 own 299/120 vertices (148/106); edges past 4x over `fly` 223 -> 217 (left
+84 -> 78), over the sword cut 77 -> 85 (left 7 -> 15). With `far` 0.3, as on the right, the
+left wing-arm seam tore more in `fly` (246, left 107).
 
 A successful `rig` or `anim` run drops that stage's entries from `manifest.errors` (which
 forge.py appends on every failure), so a fixed monster no longer reads as broken.
@@ -279,6 +284,52 @@ Body lift idle / move, before -> after: giant octopus 0.062 / 0.341 -> 0.341 / 0
 vertex 0.00 -> 0.28, swim 0.21); merfolk 0 / 0.18 -> 0.18 / 0.18 (swim pitches the body, so
 its lowest vertex is 0.43); giant eagle lowest vertex 0.00 / 0.32 -> 0.32 / 0.32; ghost and
 hunter shark already matched (0.18, 0.74).
+
+`match_move` takes the move clip's body height on its *first frame*: its lift plus its own
+bob at t=0. The octopus swim starts at the bottom of its bob (0.04 x height = 0.136 m below
+the lift), so the idle is held at 0.205 m, not 0.341: first-frame lowest vertex idle 0.212,
+swim 0.215 (was 0.348 / 0.215). It matches the body, not the lowest vertex, because a swim
+that pitches the body (merfolk: lowest vertex 0.66 on its first frame) would otherwise
+float the upright idle 0.25 m higher. Merfolk, ghost and shark keep 0.18 / 0.18 / 0.74.
+
+**Lifted one-shots** (`blender_clips.lifted_oneshot`). Every other clip of a monster with a
+lifted idle (attack_melee, attack_ranged, hit, ...; not walk, swim, fly) is held where the
+idle has the body on its first frame (`body_z_first` of the idle, measured after it is
+built; the idle is built first), ground mode `lift`, legs limp, and a legged flier keeps its
+fly clip's leg tuck. Death starts there and eases down (`Clip.start_lift`, over the clip up
+to `rest_from` - 0.15; over the first 0.3 when the death's own lift already starts higher,
+the ghost's) before the lying pose is set on the ground. First / last frame lowest vertex
+(m): octopus attack and hit 0.205 / 0.205 (were 0 / 0), death 0.205 / 0; merfolk
+attack_melee, attack_ranged, hit 0.18 / 0.18, death 0.18 / 0; ghost death starts at its idle
+body 0.18 (was 0.27, its own sag); shark unchanged (0.74, already all `lift`). Giant eagle,
+built in scratch on a copy of its rig: idle 0.357, attack and hit 0.362 / 0.362, death 0.362
+/ 0, body 0.467 in all four. Every report has `min_z_first` and `body_z_first`, lifted
+one-shots `lifted_m`, a lifted idle `idle_lift_m`.
+
+**Attack style per weapon** (`anim.wielded`, job `weapon_r`). The anim stage passes the
+prop the record holds in `hand_r`, picked as the viewer does (the first of `wields` whose
+`data/registry/props.json` `grip_socket` is `hand_r`), and `attack_melee` follows its
+category: `polearm` and `thrown` (spear, trident, pike, glaive, javelin) thrust
+(`attack_thrust`), everything else and an empty hand cuts (`attack_biped`, as before). The
+bow draw stays `attack_ranged`. The thrust is FK-aimed (`aim_arm`): from the relaxed or rest
+arm the hand draws back beside the waist with the elbow back, then drives forward until the
+arm is straight in front of the shoulder, holds, and recovers; the shaft (grip +Y) is kept on
+the line the fist travels, and the torso's wind-up and lean are taken out of the arm's
+directions so the shaft stays on line. Merfolk (spear): grip (0.28, 0.02, 1.51) ->
+(0.10, 0.59, 1.58) m, within ~10 degrees of the shaft; the spear tip is 1.74 m forward at the
+thrust against the body's front at 0.67, and ahead of the body in every frame. Same 30
+frames. Goblin (scimitar): cut and bow draw unchanged. The merfolk's `attack_ranged` (a
+throw) stays the overhand arc.
+
+**Arm relax** (`blender_clips.RELAXED`). The rest pose is the reference's pose, and an arm
+drawn raised (shoulder -> wrist rising more than `RAISED_DEG` 15 degrees; the merfolk's right
+arm: 39) carries its prop over the head in every clip that leaves it alone. Such an arm gets
+a base layer in idle, walk, swim, hit and the thrust's ends: upper arm `RELAX_DEG` (30)
+from the body, forearm forward, grip +Y forward and up (a spear held upright); death fades it
+out over its first half, so the fall ends as before. Merfolk idle grip z 1.87 -> 1.48 m.
+Arms that hang (goblin, harpy, ghost) or reach out sideways (the merfolk's left arm, 6
+degrees) are left alone. The cut and the throw are arm IK from the rest wrist, so they still
+start from the raised arm (merfolk `attack_ranged`).
 
 **Lift clips that would touch the ground.** `lift` keeps the body at one height, but a pose
 can still push a part through the floor (the ghost's hit tilts its robe train to -1.3 cm):

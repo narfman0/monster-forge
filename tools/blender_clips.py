@@ -268,6 +268,7 @@ class Clip:
         self.scale: dict[str, object] = {}          # bone -> fn(t) -> local scale Vector
         self.hover = HOVER                          # hover: lowest vertex this high, metres
         self.fit = None                             # {"set", "lo", "hi", "bone"}: see fit_angle()
+        self.start_lift = 0.0                       # rest: body raise at t=0, eased out (a lifted death)
 
     def turn(self, bone, axis: str, fn) -> None:
         if bone:
@@ -554,6 +555,14 @@ def build(clip: Clip) -> dict:
         if tail and clip.ground == "floor":
             clip.rot.setdefault(tail[0], []).append((TAIL_AXIS, lambda t: tail_up[round(t * clip.frames)]))
         sole = [min(z, 0.0) for z in rest_foot]
+        if clip.ground == "rest" and clip.start_lift:
+            # a lifted monster's death starts where its idle holds the body and eases down
+            # before the lying pose is set on the ground. A death that already sinks from
+            # higher up (the ghost's starts at 0.15 x height, its idle at 0.1) is pulled down
+            # to the idle only over its first 0.3, so the two descents do not make a bounce
+            end = 0.3 if clip.start_lift < 0 else max(0.1, clip.rest_from - 0.15)
+            corr = [clip.start_lift * (1 - smooth((f / clip.frames) / end)) for f in range(clip.frames + 1)]
+            key_root(clip, corr)
         for it in range(4):  # body height, tail and feet move each other a little; settle
             lows, loose, _ = sample(clip)
             corr = [a + b for a, b in zip(corr, correction(clip, lows, loose))]
@@ -589,8 +598,11 @@ def build(clip: Clip) -> dict:
         if a != act:
             bpy.data.actions.remove(a)
     lows, loose, pos = sample(clip)
+    scene.frame_set(1)
+    body_z = (world @ arm.pose.bones[root].head).z - by_name[root]["head"][2]  # root raise on the first frame
     rep = {"seconds": round(clip.frames / FPS, 2), "frames": clip.frames, "loop": clip.loop,
-           "min_z": round(float(lows.min()), 4), "min_z_last": round(float(lows[-1]), 4),
+           "min_z": round(float(lows.min()), 4), "min_z_first": round(float(lows[0]), 4),
+           "min_z_last": round(float(lows[-1]), 4), "body_z_first": round(float(body_z), 4),
            "body_raise_max": round(float(max(corr)), 4),
            "tail_raise_max_deg": round(max(tail_up), 2),
            "foot_raise_max": round(float(max(max(x) for x in fix)) if fix else 0.0, 4), **clip.info}
@@ -643,6 +655,7 @@ def walk(scale: float = 1.0) -> Clip:
 
     c.foot = offset
     c.lift = lambda t: Vector((0, 0, -drop * (CROUCH + BOB * (1 + math.cos(4 * math.pi * t)) / 2)))
+    relax_arms(c)
     for a in arms:
         leg = next((g for g in legs if g["side"] == a["side"]), None)
         p = leg["phase"] if leg else 0.0
@@ -666,6 +679,7 @@ def idle() -> Clip:
     c.turn_chain(neck[:-1], "Z", wave(8.0, 1, 0.1))
     c.turn_chain(neck[:-1], "X", wave(4.0, 2, 0.2))
     c.turn(skull, "Z", wave(5.0, 1, 0.15))
+    relax_arms(c)
     for a in arms:
         c.turn(a["upper"], "X", wave(3.0, 1, 0.3))
         c.turn(a["forearm"], "X", lambda t: 4.0 + 3.0 * math.sin(2 * math.pi * (t - 0.4)))
@@ -746,6 +760,7 @@ def hit() -> Clip:
     c = Clip("hit", 0.5, False)
     k = keys((0, 0), (0.18, 1), (1, 0))
     c.lift = lambda t: Vector((0, -0.03 * (height if job["upright"] else body_len) * k(t), -0.03 * drop * k(t)))
+    relax_arms(c)
     if job["upright"]:
         c.turn_chain(torso, "X", lambda t: 12 * k(t))
         for a in arms:
@@ -793,6 +808,7 @@ def death() -> Clip:
         c.tilt = lambda t: Quaternion(AXES["X"], math.radians(fall(t)))
         c.lift = lambda t: Vector((0, 0, -0.2 * drop * buckle(t) * (1 - smooth((t - 0.3) / 0.4))))
         c.turn_chain(torso, "X", keys((0, 0), (0.3, -12), (0.6, 4), (1, 4)))
+        relax_arms(c, keys((0, 1), (0.5, 0)))  # from the relaxed arm into the fall
         for a in arms:
             c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, keys((0, 0), (0.3, -10), (0.75, -70), (1, -70))(t)))
             c.turn(a["upper"], "X", keys((0, 0), (0.3, 20), (0.75, 40), (1, 40)))
@@ -888,9 +904,7 @@ def aim_arm(c: Clip, a: dict, upper, fore, w, up=None) -> None:
     vec = lambda n: Vector(by_name[n]["tail"]) - Vector(by_name[n]["head"])
     ru, rf = vec(a["upper"]), vec(a["forearm"])
     hand = a["hand"]
-    grip = next((k for k in kids.get(hand, []) if k.startswith("grip_")), hand) if hand else None
-    rh = arm.data.bones[grip].matrix_local.to_3x3() @ Vector((0, 1, 0)) if grip else None
-    rh = world.to_3x3() @ rh if rh is not None else None
+    rh = grip_dir(a)
 
     def solve(t):
         qu = ru.rotation_difference(upper(t))
@@ -907,6 +921,115 @@ def aim_arm(c: Clip, a: dict, upper, fore, w, up=None) -> None:
     c.rot.setdefault(a["forearm"], []).append((None, lambda t: solve(t)[1]))
     if up is not None and hand:
         c.rot.setdefault(hand, []).append((None, lambda t: solve(t)[2]))
+
+
+def grip_dir(a: dict) -> Vector | None:
+    """World direction of the grip bone's +Y at rest (the prop's shaft; the hand's own +Y
+    when there is no grip bone), None for an arm that ends at the forearm."""
+    hand = a["hand"]
+    grip = next((k for k in kids.get(hand, []) if k.startswith("grip_")), hand) if hand else None
+    return (world.to_3x3() @ (arm.data.bones[grip].matrix_local.to_3x3() @ Vector((0, 1, 0)))).normalized() \
+        if grip else None
+
+
+def rest_dirs(a: dict) -> tuple:
+    """(upper arm, forearm, grip +Y) world directions in the rest pose."""
+    vec = lambda n: (Vector(by_name[n]["tail"]) - Vector(by_name[n]["head"])).normalized()
+    return vec(a["upper"]), vec(a["forearm"]), grip_dir(a)
+
+
+# Arm relax: SkinTokens keeps the reference's pose as the rest pose, and an arm drawn raised
+# (the merfolk's spear arm: shoulder -> wrist 39 degrees up) then holds its prop over the
+# head in every clip that leaves the arm alone. Such an arm (shoulder -> wrist rising more
+# than RAISED_DEG) gets a base layer in the idle, move, hit and death clips: the upper arm
+# down at RELAX_DEG from the body, the forearm forward, the grip's +Y forward and up (a
+# spear held upright, a blade at the ready). The melee attack starts and ends there too.
+# Arms that hang or reach out sideways at rest are left as they are.
+RAISED_DEG = 15.0
+RELAX_DEG = 30.0
+
+
+def arm_rise(a: dict) -> float:
+    d = Vector(by_name[a["forearm"]]["tail"]) - Vector(by_name[a["upper"]]["head"])
+    return math.degrees(math.atan2(d.z, math.hypot(d.x, d.y)))
+
+
+def relaxed_dirs(a: dict) -> tuple:
+    sx = 1 if a["side"] == "r" else -1
+    r = math.radians(RELAX_DEG)
+    return (Vector((sx * math.sin(r), 0.0, -math.cos(r))), Vector((0.1 * sx, 1.0, 0.15)).normalized(),
+            Vector((0.0, 0.4, 0.92)).normalized())
+
+
+RELAXED = {a["side"]: relaxed_dirs(a) for a in arms if arm_rise(a) > RAISED_DEG}
+
+
+def relax_arms(c: Clip, w=lambda t: 1.0) -> None:
+    """The arm-relax base layer (above) on every raised arm; `w` fades it (death)."""
+    for a in arms:
+        if a["side"] in RELAXED:
+            u, f, g = RELAXED[a["side"]]
+            aim_arm(c, a, lambda t, u=u: u, lambda t, f=f: f, w, up=lambda t, g=g: g)
+    if RELAXED:
+        c.info = {**c.info, "arms_relaxed": sorted(RELAXED)}
+
+
+# Attack style from the prop in the right hand (job weapon_r: anim.wielded(), the first of
+# the record's wields on hand_r, as the viewer shows it): a polearm (spear, trident, pike,
+# glaive) or a javelin thrusts, everything else, blades, axes, clubs and an empty hand, cuts.
+WEAPON = job.get("weapon_r") or {}
+THRUST_CATEGORIES = {"polearm", "thrown"}
+STYLE = "thrust" if WEAPON.get("category") in THRUST_CATEGORIES else "cut"
+
+
+def attack_thrust() -> Clip:
+    """A spear thrust from the right hand (prop at grip_r, shaft along its +Y), FK-aimed
+    (aim_arm): from the relaxed (or rest) arm the hand draws back to the side of the waist
+    with the elbow back and the shaft levelled at the target, drives forward until the arm
+    is straight in front of the shoulder, holds, and recovers. The shaft points along the
+    line the fist travels, so the point leads and the grip slides along the prop's +Y;
+    the torso winds back, then turns and leans into the thrust (its turn is taken out of
+    the arm's directions so the shaft stays on line), the body steps in."""
+    c = Clip("attack_melee", 1.0, False)
+    a = arm_by_side.get("r") or arms[0]
+    sx = 1 if a["side"] == "r" else -1
+    sh = Vector(by_name[a["upper"]]["head"])
+    lu = (Vector(by_name[a["upper"]]["tail"]) - sh).length
+    lf = (Vector(by_name[a["forearm"]]["tail"]) - Vector(by_name[a["forearm"]]["head"])).length
+    u0, f0, g0 = RELAXED.get(a["side"]) or rest_dirs(a)
+    u1, f1 = Vector((0.35 * sx, -0.6, -0.5)).normalized(), Vector((0.05 * sx, 1.0, 0.05)).normalized()
+    u2, f2 = Vector((0.12 * sx, 1.0, -0.1)).normalized(), Vector((0.02 * sx, 1.0, -0.02)).normalized()
+    line = ((sh + lu * u2 + lf * f2) - (sh + lu * u1 + lf * f1)).normalized()  # the fist's travel
+    twist = keys((0, 0), (0.3, -sx * 12), (0.48, sx * 15), (0.62, sx * 15), (1, 0))
+    lean = keys((0, 0), (0.3, 4), (0.48, -8), (0.62, -8), (1, 0))
+    c.turn_chain(torso, "Z", twist)
+    c.turn_chain(torso, "X", lean)
+    undo = lambda t: (Quaternion(AXES["X"], math.radians(lean(t))) @ Quaternion(AXES["Z"], math.radians(twist(t)))).inverted()
+    T = (0, 0.3, 0.48, 0.62, 1.0)
+    uk = vkeys(*zip(T, (u0, u1, u2, u2, u0)))
+    fk = vkeys(*zip(T, (f0, f1, f2, f2, f0)))
+    gk = vkeys(*zip(T, (g0, line, line, line, g0))) if g0 is not None else None
+    aim_arm(c, a, lambda t: (undo(t) @ uk(t)).normalized(), lambda t: (undo(t) @ fk(t)).normalized(), lambda t: 1.0,
+            up=(lambda t: (undo(t) @ gk(t)).normalized()) if gk else None)
+    o = arm_by_side.get("l" if a["side"] == "r" else "r")
+    if o:
+        c.turn(o["upper"], "X", keys((0, 0), (0.3, 10), (0.48, -15), (0.62, -15), (1, 0)))
+    step = keys((0, 0), (0.3, -0.4), (0.48, 1), (0.62, 1), (1, 0))
+    c.lift = lambda t: Vector((0, 0.05 * height * step(t), -drop * keys((0, 0), (0.3, 0.03), (0.5, 0.05), (1, 0))(t)))
+    c.info = {"arm": a["chain"], "weapon_socket": "hand_r", "style": "thrust", "weapon": WEAPON.get("id"),
+              **({"arms_relaxed": sorted(RELAXED)} if RELAXED else {})}
+    return c
+
+
+def attack_melee_armed() -> Clip:
+    """The right-hand attack in the style of the wielded prop (above)."""
+    if STYLE == "thrust":
+        return attack_thrust()
+    c = attack_biped()
+    c.info["style"] = "cut"
+    if WEAPON.get("id"):
+        c.info["weapon"] = WEAPON["id"]
+    return c
 
 
 def attack_ranged() -> Clip:
@@ -941,7 +1064,7 @@ def plan_clips() -> dict:
     """Clip name -> maker(scale); scale < 1 tones down the body motion (see the retry)."""
     sets = {"walk": walk, "idle": lambda s: idle(), "hit": lambda s: hit(), "death": lambda s: death()}
     if arms:
-        sets["attack_melee"] = lambda s: attack_biped()
+        sets["attack_melee"] = lambda s: attack_melee_armed()
     elif job["sprawl"]:
         sets["attack_melee"] = lambda s: attack_spider()
     elif neck:
@@ -1135,6 +1258,7 @@ def idle_float() -> Clip:
     c.turn_chain(torso, "X", wave(3.0, 1, 0.1))
     c.turn_chain(neck[:-1] or neck, "Z", wave(8.0, 1, 0.1))
     c.turn(skull, "X", wave(4.0, 2, 0.2))
+    relax_arms(c)
     for a in arms:
         c.turn(a["upper"], "X", wave(5.0, 1, 0.3))
         c.turn(a["forearm"], "X", lambda t: 4.0 + 4.0 * math.sin(2 * math.pi * (t - 0.4)))
@@ -1149,6 +1273,7 @@ def fly_float() -> Clip:
     c.lift = lambda t: Vector((0, 0, bob * math.sin(2 * math.pi * t)))
     c.tilt = lambda t: Quaternion(AXES["X"], math.radians(-14 + 2 * math.sin(2 * math.pi * (t - 0.2))))
     c.turn_chain(neck, "X", lambda t: 10.0)
+    relax_arms(c)
     for a in arms:
         c.turn(a["upper"], "X", lambda t: -15 + 4 * math.sin(2 * math.pi * (t - 0.3)))
     hem_sway(c, 6.0, back=12.0)
@@ -1180,6 +1305,7 @@ def hit_float() -> Clip:
     c.tilt = lambda t: Quaternion(AXES["X"], math.radians(10 * k(t)))
     c.turn_chain(torso, "X", lambda t: 10 * k(t))
     c.turn_chain(neck, "X", lambda t: 12 * k(t))
+    relax_arms(c)
     for a in arms:
         c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, -15 * k(t)))
         c.turn(a["forearm"], "X", lambda t: 20 * k(t))
@@ -1199,6 +1325,7 @@ def death_float() -> Clip:
     c.lift = lambda t: Vector((0, 0, 0.15 * height * (1 - smooth(t / 0.3)) - 0.05 * height * smooth((t - 0.2) / 0.4)))
     c.turn_chain(torso, "X", keys((0, 0), (0.3, -15), (0.7, 5), (1, 5)))
     c.turn_chain(neck, "X", keys((0, 0), (0.3, -20), (0.8, 15), (1, 15)))
+    relax_arms(c, keys((0, 1), (0.5, 0)))
     for a in arms:
         c.turn(a["upper"], "X", keys((0, 0), (0.3, 30), (0.8, 60), (1, 60)))
         c.turn(a["forearm"], "X", keys((0, 0), (0.4, 20), (1, 20)))
@@ -1619,6 +1746,7 @@ def idle_naga() -> Clip:
     tail_kick(c, 4.0, "Z", 0.6)
     c.turn_chain(torso, "X", wave(2.0, 1, 0.0))
     c.turn_chain(neck, "Z", wave(6.0, 1, 0.1))
+    relax_arms(c)
     for a in arms:
         c.turn(a["upper"], "X", wave(4.0, 1, 0.3))
         c.turn(a["forearm"], "X", lambda t: 5 + 4 * math.sin(2 * math.pi * (t - 0.4)))
@@ -1633,6 +1761,7 @@ def swim_naga() -> Clip:
     c.tilt = lambda t: Quaternion(AXES["X"], math.radians(-55 + 3 * math.sin(2 * math.pi * t)))
     tail_kick(c, 18.0, "X", 0.8)
     c.turn_chain(neck, "X", lambda t: 30.0)
+    relax_arms(c)
     for a in arms:
         c.turn(a["upper"], "X", lambda t: -30 + 15 * math.sin(2 * math.pi * (t - 0.2)))
         c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, 20.0))
@@ -1644,13 +1773,14 @@ def crawl_naga() -> Clip:
     c = naga_clip("walk", 1.6, True)
     tail_kick(c, 22.0, "Z", 1.2)
     c.turn_chain(torso, "Z", wave(5.0, 1, 0.5))
+    relax_arms(c)
     for a in arms:
         c.turn(a["upper"], "X", lambda t, s=a["side"]: (1 if s == "r" else -1) * 10 * math.sin(2 * math.pi * t))
     return c
 
 
 def attack_naga(name: str = "attack_melee") -> Clip:
-    c = attack_biped()
+    c = attack_melee_armed() if name == "attack_melee" else attack_biped()  # attack_ranged: an overhand throw
     c.name, c.ground = name, "contact"
     tail_kick(c, lambda t: 8 * keys((0, 0), (0.3, 1), (0.6, -1), (1, 0))(t), "Z", 0.5)
     return c
@@ -1661,6 +1791,7 @@ def hit_naga() -> Clip:
     k = keys((0, 0), (0.18, 1), (1, 0))
     c.turn_chain(torso, "X", lambda t: 14 * k(t))
     c.turn_chain(neck, "X", lambda t: 12 * k(t))
+    relax_arms(c)
     for a in arms:
         c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, -18 * k(t)))
         c.turn(a["forearm"], "X", lambda t: 25 * k(t))
@@ -1676,6 +1807,7 @@ def death_naga() -> Clip:
     fall = lambda t: 85 * ease_in((t - 0.25) / 0.5) - 5 * math.sin(math.pi * smooth((t - 0.75) / 0.15))
     c.tilt = lambda t: Quaternion(AXES["Y"], math.radians(fall(t)))
     c.turn_chain(torso, "X", keys((0, 0), (0.3, -12), (1, 6)))
+    relax_arms(c, keys((0, 1), (0.5, 0)))  # from the relaxed arm into the fall
     for a in arms:
         # the right arm (underneath) swings up past the head, out of the ground; the left
         # one (on top) drops against the side, which after the roll lies along the body
@@ -1803,27 +1935,77 @@ def lifted_idle(base):
         if v == "match_move":
             m = mv(1.0)  # its settings only: nothing is keyed until build()
             c.ground, c.hover = m.ground, m.hover
+            if m.ground == "lift":
+                # the body where the move clip has it on its first frame, its own bob
+                # included: the octopus swim starts at the bottom of its bob (0.04 x height
+                # below its lift), so a body-lift match left the swim's first frame 0.13 m
+                # lower than the idle
+                c.hover = m.hover + m.lift(0.0).z - c.lift(0.0).z
         else:
             c.ground, c.hover = "lift", float(v)
         c.ik = lambda g, t: 0.0
-        c.info = {**c.info, "idle_lift": v}
+        c.info = {**c.info, "idle_lift": v, "idle_lift_m": round(c.hover, 4)}
         return c
     return make
 
 
-if job.get("idle_lift") not in (None, False, 0) and "idle" in makers:
+# One-shots of a lifted monster: attack, hit (and breath) are held where the idle holds the
+# body on its first frame (IDLE_Z, measured once the idle is built), so a one-shot neither
+# drops from the idle nor jumps back to it; death starts there and eases down onto the
+# ground. Legs go limp (no IK: there is no ground under them); a legged flier keeps its
+# fly clip's leg tuck, which its hovering idle has (faded out over the fall in death).
+MOVE_CLIPS = ("walk", "swim", "fly")
+IDLE_Z: dict = {}
+
+
+def leg_tuck(c: Clip, w=lambda t: 1.0) -> None:
+    for g in legs:
+        if job["upright"]:
+            c.turn(g["chain"][0], "X", lambda t: 15 * w(t))
+            c.turn(g["chain"][1], "X", lambda t: -35 * w(t))
+        else:
+            c.turn(g["chain"][0], "X", lambda t, k=20 if g in front else -25: k * w(t))
+
+
+def lifted_oneshot(base):
+    def make(s):
+        c = base(s)
+        z = IDLE_Z["z"] - c.lift(0.0).z
+        c.ik = lambda g, t: 0.0
+        if c.ground == "rest":
+            c.start_lift = z if abs(z) > 1e-3 else 0.0  # the shark's death already starts at its lift
+            fade = lambda t: 1 - smooth(t / 0.5)
+        else:
+            if c.ground != "lift" or abs(c.hover - z) > 1e-3:  # ghost, shark: already lifted there
+                c.ground, c.hover = "lift", z
+            fade = lambda t: 1.0
+        if legs and wings and job.get("move_clip") == "fly":
+            leg_tuck(c, fade)
+        c.info = {**c.info, "lifted_m": round(IDLE_Z["z"], 4)}
+        return c
+    return make
+
+
+LIFTED = job.get("idle_lift") not in (None, False, 0) and "idle" in makers and "idle" in job["clips"]
+if LIFTED:
     makers["idle"] = lifted_idle(makers["idle"])
+    for _n in list(makers):
+        if _n != "idle" and _n not in MOVE_CLIPS:
+            makers[_n] = lifted_oneshot(makers[_n])
 report = {"height": round(height, 3), "drop": round(drop, 3), "root": root, "head": head, "neck": neck,
           "spine": spine, "tail": tail, "arms": {a["side"]: a["chain"] for a in arms},
           "wings": {w["side"]: w["chain"] for w in wings}, "legs": [g["chain"] for g in legs],
           "clips": {}, "skipped": [], **({"body": BODY["path"]} if BODY else {}),
           **({"tentacles": TENTS} if TENTS else {}), **({"body": STALK, "limbs": LIMBS} if STALK else {}),
           **({"body": STACK} if STACK and not STALK else {}), **({"tail": FISHTAIL} if FISHTAIL else {})}
-for name in job["clips"]:
+order = sorted(job["clips"], key=lambda n: n != "idle") if LIFTED else job["clips"]  # the idle sets IDLE_Z
+for name in order:
     if name not in makers:
         report["skipped"].append(name)
         continue
     report["clips"][name] = build(makers[name](1.0))
+    if name == "idle" and LIFTED:
+        IDLE_Z["z"] = report["clips"]["idle"]["body_z_first"]
     if name in ("walk", "attack_melee"):  # a part skinned to a leg (owlbear: tail fan on a hind
         for k in (0.8, 0.65, 0.5):  # shin) sweeping through the ground, or feet that cannot
             r = report["clips"][name]  # reach it with the body raised: smaller steps
@@ -1833,4 +2015,5 @@ for name in job["clips"]:
     print(f"clip {name}: {report['clips'][name]}")
 with open(job["report"], "w") as f:
     json.dump(report, f, indent=1)
+report["clips"] = {n: report["clips"][n] for n in job["clips"] if n in report["clips"]}
 print("_OK")

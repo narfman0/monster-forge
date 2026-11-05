@@ -146,6 +146,14 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       `ground_feet`, H). All 15 pilots re-animated: identical clip and frame counts; only
       ghost, giant-eagle, violet-fungus, giant-octopus and merfolk change numbers (gate in
       the anim3 report).
+- [x] (2026-11-04, anim4) Round 5 fixes (E): one-shots of a lifted monster held at the idle
+      height (death eases down), `match_move` matches the move clip's first-frame body,
+      attack style per wielded prop category (spear thrust), arm relax for raised rest arms,
+      harpy left-arm `rig_reweight`. Gate on 13 pilots (constrictor-snake has no rig at the
+      moment: another stream is re-making its mesh; giant-eagle not run): identical clip and
+      frame counts, numbers change only on giant-octopus and merfolk-skirmisher (lifted
+      one-shots, octopus idle 0.341 -> 0.205); ghost death changes only its first 0.3 (starts
+      at its idle height), harpy only its left arm.
 - [ ] UniMate text-to-motion for attacks (own uv venv under tools/).
 - [x] Bake to actions -> one armature-only `anims/<clip>.glb` per clip (viewer/README.md).
 
@@ -265,21 +273,51 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       exactly one mesh, so the new bows would not load (now stave + optional `string`);
       `prop_r=`/`prop_l=`/`bowstring=` in `lab_screenshot.gd`; the check attaches a longsword
       to unarmed rigs with `grip_r` and prints each death's end pose. New findings, open:
-  - [ ] Lifted idle vs grounded one-shots: eagle, octopus and merfolk attack_melee,
+  - [x] Lifted idle vs grounded one-shots: eagle, octopus and merfolk attack_melee,
         attack_ranged, hit and death all start with the lowest vertex at 0.000 while idle
         hovers (0.357 / 0.348 / 0.180). Every settle back to idle lifts them and every
         one-shot drops them: largest vertex jump idle -> one-shot frame 0 is eagle 1.01-1.03 m,
         octopus 0.55, merfolk 0.19. Round 4 had them all on the floor. Lift the one-shots by
         the same `idle_lift` (death could still end on the floor), or ground the idle.
-  - [ ] Octopus idle vs swim still differ by 0.13 m at the lowest vertex (0.348 vs 0.215):
+        (2026-11-04, anim4) Every clip of a lifted monster but the move clips is held at the
+        idle's first-frame body height (`blender_clips.lifted_oneshot`, docs/rig-anim.md
+        "Idle height"); death starts there and eases onto the ground. First / last frame
+        lowest vertex: octopus attack, hit 0.000 / 0.000 -> 0.205 / 0.205, death 0.000 ->
+        0.205 / 0.000 (idle 0.212); merfolk attack_melee, attack_ranged, hit 0.180 / 0.180,
+        death 0.180 / 0.000 (idle 0.180); ghost death started 0.09 m above its idle, now at
+        it (body 0.27 -> 0.18). Eagle: not re-run in out/ (another stream); a scratch run on
+        a copy of its rig gives idle 0.357, attack and hit 0.362 / 0.362, death 0.362 /
+        0.000, all at body 0.467, same frame counts. Re-check in Godot.
+  - [x] Octopus idle vs swim still differ by 0.13 m at the lowest vertex (0.348 vs 0.215):
         the body lift matches, the tentacles hang lower in swim.
-  - [ ] Harpy left arm: `grip_l` 11.2 cm and `hand_l` 8.2 cm from the skin, nothing within
+        (2026-11-04, anim4) Not the tentacles: the swim's bob starts at its bottom (-0.04 x
+        height = -0.136 m). `match_move` now matches the move clip's first-frame body
+        height (lift + its bob at t=0): idle body 0.341 -> 0.205, first-frame lowest vertex
+        idle 0.212 / swim 0.215 (was 0.348 / 0.215). Both loops clean (delta 0). Matching
+        the lowest vertex instead would lift the merfolk's idle 0.25 m (its swim pitches the
+        body); merfolk, ghost, shark unchanged.
+  - [x] Harpy left arm: `grip_l` 11.2 cm and `hand_l` 8.2 cm from the skin, nothing within
         10 cm of the grip (unchanged since round 4). The right-arm `rig_reweight` fix is
         needed on the left chain too before the harpy holds anything left-handed.
-  - [ ] Merfolk spear attack is a sword cut: overhead, then the point chops down to the floor
+        (2026-11-04, anim4) Left chain `bone_8`/`bone_9` added to the override (`far` 0.5):
+        `grip_l`/`hand_l` 11.5/8.2 -> 2.7/2.4 cm from the skin (Blender), bone_8/bone_9 own
+        299/120 vertices (148/106, much of it on the wing). Edges past 4x: fly 223 -> 217
+        (left 84 -> 78), sword cut 77 -> 85 (left 7 -> 15). With the default `far` 0.3 the
+        fly went to 246 (left 107). Right side unchanged. Godot not re-synced.
+  - [x] Merfolk spear attack is a sword cut: overhead, then the point chops down to the floor
         in front (50%: tip (-0.35, -0.93, -0.11)) and sweeps across the body (75%). A spear
         wants a forward thrust (a per-category attack style). Idle holds the spear level above
         the head (grip at y 1.87 m), because the rest pose has the right arm raised.
+        (2026-11-04, anim4) Attack style from the hand_r prop's category (polearm, thrown:
+        thrust; else cut): the merfolk's attack_melee is a thrust, 30 frames as before. Grip
+        drawn back to (0.28, 0.02, 1.51), driven to (0.10, 0.59, 1.58) at the thrust, moving
+        within ~10 degrees of the shaft's +Y; spear tip 1.74 m forward vs the body's front at 0.67
+        (ahead in every frame). Goblin cut and bow draw unchanged (frames and numbers). Arm
+        relax: a raised rest arm is lowered (upper arm 30 degrees from the body, spear
+        upright) in idle, swim, hit and the attack's ends; death fades it out. Idle grip
+        z 1.87 -> 1.48 m (lift included). Still open: attack_ranged (the throw) starts from
+        the raised rest arm, so idle -> attack_ranged raises the arm in one frame; the left
+        arm, held out sideways at rest, is left as it is.
   - [ ] Bow string: straight, 0.18 m behind the grip (longbow, 1.8 m wielder), so in the goblin's
         attack_ranged it passes through the left forearm and shoulder. Fine for a static
         string; a drawn string needs the game to replace it.
