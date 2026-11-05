@@ -72,7 +72,7 @@ Core set for every plan: **idle, move, attack1, (attack2/cast), hit, death**. Tu
 | Aquatic (sharks, kraken) | Rigify shark; tentacles as chains | Procedural sine swim; Truebones fish; UniMate marine | |
 | Insectoid / multi-limb (ankheg, spiders, 8-limb) | SkinTokens; verify leg count | Spider Walker (Blender) or Godot IK gait, baked; attack from UniMate | Gait from IK; hand-key attack poses |
 | Amorphous / ooze | 3 to 5 bone blob, or no skeleton | Shape keys or AnimateAnyMesh vertex anim → bake to blendshapes; or shader wobble | Simplest done in shader |
-| Floating / no-limb (beholder, will-o-wisp) | Root plus few bones (eyestalks as chains) | Procedural bob/rotate/scale; eyestalks via `ChainIK3D` noise | No ML needed |
+| Floating / no-limb (eye tyrant, will-o-wisp) | Root plus few bones (eyestalks as chains) | Procedural bob/rotate/scale; eyestalks via `ChainIK3D` noise | No ML needed |
 | Swarm | No per-creature rig | Godot particles or MultiMesh of a 1 to 2 bone critter | Death = particles disperse |
 | Plant / object-like (shambling mound, mimic) | SkinTokens (handles objects); or 2 to 4 bones | UniMate "object" prompts; procedural sway | |
 

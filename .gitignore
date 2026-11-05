@@ -9,5 +9,8 @@ __pycache__/
 !workflows/pose/*.png
 tools/skintokens/
 
-# MM-2024 stubs: WotC IP derived locally from 5etools; regenerate with tools/import_names.py
+# Non-SRD sources (WotC IP) live in the separate monster-forge-nonsrd checkout
+# (tools/sources.py). tools/import_names.py leaves a local registry copy and an overrides
+# symlink here until forge.py/overrides.py resolve through tools/sources.py.
 data/registry/mm-2024.json
+data/overrides/mm-2024

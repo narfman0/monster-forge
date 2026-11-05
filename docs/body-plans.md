@@ -25,32 +25,45 @@ below 1.0 only where the anatomy is genuinely ambiguous or depictions disagree.
 
 ### Per-source curation layout
 
-`body_plan_overrides.json` and `visual_profiles.json` are keyed by slug. Their
-flat top-level slugs are SRD 5.2.1 (the original layout, unchanged); every other
-source goes under a `sources` key:
+This repo is public and holds only SRD 5.2.1. The four curation files in `data/`
+(`body_plan_overrides.json`, `body_plan_reviewed.json`, `equipment.json`,
+`visual_profiles.json`) are SRD-only: flat top-level slugs in the overrides and
+visual profiles, the `"srd-5.2.1"` key in the reviewed list and in
+`equipment.json["monsters"]`.
 
-```json
-{
- "aboleth": {"body_plan": "tentacled", "confidence": 0.85},
- "...": {},
- "sources": {
-  "mm-2024": {
-   "beholder": {"body_plan": "floating", "confidence": 1.0, "rig_template": "custom.eye_tyrant"}
-  }
- }
-}
+Every other source (WotC IP outside the SRD, personal use only) lives in a
+separate private checkout, `$MONSTER_FORGE_EXTRA` or `../monster-forge-nonsrd`
+next to this repo, with the same four files per source:
+
+```
+monster-forge-nonsrd/
+  registry/<source>.json
+  curation/<source>/body_plan_overrides.json   {slug: entry}
+  curation/<source>/body_plan_reviewed.json    {"<source>": [slug, ...]}
+  curation/<source>/equipment.json             {"props": {...}, "monsters": {"<source>": {...}}}
+  curation/<source>/visual_profiles.json       {slug: entry}
+  overrides/<source>/<id>.json
 ```
 
-`build_registry.load_curation(name, source)` returns one source's table (a
-`sources["srd-5.2.1"]` block, if one is ever added, merges into the flat keys;
-keys starting with `_` are comments). `body_plan_reviewed.json` and
-`equipment.json["monsters"]` were already keyed by source id. Each builder
-validates only its own source: `build_registry.py` (SRD) and
-`import_names.py` (MM-2024) fail on unknown slugs, bad plans, overlap between
-overrides and the reviewed list, and props without a spec. An MM-2024 visual
-entry may hold only `scale_m`; its prompt description then stays the template.
-Per-monster pipeline overrides were per source from the start
-(`data/overrides/<source>/<id>.json`).
+`tools/sources.py` resolves paths: `registry_path(source)`,
+`curation_path(source, name)` and `overrides_dir(source)` give the local `data/`
+path for `srd-5.2.1` and the extra checkout's path for anything else, and fail
+with a message naming `MONSTER_FORGE_EXTRA` when neither exists.
+`build_registry.load_curation(name, source)`, `load_reviewed(source)` and
+`load_equipment(source)` read one source through it (keys starting with `_` are
+comments). A source's `equipment.json` `props` add to `data/equipment.json`'s
+(an id in both fails). The SRD loader still merges an optional
+`sources["srd-5.2.1"]` block into the flat keys, and fails if a `sources` block
+or a key for any other source appears in a `data/` curation file, so non-SRD
+entries cannot creep back in.
+
+Each builder validates only its own source: `build_registry.py` (SRD) and
+`tools/import_names.py` (non-SRD, writes into the extra checkout) fail on
+unknown slugs, bad plans, overlap between overrides and the reviewed list, and
+props without a spec. A non-SRD visual entry may hold only `scale_m`; its prompt
+description then stays the template. Per-monster pipeline overrides were per
+source from the start (`data/overrides/<source>/<id>.json` for the SRD). The
+non-SRD counts and edge cases are in that repo's `docs/body-plans.md`.
 
 ## The enum
 
@@ -65,13 +78,13 @@ Per-monster pipeline overrides were per source from the start
 | `aquatic` | Swims, no walking legs: fish, sharks, whales, seahorses, flipper-limbed marine reptiles. | `rigify.shark` | `custom.flipper` (plesiosaurus, archelon: torso + 4 flipper chains + neck), `custom.spine_chain` (seahorses) |
 | `insectoid` | Six or more walking legs: insects, arachnids, crustaceans, myriapods, and the eight-legged basilisk. | `custom.hexapod` | `custom.arachnid` (8 legs, spiders and scorpions; scorpions add tail chain), `custom.decapod` (crabs, chuul: 8 legs + 2 claws), `custom.myriapod` (centipede, remorhaz: repeated segment+leg-pair module), `custom.hexapod_winged`, `custom.multileg_reptile` (basilisk) |
 | `amorphous` | No fixed skeleton. Oozes, gibbering mouther, mimic (chest form + pseudopods), lemure. | `custom.blob` (lattice / a few soft bones + shape keys) | `custom.blob_torso` (lemure: blob + humanoid head/arms) |
-| `floating` | Hovers with no locomotor limbs. Ghosts, specters, wraiths, will-o'-wisp, air/fire/water elementals, djinni, invisible stalker, cloaker. | `custom.ghost` (human upper body + tapering tail chain, no legs) | `custom.elemental_column` (vortex column + arms), `custom.wisp` (single root + orbiting glow bones; MM flameskull, demilich, gas spore), `custom.membrane` (cloaker: bone grid), `custom.eye_tyrant` (MM beholder family: sphere root + jaw + one short chain per eyestalk) |
+| `floating` | Hovers with no locomotor limbs. Ghosts, specters, wraiths, will-o'-wisp, air/fire/water elementals, djinni, invisible stalker, cloaker. | `custom.ghost` (human upper body + tapering tail chain, no legs) | `custom.elemental_column` (vortex column + arms), `custom.wisp` (single root + orbiting glow bones: floating skulls, spore balls), `custom.membrane` (cloaker: bone grid), `custom.eye_tyrant` (sphere root + jaw + one short chain per eyestalk) |
 | `swarm` | A swarm stat block. The asset is **one** tiny unit model plus instancing/boids at runtime. | `custom.swarm` (unit uses its own plan's rig; the swarm is a particle/instance system) | |
 | `plant_object` | Stationary or nearly stationary plants, animated objects, body parts. Shrieker, violet fungus, awakened shrub and tree, flying sword, rug of smothering, troll limb. | `custom.rigid_prop` (one root bone) | `custom.stalk` (fungi: stalk chain + tendrils), `custom.tree_roots` (trunk + branch chains + root legs), `custom.cloth_grid` (rug), `custom.limb_chain` (troll limb) |
 | `centauroid` | A humanoid torso where the head would be, mounted on a non-humanoid multi-legged lower body. Centaur, drider (spider lower body), lamia (lion lower body). | `custom.centaur` (Rigify horse + Basic Human spine/arms/head from the withers) | `custom.drider` (arachnid + human torso) |
 | `merfolk_naga` | A humanoid torso on a legless serpent or fish tail. Merfolk, merrow, marilith (six arms), salamander. Full-snake nagas with only a human face are `serpentine`. | `custom.naga` (Basic Human upper body + spline-IK tail chain) | |
 | `tentacled` | Tentacles are the main limbs for movement or attack. Octopuses, kraken, roper, otyugh, aboleth, darkmantle. | `custom.tentacle_hub` (body root + N tentacle chains with spline IK) | |
-| `radial` | Radially symmetric body with limbs arranged around a central axis. Xorn (3 legs, 3 arms, top mouth). Kept separate because no mirrored rig works. | `custom.radial_tripod` | `custom.radial_pentapod` (MM modron pentadrone: 5 legs + 5 arms) |
+| `radial` | Radially symmetric body with limbs arranged around a central axis. Xorn (3 legs, 3 arms, top mouth). Kept separate because no mirrored rig works. | `custom.radial_tripod` | `custom.radial_pentapod` (5 legs + 5 arms) |
 
 ### Edge-case decisions
 
@@ -98,7 +111,7 @@ Per-monster pipeline overrides were per source from the start
   share the ghost rig.
 - **Lycanthropes** are modelled in hybrid form (`biped`). Beast forms reuse
   the matching beast asset.
-- **Owlbear, displacer-beast-likes, hydra** are `quadruped`. Extra heads,
+- **Owlbear, six-legged cats, hydra** are `quadruped`. Extra heads,
   tentacles or necks are rig add-ons, not a different plan.
 - **Ape / giant ape** are `biped` (knuckle-walker on a human rig with long
   arms). **Baboon** is `quadruped`. Both are 0.7-0.8.
@@ -141,65 +154,6 @@ with 1-7 uses each.
 `build_registry.py` prints these counts every time it runs. Update this table
 when they change.
 
-## MM-2024 counts (personal use only)
-
-All 173 Monster Manual 2024 records not in the SRD (`data/registry/mm-2024.json`,
-generated locally and git-ignored) are curated under `sources["mm-2024"]`: 92
-overrides and 77 reviewed rule results. Four stay rule guesses at 0.5 because
-their shape is not known well enough: `empyrean-iota`, `graveyard-revenant`,
-`haunting-revenant` (a haunted place), `violet-fungus-necrohulk`.
-
-| body_plan | before review | after |
-|---|---:|---:|
-| biped | 128 | 101 |
-| winged_biped | 24 | 13 |
-| floating | 8 | 12 |
-| quadruped | 0 | 6 |
-| winged_quadruped | 4 | 6 |
-| serpentine | 2 | 6 |
-| plant_object | 0 | 6 |
-| swarm | 4 | 4 |
-| merfolk_naga | 0 | 4 |
-| amorphous | 2 | 3 |
-| avian | 0 | 3 |
-| insectoid | 0 | 3 |
-| tentacled | 0 | 3 |
-| radial | 0 | 2 |
-| centauroid | 0 | 1 |
-| aquatic | 1 | 0 |
-| **total** | **173** | **173** |
-
-Confidence: 120 at 1.0 (was 0), 14 below 0.8 (was 129 at 0.5).
-
-MM-2024 edge cases:
-
-- **Beholder family** (beholder, beholder zombie, death tyrant, spectator) are
-  `floating` with `custom.eye_tyrant`. The gas spore is `floating` with
-  `custom.wisp`; the flameskull and demilich (floating skulls) too.
-- **Grell, flumph** are `tentacled` (they hover, but the tentacles are the
-  limbs). The giant squid is `tentacled`, not `aquatic`.
-- **Yugoloths and gith that fly by magic** (arcanaloth, ultroloth, githzerai
-  psion, githyanki dracomancer), **mind flayers** and **vampires** are `biped`:
-  a fly speed without wings does not make a `winged_biped` or `floating` plan.
-  The nycaloth has wings (`winged_biped`).
-- **Multi-armed uprights**: mezzoloth and thri-kreen are `biped` with 4 arms,
-  the modron quadrone a `winged_biped` with 4; the tridrone is `radial` (3 legs,
-  3 arms, holds a spear), the pentadrone `radial` with `custom.radial_pentapod`.
-- **Yuan-ti**: malison type 1 (snake head) and type 2 (snakes for arms, no
-  hands) are `biped`; type 3 and the abomination are `merfolk_naga`.
-- **Displacer beast** is `quadruped` (`rigify.cat`), six legs and two shoulder
-  tentacles as add-ons; the **intellect devourer** is a `quadruped` brain.
-  **Carrion crawler** and **young remorhaz** are `insectoid` (`custom.myriapod`),
-  the **chasme** `insectoid` (`custom.hexapod_winged`).
-- **Blights**: tree and Gulthias blights and the twig blight are `plant_object`
-  (`custom.tree_roots`); needle and vine blights are humanoid-shaped `biped`s
-  without hands (as the shambling mound).
-- **Genies**: the dao has legs (`biped`, 0.75, like the efreeti); the marid is
-  `floating` with `custom.elemental_column` and hands (0.6, art varies).
-- **Shapechangers** are modelled in one form (`body_plan_note`): jackalwere and
-  animal lord in hybrid form, yochlol in its slime-pillar true form
-  (`amorphous`, `custom.blob_torso`).
-
 ## Hands and sockets
 
 The four upright plans (`biped`, `winged_biped`, `centauroid`, `merfolk_naga`)
@@ -212,11 +166,7 @@ lists the exceptions:
 The baboon, lemure and xorn have hand-like limbs but never grip anything, so they
 get no sockets. The glabrezu (4 arms) and marilith (6 arms) are the multi-armed
 cases. SRD 5.2.1 has 127 monsters with hands, 70 that wield a prop, and 79 with
-an unarmed reference image. MM-2024 has 116 with hands, 54 that wield a prop
-and 56 unarmed references; its exceptions are in `equipment.json["monsters"]["mm-2024"]`
-(without hands: galeb duhr, hook horror, umber hulk, manes and manes vaporspawn, needle and vine
-blights, yuan-ti malison type 2; with hands: banshee, poltergeist, shadow demon,
-marid, modron tridrone). See `equipment.md`.
+an unarmed reference image. See `equipment.md`.
 
 ## Rig template naming
 

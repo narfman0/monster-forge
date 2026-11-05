@@ -2,19 +2,28 @@
 """Import the Monster Manual (2024) stat blocks that are not in the SRD as registry stubs.
 
 Reads a local 5etools bestiary file (bestiary-xmm.json; WotC IP, local planning use
-only, never vendored into this repo) and writes data/registry/mm-2024.json with the
-same record schema as srd-5.2.1.json, for every stat block without the `srd52` flag.
+only, never vendored into either repo) and writes registry/mm-2024.json in the separate
+non-SRD checkout (tools/sources.py: $MONSTER_FORGE_EXTRA, else ../monster-forge-nonsrd)
+with the same record schema as srd-5.2.1.json, for every stat block without the `srd52`
+flag.
 Only canonical facts are carried over (name, page, size, type, tags, CR, speeds, and
 the names of attacks and gear); no rules or flavour text. The reference prompt
 description is written by a template from those facts.
 
 Body plans, rig templates, animation sets, wields and sockets reuse the rule engine in
-tools/build_registry.py. Every record is unreviewed (`body_plan_source: "rule"`) unless
-data/body_plan_overrides.json["sources"]["mm-2024"] or data/body_plan_reviewed.json["mm-2024"]
-knows the slug; data/equipment.json["monsters"]["mm-2024"] and
-data/visual_profiles.json["sources"]["mm-2024"] are used when they have an entry for the
-slug (a visual entry may hold only `scale_m`; the description then stays the template).
-Curated entries for unknown slugs, bad body plans or props without a spec fail the build.
+tools/build_registry.py. The curation is read from the non-SRD checkout's
+curation/mm-2024/ (body_plan_overrides, body_plan_reviewed, equipment, visual_profiles;
+build_registry.load_curation and friends). Every record is unreviewed
+(`body_plan_source: "rule"`) unless the overrides or the reviewed list know the slug;
+equipment and visual entries are used when they have one for the slug (a visual entry may
+hold only `scale_m`; the description then stays the template). Its equipment `props` add
+to data/equipment.json's. Curated entries for unknown slugs, bad body plans or props
+without a spec fail the build.
+
+Until tools/forge.py and tools/overrides.py resolve paths through tools/sources.py, the
+importer also leaves a git-ignored copy at data/registry/mm-2024.json and a git-ignored
+symlink data/overrides/mm-2024 -> the non-SRD checkout's overrides/mm-2024 (--no-local
+skips both).
 
   --check-srd PATH  also compare the `srd52` stat blocks' size/type/speeds/CR against
                     data/registry/srd-5.2.1.json and write the mismatches to PATH
@@ -32,6 +41,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_registry as br  # noqa: E402  (tools/build_registry.py)
+import sources  # noqa: E402  (tools/sources.py)
 
 ROOT = br.ROOT
 DEFAULT_SRC = Path.home() / "workspace/5etools-src/data/bestiary/bestiary-xmm.json"
@@ -292,13 +302,37 @@ def check_srd(srd_monsters, srd_path, out_path):
     return rows
 
 
+def leave_local_copies(out):
+    """Transitional, until forge.py / overrides.py resolve through tools/sources.py: a
+    git-ignored copy of the registry and a git-ignored overrides symlink in data/."""
+    msgs = []
+    local = ROOT / "data/registry" / f"{SOURCE_ID}.json"
+    if local.resolve() != out.resolve():
+        local.write_bytes(out.read_bytes())
+        msgs.append(f"local copy (git-ignored) -> {local.relative_to(ROOT)}")
+    link = ROOT / "data/overrides" / SOURCE_ID
+    target = sources.extra_dir() / "overrides" / SOURCE_ID
+    if target.is_dir() and not link.exists() and not link.is_symlink():
+        link.symlink_to(target, target_is_directory=True)
+        msgs.append(f"symlink (git-ignored) {link.relative_to(ROOT)} -> {target}")
+    elif link.is_symlink() and link.resolve() != target.resolve():
+        msgs.append(f"warning: {link.relative_to(ROOT)} points at {link.resolve()}, not {target}")
+    return msgs
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--src", type=Path, default=DEFAULT_SRC)
-    ap.add_argument("--out", type=Path, default=ROOT / "data/registry/mm-2024.json")
+    ap.add_argument("--out", type=Path, default=None,
+                    help="default: registry/mm-2024.json in the non-SRD checkout (tools/sources.py)")
+    ap.add_argument("--no-local", action="store_true",
+                    help="do not leave the git-ignored data/registry copy and data/overrides symlink")
     ap.add_argument("--check-srd", type=Path, metavar="PATH",
                     help="write the srd52 vs srd-5.2.1.json mismatch table here")
     args = ap.parse_args()
+    default_out = args.out is None
+    if default_out:
+        args.out = sources.registry_path(SOURCE_ID, write=True)
 
     blocks = json.loads(args.src.read_text())["monster"]
     for m in blocks:
@@ -307,18 +341,19 @@ def main():
     srd = [m for m in blocks if m.get("srd52")]
     mm = [m for m in blocks if not m.get("srd52")]
 
-    equipment = json.loads((ROOT / "data/equipment.json").read_text())
+    props, equip = br.load_equipment(SOURCE_ID)
     ctx = {
         "overrides": br.load_curation("body_plan_overrides", SOURCE_ID),
-        "reviewed": set(json.loads((ROOT / "data/body_plan_reviewed.json").read_text()).get(SOURCE_ID, [])),
+        "reviewed": br.load_reviewed(SOURCE_ID),
         "visuals": br.load_curation("visual_profiles", SOURCE_ID),
-        "props": equipment["props"],
-        "equip": equipment["monsters"].get(SOURCE_ID, {}),
+        "props": props,
+        "equip": equip,
         "errors": [],
     }
     ctx["errors"] += br.curation_errors({slugify(m["name"]) for m in mm}, ctx["overrides"], ctx["visuals"],
                                         ctx["reviewed"], ctx["equip"], ctx["props"], need_visuals=False)
-    srd_ids = {r["id"] for r in json.loads((ROOT / "data/registry/srd-5.2.1.json").read_text())["monsters"]}
+    srd_path = sources.registry_path(br.SOURCE_ID)
+    srd_ids = {r["id"] for r in json.loads(srd_path.read_text())["monsters"]}
 
     records, reviews = [], {}
     for m in mm:
@@ -339,8 +374,8 @@ def main():
         "license": "WotC IP (Monster Manual 2024): derived names and stats, personal use only, "
                    "never publish. Not covered by CC-BY-4.0.",
         "note": "Generated by tools/import_names.py from a local 5etools bestiary-xmm.json "
-                "(stat blocks without the srd52 flag). Rule-based records plus the mm-2024 "
-                "curation in data/ (body_plan_source says which).",
+                "(stat blocks without the srd52 flag). Rule-based records plus the "
+                "curation in curation/mm-2024/ (body_plan_source says which).",
         "count": len(records),
         "body_plans": br.BODY_PLANS,
         "monsters": records,
@@ -350,6 +385,9 @@ def main():
 
     rel = args.out.relative_to(ROOT) if args.out.is_relative_to(ROOT) else args.out
     print(f"wrote {len(records)} records -> {rel}  ({len(srd)} srd52 blocks skipped)")
+    if default_out and not args.no_local:
+        for line in leave_local_copies(args.out):
+            print("  " + line)
     counts = Counter(r["body_plan"] for r in records)
     for p in br.BODY_PLANS:
         print(f"  {p:18s} {counts.get(p, 0)}")
@@ -365,7 +403,7 @@ def main():
     low = [r["id"] for r in records if r["body_plan_confidence"] < 0.8]
     print(f"  low-confidence (<0.8): {len(low)}\n    " + " ".join(low))
     eq = sorted(s for s, v in reviews.items() if v["equipment"])
-    print(f"  need a data/equipment.json mm-2024 entry: {len(eq)}" + ("\n    " + " ".join(eq) if eq else ""))
+    print(f"  need a curation/mm-2024/equipment.json entry: {len(eq)}" + ("\n    " + " ".join(eq) if eq else ""))
     unk = {s: v["unknown_props"] for s, v in reviews.items() if v["unknown_props"]}
     if unk:
         print(f"  stat-block weapons with no prop spec: {unk}")
@@ -378,7 +416,7 @@ def main():
         print(f"  unarmed_reference but the prompt (template: the name) has a held-weapon word: {' '.join(hw)}")
 
     if args.check_srd:
-        rows = check_srd(srd, ROOT / "data/registry/srd-5.2.1.json", args.check_srd)
+        rows = check_srd(srd, srd_path, args.check_srd)
         print(f"srd52 cross-check: {len(rows)} mismatches -> {args.check_srd}")
 
 

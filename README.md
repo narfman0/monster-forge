@@ -6,13 +6,13 @@ D&D monster, generated locally with ComfyUI and Blender and consumed by Godot 4.
 Scope tiers (see `docs/corpus-plan.md`):
 
 1. SRD 5.2.1 (CC-BY-4.0): 330 monsters, registry in `data/registry/srd-5.2.1.json`.
-2. Monster Manual 2024: the 173 stat blocks not in the SRD, in
-   `data/registry/mm-2024.json` (`tools/import_names.py`; WotC IP, personal use only,
-   generated locally and not committed). Body plans, equipment, scale and visual
-   descriptions are reviewed under the `mm-2024` keys of the curation files
-   (`docs/body-plans.md`, "Per-source curation layout"); the rigs some of them need
-   (beholder family, radial modrons, four-armed bipeds) are not built.
-3. Other official books (2024-2025 first, then legacy 2014-era books).
+2. Non-SRD official books (Monster Manual 2024 first): WotC IP, personal use only, so
+   they are not in this repo. Their registries, curation and per-monster overrides live
+   in a separate private checkout, `../monster-forge-nonsrd` next to this one or wherever
+   `MONSTER_FORGE_EXTRA` points; `tools/sources.py` resolves the paths and
+   `tools/import_names.py` builds the Monster Manual 2024 registry there from a local
+   5etools checkout (never vendored). See `docs/body-plans.md`, "Per-source curation layout".
+3. Other official books (2024-2025 first, then legacy 2014-era books), same split.
 
 Non-SRD monsters are WotC IP: personal use only; a public pack ships SRD assets or
 renamed analogues.
@@ -24,6 +24,8 @@ renamed analogues.
   `props.json` lists the held weapons and shields, which are separate runtime props (`docs/equipment.md`).
 - `data/equipment.json` hand-reviewed hands and weapons per monster, plus prop specs.
 - `data/body_plan_overrides.json`, `data/body_plan_reviewed.json` hand-curated taxonomy.
+- `tools/sources.py` where each source's registry, curation and overrides live (SRD here,
+  everything else in the non-SRD checkout).
 - `docs/plan.md` pipeline design and milestones. `docs/research-*.md` tool research.
 - `tools/` scripts. `workflows/` ComfyUI API workflows. `viewer/` local web viewer.
 - `out/<source>/<id>/` generated assets (git-ignored; never commit art).

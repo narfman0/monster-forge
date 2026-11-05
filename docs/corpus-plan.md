@@ -38,9 +38,10 @@ ships first and the pipeline is proven before the IP-encumbered sets.
   tyrant, spectator), mind flayer, githyanki, githzerai, yuan-ti, displacer
   beast, umber hulk, carrion crawler, kuo-toa, slaadi, intellect devourer,
   and the new 2024 creatures.
-- Many reuse Tier 1 rigs. Yuan-ti variants are `merfolk_naga`, `biped` and
-  `serpentine`; the displacer beast is `quadruped` + 2 tentacle chains; the
-  beholder family is `floating` + eye stalks.
+- Many reuse Tier 1 rigs: naga-like creatures are `merfolk_naga`, `biped` or
+  `serpentine`; six-legged cats are `quadruped` + 2 tentacle chains; floating
+  eye tyrants are `floating` + eye-stalk chains. Their curation lives in the
+  separate non-SRD repo (`tools/sources.py`, `MONSTER_FORGE_EXTRA`).
 - Before generating this tier, extend the overrides and reviewed lists for a
   `mm-2024` source. The rules alone will misclassify about 40% of the
   non-humanoid entries, as they did for the SRD.

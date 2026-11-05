@@ -9,10 +9,10 @@ files in data/ and writes data/registry/srd-5.2.1.json.
   data/visual_profiles.json      slug -> {desc, scale_m?}
   data/equipment.json            prop specs + per-monster hands/wields (hand-reviewed)
 
-Per-source layout: in body_plan_overrides.json and visual_profiles.json the flat
-top-level slugs are srd-5.2.1 (the original layout); other sources go under
-`"sources": {"<source id>": {slug: entry}}` (load_curation). body_plan_reviewed.json
-and equipment.json["monsters"] were already keyed by source.
+Per-source layout: these data/ files hold only srd-5.2.1. Every other source (WotC IP,
+personal use only) keeps the same four files in the separate non-SRD checkout,
+curation/<source>/<name>.json; tools/sources.py finds them ($MONSTER_FORGE_EXTRA, else
+../monster-forge-nonsrd). load_curation / load_reviewed / load_equipment read one source.
 
 Also writes data/registry/props.json (one entry per held weapon/shield/implement).
 
@@ -25,6 +25,9 @@ import re
 import sys
 from collections import Counter
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources  # noqa: E402  (tools/sources.py: where each source's files live)
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SRC = Path.home() / "workspace/godot-srd-addon/addons/srd/data/srd-5.2.1/monsters.json"
@@ -109,21 +112,60 @@ HELD_WORDS = re.compile(
     r"weapons?|holding|wielding)\b", re.I)
 
 
+def _load_table(name, source):
+    path = sources.curation_path(source, name)
+    return path, json.loads(path.read_text())
+
+
 def load_curation(name, source):
-    """data/<name>.json -> {slug: entry} for one source. The flat top-level slugs are
-    srd-5.2.1 (the original layout, kept for backward compatibility); every other source
-    lives under `"sources": {"<source id>": {slug: entry}}`. Keys starting with "_" are
-    comments. A srd-5.2.1 block under `sources` is merged into the flat keys."""
-    table = json.loads((ROOT / "data" / f"{name}.json").read_text())
+    """<name>.json -> {slug: entry} for one source (keys starting with "_" are comments).
+    The SRD reads data/<name>.json: flat top-level slugs, plus an optional
+    `"sources": {"srd-5.2.1": {...}}` block merged into them; a block for any other source
+    is an error (non-SRD curation lives in the extra repo, tools/sources.py). Other sources
+    read curation/<source>/<name>.json in the extra repo, flat slugs only."""
+    path, table = _load_table(name, source)
     per = table.pop("sources", {})
+    if source != SOURCE_ID:
+        if per:
+            sys.exit(f"{path}: no 'sources' block in a per-source curation file")
+        return {k: v for k, v in table.items() if not k.startswith("_")}
+    other = sorted(set(per) - {SOURCE_ID})
+    if other:
+        sys.exit(f"{path}: sources {other} belong in the non-SRD repo (tools/sources.py), not here")
     flat = {k: v for k, v in table.items() if not k.startswith("_")}
     nested = {k: v for k, v in per.get(source, {}).items() if not k.startswith("_")}
-    if source != SOURCE_ID:
-        return nested
     dupes = sorted(set(flat) & set(nested))
     if dupes:
         sys.exit(f"{name}: {dupes} are both flat and under sources[{SOURCE_ID!r}]")
     return {**flat, **nested}
+
+
+def _only_source(path, keyed, source):
+    """keyed is {source id: ...}; a file may only hold its own source."""
+    other = sorted(k for k in keyed if not k.startswith("_") and k != source)
+    if other:
+        sys.exit(f"{path}: keys {other} do not belong in the {source} file (tools/sources.py)")
+    return keyed.get(source)
+
+
+def load_reviewed(source):
+    """body_plan_reviewed.json["<source>"] as a set of slugs."""
+    path, table = _load_table("body_plan_reviewed", source)
+    return set(_only_source(path, table, source) or [])
+
+
+def load_equipment(source):
+    """(prop specs, {slug: entry}) for one source. Prop specs are data/equipment.json's,
+    plus the extra repo file's `props` for a non-SRD source (an id in both is an error)."""
+    path, table = _load_table("equipment", source)
+    props = dict(table.get("props", {}))
+    if source != SOURCE_ID:
+        base = json.loads(sources.curation_path(SOURCE_ID, "equipment").read_text())["props"]
+        dupes = sorted(set(base) & set(props))
+        if dupes:
+            sys.exit(f"{path}: props {dupes} are already specced in data/equipment.json")
+        props = {**base, **props}
+    return props, _only_source(path, table.get("monsters", {}), source) or {}
 
 
 def curation_errors(slugs, overrides, visuals, reviewed, equip, prop_specs, need_visuals):
@@ -371,16 +413,14 @@ def build_props(records, specs):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--src", type=Path, default=DEFAULT_SRC)
-    ap.add_argument("--out", type=Path, default=ROOT / "data/registry/srd-5.2.1.json")
+    ap.add_argument("--out", type=Path, default=sources.registry_path(SOURCE_ID))
     args = ap.parse_args()
 
     monsters = json.loads(args.src.read_text())
     overrides = load_curation("body_plan_overrides", SOURCE_ID)
     visuals = load_curation("visual_profiles", SOURCE_ID)
-    reviewed = set(json.loads((ROOT / "data/body_plan_reviewed.json").read_text()).get(SOURCE_ID, []))
-    equipment = json.loads((ROOT / "data/equipment.json").read_text())
-    prop_specs = equipment["props"]
-    equip = equipment["monsters"].get(SOURCE_ID, {})
+    reviewed = load_reviewed(SOURCE_ID)
+    prop_specs, equip = load_equipment(SOURCE_ID)
     slugs = {m["slug"] for m in monsters}
 
     errors = curation_errors(slugs, overrides, visuals, reviewed, equip, prop_specs, need_visuals=True)
