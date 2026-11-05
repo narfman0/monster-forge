@@ -87,6 +87,17 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       score then counts missing legs and the anim stage would fail on that roll.
 - [ ] Owlbear: no roll on disk has a spine (all four hang the legs off one root); re-roll,
       the facing is fine (4 degrees). Wolf: no tail chain (its only roll).
+- [x] (2026-11-04) `find_arms`: chains off or through the head (hair, the neck) and hanging
+      chains that reach the ground band (a tail) are not arms; a side with no hanging arm
+      takes a raised chain that reaches less than `WING_REACH` x the height (less than a
+      wing). Merfolk: both arms, `hand_r`/`grip_r` placed, `back` on the chest; the 6 pilots,
+      the ghost and the eagle keep the same arms, head, wings, tail and sockets (finders run
+      on every pilot's chosen and rigged skeleton, `rig --force` on the 6 + ghost: sockets
+      and quality scores identical). `find_head` was right on the merfolk (bone_5 owns the
+      skull); the hair chain had been its left arm.
+- [x] (2026-11-04) `manifest.errors`: `rig` and `anim` drop their stage's entries when they
+      succeed (`rig.clear_stage_errors`). Other stages still keep theirs (the goblin's two
+      paint timeouts): a generic clear belongs in forge.py's stage loop.
 - [ ] Rigify landmark-fit fallback for biped/quadruped if SkinTokens output is bad.
 
 ### D. M4 Animate (core set: idle, move, attack, hit, death)
@@ -99,11 +110,20 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       and dragon (wing chains found by `rig_topology.find_wings`), `breath` for the dragon,
       `attack_ranged` (bow draw) for the goblin. All 6 pilots `anim_complete` in the viewer.
       Shape and per-clip numbers in `viewer/README.md` ("Clips the anim stage writes").
-      Known: owlbear tail fan is skinned to its right hind shin, so its walk and lunge run
-      at half size (`stride_scale` 0.5); harpy walk also half stride (hip feathers touch
-      the ground at rest, so the body cannot crouch); harpy wings are clean only to
+      Known: owlbear walk and lunge run at half size (`stride_scale` 0.5): not the tail fan
+      (on the tail chain in the kept roll_1; on a hind shin only in the old roll_3) but the
+      front paws, whose non-sole vertices dip 5-14 cm at full stride with the standing feet
+      0.093 m short, so a fan re-weight (`rig_reweight`) was tried on paper and not added;
+      harpy walk also half stride (hip feathers skinned to the root and right thigh touch
+      the ground at rest, no tail chain to turn, so the body cannot crouch); harpy wings are clean only to
       about +/-20 degrees, its arms are mostly hidden by the wings in the sword cut.
       A library retarget would still need a bone map, since SkinTokens bones are `bone_N`.
+- [x] (2026-11-04) Ground-resting tail fans: `find_tail(ground=True)` takes a 2+ bone chain
+      that slopes from the hips into the ground band when no horizontal tail exists, and the
+      floor clips turn it up (with a settle-back for such fans) instead of raising the body.
+      Giant eagle walk (scratch): min_z -0.085 -> +0.001 m, body raise 0.092 -> 0, stride
+      0.5 -> 0.8; its idle, lunge (now full size) and hit no longer raise the body. All other
+      pilots' clips unchanged (clip and frame counts, min_z, raises).
 - [ ] UniMate text-to-motion for attacks (own uv venv under tools/).
 - [x] Bake to actions -> one armature-only `anims/<clip>.glb` per clip (viewer/README.md).
 
@@ -274,9 +294,10 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
 - [x] avian (giant-eagle): legged framework as is; SkinTokens found both wings when the
       reference spreads them sideways (front view, ref 1). The side-view ref with wings raised
       back gave one wing that was also taken as the tail. No roll had a spine. Batch: prompt
-      "wings spread wide to the sides"; theropods (`custom.theropod`) are wingless. Open: avian
-      `walk` dips 8.5 cm where a tail fan rests on the ground (as the harpy); `find_tail` only
-      looks for horizontal tails.
+      "wings spread wide to the sides"; theropods (`custom.theropod`) are wingless. The tail
+      fan resting on the ground is now turned up (walk dip 8.5 cm -> none, D). Open: the
+      eagle's feet stand 0.36 m up at rest (QA grounds it on the fan), and `find_snout` takes
+      a left-wing bone as its head.
 - [x] amorphous (black-pudding): `fallback:vertical` (4 bones) with squash-and-stretch bone
       scales. Batch: fallback. Ref pick matters: drips under a raised blob meshed as a spider.
       The lemure (`blob_torso`, arms) will want SkinTokens + arms instead.
@@ -296,13 +317,14 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
       build (sword cut and bow draw on the arms). Batch: blocked on references (Z-Image /
       FLUX.2-klein or a pose ControlNet); a four-hooves-down stance prompt.
 - [x] merfolk_naga (merfolk-skirmisher): SkinTokens (spine, tail, arms); legless builders with the
-      biped sword cut, tail kick swim. The raised right arm is missed (`find_arms` wants the tip
-      below the shoulder): `hand_r` socket missing. Batch: SkinTokens + an A-pose with arms down;
-      the marilith's 6 arms untested.
+      biped sword cut, tail kick swim. Both arms found since the raised-arm fallback (C), all
+      sockets placed. Batch: SkinTokens; the marilith's 6 arms untested.
 - [x] swarm (swarm-of-rats): `fallback:root` + root-only clips. The reference draws a wall of
       rats (one cluster mesh); the batch should model one unit with the unit's plan and leave
       the swarm to particles.
-- [ ] Fix found on the way: `blender_rig.add_sockets` renamed the chest to `head` and then
-      failed to parent `back` to it (KeyError), now aliased. `find_head` taking the chest on the
-      merfolk (hair off the centre line) is still open.
-- [ ] Stale `manifest.errors` entries on ghost, merfolk and snake are from runs before the fixes.
+- [x] Fix found on the way: `blender_rig.add_sockets` renamed the head to `head` and then
+      failed to parent `back` to it (KeyError), now aliased. The bone was the head after all
+      (it owns the skull); `back` went there because the left "arm" was a hair chain off the
+      head. Fixed in `find_arms` (C): `back` is on the chest now.
+- [x] Stale `manifest.errors` entries on ghost, merfolk and snake removed (their rig stages
+      succeed); rig and anim now clear their own entries on success (C).

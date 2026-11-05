@@ -123,6 +123,11 @@ arm_by_side = {a["side"]: a for a in arms}
 head = rig_topology.find_head(bones, height, legs) if job["upright"] or (legless and arms) or PLAN == "centauroid" else \
     None if job["sprawl"] or legless else rig_topology.find_snout(bones, height, legs)
 tail = [] if job["upright"] or legless else rig_topology.find_tail(bones, height, legs)
+# else a short tail fan that slopes down onto the ground (a bird's): the floor clips turn it
+# up at its root (below) instead of raising the whole body off it
+fan = not tail and not job["upright"] and not legless
+if fan:
+    tail = rig_topology.find_tail(bones, height, legs, ground=True)
 wings = [{"side": w[0], "chain": w[1]} for w in job["wings"]] if job.get("wings") else [] if legless else \
     rig_topology.find_wings(bones, height, legs, arms, exclude=(head,) if head else ())
 root = next(b["name"] for b in bones if b["parent"] is None)
@@ -505,7 +510,7 @@ def build(clip: Clip) -> dict:
         if tail and clip.ground == "floor":
             clip.rot.setdefault(tail[0], []).append((TAIL_AXIS, lambda t: tail_up[round(t * clip.frames)]))
         sole = [min(z, 0.0) for z in rest_foot]
-        for _ in range(4):  # body height, tail and feet move each other a little; settle
+        for it in range(4):  # body height, tail and feet move each other a little; settle
             lows, loose, _ = sample(clip)
             corr = [a + b for a, b in zip(corr, correction(clip, lows, loose))]
             key_root(clip, corr)
@@ -514,6 +519,10 @@ def build(clip: Clip) -> dict:
                 for f, z in enumerate(clip.tail_low):
                     if z < 0:
                         tail_up[f] += math.degrees(math.asin(min(1.0, 1.2 * -z / TAIL_REACH)))
+                    elif fan and it < 3 and z > FLOOR_TOL and tail_up[f] > 0:
+                        # a drooping fan lifts unevenly and overshoots: ease it back onto
+                        # the ground, which it rests on (the last pass only lifts)
+                        tail_up[f] = max(0.0, tail_up[f] - 0.5 * math.degrees(math.asin(min(1.0, z / TAIL_REACH))))
                 key_fk(clip)
             for i, g in enumerate(legs):  # a spider's leg tip turns with IK: keep it out of the ground
                 for f in range(clip.frames + 1):

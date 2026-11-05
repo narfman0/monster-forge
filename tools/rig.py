@@ -50,6 +50,16 @@ def clear_rig(d: Path, man: dict | None = None) -> None:
         man.pop("anim", None)
 
 
+def clear_stage_errors(man: dict, stage: str) -> None:
+    """Drop manifest.errors entries of a stage that has now succeeded: forge.py appends one
+    per failed run and nothing else removes them, so a fixed monster kept reading as broken."""
+    errs = [e for e in man.get("errors") or [] if e.get("stage") != stage]
+    if errs:
+        man["errors"] = errs
+    else:
+        man.pop("errors", None)
+
+
 def blender(fg, job: dict) -> dict:
     proc = subprocess.run([fg.BLENDER, "-b", "--factory-startup", "-P", str(BLENDER_RIG), "--", json.dumps(job)],
                           capture_output=True, text=True, timeout=600)
@@ -348,6 +358,7 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
                   **({"picked": info["picked"], "rolls": info["rolls"]} if info else
                      {k: v for k, v in (man.get("rig") or {}).items() if k in ("picked", "rolls")} or {"picked": "chosen.glb"})}
     man.setdefault("timings", {})["rig"] = man["rig"]["seconds"]
+    clear_stage_errors(man, "rig")
     fg.save_manifest(d, man)
     fg.log(f"{mon['id']}: rig done in {man['rig']['seconds']}s, {rep['joints']} joints, {rep['legs']} legs, "
            f"sockets {sorted(rep['sockets'])}")

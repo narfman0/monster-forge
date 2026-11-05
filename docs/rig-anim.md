@@ -17,6 +17,23 @@ Code: `tools/rig.py` (driver, score weights), `tools/blender_rig.py` (facing che
 roll measurements and pose test, export; headless Blender), `tools/rig_topology.py` (finds
 legs, arms, head, tail, wings, spine and the centre line from bone positions).
 
+Part finders that took some tuning (`rig_topology.py`):
+
+- `find_arms`: per side the shortest chain off the upper body that hangs below its root and
+  is not a leg. Chains that branch off the head or run through it (hair, ears, a jaw, the
+  neck) are not arms, nor is a hanging chain whose tip reaches the ground band (a tail, a
+  skirt). A side with no hanging chain takes a raised one (the merfolk's sword arm) if it
+  reaches less than `WING_REACH` (0.4) x the height sideways, the reach `find_wings` needs
+  for a wing; a side with a hanging arm never looks at raised chains, so the harpy's arms and
+  wings are what they were. On the merfolk the left "arm" had been a hair chain off the
+  head, which also put `back` on the head bone.
+- `find_head` (upright): the highest bone on the centre line, a short one giving way to its
+  parent. On the merfolk it takes `bone_5`, which owns the skull and face (3458 vertices,
+  z 1.39-1.80 of 1.80); its child above owns only back hair.
+- `find_tail(..., ground=True)` (the clips): when no horizontal tail of 4+ bones exists, a
+  chain of 2+ bones that leaves the hips backwards and slopes down into the ground band
+  (the giant eagle's 2-bone tail fan).
+
 **SkinTokens rolls.** SkinTokens (`tools/skintokens/`, its own uv venv) predicts a
 skeleton and skin weights from `model.glb`. It samples without a seed, so every run gives a
 different skeleton, and some runs crash (`assert res.skin_pred is not None`). The stage
@@ -137,6 +154,9 @@ socket bones the registry's `sockets` field asks for (`docs/equipment.md`):
 - `hip_l`, `hip_r`: new non-deforming bones on the pelvis at hip height.
 
 Sockets the stage could not place are logged and listed in `manifest.rig.sockets_missing`.
+
+A successful `rig` or `anim` run drops that stage's entries from `manifest.errors` (which
+forge.py appends on every failure), so a fixed monster no longer reads as broken.
 The viewer's `sockets` toggle draws each socket bone with its axes, and `prop` hangs a
 placeholder sword on `hand_r` and a bow on `hand_l` (`viewer/README.md`).
 
@@ -165,7 +185,7 @@ placeholder sword on `hand_r` and a bow on `hand_l` (`viewer/README.md`).
   same gap. `--use_skeleton`'s `trim` step deletes joints with no weights, so new bones
   need placeholder weights in the input.
 - The owlbear has no spine (its legs hang off a back root); the wolf has no real tail
-  chain.
+  chain. The owlbear's tail (3 bones) is too short for the clips' 4.
 - Added hand bones point straight up in the bind pose, not along the forearm, so a prop
   attached with no offset stands upright from the wrist (the harpy's `hand_r` and `hand_l`
   in the viewer). Renamed hand bones keep SkinTokens' orientation. The prop-space
@@ -196,9 +216,24 @@ and `anims/clips.json` (reports), `manifest.anim` (`clips`, `missing`, per-clip 
 `viewer/README.md` ("Clips the anim stage writes", "Animations in the page") has the file
 convention the viewer and the index follow.
 
-Known limits: the owlbear's tail fan is skinned to a hind shin, so its walk and lunge run
-at half stride; the harpy's hip feathers touch the ground at rest, so its body is raised
-about 0.1 m and its wings hide most of the sword cut; the spider's death rests on curled
+A tail that lies or rests on the ground is turned up at its root in the floor clips
+(`tail_raise_max_deg` in the report) instead of the body being raised off it. A tail fan
+found by `find_tail(ground=True)` droops below its root, so a turn lifts it unevenly and
+overshoots: for such a fan the settle passes also ease the turn back down while it floats
+more than `FLOOR_TOL`, the last pass only lifts. Giant eagle walk (a scratch job; its record
+has no `walk`): lowest vertex -0.085 -> +0.001 m, body raise 0.092 -> 0, stride 0.5 -> 0.8,
+fan turned up to 25.7 degrees; its idle, lunge and hit no longer lift the body either (the
+lunge runs at full size, was 0.8). The eagle's feet stand 0.36 m above the ground at rest
+(QA grounds the mesh on the fan): the clips keep the rest pose's feet.
+
+Known limits: the owlbear walk and lunge run at half size. The kept skeleton
+(`rig/chosen.glb` = roll_1 since score v2) skins the tail fan to the tail chain (`bone_13`);
+the fan on a hind shin was reported on roll_3 (`rig/chosen_roll3_backup.glb`), kept before score v2. At full stride the front
+paws' non-sole vertices dip 5-14 cm and the standing feet fall 0.093 m short of their
+targets (limit 0.035), so a re-weight of the fan would not help. The harpy's dip is not a
+tail either: hip feathers skinned half to the root and half to the right thigh hang to
+the ground (and the wing tips to 5 cm), so its body is raised about 0.1 m and the walk runs
+at half stride; its wings hide most of the sword cut. The spider's death rests on curled
 legs rather than its belly.
 
 ## Body plans (2026-11-04)
@@ -215,13 +250,13 @@ centauroid stay on the legged framework (centauroid adds the arms via `anim.ARME
 |---|---|---|---|---|
 | serpentine | constrictor-snake | `fallback:spine_chain` (16 bones). SkinTokens: 7-13 joint star, no chain (4 of 4) | `walk`/`swim` slither (curvature wave head -> tail, mid-body root holds place and heading), `idle`, `attack_melee` strike (front quarter rears and strikes), `hit`, `death` (front slumps). Ground `contact` | works; the coiled mesh's touching coils needed a weight fix (below) |
 | floating | ghost | SkinTokens roll 3 (34 joints): a biped under the robe, legs to the hem, both arms, `hand_r/l` | `idle`, `fly` (lean + hem trailing), `attack_melee` (both arms reach, FK-aimed), `hit`, `death` (falls forward onto the ground). All but death `lift`: a constant 0.1 x height above the ground in every clip | works |
-| avian | giant-eagle | SkinTokens roll 3 (32 joints): both wing chains, 2 legs, no spine (`problems` spine, leg_pairs) | legged framework: `idle`, `fly` (both wings flap), `attack_melee` (neck lunge), `hit` (no body tilt for avian), `death` (pitches forward onto its breast, wings fold back) | works; `walk` (not in this record's set) dips 8.5 cm: the tail fan rests on the ground |
+| avian | giant-eagle | SkinTokens roll 3 (32 joints): both wing chains, 2 legs, no spine (`problems` spine, leg_pairs) | legged framework: `idle`, `fly` (both wings flap), `attack_melee` (lunge), `hit` (no body tilt for avian), `death` (pitches forward onto its breast, wings fold back). The 2-bone tail fan resting on the ground is turned up instead of the body being raised (Anim stage) | works; `walk` (not in this record's set) builds clean in scratch. `find_snout` takes the left wing's leading bone as the head (the wing reaches farthest forward), so the lunge leads with it |
 | amorphous | black-pudding | `fallback:vertical` (4 bones, one straight line through the upper body's bbox centre). SkinTokens: 21-24 joints, 0.83-0.88 bleed | squash and stretch = the root's scale (`vscale`: on the bone axis closest to world up), lean = chain about X. `idle` pulse, `walk` ooze, `attack_melee` engulf (rear up, surge and flatten forward), `hit`, `death` (flattens into a puddle 1.5x wide). Ground `contact` | works |
 | plant_object | violet-fungus | `fallback:vertical` (5 bones). SkinTokens roll 3 was clean but rooted at the cap with the stalk hanging down | stalk sway `idle`, `walk` shuffle (rock), `attack_melee`/`attack_special` (coil back, whip forward), `hit`, `death` (topples onto its right side). Limbs (tendrils, branches) found off the stalk swing too when the skeleton has them | works (this mesh has no tendrils) |
 | tentacled | giant-octopus | `fallback:tentacle_hub`: root + body + 8 tentacles x 5 bones (tips = local maxima of geodesic distance from the mantle). SkinTokens rolls 2-3 also gave a usable hub (58-67 joints), but unnamed | `idle` (phase-shifted curls), `swim`/`fly` (all pulse together, `lift`), `walk` (crawl wave), `attack_melee` (two front tentacles rear and lash), `hit`, `death` (splay flat, body flattens) | works |
 | aquatic | hunter-shark | SkinTokens roll 2 (32 joints): spine head to tail, pectoral fins, tail lobes | `swim`/`idle`/`walk` carangiform wave (grows toward the tail), `attack_melee` (dart + head snap), `hit`, `death` (rolls belly-up, sinks to the ground). All but death `lift` 0.25 x height | works |
 | centauroid | centaur-trooper (proxy: a horse and rider) | SkinTokens roll 3 (66 joints): both arms, head, spine; 3 legs (the reference prances, one front hoof lifted) | stage refuses: 3 of 4 feet. Built in scratch with feet 3: all six clips (sword cut and bow draw on the rider's arms, quadruped walk and death) | strategy verified on a proxy; no centaur mesh yet |
-| merfolk_naga | merfolk-skirmisher | SkinTokens (52 joints): spine, tail chain, arms with fingers; the raised right arm is missed by `find_arms` (tip above the shoulder) | `idle`, `swim` (body pitched 55 degrees, tail kicks about X, `lift`), `walk` (tail slithers sideways), `attack_melee`/`attack_ranged` (biped sword cut, also for the throw), `hit`, `death` (topples onto its right side) | works with one arm |
+| merfolk_naga | merfolk-skirmisher | SkinTokens (52 joints): spine, tail chain, arms with fingers. Both arms are out sideways, the right one raised: `find_arms` takes them since the raised-arm fallback (sockets `hand_l` bone_16, `hand_r` bone_28, `back` on the chest bone_3, `head` bone_5; score -1.40 -> -0.80, no problems) | `idle`, `swim` (body pitched 55 degrees, tail kicks about X, `lift`), `walk` (tail slithers sideways), `attack_melee`/`attack_ranged` (biped sword cut on the right arm, also for the throw), `hit`, `death` (topples onto its right side) | works |
 | swarm | swarm-of-rats | `fallback:root` (1 bone, all weights 1) | root only: `idle` bob, `walk`/`fly`/`swim` scurry (lift for fly/swim), `attack_melee` surge, `hit`, `death` (flattens) | works; the game spreads units |
 
 Fallback skeletons (`blender_rig.py`):

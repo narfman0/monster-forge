@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import overrides  # noqa: E402
+import rig  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 BLENDER_CLIPS = ROOT / "tools" / "blender_clips.py"
@@ -60,6 +61,7 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
                    "parts": {k: rep[k] for k in ("root", "head", "neck", "spine", "tail", "arms", "wings", "legs", "body",
                                                      "tentacles") if k in rep}}
     man.setdefault("timings", {})["anim"] = dt
+    rig.clear_stage_errors(man, "anim")
     fg.save_manifest(d, man)
     fg.log(f"{mon['id']}: {len(clips)} clips in {dt}s: {', '.join(clips)}"
            + (f"; missing {man['anim']['missing']}" if man["anim"]["missing"] else ""))

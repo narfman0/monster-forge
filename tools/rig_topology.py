@@ -7,6 +7,7 @@ is a dict: name, parent (name or None), head, tail (xyz, Z up, in metres).
 GROUND = 0.18      # a foot ends within this fraction of the height above the ground
 TOES = 0.09        # bones this low are toes: climbing past them finds the foot, not the shin
 MIN_DROP = 0.35    # a leg's drop over its length: rejects a tail lying on the ground
+WING_REACH = 0.4   # a wing reaches this far sideways (x height) from the centre line
 
 
 def _children(bones: list[dict]) -> dict:
@@ -97,28 +98,42 @@ def find_arms(bones: list[dict], height: float, legs: list[dict]) -> list[dict]:
     """Upright plans: per side the shortest chain off the spine that hangs below its root
     and is not a leg (the shortest, so a wing chain beside the arm loses). Facing +Y with
     +Z up, the right side is +X. Each: {"side": "r"|"l", "root", "upper", "forearm",
-    "hand" (None when the forearm is the last bone), "chain"}."""
+    "hand" (None when the forearm is the last bone), "chain"}.
+
+    Not arms: chains that branch off the head (hair, ears, a jaw: find_head) and hanging
+    chains whose tip reaches the ground band (a tail or a skirt). A side with no hanging
+    chain takes a raised one (the merfolk's sword arm) when it reaches less than
+    WING_REACH x the height sideways: anything farther is what find_wings calls a wing, so
+    a winged biped's raised wings never stand in for arms, and a side with a hanging arm
+    never looks at raised chains at all."""
     by_name = {b["name"]: b for b in bones}
     kids = _children(bones)
     leg_bones = {n for g in legs for n in g["chain"]}
     cx = centre_x(bones, legs)
+    head = find_head(bones, height, legs)
+    on_head = {head, *_descendants(head, kids)} if head and by_name[head]["parent"] else set()
     best: dict[str, tuple] = {}
     for b in bones:
-        if b["name"] in leg_bones or not b["parent"] or len(kids[b["parent"]]) < 2:
+        if b["name"] in leg_bones or b["name"] in on_head or not b["parent"] or len(kids[b["parent"]]) < 2:
             continue
         chain = longest_chain(b["name"], kids)
         tip = by_name[chain[-1]]["head"]
-        if len(chain) < 3 or tip[2] >= b["head"][2] or abs(tip[0] - cx) < 0.06 * height:
+        if len(chain) < 3 or abs(tip[0] - cx) < 0.06 * height:
             continue
-        if any(n in leg_bones for n in chain) or b["head"][2] < 0.4 * height:
+        if any(n in leg_bones or n in on_head for n in chain) or b["head"][2] < 0.4 * height:
+            continue  # the neck, which runs on into the head, too
+        raised = tip[2] >= b["head"][2]
+        if raised and max(abs(by_name[n]["tail"][0] - cx) for n in chain) >= WING_REACH * height:
+            continue
+        if not raised and tip[2] < GROUND * height:
             continue
         side = "r" if tip[0] > cx else "l"
         pts = [by_name[n]["head"] for n in chain]
         length = sum(_dist(a, c) for a, c in zip(pts, pts[1:]))
-        if side not in best or length < best[side][0]:
-            best[side] = (length, chain)
+        if side not in best or (raised, length) < best[side][:2]:
+            best[side] = (raised, length, chain)
     arms = []
-    for side, (_, chain) in best.items():
+    for side, (_, _, chain) in best.items():
         clavicle = _dist(by_name[chain[0]]["head"], by_name[chain[1]]["head"]) < 0.15 * height
         i = 1 if clavicle else 0
         arms.append({"side": side, "root": chain[0], "upper": chain[i], "forearm": chain[i + 1],
@@ -149,27 +164,39 @@ def path_to_root(name: str, bones: list[dict]) -> list[str]:
     return out
 
 
-def find_tail(bones: list[dict], height: float, legs: list[dict], min_bones: int = 4) -> list[str]:
+def find_tail(bones: list[dict], height: float, legs: list[dict], min_bones: int = 4,
+              ground: bool = False) -> list[str]:
     """Longest chain that leaves the hips backwards, stays low and is not a leg (forward is
     +Y). Only meaningful for horizontal bodies: on an upright plan that test matches an arm.
-    `min_bones` 4 for the clips (a stub is not worth swaying); roll scoring counts shorter."""
+    `min_bones` 4 for the clips (a stub is not worth swaying); roll scoring counts shorter.
+
+    `ground`: when no such chain exists, a chain of 2+ bones that leaves the hips backwards
+    and slopes down into the ground band (its end within GROUND x the height of the
+    floor), the farthest-reaching first. A bird's tail fan resting on the ground (the
+    giant eagle's 2-bone fan) is one; the walk then turns it up at its root instead of
+    raising the whole body."""
     by_name = {b["name"]: b for b in bones}
     kids = _children(bones)
     leg_bones = {n for g in legs for n in g["chain"]}
     if not legs:
         return []
     hip_y = sum(by_name[g["chain"][0]]["head"][1] for g in legs) / len(legs)
-    best = []
+    best, sloped, reach = [], [], 0.0
     for b in bones:
         if b["name"] in leg_bones or not b["parent"] or len(kids[b["parent"]]) < 2:
             continue  # starts at a branch, so the spine above the tail is not part of it
         chain = longest_chain(b["name"], kids)
-        if len(chain) < min_bones or any(n in leg_bones for n in chain):
+        if len(chain) < 2 or any(n in leg_bones for n in chain):
             continue
         h0, h1 = by_name[chain[0]]["head"], by_name[chain[-1]]["head"]
-        if h1[1] < hip_y - 0.05 * height and h1[2] < h0[2] + 0.2 * height and len(chain) > len(best):
+        if len(chain) >= min_bones and h1[1] < hip_y - 0.05 * height and h1[2] < h0[2] + 0.2 * height \
+                and len(chain) > len(best):
             best = chain
-    return best
+        end = by_name[chain[-1]]["tail"]
+        if ground and end[1] < hip_y - 0.05 * height and end[2] <= GROUND * height < h0[2] \
+                and hip_y - end[1] > reach:
+            sloped, reach = chain, hip_y - end[1]
+    return best or sloped
 
 
 def find_wings(bones: list[dict], height: float, legs: list[dict], arms: list[dict] = (),
@@ -195,7 +222,7 @@ def find_wings(bones: list[dict], height: float, legs: list[dict], arms: list[di
             continue
         tip = max((by_name[n]["tail"] for n in chain), key=lambda p: abs(p[0] - cx))
         reach = abs(tip[0] - cx)
-        if reach < 0.4 * height:
+        if reach < WING_REACH * height:
             continue
         cands.append({"side": "r" if tip[0] > cx else "l", "chain": chain, "reach": reach})
     wings = []
