@@ -355,6 +355,9 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         299/120 vertices (148/106, much of it on the wing). Edges past 4x: fly 223 -> 217
         (left 84 -> 78), sword cut 77 -> 85 (left 7 -> 15). With the default `far` 0.3 the
         fly went to 246 (left 107). Right side unchanged. Godot not re-synced.
+        Godot round 7 (roll_1 + inserted wings, not this override): `grip_l` 1.8 cm and
+        `hand_l` 2.2 cm from the skin, 16 vertices within 5 cm of the grip. A longsword on
+        `grip_l` sits in the closed left fingers.
   - [x] Merfolk spear attack is a sword cut: overhead, then the point chops down to the floor
         in front (50%: tip (-0.35, -0.93, -0.11)) and sweeps across the body (75%). A spear
         wants a forward thrust (a per-category attack style). Idle holds the spear level above
@@ -419,6 +422,41 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
   - [ ] Snake, centaur and eagle are described as unpainted, but render with full texture
         colours (python pattern, palomino and rider, bald eagle) in Godot: the texture stage
         alone is enough for a read. Not a bug.
+- [x] Round 7 (2026-11-04, godot-dnd uncommitted, on top of 561f85f): the harpy only, after
+      9213dc2 and 1638b68 (roll_1, wing chains from the mesh, seam blend). `sync --ids harpy`
+      updated 11 files. `check_monsters.gd harpy`: ALL PASS. 32 bones (was 38), including
+      `wing_l_00..03`/`wing_r_00..03` on `bone_3`. Every clip binds 100%: attack_melee 14/14,
+      death 17/17, fly 16/16, hit 17/17, idle 17/17, walk 10/10. Fly keys all 8 `wing_*`
+      bones. LOD0-3 share the skeleton and skin, 32 binds each with the wing bones (LOD1-3
+      p95 0.002-0.008 m). One WARN, as in round 5: fly starts 0.36 m above idle.
+      - Sockets, nearest skin at walk: `hand_r`/`hand_l`/`grip_r`/`grip_l` 3.1/2.2/2.2/1.8
+        cm (round 5: 1.9/8.2/2.9/11.2). `grip_r` over the cut at 25/50/75%: 2.2/2.2/1.8 cm.
+      - Transition idle -> walk per frame: 0.206 m instant, 0.043 m with the 0.25 s
+        cross-fade (round 5: 0.139/0.044).
+      - Verified with Xvfb screenshots:
+        - Fly beats the wings without the arms. Both hands hold x 0.48/-0.37 through the
+          clip and move only with the body's bob.
+        - The sword arm rises clear of the wing, and the right wing stays put.
+        - The longsword hilt is in the right fist at idle and over the cut, and in the left
+          fingers on `grip_l`.
+      New findings, open:
+  - [ ] Harpy fly still tears at the hanging wing tips next to the legs (Blender 96 edges).
+        - At 0% (wings spread), the lower feathers stretch sideways from the hips into flat
+          blades out past the wing span, longer on the right.
+        - At 25% a thin strip runs from the hip down to the floor below the feet (side view).
+        - At 50% a dark sliver crosses in front of the shins at ankle height.
+        - Walk 50% shows the same kind of strip, from the knee to the floor (side view).
+  - [ ] Harpy sword cut: the raised right armpit pulls a flat grey sheet. At 25% it hangs
+        down the side of the torso, and at 50% it spans across the chest under the arm. This
+        is likely the right side of Blender's 48 edges. The new clip raises the fist above
+        the head (grip y 1.73/1.62 m at 25/50%, round 5: 1.27/1.18), and at 50% the fist is
+        in front of the face. Round 5's lower cut showed no sheet.
+  - [ ] Harpy idle frame 0 -> attack_melee frame 0 now jumps 0.167 m (round 5 0.014), and
+        -> walk 0.175 m (0.113). Walk dips to -0.023 m (round 5 -0.008), still inside the
+        check's -0.03 m limit.
+  - [ ] Harpy arms still not mirrored: `hand_r` at x +0.48 and `hand_l` at -0.37, elbows
+        `bone_12`/`bone_8` at +0.37/-0.25 (round 5 hands +0.51/-0.48). The left fist sits
+        nearer the body.
 
 ### F. Props (2026-11-04)
 - [x] `tools/props.py` + `tools/blender_prop_qa.py`: all 32 props in `out/props/<id>/` (prop
