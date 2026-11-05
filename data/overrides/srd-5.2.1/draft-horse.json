@@ -1,4 +1,3 @@
 {
-  "yaw": -126.82,
-  "notes": "Tier-2 review 2026-11-05 (pass 4): heavy horses 3 of 3 with harness / saddle (tack is cosmetic); ref_0 meshed clean, 2.7 m, 4 hooves down, but BACKWARDS (front tile tail, back tile face); gate refused 179. yaw -126.82 pinned (QA 53.18 + 180; the gate suggested -127.8); qa re-runs next pass."
+  "notes": "Tier-2 review 2026-11-05 (pass 4): heavy horses 3 of 3 with harness / saddle (tack is cosmetic); ref_0 meshed clean, 2.7 m, 4 hooves down, but BACKWARDS (front tile tail, back tile face); gate refused 179. yaw -126.82 pinned (QA 53.18 + 180; the gate suggested -127.8); qa re-runs next pass. Facing pass: yaw pin -126.82 removed, the auto yaw lands within 10 deg of it and thumb.png faces front."
 }

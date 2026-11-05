@@ -515,8 +515,11 @@ SIGN_VETO = 0.5
 # rump higher). toes: per foot, the sole reaches farther toward the head than the leg above
 # it (paws and hooves point forward, hocks bend back); not for birds (the hallux and the
 # tail fan) or fins. abdomen_end: a spider's or beetle's high bulk is its abdomen, so the
-# head is the other end. Upright plans: the soles ahead of the ankles.
-HEAD_CUES = {"quadruped": ("high_centre_end", "toes"), "winged_quadruped": ("high_centre_end", "toes"),
+# head is the other end. head_overhang (quadrupeds): the head, neck and trunk stick out past
+# the forefeet, the rump sits over the hind feet and a tail has little surface; catches the
+# heads-down and trunked bodies the high cue reads wrong (elephant, mammoth, polar bear).
+# Not for dragons, whose tail is a second neck. Upright plans: the soles ahead of the ankles.
+HEAD_CUES = {"quadruped": ("high_centre_end", "toes", "head_overhang"), "winged_quadruped": ("high_centre_end", "toes"),
              "avian": ("high_centre_end",), "aquatic": ("high_centre_end",),
              "insectoid": ("abdomen_end", "toes")}
 # A single cue is not trusted alone for these: the reef shark's tall tail fin reads as a head.
@@ -632,6 +635,11 @@ def facing() -> dict:
                 agree = float(np.mean(np.sign(votes) == np.sign(med)))
                 # 0.02 x height of reach is a clear paw; one foot alone counts half
                 cues[name] = (1.0 if med >= 0 else -1.0, min(1.0, abs(med) / 0.02) * agree * min(1.0, len(votes) / 2))
+        elif name == "head_overhang":
+            ov = head_overhang(cen, area, t, side, z0, h, span)
+            if ov is not None:
+                out["end_overhang"] = [round(ov[0], 4), round(ov[1], 4)]
+                cues[name] = (1.0 if ov[1] >= ov[0] else -1.0, abs(ov[1] - ov[0]) / max(ov[0] + ov[1], 1e-9))
     if plan in UPRIGHT and plan not in NO_HEAD_CUE:
         # feet point forward: the sole (lowest 4%) reaches farther along the axis than the
         # ankles above it
@@ -729,6 +737,21 @@ def toe_votes(cen, area, t, side, z0: float, h: float, span: float) -> list:
             continue
         votes.append(float(np.average(t[ii], weights=a) - np.average(t[leg], weights=area[leg])) / h)
     return votes
+
+
+def head_overhang(cen, area, t, side, z0: float, h: float, span: float):
+    """(back, front) surface past the feet along t, each face weighted by how far past: above
+    30% of the height (a tail on the ground is not body), within 0.25 x the length of the
+    centre plane. The feet are the 8th and 92nd area percentiles of the lowest 4%."""
+    sole = cen[:, 2] < z0 + 0.04 * h
+    if sole.sum() < 10:
+        return None
+    o = np.argsort(t[sole])
+    ts, c = t[sole][o], np.cumsum(area[sole][o])
+    bk_t, fr_t = ts[np.searchsorted(c, 0.08 * c[-1])], ts[np.searchsorted(c, 0.92 * c[-1])]
+    up = (cen[:, 2] > z0 + 0.3 * h) & (np.abs(side) < 0.25 * span)
+    fr, bk = up & (t > fr_t), up & (t < bk_t)
+    return float((area[bk] * (bk_t - t[bk])).sum()), float((area[fr] * (t[fr] - fr_t)).sum())
 
 
 def combine_cues(cues: dict, plan: str):

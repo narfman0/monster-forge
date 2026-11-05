@@ -1,4 +1,3 @@
 {
-  "yaw": -122.5,
-  "notes": "Tier-2 review 2026-11-05 (pass 4): tiny winged cat-lions 3 of 3 on four legs; ref_0 meshed at 0.6 m (4955 tris): the wings are flat blade shards but the body, face and tail read; turned ~57 deg (gate refused 57.5, conf 1.0; QA fell back to ambiguous_ends 180). yaw -122.5 pinned (the gate value); qa re-runs next pass, check thumb.png."
+  "notes": "Tier-2 review 2026-11-05 (pass 4): tiny winged cat-lions 3 of 3 on four legs; ref_0 meshed at 0.6 m (4955 tris): the wings are flat blade shards but the body, face and tail read; turned ~57 deg (gate refused 57.5, conf 1.0; QA fell back to ambiguous_ends 180). yaw -122.5 pinned (the gate value); qa re-runs next pass, check thumb.png. Facing pass: yaw pin -122.5 removed, the auto yaw lands within 10 deg of it and thumb.png faces front."
 }

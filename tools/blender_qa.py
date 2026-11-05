@@ -23,6 +23,8 @@ import bmesh
 import bpy
 import numpy as np
 from mathutils import Matrix, Vector
+from mathutils.bvhtree import BVHTree
+from mathutils.kdtree import KDTree
 
 job = json.loads(sys.argv[sys.argv.index("--") + 1])
 report = {}
@@ -77,6 +79,150 @@ report["raw_dims"] = [round(float(x), 4) for x in (v.max(0) - v.min(0))]
 
 # ---- orientation. Blender: +Z up; generator front (toward the camera) is -Y after the
 # glTF import. Target: model faces +Y in Blender (= -Z in glTF), or -Y for "+Z".
+# Auto yaw for plans drawn from the side (docs/rig-anim.md "QA auto-yaw"):
+# - body axis. Plain plans: the principal axis of the surface. Winged plans: that axis is
+#   the wings', so they take the mirror plane when it is decisive (MIRROR_SURE, or
+#   MIRROR_FRONTAL for a head-on reference, whose wings span the camera's X), else the
+#   median of three principal axes that leave the wings out: the thick surface, the thick
+#   surface below 60% of the height, and everything below 45%.
+# - head end (CAMERA_END_PLANS): the end nearer the camera. A reference shows the face, so
+#   the mesh, which stays in the reference camera's frame, has its head toward -Y; every
+#   side-view mesh of these plans on disk does, and the upper-mass end this replaced turned
+#   15 of them backwards. Within SIDE_ON_DEG of a pure profile the camera says nothing and
+#   high_centre_end decides. Other plans (spiders, snakes, blobs) keep the upper-mass end.
+WINGED_AXIS_PLANS = {"winged_quadruped", "avian"}
+CAMERA_END_PLANS = WINGED_AXIS_PLANS | {"quadruped", "aquatic"}
+MIRROR_SURE = 0.55
+MIRROR_FRONTAL = 0.45
+MIRROR_FRONTAL_DEG = 20.0
+THICK_MIN = 0.03  # of the mesh diagonal: inward ray to the opposite surface; a membrane is thinner
+THICK_LOW_MIN = 0.02
+THICK_LOW_Z = 0.6
+LOW_Z = 0.45
+SIDE_ON_DEG = 8.0
+
+
+def principal_axis(xy, w):
+    """(bearing from +Y toward +X, modulo 180; elongation) of area-weighted points."""
+    xy = xy - np.average(xy, axis=0, weights=w)
+    ev, vecs = np.linalg.eigh(np.cov(xy.T, aweights=w))
+    ax = vecs[:, int(np.argmax(ev))]
+    return math.degrees(math.atan2(ax[0], ax[1])), float(math.sqrt(ev.max() / max(ev.min(), 1e-12)))
+
+
+def axis_gap(a, b):
+    return abs((a - b + 90) % 180 - 90)
+
+
+def face_thickness(cen, nrm):
+    """Distance from each face inward to the next surface, / the mesh diagonal; 0 on a miss."""
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    diag = float(np.linalg.norm(co.max(0) - co.min(0)))
+    bvh = BVHTree.FromPolygons(co.tolist(), [p.vertices[:] for p in me.polygons], all_triangles=True, epsilon=0.0)
+    out = np.zeros(len(cen))
+    for i, (c, n) in enumerate(zip((cen - 1e-4 * diag * nrm).tolist(), (-nrm).tolist())):
+        hit = bvh.ray_cast(c, n, diag)
+        if hit[0] is not None:
+            out[i] = hit[3] / diag
+    return out
+
+
+def mirror_plane(cen, area, n=4000):
+    """Best vertical mirror plane (as blender_rig.py's facing(), on the raw frame): its
+    bearing, modulo 180, and how far it beats a typical plane (0..1)."""
+    rng = np.random.default_rng(0)
+    pick = rng.choice(len(cen), size=min(n, len(cen)), replace=False, p=area / area.sum())
+    h = float(np.ptp(cen[:, 2]))
+    tree = KDTree(len(cen))
+    for i, p in enumerate(cen):
+        tree.insert(p, i)
+    tree.balance()
+
+    def err(phi):
+        a = math.radians(phi)
+        lat = np.array((math.cos(a), -math.sin(a), 0.0))
+        s = cen @ lat
+        o = np.argsort(s)
+        c = np.cumsum(area[o])
+        c0 = float(s[o][np.searchsorted(c, c[-1] / 2)])
+        best = None
+        for off in (c0 - 0.02 * h, c0, c0 + 0.02 * h):
+            q = cen[pick] - 2 * (s[pick] - off)[:, None] * lat
+            e = sum(tree.find(p)[2] for p in q) / len(q) / h
+            best = e if best is None else min(best, e)
+        return best
+
+    scan = {phi: err(phi) for phi in range(-90, 90, 3)}
+    phi0 = min(scan, key=scan.get)
+    fine = {phi0 + d: err(phi0 + d) for d in np.arange(-3, 3.01, 0.5)}
+    phi = float(min(fine, key=fine.get))
+    return phi, max(0.0, 1.0 - fine[phi] / float(np.median(list(scan.values()))))
+
+
+def winged_axis(cen, area, nrm):
+    """(axis bearing, rule) for a winged body."""
+    phi, contrast = mirror_plane(cen, area)
+    report["facing_mirror"] = [phi, round(contrast, 3)]
+    if contrast >= MIRROR_SURE or (contrast >= MIRROR_FRONTAL and abs((phi + 90) % 180 - 90) <= MIRROR_FRONTAL_DEG):
+        return phi, "mirror"
+    thick = face_thickness(cen, nrm)
+    z = (cen[:, 2] - cen[:, 2].min()) / max(float(np.ptp(cen[:, 2])), 1e-9)
+    picks = (thick > THICK_MIN, (thick > THICK_LOW_MIN) & (z < THICK_LOW_Z), z < LOW_Z)
+    axes = [principal_axis(cen[m, :2], area[m])[0] for m in picks if m.sum() > 50]
+    report["facing_body_axes"] = [round(a, 1) for a in axes]
+    return min(axes, key=lambda a: sum(axis_gap(a, b) for b in axes)), "body_median"
+
+
+def auto_yaw():
+    """(yaw, method) for a mesh not drawn front view (see the comment above)."""
+    plan = job.get("body_plan", "")
+    n = len(me.polygons)
+    area = np.empty(n)
+    me.polygons.foreach_get("area", area)
+    cen = np.empty(n * 3)
+    me.polygons.foreach_get("center", cen)
+    cen = cen.reshape(-1, 3)
+    nrm = np.empty(n * 3)
+    me.polygons.foreach_get("normal", nrm)
+    nrm = nrm.reshape(-1, 3)
+    if plan in WINGED_AXIS_PLANS:
+        bearing, rule = winged_axis(cen, area, nrm)
+    else:
+        bearing, ratio = principal_axis(cen[:, :2], area)
+        report["footprint_axis_ratio"] = round(ratio, 2)
+        rule = "pca"
+    r = math.radians(bearing)
+    axis = np.array((math.sin(r), math.cos(r)))
+    xy = cen[:, :2] - np.average(cen[:, :2], axis=0, weights=area)
+    t, side = xy @ axis, xy @ np.array((axis[1], -axis[0]))
+    span = float(np.ptp(t))
+    z = cen[:, 2]
+    high = z > z.min() + 0.6 * (z.max() - z.min())
+    if plan in CAMERA_END_PLANS:
+        head = -axis if axis[1] > 0 else axis  # the end toward the camera, -Y
+        if abs(head[1]) >= math.sin(math.radians(SIDE_ON_DEG)):
+            method = f"{rule}_camera_end"
+        else:  # a pure profile: high_centre_end (blender_rig.py), wings are off the centre plane
+            mid = np.abs(side) < 0.15 * span
+            fr = float(area[mid & high & (t > t.max() - 0.3 * span)].sum())
+            bk = float(area[mid & high & (t < t.min() + 0.3 * span)].sum())
+            report["facing_end_high_area"] = [round(bk, 4), round(fr, 4)]
+            head = axis if fr >= bk else -axis
+            method = f"{rule}_high_centre_end"
+        return math.degrees(math.atan2(head[0], head[1])), method
+    # the head end carries more surface in the upper 40% of the body (head and neck vs a
+    # thin, low tail); within 1.25x (spiders, blobs), assume it faces the camera
+    a_neg = float(area[(t < t.min() + 0.2 * span) & high].sum())
+    a_pos = float(area[(t > t.max() - 0.2 * span) & high].sum())
+    report["facing_end_high_area"] = [round(a_neg, 4), round(a_pos, 4)]
+    if max(a_neg, a_pos) < 1.25 * min(a_neg, a_pos):
+        return 180.0, "ambiguous_ends_assume_camera"
+    head = axis if a_pos > a_neg else -axis
+    return math.degrees(math.atan2(head[0], head[1])), "pca_upper_mass_end"
+
+
 yaw = job.get("yaw_override")
 yaw = float(yaw) if yaw is not None else None
 if yaw is None:
@@ -84,30 +230,7 @@ if yaw is None:
         yaw = 180.0  # faces the camera (-Y) -> turn to +Y
         report["facing_method"] = "front_view"
     else:
-        # Side / three-quarter view: the body's long axis is the principal axis of the
-        # footprint (area-weighted face centroids). The head end carries more surface in
-        # the upper 40% of the body (head and neck vs a thin, low tail). If the two ends
-        # are within 1.25x of each other (spiders, blobs), assume it faces the camera.
-        tri_area = np.array([p.area for p in me.polygons])
-        cent = np.array([p.center[:] for p in me.polygons])
-        xy = cent[:, :2] - np.average(cent[:, :2], axis=0, weights=tri_area)
-        w, vecs = np.linalg.eigh(np.cov(xy.T, aweights=tri_area))
-        axis = vecs[:, np.argmax(w)]
-        t = xy @ axis
-        lo, hi = t.min(), t.max()
-        z = cent[:, 2]
-        high = z > z.min() + 0.6 * (z.max() - z.min())
-        a_neg = float(tri_area[(t < lo + 0.2 * (hi - lo)) & high].sum())
-        a_pos = float(tri_area[(t > hi - 0.2 * (hi - lo)) & high].sum())
-        report["facing_end_high_area"] = [round(a_neg, 4), round(a_pos, 4)]
-        report["footprint_axis_ratio"] = round(float(math.sqrt(w.max() / max(w.min(), 1e-12))), 2)
-        if max(a_neg, a_pos) < 1.25 * min(a_neg, a_pos):
-            yaw = 180.0
-            report["facing_method"] = "ambiguous_ends_assume_camera"
-        else:
-            head = axis if a_pos > a_neg else -axis
-            yaw = math.degrees(math.atan2(head[0], head[1]))  # rotates head onto +Y
-            report["facing_method"] = "pca_upper_mass_end"
+        yaw, report["facing_method"] = auto_yaw()
 if job.get("forward") == "+Z":
     yaw += 180.0
 report["yaw_deg"] = yaw

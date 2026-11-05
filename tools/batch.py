@@ -306,10 +306,11 @@ GAPS = [
                  "the size (anim thresholds are size-relative since clips2)",
      lambda r: r["size"] in ("huge", "gargantuan") and r["id"] not in PILOTS, False,
      "rig (if SkinTokens fails: tri_budget override, then mesh..), anim --force", ""),
-    ("facing_wings", "winged bodies: QA's auto-facing follows the wings (the dragon pilot was 65 deg off); the rig "
-                     "stage refuses past 30 deg",
+    ("facing_wings", "winged bodies: QA's auto-yaw takes the body axis from the mirror plane or the thick, low "
+                     "surface, 90% within 15 deg on disk; the rest are refused past 30 deg or held unverified",
      lambda r: r["body_plan"] in ("winged_quadruped", "winged_biped", "avian") and r["id"] not in PILOTS, False,
-     "pin `yaw`, then qa, paint, lod, rig, anim", "the batch's facing gate stops these after qa, before paint"),
+     "pin `yaw`, then qa, paint, lod, rig, anim", "the batch's facing gate stops these after qa, before paint; "
+     "unverified ones wait for a reviewer"),
     ("unarmed", "unarmed_reference: --n 4 + the unarmed check (thin margin, 2.5 threshold)",
      lambda r: r.get("unarmed_reference") and r["id"] not in PILOTS, False, "ref (re-pick) when a weapon slips through",
      "handled by the batch (--n 4); review the candidate strip"),
@@ -1222,11 +1223,12 @@ def run_facing_gate(rec: dict, d: Path, m: dict, prog: Progress, args) -> bool:
     except Exception as e:  # a Blender failure here is not a verdict: let rig decide
         f = {"ok": True, "error": str(e)[:300]}
         fg.log(f"batch: {rec['id']}: facing gate failed to run ({e}); continuing")
-    # unverified: not refused, but the head end (or a disputed axis) is not settled; the
-    # monster goes on and the report lists it under "Facing to verify" (docs/batch.md)
+    # unverified: not refused, but the head end (or a disputed axis) is not settled; ref,
+    # mesh and qa go on, paint waits (paint_blocked), the report lists it under "Facing to
+    # verify" (docs/batch.md)
     m["stages"]["facing"] = facing_entry(f, time.time() - t0)
     if f["ok"] and f.get("unverified"):
-        fg.log(f"batch: {rec['id']}: facing UNVERIFIED ({f['unverified']}); listed for review, continuing")
+        fg.log(f"batch: {rec['id']}: facing UNVERIFIED ({f['unverified']}); paint waits for a look at thumb.png")
     if not f["ok"]:
         m["errors"].append({"stage": "facing", "error": f"{f['angle_deg']} deg off +Y, confidence "
                             f"{f['confidence']}, suggested yaw {f.get('suggested_yaw')}",
@@ -1235,6 +1237,18 @@ def run_facing_gate(rec: dict, d: Path, m: dict, prog: Progress, args) -> bool:
     prog.refresh(rec, args.source)
     prog.save()
     return bool(f["ok"])
+
+
+def facing_record(prog, mid: str) -> dict | None:
+    """The gate's stages.facing as _batch.json has it now, for the dry run."""
+    return ((prog.data.get("monsters") or {}).get(mid) or {}).get("stages", {}).get("facing")
+
+
+def paint_blocked(rec: dict, d: Path, pending: list, args, fc: dict | None) -> bool:
+    """An `unverified` gate result holds paint. The only way past it is the reviewer's
+    `rig_facing_check` false, set after looking at thumb.png: needs_facing_gate is then
+    false, as it is for --no-facing-gate. A pinned `yaw` is checked again after its qa."""
+    return bool(fc) and fc.get("status") == "unverified" and needs_facing_gate(rec, d, pending, args)
 
 
 def facing_entry(f: dict, seconds: float = 0.0, **extra) -> dict:
@@ -1474,6 +1488,9 @@ def cmd_run(args) -> int:
                 if not gate_done and st in ("paint", "lod", "rig") and needs_facing_gate(rec, d, todo, args):
                     print("    facing gate: rig.facing_check on model.glb (Blender); stop this monster if refused")
                     gate_done = True
+                if st == "paint" and paint_blocked(rec, d, s["pending"], args, facing_record(prog, mid)):
+                    print("    paint blocked: facing unverified; look at thumb.png, then pin `yaw` or set rig_facing_check false")
+                    break
                 if st in restart_stages(args):
                     print("    systemctl --user restart comfyui; wait for /system_stats")
                 if st in ("mesh", "paint"):
@@ -1511,6 +1528,13 @@ def cmd_run(args) -> int:
                     if not run_facing_gate(rec, d, m, prog, args):
                         failures += 1
                         break
+                if st == "paint" and paint_blocked(rec, d, s["pending"], args, m["stages"].get("facing")):
+                    # not a failure: nothing broke, and a pass can run on past any number of these
+                    fg.log(f"batch: {mid}: paint blocked, facing unverified "
+                           f"({m['stages']['facing'].get('unverified')}); look at thumb.png")
+                    prog.event("paint_blocked", id=mid, why=m["stages"]["facing"].get("unverified"))
+                    prog.save()
+                    break
                 if st in restart_stages(args):
                     restart_comfy(prog, f"before {mid} {st}")
                 if st in ("mesh", "paint"):
@@ -1633,7 +1657,9 @@ def cmd_report(args) -> int:
             stage_s[st] += r.get("seconds") or 0
     done_all = sum(1 for r in rows if not r["s"]["pending"])
     complete = sum(1 for r in rows if r["missing"] == [])
-    n_unver = sum(1 for r in rows if (r["fc"] or {}).get("status") == "unverified")
+    to_verify = [r for r in rows if (r["fc"] or {}).get("status") == "unverified" and
+                 gate_applies(r["rec"], r["s"]["dir"]) is None]
+    n_unver = len(to_verify)
     n_refused = sum(1 for r in rows if (r["fc"] or {}).get("status") == "refused")
     pins = [r for r in rows if r["pin"]]
     ready, not_ready = ready_for_paint(rows)
@@ -1675,13 +1701,14 @@ def cmd_report(args) -> int:
             L.append(f"- `{mid}` {at}: {' '.join(str(err).split())[:400]}")
         L.append("")
     # facing gate results that are not refusals but need a look at thumb.png
-    L += ["## Facing to verify", "",
-          "The facing gate passed these without naming the head end (or with the mirror axis disputed): "
-          "look at thumb.png; pin `yaw` (QA's yaw + 180 for a backwards body) or leave it.", ""]
-    ver = [(r["rec"]["id"], r["fc"] or {}) for r in rows]
-    ver = [(mid, fc) for mid, fc in ver if fc.get("status") == "unverified"]
-    L += [f"- `{mid}` {fc.get('angle_deg')} deg, confidence {fc.get('confidence')}: {fc.get('unverified')}"
-          + (f" (one cue's yaw {fc['hint_yaw']})" if fc.get("hint_yaw") is not None else "") for mid, fc in ver] or ["None."]
+    L += [f"## Facing to verify ({n_unver})", "",
+          "The facing gate could not settle these (head end not named, mirror axis disputed or low confidence): the "
+          "batch will not paint them. Look at thumb.png, then pin `yaw` (QA's yaw + 180 for a backwards body) and let "
+          "qa and the gate run again, or, when it faces front, set `rig_facing_check` false.", ""]
+    L += [f"- `{r['rec']['id']}` {r['fc'].get('angle_deg')} deg, confidence {r['fc'].get('confidence')}: "
+          f"{r['fc'].get('unverified')}" + (f" (one cue's yaw {r['fc']['hint_yaw']})"
+                                            if r['fc'].get("hint_yaw") is not None else "")
+          + f"; `{(r['s']['dir'] / 'thumb.png').relative_to(ROOT)}`" for r in to_verify] or ["None."]
     L.append("")
     # ref_pick pins chosen from a strip a prompt re-roll replaced (stale_pin, pin_notes)
     L += [f"## Pins to re-choose ({len(pins)})", "",

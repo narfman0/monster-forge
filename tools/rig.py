@@ -78,7 +78,7 @@ FACING_CONF = 0.5
 # a front-view reference (QA turned it by 180 by construction, so only mesh asymmetry can
 # put the axis off: half-dragon's curled tail, 64 deg at 0.5) or a legged horizontal body
 # whose ground footprint runs 45+ deg off the mirror axis (young-bronze-dragon's spread
-# wings, 84 deg at 0.61). Below it the result is `unverified` (listed for a look, not refused).
+# wings, 84 deg at 0.61). Below it the result is `unverified` (paint waits for a look).
 FACING_CONF_DISPUTED = 0.75
 FOOTPRINT_DISPUTE_DEG = 45.0
 FOOTPRINT_DISPUTE_ELONGATION = 1.5
@@ -246,7 +246,8 @@ def fallback_rig(fg, mon: dict, d: Path) -> dict:
 def facing_check(fg, mon: dict, d: Path) -> dict:
     """Body axis of model.glb vs +Y (blender_rig.py "facing"), before any roll. `ok` false =
     refuse to roll; `unverified` (a reason) = not refused, but the head end or the axis is not
-    settled: the batch lists it for a look at thumb.png (docs/rig-anim.md "Facing check")."""
+    settled: the batch keeps it out of paint until a reviewer has looked at thumb.png and set
+    `rig_facing_check` false (docs/rig-anim.md "Facing check", docs/batch.md)."""
     (d / "rig").mkdir(exist_ok=True)
     man = fg.load_manifest(d)
     qa = man.get("qa") or {}
@@ -258,6 +259,11 @@ def facing_check(fg, mon: dict, d: Path) -> dict:
     bad = rep["angle_deg"] > FACING_MAX_DEG
     advisory = mon["body_plan"] in FACING_ADVISORY
     unverified = None if advisory else rep.get("unverified")
+    # below FACING_CONF the mirror axis means little (black-dragon-wyrmling 20.5 deg at 0.09,
+    # salamander 76 deg at 0.28): an angle read off it passes nothing. A front-view reference
+    # is on +Y by construction and keeps its prior.
+    if not unverified and not advisory and rep["confidence"] < FACING_CONF and not rep.get("front_view_prior"):
+        unverified = f"mirror axis confidence {rep['confidence']} < {FACING_CONF}"
     disputed = None
     if rep.get("front_view_prior"):
         disputed = "front-view reference"

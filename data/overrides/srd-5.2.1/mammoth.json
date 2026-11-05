@@ -1,4 +1,3 @@
 {
-  "yaw": 119.85,
-  "notes": "Tier-2 review 2026-11-05 (pass 4): woolly mammoths 3 of 3; ref_0 meshed clean, 7.0 m, but BACKWARDS (front tile rump, back tile face and tusks); gate UNVERIFIED (one weak cue). yaw 119.85 pinned (QA -60.15 + 180); qa re-runs next pass."
+  "notes": "Tier-2 review 2026-11-05 (pass 4): woolly mammoths 3 of 3; ref_0 meshed clean, 7.0 m, but BACKWARDS (front tile rump, back tile face and tusks); gate UNVERIFIED (one weak cue). yaw 119.85 pinned (QA -60.15 + 180); qa re-runs next pass. Facing pass: yaw pin 119.85 removed, the auto yaw lands within 10 deg of it and thumb.png faces front."
 }

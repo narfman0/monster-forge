@@ -1,0 +1,4 @@
+{
+ "notes": "Facing pass: qa now faces front at auto yaw -116.8 (thumb.png checked; it was 63 deg off at 180). The gate refuses 89.5: a false refusal on a wrong mirror axis, as black-bear. Clear with rig_facing_check false after a look. Lead 2026-11-05: thumb.png faces front; the gate refuses at 89.5 on a wrong mirror axis, so rig_facing_check is off.",
+ "rig_facing_check": false
+}

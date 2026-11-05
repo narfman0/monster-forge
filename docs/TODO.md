@@ -137,10 +137,16 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       (front view, or the footprint 45+ deg off): half-dragon, young-bronze-dragon go
       `unverified`. The backwards boar, badger, rhino, polar bear are now refused with
       `suggested_yaw` within 2.5 deg of the review's pins.
-- [ ] Facing misses left: rust-monster is backwards and passes (insect legs fool `toes`;
-      the high cue agrees wrongly); fish have one cue only (`unverified`; reef-shark is
-      backwards). A third cue (eyes / mouth from the paint, or the reference's own
-      left-right facing in ref.png) would cover them.
+- [x] QA auto-yaw follows the body, not the wings (2026-11-05, `docs/rig-anim.md` "QA
+      auto-yaw"): mirror plane when decisive, else the median of three wing-free principal
+      axes; head end = the end toward the camera. 44 of 48 winged meshes within 15 deg (27
+      before), and rust-monster and reef-shark come out forward at auto. New quadruped cue
+      `head_overhang`; an `unverified` result now holds paint (`docs/batch.md`).
+- [ ] Facing left: 3 pins to judge (adult-brass-dragon -36.7 is sideways: drop it;
+      black-dragon-wyrmling -155.6 worse than auto; ancient-black-dragon -141.7 about equal).
+      Gate false refusals on a wrong mirror axis at a good yaw: gorgon, black-bear,
+      giant-hyena, bulette (the first needs a look, then `rig_facing_check` false). Insectoids
+      still use the old rule (spider pins stay).
 - [x] Roll score v2 (2026-11-04): spine, head, tail, wing and arm chains per plan, leg count
       and pairs, joint band, joints outside the mesh, weight bleed, and a pose test (each
       part bent 30 degrees: torn edges, far vertices moving, skin not following). Terms in
@@ -1076,6 +1082,7 @@ untested variants; off-model fork, heavy crossbow, mace props.
       the gate passes either way (phase-spider); owner of rig.py. (2026-11-05) Head-end cues
       (C): a backwards body is refused with QA's yaw + ~180; an unsettled one is `unverified`
       and listed under "Facing to verify" in the report (docs/batch.md), not passed silently.
+      (2026-11-05) It also holds paint until a reviewer pins `yaw` or sets `rig_facing_check` false.
 - [x] (2026-11-05) Stale prompt: a changed prompt re-rolls the reference. The batch stamps
       `manifest.ref.prompt_fp` after each ref it runs and re-rolls when the prompt built now
       differs; unstamped (older) references only with `--reroll-changed-prompts` (prompt
@@ -1120,6 +1127,8 @@ untested variants; off-model fork, heavy crossbow, mace props.
       Blender, memory-gated); `report` counts `unverified` facings and pins and lists "Ready
       for paint". Staleness stays live (forge reads `data/overrides` live, so no
       `--snapshot-overrides`): edit overrides only for finished monsters or between passes.
+- [ ] After the facing pass (2026-11-05): `blender_rig.py` changed, so every gate record is
+      stale: run `batch.py facing --stale`, then "Facing to verify" lists what paint waits on.
 - [ ] After pass 4: `batch.py facing --stale` (the pass's saves drop the facing refreshes
       merged while it ran; re-derived from `rig/facing.json` without Blender), then ~90 more
       old-code gates in tiers 1-3 (`facing --stale --dry-run` lists them).

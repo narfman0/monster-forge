@@ -171,7 +171,7 @@ Pilots are not counted in proven / same path / untested / hold.
 
 | # | gap | records | blocks the batch? | re-run after the fix | examples |
 |---:|---|---:|---|---|---|
-| 1 | winged bodies: QA's auto-facing follows the wings (the dragon pilot was 65 deg off); the rig stage refuses past 30 deg | 88 | no (after) | pin `yaw`, then qa, paint, lod, rig, anim | axe-beak, balor, black-dragon-wyrmling, young-black-dragon, adult-black-dragon, ancient-black-dragon, ...; the batch's facing gate stops these after qa, before paint |
+| 1 | winged bodies: QA's auto-yaw takes the body axis from the mirror plane or the thick, low surface, 90% within 15 deg on disk; the rest are refused past 30 deg or held unverified | 88 | no (after) | pin `yaw`, then qa, paint, lod, rig, anim | axe-beak, balor, black-dragon-wyrmling, young-black-dragon, adult-black-dragon, ancient-black-dragon, ...; the batch's facing gate stops these after qa, before paint |
 | 2 | unarmed_reference: --n 4 + the unarmed check (thin margin, 2.5 threshold) | 77 | no (after) | ref (re-pick) when a weapon slips through | animated-armor, assassin, azer-sentinel, balor, bandit, bandit-captain, ...; handled by the batch (--n 4); review the candidate strip |
 | 3 | huge / gargantuan: 20-25k tri LOD0 never through SkinTokens; paint views are 1024 px whatever the size (anim thresholds are size-relative since clips2) | 49 | no (after) | rig (if SkinTokens fails: tri_budget override, then mesh..), anim --force | awakened-tree, balor, behir, adult-black-dragon, ancient-black-dragon, adult-blue-dragon, ... |
 | 4 | untested plan variant (see the plan table) | 36 | no (after) | rig --rig-reroll, anim --force (mesh only if the shape is wrong) | aboleth, air-elemental, animated-flying-sword, animated-rug-of-smothering, awakened-shrub, awakened-tree, ... |
@@ -224,7 +224,8 @@ Tiers: 0 = 15, 1 = 155, 2 = 113, 3 = 33, 4 = 14.
     20000-25000 tri LOD0s have never gone through SkinTokens (VRAM, time), and the paint
     stage renders every view at 1024 px whatever the 2048 atlas.
   - Winged bodies (88, with the bat and raven units): QA's PCA auto-facing followed the
-    dragon's wings (65 degrees off).
+    dragon's wings (65 degrees off). Since 2026-11-05 the axis comes from the body
+    (docs/rig-anim.md "QA auto-yaw", 44 of 48 within 15 deg); the misses remain.
     The rig stage refuses to roll past 30 degrees; fixing it is a pinned `yaw` and qa,
     which deletes the paint. The batch runs the facing check right after qa and stops the
     monster before paint when it would be refused (`manifest.rig.facing`, an `errors`
@@ -338,9 +339,15 @@ lod, rig, anim), each as `forge.py <stage> <id> --source <source>` in its own pr
   exists): `rig.facing_check` on `model.glb` (Blender only, ~3-4 s). Refused = recorded
   (`_batch.json` stage `facing` with the suggested yaw, a `manifest.errors` entry) and the
   monster is left before paint; a later pass clears that entry (and the `manifest.rig`
-  placeholder). `unverified` (the head end or a disputed axis not settled, docs/rig-anim.md
-  "Facing check") is not a refusal: the monster goes on, `_batch.json` keeps the reason and
-  `hint_yaw`, and the report lists it under "Facing to verify". `--no-facing-gate` turns it off.
+  placeholder). `unverified` (head end not named, a disputed axis, or mirror confidence under
+  0.5; docs/rig-anim.md "Facing check") is not a refusal and not a pass: ref, mesh and qa go
+  on, `_batch.json` keeps the reason and `hint_yaw`, but **the batch will not start paint**
+  (log line, `paint_blocked` event; not counted as a failure, so `--stop-after-failures`
+  ignores it). The report lists these under "Facing to verify" with their thumb paths, and
+  they are not "Ready for paint". A reviewer looks at `thumb.png`, then pins `yaw` (qa and
+  the gate run again) or sets `rig_facing_check` false: that override is the only bypass
+  (`overrides.py` has no separate verified field). `--no-facing-gate` turns the gate and
+  this hold off.
   The gate re-runs only after a qa the pass runs, or before paint, so a record from an
   older gate stays until then: **`batch.py facing [--ids ...] [--stale]`** re-runs it
   (`rig.facing_check`, CPU Blender, one monster at a time, only while MemAvailable is at
@@ -452,9 +459,12 @@ phase-spider (insectoid, large), gibbering-mouther (amorphous).
   batch re-runs qa with `--force` and the gate). Then look at `thumb.png`. Since
   2026-11-05 a body the head-end cues call backwards is refused with `suggested_yaw` = QA's
   yaw + ~180 (boar, giant-badger, rhinoceros); when they cannot tell (`head_known` false)
-  the gate passes it as `unverified` and the report's "Facing to verify" lists it: look at
-  `thumb.png` (the front tile shows the face, not the rump) and use `hint_yaw` or QA's yaw
-  + 180 if it is backwards. Front-view bipeds are no longer refused for a robe or tail
+  the gate reads it `unverified`, paint waits, and the report's "Facing to verify" lists it:
+  look at `thumb.png` (the front tile shows the face, not the rump), use `hint_yaw` or QA's
+  yaw + 180 if it is backwards, or set `rig_facing_check` false if it faces front. A wrong
+  mirror axis can also refuse a mesh that faces front (black-bear, giant-hyena, gorgon): the
+  thumb decides, never pin the suggested yaw unseen (adult-brass-dragon's -36.7 is such a
+  pin: sideways). Front-view bipeds are no longer refused for a robe or tail
   (their sign is the front view's, by construction).
 - Unarmed warnings ("every candidate scores armed"): look and pin `ref_pick`, or re-roll.
 - Rig problems by plan: winged bipeds without wings and quadrupeds without a spine or

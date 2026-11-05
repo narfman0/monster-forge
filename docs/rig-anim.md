@@ -49,9 +49,39 @@ idle ComfyUI queue and asking ComfyUI to unload its models: SkinTokens needs abo
 VRAM. A roll takes 20-30 s. Failed rolls are logged and skipped; the stage fails only when
 every roll fails.
 
+**QA auto-yaw** (`blender_qa.py` `auto_yaw`, for plans not drawn front view, with no `yaw`
+override; `facing_method` in `qa.json` names the rule). The mesh stays in the reference
+camera's frame, which is what the head end relies on:
+
+- **Body axis.** Quadruped and other wingless plans: the principal axis of the surface.
+  Winged quadruped and avian (the full principal axis is the wings'): the mirror plane when
+  it is decisive (contrast >= 0.55, or >= 0.45 within 20 deg of the camera axis for a head-on
+  reference, `mirror_*`); else the median of three principal axes that leave the wings out
+  (`body_median_*`): the thick surface (inward ray to the opposite surface > 3% of the mesh
+  diagonal; a membrane is thinner), the surface thicker than 2% below 60% of the height, and
+  everything below 45% of the height. A low-contrast mirror plane is not used: on dragons it
+  reads 30-80 deg off.
+- **Head end** (quadruped, winged quadruped, avian, aquatic): the end nearer the camera
+  (`*_camera_end`), since a reference shows the face. Within 8 deg of a pure profile the
+  camera says nothing and `high_centre_end` decides. `toes` is not ported: no mesh on disk
+  has needed the branch but white-dragon-wyrmling. Insectoid, serpentine and the rest keep
+  the upper-mass end and "ambiguous ends: assume it faces the camera".
+
+Validation (2026-11-05, the code above on every model_raw.glb of those plans, 113 meshes;
+truth = pins, the review, and top views read by eye to about +-10 deg, so the thresholds
+were tuned on the set they are scored on): winged within 15 deg 44 of 48 (27 before), the
+rest 61 of 65 (41 before), with no mesh made worse past 15 deg. Misses: griffon 61 (an eagle
+on two legs), red-dragon-wyrmling 47 (keeps its pin), pseudodragon 18, weasel 33 (sitting),
+giant-toad 17. The old upper-mass end had turned 15 meshes backwards; on all 15 the camera
+end lands within 8 deg of the truth, and on the 13 pinned backwards ones within 0.1 of the pin.
+
+This rule shares the mirror plane with the check below on the meshes where it is decisive,
+so there the check's axis confirms little by itself; its head-end cues stay independent of
+QA, which reads no surface cue outside a pure profile.
+
 **Facing check.** Before rolling, the stage measures which way `model.glb` points
-(`blender_rig.py` mode `facing`, about 3 s), independently of QA's auto-facing, because a
-mesh that does not face +Y in Blender (glTF -Z) gets a scrambled skeleton:
+(`blender_rig.py` mode `facing`, about 3 s), because a mesh that does not face +Y in
+Blender (glTF -Z) gets a scrambled skeleton:
 
 - **Body axis:** the vertical plane the surface is most mirror-symmetric about (scan over
   180 degrees, refined to 0.5). Paired wings, legs and horns vote for the true axis instead
@@ -68,6 +98,11 @@ mesh that does not face +Y in Blender (glTF -Z) gets a scrambled skeleton:
     height). Paws and hooves point forward and hocks bend back; the median over the feet,
     scaled so 0.02 x height is sure, times the share of feet that agree. Not for birds
     (hallux, tail fan) or fins.
+  - `head_overhang` (quadrupeds): surface above 30% of the height past the feet at each end,
+    each face weighted by how far past. The head, neck and trunk stick out past the forefeet,
+    the rump sits over the hind feet, a tail has little surface. Reads elephant 0.86, mammoth
+    0.97, polar bear 0.88, boar 0.91 where `high_centre_end` is wrong or weak. Wrong on bodies
+    with a big back end: frog, giant-frog, bulette, rust-monster, rat (these go `unverified`).
   - `abdomen_end` (insectoids): a spider's or beetle's high bulk is its abdomen, so the head
     is the other end.
   - `toes_ahead_of_ankles` (upright plans): the soles reach farther forward than the ankles.
@@ -76,8 +111,9 @@ mesh that does not face +Y in Blender (glTF -Z) gets a scrambled skeleton:
   cue reaches 0.8 with nothing >= 0.5 against it (not for aquatic: a reef shark's tall
   tail fin reads as a head). Otherwise the result is **`unverified`** (no cue, cues too
   weak, cues disagreeing, or one aquatic cue): the angle is the axis alone (sign-blind),
-  the stage does not refuse for it, and the batch lists the monster under "Facing to
-  verify" in its report; when one cue named an end, `hint_yaw` is the yaw it implies.
+  the stage does not refuse for it, and the batch will not paint the monster until a
+  reviewer has looked (docs/batch.md); when one cue named an end, `hint_yaw` is the yaw it
+  implies. The stage itself still rolls: the hold is the batch's.
 - **Front-view references** (QA `facing_method` `front_view`: an upright or floating plan
   whose reference is drawn front view and that QA turned by 180 with no `yaw` override):
   the face is on +Y by construction, so the sign is not measured: the angle is the mirror
@@ -86,7 +122,10 @@ mesh that does not face +Y in Blender (glTF -Z) gets a scrambled skeleton:
   toes fooled it on 13 tier-1 bipeds that all faced front (archmage, lich, cultist,
   chain-devil, ...: refused at ~180).
 - **Confidence:** how much better the best mirror plane is than a typical one,
-  `clip((contrast - 0.1) / 0.3)`. A blob, or a curled or twisted pose, scores low.
+  `clip((contrast - 0.1) / 0.3)`. A blob, or a curled or twisted pose, scores low. Below
+  0.5 the axis means little, so the result is `unverified` however small the angle
+  (black-dragon-wyrmling 20.5 deg at 0.09, salamander 76 at 0.28), except for a front-view
+  reference, which keeps its prior, and advisory plans.
 - **Disputed axis:** a refusal needs confidence >= 0.75 (`rig.FACING_CONF_DISPUTED`, not
   0.5) when a second opinion disputes the mirror axis: a front-view reference (only mesh
   asymmetry can put its axis off: half-dragon's curled tail, 64 deg at 0.5) or a legged
@@ -101,7 +140,7 @@ When `angle_deg` > 30 with confidence >= 0.5 (0.75 when disputed) the stage logs
 and refuses to roll (it raises, `manifest.rig` gets `error` plus `facing`): pin `yaw` (the
 log prints `suggested_yaw` = QA's yaw plus the measured bearing; for a backwards body that
 is QA's yaw + 180) and re-run `qa`. The `rig_facing_check` override set to `false` rolls
-anyway. Low confidence only warns. `--force` without rolling records the check and never
+anyway. `--force` without rolling records the check and never
 refuses. Plans in `rig.FACING_ADVISORY` never refuse and are never `unverified`.
 
 Tier-1 validation (2026-11-05, 59 horizontal and centaur meshes on disk plus every
