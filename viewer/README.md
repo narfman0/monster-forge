@@ -263,7 +263,10 @@ except the serpentine swim, which slithers on the ground like its walk; the othe
 clips keep the lowest vertex on the ground (`contact`). Blobs also key
 bone scale (squash and stretch). The plan table is in `docs/rig-anim.md`, "Body plans".
 
-Looping clips have identical first and last frames. Manifest shape:
+Looping clips have identical first and last frames. On legged plans the idle's first frame
+is the rest pose, the one-shots start (and, but for death, end) on it, and the walk starts at
+the frame of its cycle nearest it; each clip's report has `from_idle_m` (its first frame's
+largest vertex move from the idle's first frame). Manifest shape:
 
 ```json
 "anim": {"clips": ["idle", "walk", "attack_melee", "hit", "death"], "missing": [], "seconds": 4.7,

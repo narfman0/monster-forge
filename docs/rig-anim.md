@@ -451,8 +451,8 @@ a base layer in idle, walk, swim, hit and the thrust's ends: upper arm `RELAX_DE
 from the body, forearm forward, grip +Y forward and up (a spear held upright); death fades it
 out over its first half, so the fall ends as before. Merfolk idle grip z 1.87 -> 1.48 m.
 Arms that hang (goblin, harpy, ghost) or reach out sideways (the merfolk's left arm, 6
-degrees) are left alone. The cut is arm IK from the rest wrist, so it still starts from the
-raised arm; the merfolk's throw starts and ends on the relaxed arm (round 6 below).
+degrees) are left alone. The cut's arm IK fades in and out (`hand_ik`), so it starts and
+ends on the relaxed arm too (round 7 below); so does the merfolk's throw (round 6).
 
 **Lift clips that would touch the ground.** `lift` keeps the body at one height, but a pose
 can still push a part through the floor (the ghost's hit tilts its robe train to -1.3 cm):
@@ -510,6 +510,53 @@ vertex move from the idle's first frame to the clip's first frame (Blender, skin
   the same rule changes wolf (-0.016 -> -0.006, feet up to 0.056 m), young red dragon (-0.010
   -> -0.006, 0.095), owlbear (0.024) and goblin (0.014) deaths; spider (legs not level) and the
   legless plans unchanged.
+
+**Clip-to-clip jumps, round 7 (2026-11-05, clips4).** Every clip report now has
+`from_idle_m`: its first frame's largest vertex move from the idle's first frame (the idle is
+built first). Legged plans (floor idle):
+
+- The idle starts on the rest pose: every layer is 0 at t=0 (look-about, nod, skull turn
+  in phase; the upper arm's wave is -sin; the elbow bends 0-7 degrees from straight instead
+  of 4 +- 3; the tail sways as one in-phase 5 degree wave instead of a travelling one, which
+  had the dragon's ground-lying tail 0.78 m off rest on the first frame). The body is
+  `IDLE_SINK` (0.03) x drop down, as before.
+- Floor one-shots (attack, hit, death, breath, cast; not burrow) are moved as a whole so their
+  first frame has the body where the idle's has it (`at_idle_height`). Started at their own
+  height (hit 0, the lunge 0.02 x drop) the standing legs' IK found other knees: centaur
+  idle -> hit 0.165 m, harpy 0.060. A `rest` fall's standing part tolerates `FLOOR_TOL` below
+  the ground like the floor clips (it raised the harpy's first frame off the idle's).
+- The sword cut (`attack_biped`) fades its arm IK in over the wind-up and out over the
+  recovery (`Clip.hand_ik`; keys 0, 1 at 0.25-0.75, 0), on the relax layer (and from the
+  relaxed wrist) where the idle has one: at full influence on the rest wrist the IK chose
+  its own elbow. Harpy idle -> attack 0.137 -> 0 (`grip_r` was 0.133 m off), goblin cut
+  0.522 -> 0, bow draw 0.027 -> 0.
+- The walk starts at the frame of its cycle nearest the idle's first frame (`start_phase`:
+  built once at phase 0, ground passes included, then rebuilt at that phase; every layer is
+  shifted, so the loop stays whole; report `start_phase`, `from_idle_phase0_m`). Idle ->
+  walk (old idle -> old walk, new): harpy 0.175 -> 0.122, goblin 0.099 -> 0.072, wolf
+  0.246 -> 0.197, owlbear 0.267 -> 0.219, spider 0.414 -> 0.093, dragon 0.423 -> 0.435
+  (0.496 at phase 0 against the new idle: four legs, a 0.83 m stride, some foot is always
+  far), centaur 0.408 -> 0.239. Stride scales and frame counts unchanged.
+- Ground contacts (`GROUND`, top-level `ground_contacts`, per clip `contact_min_z`):
+  vertices lying on the floor at rest (z <= `FLOOR_TOL`) that no leg owns and no tail turn
+  lifts. A floor clip lowers the body for standing feet only as far as these stay above
+  -`CONTACT_DIP` (`DIP_MAX` / 3); below that the body is raised for them and the feet fall
+  a little short. Only the harpy has any (2: hip-feather tips skinned to the pelvis): walk
+  min_z -0.0297 -> -0.010 at stride 0.8 (unchanged), at the price of the standing feet 2.2
+  cm short at the stride ends (`planted_foot_gap` 0.004 -> 0.022, under `REACH_MAX` x
+  height 0.026). Goblin, wolf, dragon, owlbear, spider, centaur: 0 contacts. The eagle has 6
+  but every clip of it is lifted.
+- One-shot first frames from the idle after this round: 0 on every legged pilot's attack,
+  hit, breath and death, except the dragon's death 0.042 m (its idle turns the tail lying on
+  the ground up 1.9 degrees, the `rest` fall does not). Legless and lifted pilots are
+  unchanged (now reported: octopus one-shots 0.225, shark 0.14, merfolk 0.059, pudding 0.041,
+  fungus 0.051, eagle 0.072, snake and ghost 0).
+- Giant eagle lunge on the re-scaled rig (21:59, scratch copy, clips identical under this
+  round's code): edges stretched past 4x against the bind pose are 17 in every frame of
+  the lunge, the strike included: the held fly first-frame wing pose (the fly clip itself
+  has 4-17), the lunge adds none. Head (`bone_5` tip) forward travel wind-up -> strike 0.397
+  m = 0.26 x body length (1.54 m). The same count on the old rig and clip: 304 at the strike
+  (88 was against its first frame). No change needed.
 
 **cast, swim, burrow, breath and fly for every plan that asks (2026-11-04, clips2).** The
 SRD animation sets ask for `cast` 48 times, `swim` on legged plans and floating 39, `burrow`
@@ -593,10 +640,9 @@ Known limits: the owlbear walk and lunge run at half size. The kept skeleton
 (`rig/chosen.glb` = roll_1 since score v2) skins the tail fan to the tail chain (`bone_13`);
 the fan on a hind shin was reported on roll_3 (`rig/chosen_roll3_backup.glb`), kept before score v2. At full stride the front
 paws' non-sole vertices dip 5-14 cm and the standing feet fall 0.093 m short of their
-targets (limit 0.035), so a re-weight of the fan would not help. The harpy's dip is not a
-tail either: hip feathers skinned half to the root and half to the right thigh hang to
-the ground (and the wing tips to 5 cm), so its body is raised about 0.1 m and the walk runs
-at half stride; its wings hide most of the sword cut. The spider's death rests on curled
+targets (limit 0.035), so a re-weight of the fan would not help. The harpy's walk runs at 0.8 stride; its
+two hip-feather tips on the floor (ground contacts, round 7) keep the standing feet up to
+2.2 cm short at the stride ends; its wings hide most of the sword cut. The spider's death rests on curled
 legs rather than its belly.
 
 ## Body plans (2026-11-04)

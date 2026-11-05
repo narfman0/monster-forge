@@ -216,6 +216,15 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       and frame counts; numbers change on constrictor-snake, merfolk (attack_ranged), ghost
       (idle, attack), centaur, wolf, dragon, owlbear and goblin (death). docs/rig-anim.md
       "Clip-to-clip jumps".
+- [x] (2026-11-05, clips4) Godot round 7 clip fixes (E): legged idle starts on the rest
+      pose (every layer 0 at t=0), floor one-shots start at the idle's body height
+      (`at_idle_height`), the sword cut's arm IK fades in/out (`hand_ik`), the walk starts at
+      the frame nearest the idle's first (`start_phase`), ground contacts (`GROUND`) bound how
+      far the feet may lower the body. New report keys `from_idle_m`, `start_phase`,
+      `from_idle_phase0_m`, `contact_min_z`, `ground_contacts`. Gate on 15 real pilots + the
+      eagle in scratch: identical clip lists and frame counts; numbers change on the 7 legged
+      pilots (harpy, goblin, wolf, owlbear, spider, dragon, centaur); legless/lifted only gain
+      `from_idle_m`. docs/rig-anim.md "Clip-to-clip jumps, round 7".
 - [ ] Clips still without a builder: `fly` for plant_object (flying sword), `attack_ranged`
       without two arms (djinni, manticore, spirit naga), the xorn (radial); avian `cast`
       (giant owl) builds but no avian rig was available to test it.
@@ -441,6 +450,10 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         (2026-11-04, clips3) The avian lunge rears neck and skull `AVIAN_REAR` 0.35 as far
         (30 -> 10.5 degrees): edges stretched past 4x at 25% 219 -> 3, past 2x 1033 -> 67
         (scratch). The strike frames still stretch the raised wings (88 edges past 4x, was 153).
+        (2026-11-05, clips4) On the re-scaled rig (21:59, scratch copy) the lunge has 17 edges
+        past 4x (vs bind pose) in every frame, the strike included: that is the held fly
+        first-frame wing pose (fly 4-17), the lunge adds none; head forward travel 0.26 x body
+        length. No change; Godot to re-check on the new rig.
   - [ ] Eagle scale: 5.84 m wingspan (right for 20 ft), 5.29 m tall to the raised wing tips,
         head ~3.5 m; next to the 1 m goblin its legs alone are the goblin's height. Check
         that this is the intended size.
@@ -510,7 +523,7 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         25% and 50% in Blender close-ups. The 14 left are on top of the right shoulder
         (`bone_11` vs `wing_r_00`/`bone_3`, the wing root beside the shoulder); a root 6 cm
         farther back gave 11 and looked the same (not kept). Godot to re-check.
-  - [ ] Harpy idle frame 0 -> attack_melee frame 0 now jumps 0.167 m (round 5 0.014), and
+  - [x] Harpy idle frame 0 -> attack_melee frame 0 now jumps 0.167 m (round 5 0.014), and
         -> walk 0.175 m (0.113). Walk dips to -0.023 m (round 5 -0.008), still inside the
         check's -0.03 m limit.
         (2026-11-04) Attack: the 0.167 m vertex was the back skin with 0.82 upper-arm weight
@@ -521,6 +534,14 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         the floor at rest, skinned to the pelvis `bone_0` (rest (0.48, -0.17, 0.0)), -0.027 m at
         frame 14 in Blender (unchanged by the body seam): the pelvis bob takes it under the
         floor; the clip grounds the feet only.
+        (2026-11-05, clips4) Blender, idle frame 0 -> clip frame 0: attack 0.137 -> 0 (the cut's
+        arm IK chose its own elbow at full influence; it now fades in and out), hit 0.060 -> 0
+        and death -> 0 (one-shots start at the idle's body height), walk 0.175 -> 0.122 (starts
+        at the cycle frame nearest the idle; with two legs one foot is always off its rest).
+        Walk min_z -0.0297 -> -0.010: the two floor feather tips are ground contacts, the body
+        may not go lower for the feet than keeps them at -0.01, so the standing feet are up to
+        2.2 cm short at the stride ends (`planted_foot_gap` 0.022). Stride 0.8, 33 frames as
+        before. Godot to re-check.
   - [x] Harpy arms still not mirrored: `hand_r` at x +0.48 and `hand_l` at -0.37, elbows
         `bone_12`/`bone_8` at +0.37/-0.25 (round 5 hands +0.51/-0.48). The left fist sits
         nearer the body.

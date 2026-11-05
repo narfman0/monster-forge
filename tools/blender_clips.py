@@ -53,6 +53,8 @@ STRIDE = 0.6        # stride as a fraction of the leg's drop
 LIFT = 0.16         # foot lift as a fraction of the leg's drop
 CROUCH = 0.05       # hips lowered by this fraction of the leg's drop
 BOB = 0.025
+IDLE_SINK = 0.03    # the idle's body, lowered this fraction of the leg's drop on its first frame;
+                    # the floor one-shots start there (at_idle_height)
 ARM_SWING = 16.0    # degrees
 TAIL_SWAY = 4.0     # degrees per tail bone
 # ground. The metre values are the pilots' (a 1-6.3 m body): every one is multiplied by
@@ -235,6 +237,14 @@ is_foot, foot_of = sole_masks()
 leg_of = leg_masks()
 rest_foot = [float(np.array(z_all)[m].min()) if m.any() else 0.0 for m in foot_of]
 is_tail = tail_mask()
+REST_V = np.array([(o.matrix_world @ v.co)[:] for o in meshes for v in o.data.vertices])
+# Ground contacts: vertices lying on the floor at rest (z <= FLOOR_TOL) that no leg owns and
+# no tail turn lifts: the harpy's hip-feather tips, skinned to the pelvis. A floor clip may
+# lower the body for its standing feet only as far as these stay above -CONTACT_DIP; below
+# that the body is raised for them and the feet fall a little short (correction()).
+GROUND = (REST_V[:, 2] <= FLOOR_TOL) & ~is_foot & ~is_tail & ~np.any(leg_of, axis=0) if legs else \
+    np.zeros(len(REST_V), bool)
+CONTACT_DIP = DIP_MAX / 3
 # a tail that lies on the ground is lifted by turning its root, not by raising the body
 if tail:
     _r, _t = Vector(by_name[tail[0]]["head"]), Vector(by_name[tail[-1]]["tail"])
@@ -297,6 +307,7 @@ class Clip:
         self.foot = lambda g, t: Vector()           # foot target offset from rest
         self.ik = lambda g, t: 1.0                  # leg IK influence
         self.hands: dict[str, object] = {}         # side -> fn(t) -> world wrist position
+        self.hand_ik: dict[str, object] = {}       # side -> fn(t) -> that arm IK's influence (default 1)
         self.ground = "floor"                       # floor | rest | hover | none
         self.rest_from = 0.85                       # rest: from here on the pose lies on the ground
         self.info: dict = {}
@@ -359,9 +370,12 @@ def setup_ik(clip: Clip) -> list:
     for side, fn in clip.hands.items():
         tgt, ik = arm_ik(side)
         made += [tgt, ik.pole_target]
+        k = clip.hand_ik.get(side, lambda t: 1.0)
         for f in range(1, clip.frames + 2):
             tgt.location = fn((f - 1) / clip.frames)
             tgt.keyframe_insert("location", frame=f)
+            ik.influence = k((f - 1) / clip.frames)
+            ik.keyframe_insert("influence", frame=f)
     key_feet(clip, [[0.0] * (clip.frames + 1) for _ in legs])
     return made
 
@@ -449,7 +463,7 @@ def key_fk(clip: Clip) -> None:
 def sample(clip: Clip) -> tuple[np.ndarray, np.ndarray, list[np.ndarray]]:
     """Per frame: lowest vertex, lowest non-foot vertex, and all vertex positions."""
     lows, loose, pos = [], [], []
-    clip.foot_low, clip.tail_low, clip.reach, clip.leg_low = [], [], [], []
+    clip.foot_low, clip.tail_low, clip.reach, clip.leg_low, clip.contact_low = [], [], [], [], []
     for f in range(1, clip.frames + 2):
         scene.frame_set(f)
         dg = bpy.context.evaluated_depsgraph_get()
@@ -468,6 +482,7 @@ def sample(clip: Clip) -> tuple[np.ndarray, np.ndarray, list[np.ndarray]]:
         body = ~is_foot & ~is_tail
         loose.append(co[body, 2].min() if body.any() else co[:, 2].min())
         clip.tail_low.append(float(co[is_tail, 2].min()) if is_tail.any() else 1.0)
+        clip.contact_low.append(float(co[GROUND, 2].min()) if GROUND.any() else 1.0)
         clip.foot_low.append([float(co[m, 2].min()) if m.any() else 0.0 for m in foot_of])
         clip.leg_low.append([float(co[m, 2].min()) if m.any() else 1.0 for m in leg_of])
         # how far each IK end falls short of its target (0 when the leg reaches)
@@ -486,14 +501,16 @@ def planted(clip: Clip, f: int) -> list[int]:
 def correction(clip: Clip, lows: np.ndarray, loose: np.ndarray) -> list[float]:
     """Per-frame change of the body height. floor: raise it where a loose part is below
     the ground, else lower it where a standing foot cannot reach the ground (a lunge or a
-    lean overstretches the legs)."""
+    lean overstretches the legs), but never so far that a ground contact (GROUND) goes
+    below -CONTACT_DIP: there the body is raised to it and the foot falls short."""
     n = clip.frames + 1
     if clip.ground == "floor":
         out = []
         for f, z in enumerate(loose):
             gap = max((clip.reach[f][i] for i in planted(clip, f)), default=0.0)
-            if gap > FOOT_TOL:  # standing feet first
-                out.append(-0.9 * gap)
+            least = -CONTACT_DIP - clip.contact_low[f]  # the lowest change the contacts allow
+            if gap > FOOT_TOL:  # standing feet first, down to the contacts' limit
+                out.append(max(-0.9 * gap, least))
             elif z < -FLOOR_TOL:  # raise, with what the legs can spare
                 out.append(-z - FLOOR_TOL)
             else:
@@ -507,7 +524,9 @@ def correction(clip: Clip, lows: np.ndarray, loose: np.ndarray) -> list[float]:
         out = []
         for f in range(n):
             w = smooth((f / clip.frames - clip.rest_from + 0.12) / 0.12)
-            out.append(max(0.0, -lows[f]) * (1 - w) - lows[f] * w)
+            # standing part: as the floor clips, a part may sit FLOOR_TOL below the ground
+            # (else the first frame is raised off the idle's and the legs' IK finds other knees)
+            out.append(max(0.0, -lows[f] - FLOOR_TOL) * (1 - w) - lows[f] * w)
         return out
     return [0.0] * n
 
@@ -563,9 +582,8 @@ def fit_angle(clip: Clip) -> None:
     clip.info["fall_deg"] = round(lo, 1)
 
 
-def build(clip: Clip) -> dict:
-    """Key, ground, bake and export one clip; returns its report."""
-    t0 = time.time()
+def key_start(clip: Clip) -> None:
+    """Fresh pose and action, IK set up, FK and the body keyed with no ground correction."""
     clear_pose()
     scene.frame_start, scene.frame_end = 1, clip.frames + 1
     bpy.context.view_layer.objects.active = arm
@@ -574,8 +592,14 @@ def build(clip: Clip) -> dict:
     arm.animation_data.action = bpy.data.actions.new(clip.name)
     setup_ik(clip)
     key_fk(clip)
+    key_root(clip, [0.0] * (clip.frames + 1))
+
+
+def build(clip: Clip) -> dict:
+    """Key, ground, bake and export one clip; returns its report."""
+    t0 = time.time()
+    key_start(clip)
     zero = [0.0] * (clip.frames + 1)
-    key_root(clip, zero)
     if clip.fit:
         fit_angle(clip)
     corr = zero
@@ -643,6 +667,7 @@ def build(clip: Clip) -> dict:
         if a != act:
             bpy.data.actions.remove(a)
     lows, loose, pos = sample(clip)
+    clip.pos = pos
     scene.frame_set(1)
     body_z = (world @ arm.pose.bones[root].head).z - by_name[root]["head"][2]  # root raise on the first frame
     rep = {"seconds": round(clip.frames / FPS, 2), "frames": clip.frames, "loop": clip.loop,
@@ -656,6 +681,12 @@ def build(clip: Clip) -> dict:
     if gaps and clip.ground != "hover":
         rep["planted_foot_gap"] = round(max(gaps), 4)  # highest a standing foot's lowest vertex floats
         rep["ik_reach_gap"] = round(max(reach[f][i] for f in range(clip.frames + 1) for i in planted(clip, f)), 4)
+    if clip.name == "idle":
+        FIRST["idle"] = pos[0]
+    elif "idle" in FIRST:  # the first frame's largest vertex move from the idle's first frame
+        rep["from_idle_m"] = round(float(np.linalg.norm(pos[0] - FIRST["idle"], axis=1).max()), 4)
+    if GROUND.any() and clip.ground == "floor":
+        rep["contact_min_z"] = round(min(clip.contact_low), 4)  # lowest ground contact (GROUND)
     if clip.loop:
         rep["loop_delta"] = round(float(np.linalg.norm(pos[0] - pos[-1], axis=1).max()), 5)
     bpy.ops.object.select_all(action="DESELECT")
@@ -669,11 +700,36 @@ def build(clip: Clip) -> dict:
     return rep
 
 
+def start_phase(make) -> tuple[float, float, float]:
+    """(phase, jump at phase 0, jump there) for a looping clip `make(phase)`: the clip is
+    built at phase 0 (ground passes included; the build is redone at the phase) and the
+    frame whose skinned mesh is nearest the idle's first frame (largest vertex distance;
+    the rest pose with the body IDLE_SINK down when there is no idle yet) becomes the start.
+    Whole frames, so the loop stays on frames."""
+    c = make(0.0)
+    build(c)
+    ref = FIRST["idle"] if "idle" in FIRST else REST_V - np.array([0.0, 0.0, drop * IDLE_SINK])
+    dev = [float(np.linalg.norm(p - ref, axis=1).max()) for p in c.pos[:-1]]
+    f = int(np.argmin(dev))
+    return f / c.frames, dev[0], dev[f]
+
+
+FIRST: dict = {}  # "idle": its first frame's skinned vertices, once built (start_phase, from_idle_m)
+
+
 # --- clips ----------------------------------------------------------------------------
 
-def walk(scale: float = 1.0) -> Clip:
+def walk(scale: float = 1.0, phase: float | None = None) -> Clip:
     """Planted-feet in-place walk (the gait the stage started with). `scale` shortens
-    the stride and step height."""
+    the stride and step height. The loop starts at `phase` of the cycle (every layer is
+    shifted by it, so the loop stays whole periods); None picks it: the frame of the cycle
+    whose skinned mesh is nearest the idle's first frame (start_phase), so idle -> walk
+    does not start mid-stride (harpy 0.175 m at the left foot)."""
+    if phase is None:
+        phase, dev0, dev = start_phase(lambda ph: walk(scale, ph))
+        c = walk(scale, phase)
+        c.info = {**c.info, "start_phase": round(phase, 4), "from_idle_phase0_m": round(dev0, 4)}
+        return c
     c = Clip("walk", max(0.7, min(2.0, math.sqrt(drop / 0.6))), True)
     left = sorted((g for g in legs if g["side"] == "l"), key=lambda g: -g["y"])
     right = sorted((g for g in legs if g["side"] == "r"), key=lambda g: -g["y"])
@@ -690,7 +746,7 @@ def walk(scale: float = 1.0) -> Clip:
             g["phase"] = 0.5 * ((i + 1) % 2)
 
     def offset(g, t):
-        u = (t + g["phase"]) % 1.0
+        u = (t + phase + g["phase"]) % 1.0
         if u < STANCE:
             fwd, up = 0.5 - u / STANCE, 0.0
         else:
@@ -699,14 +755,14 @@ def walk(scale: float = 1.0) -> Clip:
         return Vector((0, fwd * STRIDE * scale * drop, up * LIFT * scale * drop))
 
     c.foot = offset
-    c.lift = lambda t: Vector((0, 0, -drop * (CROUCH + BOB * (1 + math.cos(4 * math.pi * t)) / 2)))
+    c.lift = lambda t: Vector((0, 0, -drop * (CROUCH + BOB * (1 + math.cos(4 * math.pi * (t + phase))) / 2)))
     relax_arms(c)
     for a in arms:
         leg = next((g for g in legs if g["side"] == a["side"]), None)
         p = leg["phase"] if leg else 0.0
-        c.turn(a["upper"], "X", lambda t, p=p: ARM_SWING * math.sin(2 * math.pi * (t - p + 0.19)))
+        c.turn(a["upper"], "X", lambda t, p=p: ARM_SWING * math.sin(2 * math.pi * (t + phase - p + 0.19)))
     for i, n in enumerate(tail):
-        c.turn(n, "Z", lambda t, i=i: TAIL_SWAY * math.sin(2 * math.pi * (t - 0.09 * i)))
+        c.turn(n, "Z", lambda t, i=i: TAIL_SWAY * math.sin(2 * math.pi * (t + phase - 0.09 * i)))
     c.info = {"stride_scale": scale, "legs": len(legs), "feet": [g["foot"] for g in legs],
               "phases": [g["phase"] for g in legs],
               "arms": [a["upper"] for a in arms], "tail": tail}
@@ -715,21 +771,26 @@ def walk(scale: float = 1.0) -> Clip:
 
 def idle() -> Clip:
     """Breathing, a slow weight shift over the feet, head looking about, tail and wings
-    drifting. One breath per loop, everything else whole periods too."""
+    drifting. One breath per loop, everything else whole periods too. Every layer is 0 on
+    the first frame, so the idle starts on the rest pose (the relaxed arm where there is
+    one, the body IDLE_SINK down), where the one-shots start: the head's look-about and the
+    tail's sway are in phase along their chains (the tail was a travelling wave, 0.78 m off
+    rest on the dragon's first frame), the elbow bends from straight instead of about 4
+    degrees."""
     c = Clip("idle", 2.5, True)
     sway = (0.012 if job["upright"] else 0.006) * height
     c.lift = lambda t: Vector((sway * math.sin(2 * math.pi * t), 0,
-                               -drop * (0.03 + 0.012 * (1 - math.cos(2 * math.pi * t)) / 2)))
+                               -drop * (IDLE_SINK + 0.012 * (1 - math.cos(2 * math.pi * t)) / 2)))
     c.turn_chain(torso, "X", lambda t: 2.0 * math.sin(2 * math.pi * t))
-    c.turn_chain(neck[:-1], "Z", wave(8.0, 1, 0.1))
-    c.turn_chain(neck[:-1], "X", wave(4.0, 2, 0.2))
-    c.turn(skull, "Z", wave(5.0, 1, 0.15))
+    c.turn_chain(neck[:-1], "Z", wave(8.0, 1))
+    c.turn_chain(neck[:-1], "X", wave(4.0, 2))
+    c.turn(skull, "Z", wave(5.0, 1))
     relax_arms(c)
     for a in arms:
-        c.turn(a["upper"], "X", wave(3.0, 1, 0.3))
-        c.turn(a["forearm"], "X", lambda t: 4.0 + 3.0 * math.sin(2 * math.pi * (t - 0.4)))
-    for i, n in enumerate(tail):
-        c.turn(n, "Z", lambda t, i=i: 5.0 * math.sin(2 * math.pi * (t - 0.08 * i)))
+        c.turn(a["upper"], "X", wave(3.0, 1, 0.5))
+        c.turn(a["forearm"], "X", lambda t: 3.5 * (1 - math.cos(2 * math.pi * t)))
+    for n in tail:
+        c.turn(n, "Z", wave(5.0, 1))
     for w in wings:
         c.turn(w["chain"][0], "Y", lambda t, s=w["side"]: sym(s, -3.0 * math.sin(2 * math.pi * t)))
     return c
@@ -739,17 +800,29 @@ def attack_biped() -> Clip:
     """A sword cut from the right hand (the weapon is a prop at hand_r): the wrist, held by
     arm IK riding on the chest, winds up high over the right shoulder (blade back), cuts
     down and across the front of the body as the torso turns into it, follows through low
-    on the left and recovers. The left arm swings back for balance."""
+    on the left and recovers. The left arm swings back for balance.
+
+    The arm IK fades in over the wind-up and out over the recovery (`hand_ik`), so the
+    first and last frames are the FK arm the idle starts on (rest, or the relax layer): at
+    full influence on the rest wrist the IK found its own elbow (harpy: upper arm 0.10 m,
+    `grip_r` 0.13 m off the idle's first frame; goblin 0.35 m at the scimitar)."""
     c = Clip("attack_melee", 1.0, False)
     a = arm_by_side.get("r") or arms[0]
     sx = 1 if a["side"] == "r" else -1
     sh = Vector(by_name[a["upper"]]["head"])
     wr = Vector(by_name[a["forearm"]]["tail"])
-    L = (Vector(by_name[a["upper"]]["tail"]) - sh).length + (wr - Vector(by_name[a["forearm"]]["head"])).length
+    lu = (Vector(by_name[a["upper"]]["tail"]) - sh).length
+    lf = (wr - Vector(by_name[a["forearm"]]["head"])).length
+    L = lu + lf
+    if a["side"] in RELAXED:  # the wrist where the relax layer holds it
+        u0, f0, _ = RELAXED[a["side"]]
+        wr = sh + lu * u0 + lf * f0
+    relax_arms(c)
     p = lambda x, y, z: sh + Vector((sx * x * L, y * L, z * L))
     path = [(0, wr), (0.3, p(0.2, -0.2, 0.8)), (0.42, p(0.25, -0.3, 0.85)), (0.5, p(0.05, 0.55, 0.5)),
             (0.57, p(-0.35, 0.8, -0.05)), (0.68, p(-0.6, 0.45, -0.6)), (1.0, wr)]
     c.hands[a["side"]] = vkeys(*path)
+    c.hand_ik[a["side"]] = keys((0, 0), (0.25, 1), (0.75, 1), (1.0, 0))
     # wrist: a hanging hand holds the blade forward, so with the forearm raised it points
     # up; the cut bends the wrist so the blade comes down in line with the forearm
     c.turn(a["hand"], "X", keys((0, 0), (0.3, 15), (0.42, 20), (0.5, -30), (0.57, -80), (0.68, -70), (1.0, 0)))
@@ -761,7 +834,7 @@ def attack_biped() -> Clip:
     c.turn_chain(torso, "X", keys((0, 0), (0.3, 6), (0.57, -12), (0.68, -14), (1.0, 0)))
     c.lift = lambda t: Vector((0, 0.04 * height * keys((0, 0), (0.3, -0.5), (0.57, 1), (1.0, 0))(t),
                                -drop * keys((0, 0.02), (0.3, 0.04), (0.57, 0.08), (1.0, 0.02))(t)))
-    c.info = {"arm": a["chain"], "weapon_socket": "hand_r"}
+    c.info = {**c.info, "arm": a["chain"], "weapon_socket": "hand_r"}
     return c
 
 
@@ -2457,13 +2530,34 @@ def lifted_oneshot(base):
     return make
 
 
+def at_idle_height(base):
+    """A legged floor one-shot (attack, hit, death, breath, cast) moved up or down as a
+    whole so its first frame has the body where the idle's has it (IDLE_SINK x drop down):
+    started at its own height (hit 0, the lunge 0.02 x drop) the standing legs' IK found
+    other knees (centaur idle -> hit 0.165 m, harpy 0.060). Its ground pass corrects as
+    before; a death still ends lying on the ground."""
+    def make(s):
+        c = base(s)
+        dz = -drop * IDLE_SINK - c.lift(0.0).z
+        if not c.loop and c.ground in ("floor", "rest") and abs(dz) > 1e-9:
+            lf = c.lift
+            c.lift = lambda t: lf(t) + Vector((0, 0, dz))
+        return c
+    return make
+
+
 LIFTED = job.get("idle_lift") not in (None, False, 0) and "idle" in makers and "idle" in job["clips"]
 if LIFTED:
     makers["idle"] = lifted_idle(makers["idle"])
     for _n in list(makers):
         if _n != "idle" and _n not in MOVE_CLIPS and _n != "burrow":  # burrow digs into the floor
             makers[_n] = lifted_oneshot(makers[_n])
+elif legs and not legless:
+    for _n in list(makers):
+        if _n not in ("idle", "burrow") and _n not in MOVE_CLIPS:
+            makers[_n] = at_idle_height(makers[_n])
 report = {"height": round(height, 3), "drop": round(drop, 3), "size": round(SIZE, 3), "size_scale": round(SCALE, 4),
+          **({"ground_contacts": int(GROUND.sum())} if GROUND.any() else {}),
           "root": root, "head": head, "neck": neck,
           "spine": spine, "tail": tail, "arms": {a["side"]: a["chain"] for a in arms},
           "wings": {w["side"]: w["chain"] for w in wings}, "legs": [g["chain"] for g in legs],
