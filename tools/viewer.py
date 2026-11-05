@@ -202,6 +202,15 @@ def ref_unarmed(ref_m: dict) -> dict | None:
             "picked_by": ref_m.get("picked_by")}
 
 
+def rider_height(source: str, mid: str) -> float | None:
+    """The override's rider_height_m (None when unset or the override is unreadable)."""
+    try:
+        v = overrides.load(source, mid).get("rider_height_m")
+    except (OSError, ValueError):
+        return None
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
 def build_index(source: str) -> dict:
     reg = load_json(sources.registry_path(source))
     monsters = reg.get("monsters", [])
@@ -233,6 +242,9 @@ def build_index(source: str) -> dict:
         entry["dir"] = f"/out/{source}/{rec['id']}/"
         entry["errors"] = len(man.get("errors", []) or [])
         entry["has_override"] = overrides.path_for(source, rec["id"]).exists()
+        # Prop scale for centauroids / merfolk-naga: the rider's height (override rider_height_m,
+        # docs/equipment.md "Prop space"); viewer/app.js scales props by it over scale_m.
+        entry["rider_height_m"] = man.get("rider_height_m") or rider_height(source, rec["id"]) or rec.get("rider_height_m")
         entry["job"] = JOBS.state_of(rec["id"])
         out.append(entry)
         plan = by_plan.setdefault(rec.get("body_plan", "?"), {"total": 0, **{s: 0 for s in STAGES}})

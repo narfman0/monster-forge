@@ -1117,9 +1117,9 @@ function updateSocketMarkers(rebuild = false) {
 }
 
 // Placeholder props, built in prop space (origin at the grip, +Y toward the tip, -Z the edge
-// or arrow direction) for a 1.8 m wielder, scaled by scale_m / 1.8 like the runtime props,
-// and added as children of the socket bone so they follow it exactly as a Godot
-// BoneAttachment3D would. The bone's own world scale is divided out.
+// or arrow direction) for a 1.8 m wielder, scaled like the runtime props by
+// (rider_height_m, when set, else scale_m) / 1.8, and added as children of the socket bone so
+// they follow it exactly as a Godot BoneAttachment3D would. The bone's own world scale is divided out.
 const propMat = {
   steel: new THREE.MeshStandardMaterial({ color: 0xc9ced6, metalness: 0.85, roughness: 0.3 }),
   edge: new THREE.MeshBasicMaterial({ color: 0xff5a5a }),
@@ -1199,7 +1199,9 @@ async function updateProps() {
   clearProps();
   const gen = propsGen;
   if (!$('t-prop').checked || !view.root) return;
-  const s = (Number(view.entry?.scale_m) || 1.8) / 1.8;
+  // Props are built for a 1.8 m wielder: centauroids / merfolk-naga use the rider's height
+  // (index rider_height_m, from the override) instead of the whole body's scale_m.
+  const s = (Number(view.entry?.rider_height_m) || Number(view.entry?.scale_m) || 1.8) / 1.8;
   for (const { sockets, make, param } of PROPS) {
     const bone = sockets.map((n) => view.socketBones.find((b) => b.name === n)?.bone).find(Boolean);
     const onGrip = bone?.name.startsWith('grip');

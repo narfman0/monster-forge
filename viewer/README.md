@@ -307,8 +307,10 @@ GLB has a skeleton but the manifest has no rig stage, or the reverse.
 - **prop** (`p`) attaches placeholders as children of the socket bones, as Godot's
   `BoneAttachment3D` would: a 0.9 m sword (grip at the origin, red strip on the -Z edge)
   on `hand_r` and a 1.1 m shortbow (stave bowed toward -Z, string behind) on `hand_l`, when
-  those bones exist. They are built for a 1.8 m wielder and scaled by `scale_m / 1.8`, with
-  no extra offset, so they show where a prop lands from the bone alone. Each goes on the
+  those bones exist. They are built for a 1.8 m wielder and scaled by `scale_m / 1.8`, or by
+  `rider_height_m / 1.8` when the index entry has it (centauroids and merfolk/naga: the
+  override's height of the humanoid rider, e.g. centaur-trooper 1.8; `docs/equipment.md`
+  "Prop space"), with no extra offset, so they show where a prop lands from the bone alone. Each goes on the
   grip socket (`grip_r` / `grip_l`, the fist centre in prop space) when the rig has one,
   else on `hand_r` / `hand_l` (the wrist).
 - **real props**: `?prop_r=<id>&prop_l=<id>` in the URL (`?prop=<id>` is `prop_r`) makes

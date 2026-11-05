@@ -408,8 +408,14 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         string; a drawn string needs the game to replace it.
   - [ ] Whip is one rigid mesh: the lash sags forward at idle but in attack_melee it is a
         straight 1.4 m rod overhead (goblin scale). Needs lash bones or game-side simulation.
-  - [ ] Swarm death squashes each rat to 30% height (one bone, uniform scale): reads as a
+  - [x] Swarm death squashes each rat to 30% height (one bone, uniform scale): reads as a
         pile of flattened rats, not scattered ones. Expected with the one-unit swarm mesh (H).
+        (2026-11-05, Godot round 9) Verified on the first swarm made as a unit: swarm-of-bats
+        (one 0.3 m bat, 47 bones, manifest `swarm_unit`) synced, and godot-dnd's
+        `Monster.spawn_swarm()` shows 12 bats over the 1.5 m footprint with staggered phases;
+        the bat's death ends on its back at full size (0.23 x 0.17 x 0.19 m), the flyers fall
+        to the floor. swarm-of-rats is still the column pilot (squash and all) until it is
+        regenerated with a unit (H).
   - [ ] Fungus death: the cap ends standing on its rim as a vertical disc 1.22 m high next
         to the planted base. Plausible for a fallen mushroom; noting it in case a flat cap is
         wanted.
@@ -442,9 +448,14 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         by the dip each settle pass: lowest -0.033 -> -0.010 m (the buckle before the roll, as
         before), foot raise up to 0.134 m. Same rule: wolf death -0.016 -> -0.006, dragon
         -0.010 -> -0.006, owlbear and goblin feet up 0.024 / 0.014 m, lowest unchanged.
-  - [ ] Centaur loadout: the registry pike is a two-hander on a one-armed rig, and godot-dnd's
+  - [x] Centaur loadout: the registry pike is a two-hander on a one-armed rig, and godot-dnd's
         `scale_m / 1.8` prop scale gives 1.333 (scale_m is the whole 2.4 m centaur), a 4.7 m
         pike. Needs a wielder (rider) height for centauroids, upstream or in the game.
+        (2026-11-05, Godot round 9) Props scale by `rider_height_m / 1.8` when set (override
+        field; godot-dnd's sync copies it into monster.json), else `scale_m / 1.8`, in
+        godot-dnd (`Monster.prop_scale()`) and the viewer (index field `rider_height_m`,
+        `updateProps`). Centaur pike 4.67 -> 3.50 m (scale 1.333 -> 1.000) in both, checked
+        in screenshots. Still one-handed (no left arm, no off-hand IK).
   - [x] Eagle idle -> fly instant switch moves a vertex 1.754 m in one frame (round 5 1.070,
         the eagle is 1.39x bigger); 0.25 s cross-fade 0.182 m. Pose (wings), not height.
         (2026-11-04, clips3) The idle's slow beat swells back to full size at its loop start,
@@ -631,6 +642,19 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
   - [ ] The eagle lunge is a small peck: head travel 0.26 x body length, and from the side
         the strike barely leaves the raised-wing silhouette. Fine for a bite; a giant eagle's
         beak/talon attack may want more reach.
+- [x] Round 9 (2026-11-05, godot-dnd uncommitted, on top of fcce8c4): re-sync after
+      f8bb67e..cade6ef with `--ids` for the 16 synced monsters plus swarm-of-bats (new;
+      centaur 5 clips, dragon 1 clip, spear prop updated). `check_monsters.gd` ALL PASS on 17
+      monsters and 32 props, every clip binds 100%, the same 3 fly/swim WARNs.
+      - Swarm units: sync copies manifest `swarm_unit` into monster.json; `Monster.spawn_swarm(12)`
+        lays units on a seeded sunflower spiral over the `swarm.scale_m` disc (flyers and
+        swimmers also over a height band), slaved to the leader's clip with golden-ratio
+        phases on loops and 0-0.35 s delays on one-shots. The check verifies the footprint
+        (bats 1.21 x 0.88 x 1.46 m in 1.5) and 12 distinct poses.
+      - `rider_height_m`: see the centaur loadout item above.
+      - Dragon mid-idle (idle-cycle scan): one-shots worst 0.307-0.317 m (round 8 1.66), walk
+        0.618 (about 1.7), idle wander 0.307; probe idle -> walk 0.578 instant / 0.084
+        cross-faded (round 8 1.506 / 0.269, round 6 0.955 / 0.102). Fixed.
 
 ### F. Props (2026-11-04)
 - [x] `tools/props.py` + `tools/blender_prop_qa.py`: all 32 props in `out/props/<id>/` (prop
