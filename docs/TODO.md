@@ -63,6 +63,20 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
 - [x] Forward axis: keep -Z (`forge.py` default). Matches Godot node forward; leave
       `use_model_front` off in `look_at()`. Check UniMate's expectation in step E.
 - [ ] Any `qa --force` deletes paint and LODs; `paint` deletes LODs. Use `--stages paint,lod`.
+- [x] (2026-11-04) Pose templates for the ref stage (`ref_template`, docs/references.md):
+      depth ControlNet templates drawn by `tools/blender_ref_templates.py`, default per plan
+      (serpentine `serpentine_side`, centauroid `centaur_34`; biped/winged_biped keep the
+      style's OpenPose A-pose), overridable per monster. Snake and centaur re-referenced.
+- [x] (2026-11-04) Unarmed check subject: a display name with a weapon word ("kuo-toa whip")
+      is replaced by the visual_profiles desc's first clause or "a creature"
+      (`unarmed_check.subject`, `forge.visual_desc`); goblin scores unchanged.
+- [ ] **Paint blocked by memory (2026-11-04 evening)**: ComfyUI's unit has MemoryHigh 16G /
+      MemoryMax 20G / MemorySwapMax 2G, and system swap was full (8 of 8 GB, idle desktop
+      apps), so the paint workflow (ComfyUI 17.3 GB) sat throttled at MemoryHigh (one view
+      433 s, normally ~15 s) and was OOM-killed twice. constrictor-snake, centaur-trooper and
+      giant-eagle have no paint now (qa --force removed the old one): run
+      `forge.py run <id> --stages paint,lod,rig,anim --force` for each when swap has room or
+      the limits allow ~18 GB (rig --force keeps rig/chosen.glb).
 - [x] (2026-11-04) Unarmed-candidate check (`tools/unarmed_check.py`, `docs/references.md`):
       after the ref stage draws its candidates, each `unarmed_reference` monster's hands are
       found with DWPose (ComfyUI's controlnet_aux weights) and scored with zero-shot SigLIP
@@ -425,7 +439,10 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
       stretched-out side-view snake in 5 prompt rounds (it draws top-down coils, which mesh as an
       upright cutout); the pilot uses a ground-lying S seen from above + `level` 60 degrees.
       Coils that touch fuse the surface: weights are fixed by a nearest-bone pass, but expect
-      some bunching in the slither. Needs a pose ControlNet / better model for snakes.
+      some bunching in the slither. Needs a pose ControlNet / better model for snakes. (2026-11-04) Done: the `serpentine_side` depth
+      template gives side-view snakes stretched along the ground (3 of 4 in round 2); the
+      mesh is a 4.0 m long body (0.40 x 0.56 m section), spine_chain 16 bones, no fused coils,
+      slither verified in sheets. Paint pending (see B).
 - [x] floating (ghost): SkinTokens rigs the robed ghost as a biped under the robe (arms, hands,
       spine, head). Hover clips at a constant 0.1 x height, death falls onto the ground. Batch:
       SkinTokens. The registry prompt draws a legged zombie: prompt tweak (legless tapering
@@ -437,9 +454,10 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
       fan resting on the ground is now turned up (walk dip 8.5 cm -> none, D). (anim3) Fixed:
       the rig stage stands it on its feet (`blender_rig.ground_feet`: lowered 0.355 m, fan
       turned up 33.9 degrees, baked into LOD0-3, `manifest.rig.grounded`), and `find_snout`
-      skips wing chains (head `bone_11` -> `bone_5`, the beak). Its mesh is 29.5 degrees off
-      +Y (just under the facing check's 30): the wings lie on a diagonal; a pinned `yaw` and
-      a re-run of qa/paint/lod would fix it (GPU).
+      skips wing chains (head `bone_11` -> `bone_5`, the beak). Its mesh was 29.5 degrees off
+      +Y: (2026-11-04) yaw pinned -150.5, facing 0.0, wings symmetric, one leg per side, rig
+      roll_0 score -1.70 (was -3.32). It is now 1.39x larger (scale_m is nose-to-tail: 5.84 m
+      wingspan, 5.78 m tall); check that against the game's expectations. Paint pending (B).
 - [x] amorphous (black-pudding): `fallback:vertical` (4 bones) with squash-and-stretch bone
       scales. Batch: fallback. Ref pick matters: drips under a raised blob meshed as a spider.
       The lemure (`blob_torso`, arms) will want SkinTokens + arms instead.
@@ -453,7 +471,13 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
 - [x] aquatic (hunter-shark): SkinTokens is clean (spine, fins, tail lobes); carangiform swim
       held 0.25 x height up, death rolls belly-up onto the ground. Batch: SkinTokens; flippered
       plesiosaur/archelon untested.
-- [ ] centauroid (centaur-trooper): **no centaur mesh**: juggernaut drew a man riding a horse in
+- [ ] centauroid (centaur-trooper): (2026-11-04) **a real centaur mesh** from the `centaur_34`
+      depth template (round 2 ref_2: human torso where the neck would be, 4 hooves down, empty
+      hands, photo-like rather than the ink style), yaw 100.5; SkinTokens roll_1: 4 legs,
+      spine, head, right arm only (an arrow shaft behind the head meshed as a sideways stick
+      where the left arm should be), so `attack_ranged` is missing; the tail hangs to the
+      ground and moves with the hind legs. Open: a cleaner reference (no shaft, house style)
+      and a re-roll for both arms. Paint pending (B). Before: juggernaut drew a man riding a horse in
       8 of 8 over three prompts. A rider proxy (prancing, one hoof up) rigged with both arms,
       head and spine; the stage refuses its 3 grounded feet. In scratch with feet 3 all six clips
       build (sword cut and bow draw on the arms). Batch: blocked on references (Z-Image /

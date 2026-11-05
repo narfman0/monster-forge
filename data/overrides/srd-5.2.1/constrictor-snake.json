@@ -1,6 +1,4 @@
 {
   "ref_pick": 2,
-  "level": true,
-  "level_tilt": 60,
-  "notes": "serpentine pilot. SDXL (juggernaut) never draws a stretched-out side-view snake (5 prompt rounds, data/prompt_tweaks.json); ref 2 is a ground-lying S-curve seen three-quarter from above, so the mesh comes out tilted toward the camera: level on (3 lowest contact clusters) with a 60 degree cap lays the body flat."
+  "notes": "serpentine pilot. References from the serpentine_side depth ControlNet template (docs/references.md \"Pose templates\", round 2, 2026-11-04): ref 2 is a side-view snake stretched along the ground in a shallow S, head raised. (Before the template, 5 prompt rounds gave only top-down coils; the old pick was a ground-lying S seen from above, leveled at 60 degrees.)"
 }

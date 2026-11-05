@@ -1,4 +1,5 @@
 {
   "ref_pick": 1,
-  "notes": "avian pilot. Ref 0 (side view, wings raised up and back) rigged with one wing found and that chain also taken as the tail; ref 1 (front view, wings spread to the sides) gives sideways wing chains find_wings can see."
+  "notes": "avian pilot. Ref 0 (side view, wings raised up and back) rigged with one wing found and that chain also taken as the tail; ref 1 (front view, wings spread to the sides) gives sideways wing chains find_wings can see. Yaw pinned to -150.5 (the rig facing check's suggested_yaw: QA's auto 180 left the body 29.5 degrees off +Y, wings on a diagonal).",
+  "yaw": -150.5
 }

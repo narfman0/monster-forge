@@ -300,9 +300,10 @@ def load_style(path: str | None) -> dict:
     return json.loads((p if p.is_absolute() else ROOT / p).read_text())
 
 
-def apply_style(wf: dict, style: dict, prompt: str, mon: dict) -> str:
-    """Patch the ref graph with the style's sampler, LoRAs, negative and (for upright plans)
-    an OpenPose A-pose ControlNet. Returns the styled positive prompt."""
+def apply_style(wf: dict, style: dict, prompt: str, mon: dict, ov: dict | None = None) -> str:
+    """Patch the ref graph with the style's sampler, LoRAs, negative and the monster's pose
+    template ControlNet (ref_template: the style's OpenPose A-pose for upright plans, a depth
+    template for the plans in REF_TEMPLATE_BY_PLAN). Returns the styled positive prompt."""
     for s in style.get("strip_from_subject", []):
         prompt = prompt.replace(s, "")
     prompt = " ".join(prompt.split()).strip().rstrip(",. ")
@@ -328,21 +329,76 @@ def apply_style(wf: dict, style: dict, prompt: str, mon: dict) -> str:
     smp["model"] = model
     wf["pos"]["inputs"]["clip"] = clip
     wf["neg"]["inputs"]["clip"] = clip
-    cn = style.get("controlnet")
-    if cn and mon["body_plan"] in cn.get("body_plans", []):
-        imgs = cn["pose_images"]
-        img = ROOT / imgs.get(mon["size"], imgs["default"])
-        wf["cn_img"] = {"class_type": "LoadImage", "inputs": {
-            "image": upload_file(img, "monster-forge/pose")}}
-        wf["cn_load"] = {"class_type": "ControlNetLoader", "inputs": {"control_net_name": cn["model"]}}
-        wf["cn_type"] = {"class_type": "SetUnionControlNetType", "inputs": {
-            "control_net": ["cn_load", 0], "type": cn.get("type", "openpose")}}
-        wf["cn_apply"] = {"class_type": "ControlNetApplyAdvanced", "inputs": {
-            "positive": ["pos", 0], "negative": ["neg", 0], "control_net": ["cn_type", 0],
-            "image": ["cn_img", 0], "strength": cn["strength"], "start_percent": cn.get("start", 0.0),
-            "end_percent": cn.get("end", 1.0), "vae": ["ckpt", 2]}}
-        smp["positive"], smp["negative"] = ["cn_apply", 0], ["cn_apply", 1]
+    apply_template(wf, ref_template(mon, style, ov))
     return prompt
+
+
+# Pose templates for the ref stage's ControlNet (docs/references.md "Pose templates"), for body
+# plans the text prompt cannot pose. Depth maps drawn by tools/blender_ref_templates.py from proxy
+# bodies, fed to the style's controlnet-union model in depth mode. "apose" is the style's own
+# OpenPose A-pose (data/style.json "controlnet", biped/winged_biped). Override `ref_template`:
+# false (no template), a name below, or an object merged over the plan's template.
+REF_TEMPLATES = {
+    "serpentine_side": {"image": "workflows/pose/serpentine_side_depth.png", "type": "depth",
+                        "strength": 0.75, "start": 0.0, "end": 0.7},
+    "centaur_34": {"image": "workflows/pose/centaur_34_depth.png", "type": "depth",
+                   "strength": 0.75, "start": 0.0, "end": 0.7},
+}
+REF_TEMPLATE_BY_PLAN = {"serpentine": "serpentine_side", "centauroid": "centaur_34"}
+
+
+def ref_template(mon: dict, style: dict, ov: dict | None = None) -> dict | None:
+    """The ControlNet pose template for this monster's reference: {name, model, type, image
+    (Path), strength, start, end}, or None. Override `ref_template` > REF_TEMPLATE_BY_PLAN >
+    the style's A-pose (its controlnet.body_plans)."""
+    cn = (style or {}).get("controlnet") or {}
+    want = (ov or {}).get("ref_template")
+    if want is False or want == "none":
+        return None
+    plan = mon.get("body_plan")
+    name = want if isinstance(want, str) else REF_TEMPLATE_BY_PLAN.get(plan)
+    if name is None and plan in cn.get("body_plans", []):
+        name = "apose"
+    if name == "apose":
+        if not cn:
+            return None
+        imgs = cn["pose_images"]
+        tpl = {"image": imgs.get(mon.get("size"), imgs["default"]), "type": cn.get("type", "openpose"),
+               "strength": cn["strength"], "start": cn.get("start", 0.0), "end": cn.get("end", 1.0)}
+    elif name is not None:
+        if name not in REF_TEMPLATES:
+            raise RuntimeError(f"unknown ref_template {name!r} (known: apose, {', '.join(REF_TEMPLATES)})")
+        tpl = dict(REF_TEMPLATES[name])
+    else:
+        tpl = None
+    if isinstance(want, dict):
+        tpl = {**(tpl or {}), **want}
+        name = want.get("name") or name or "custom"
+    if not tpl or not tpl.get("image"):
+        return None
+    model = tpl.get("model") or cn.get("model")
+    if not model:
+        raise RuntimeError(f"{mon.get('id')}: ref_template {name!r} needs a ControlNet model (style has none)")
+    img = Path(tpl["image"])
+    return {"name": name, "model": model, "type": tpl.get("type", "depth"),
+            "image": img if img.is_absolute() else ROOT / img, "strength": float(tpl.get("strength", 0.6)),
+            "start": float(tpl.get("start", 0.0)), "end": float(tpl.get("end", 1.0))}
+
+
+def apply_template(wf: dict, tpl: dict | None) -> None:
+    """Add the pose template's ControlNet (controlnet-union, SetUnionControlNetType) to the ref graph."""
+    if not tpl:
+        return
+    wf["cn_img"] = {"class_type": "LoadImage", "inputs": {"image": upload_file(tpl["image"], "monster-forge/pose")}}
+    wf["cn_load"] = {"class_type": "ControlNetLoader", "inputs": {"control_net_name": tpl["model"]}}
+    wf["cn_type"] = {"class_type": "SetUnionControlNetType", "inputs": {
+        "control_net": ["cn_load", 0], "type": tpl["type"]}}
+    wf["cn_apply"] = {"class_type": "ControlNetApplyAdvanced", "inputs": {
+        "positive": ["pos", 0], "negative": ["neg", 0], "control_net": ["cn_type", 0],
+        "image": ["cn_img", 0], "strength": tpl["strength"], "start_percent": tpl["start"],
+        "end_percent": tpl["end"], "vae": ["ckpt", 2]}}
+    smp = wf["sample"]["inputs"]
+    smp["positive"], smp["negative"] = ["cn_apply", 0], ["cn_apply", 1]
 
 
 def resolve_style(name: str | None) -> str:
@@ -364,13 +420,24 @@ def resolve_style(name: str | None) -> str:
 UNARMED_CHECK = ROOT / "tools" / "unarmed_check.py"
 
 
-def ref_pose_image(mon: dict, style: dict) -> Path | None:
-    """The A-pose ControlNet image apply_style() feeds for this monster, if any."""
-    cn = (style or {}).get("controlnet")
-    if not cn or mon["body_plan"] not in cn.get("body_plans", []):
+def visual_desc(mon: dict) -> str | None:
+    """data/visual_profiles.json desc for this monster (SRD slugs at the top level, other
+    sources under "sources"), or None."""
+    p = ROOT / "data" / "visual_profiles.json"
+    try:
+        vp = json.loads(p.read_text())
+    except (OSError, ValueError):
         return None
-    imgs = cn["pose_images"]
-    return ROOT / imgs.get(mon["size"], imgs["default"])
+    table = vp if mon.get("source") == "srd-5.2.1" else (vp.get("sources") or {}).get(mon.get("source"), {})
+    ent = table.get(mon["id"]) if isinstance(table, dict) else None
+    return ent.get("desc") if isinstance(ent, dict) else None
+
+
+def ref_pose_image(mon: dict, style: dict) -> Path | None:
+    """The OpenPose template image apply_style() feeds for this monster, if any (the
+    unarmed check's wrist fallback; depth templates have no keypoints)."""
+    tpl = ref_template(mon, style, ov_for(mon))
+    return tpl["image"] if tpl and tpl["type"] == "openpose" else None
 
 
 def unarmed_check(mon: dict, d: Path, n: int, style: dict) -> dict | None:
@@ -382,6 +449,9 @@ def unarmed_check(mon: dict, d: Path, n: int, style: dict) -> dict | None:
         return None
     paths = [str(d / f"ref_{i}.png") for i in range(n)]
     cmd = [PIL_PYTHON, "-I", str(UNARMED_CHECK), "--name", "a " + mon["name"].lower(), *paths]
+    desc = visual_desc(mon)
+    if desc:  # unarmed_check uses it instead of a name with a weapon word ("a kuo-toa whip")
+        cmd[3:3] = ["--desc", desc]
     pose = ref_pose_image(mon, style)
     if pose:
         cmd[3:3] = ["--pose-image", str(pose)]
@@ -450,7 +520,9 @@ def stage_ref(mon: dict, d: Path, args) -> None:
         prompt = prompt.rstrip(" ,.") + ", " + ov["prompt_extra"]
     style = load_style(resolve_style(args.style or ov.get("style")))
     if style:
-        prompt = apply_style(wf, style, prompt, mon)
+        prompt = apply_style(wf, style, prompt, mon, ov)
+    else:
+        apply_template(wf, ref_template(mon, style, ov))
     if mon.get("unarmed_reference") and style.get("unarmed_suffix"):
         # weapons are runtime props (docs/equipment.md): draw empty, open hands
         prompt = prompt.rstrip(" ,.") + ", " + style["unarmed_suffix"]
@@ -491,7 +563,10 @@ def stage_ref(mon: dict, d: Path, args) -> None:
                   "lora": [[n["inputs"]["lora_name"], n["inputs"]["strength_model"]]
                            for k, n in sorted(wf.items()) if k.startswith("lora")],
                   "controlnet": ({"image": wf["cn_img"]["inputs"]["image"],
-                                  "strength": wf["cn_apply"]["inputs"]["strength"]}
+                                  "template": (ref_template(mon, style, ov) or {}).get("name"),
+                                  "type": wf["cn_type"]["inputs"]["type"],
+                                  "strength": wf["cn_apply"]["inputs"]["strength"],
+                                  "end": wf["cn_apply"]["inputs"]["end_percent"]}
                                  if "cn_apply" in wf else None),
                   "seconds": dt}
     if chk is not None:
@@ -892,6 +967,12 @@ def stage_anim(mon: dict, d: Path, args) -> None:
     anim.stage_anim(sys.modules[__name__], mon, d, args)
 
 
+def stage_timing(d: Path, st: str):
+    """manifest.timings[<stage>] (seconds of its last run): every stage writes it when it
+    runs, none when it skips, so a change across the call means the stage really ran."""
+    return (load_manifest(d).get("timings") or {}).get(st)
+
+
 STAGES = {"ref": stage_ref, "mesh": stage_mesh_guarded, "qa": stage_qa, "paint": stage_paint, "lod": stage_lod,
           "rig": stage_rig, "anim": stage_anim}
 RUN_ORDER = ["ref", "mesh", "qa", "paint", "lod", "rig", "anim"]
@@ -962,7 +1043,17 @@ def main() -> int:
         d = out_dir(args.source, mid, args.out_suffix)
         for st in stages:
             try:
+                before = stage_timing(d, st)
                 STAGES[st](mon, d, args)
+                after = stage_timing(d, st)
+                if after is not None and after != before:
+                    # the stage ran (a skip leaves its timing alone) and succeeded: drop its
+                    # old manifest.errors entries (rig/anim also do this themselves; harmless twice)
+                    man = load_manifest(d)
+                    if any(e.get("stage") == st for e in man.get("errors") or []):
+                        rig.clear_stage_errors(man, st)
+                        save_manifest(d, man)
+                        log(f"{mid}: {st} ok, cleared its old manifest errors")
             except Exception as e:  # keep going with the next monster
                 log(f"{mid}: {st} FAILED: {e}")
                 man = load_manifest(d)

@@ -20,9 +20,9 @@
     "note": "the bold-colour style paints the body teal/black with red wings, so force red scales. The default pose curls the tail and sits, which SkinTokens cannot rig: force a straight tail, spread wings and a three-quarter view"
   },
   "constrictor-snake": {
-    "prompt": "single creature, centered, large constrictor snake with patterned brown scales, (whole long body lying flat on the ground in a wide shallow S shape:1.3), head slightly raised at the front, tail trailing behind, (three-quarter view from slightly above:1.2), whole snake small in frame with margin around it. Large beast. full body",
-    "negative_append": "coiled, coils, loops, spiral, curled up, knot, overhead view, rearing, upright, cobra pose, close-up, portrait, head only, cropped, sand, dirt, grass, branch, rocks",
-    "note": "the registry's 'loose S-curve' gives a top-down coiled snake, which image-to-3D stands up as a flat 4.7 m cutout; stretch it out along the ground in a side view so the spine runs along one axis"
+    "prompt": "single creature, centered, large constrictor snake with patterned brown scales, (side view:1.2), (long thick body stretched out along the ground in a gentle S-curve:1.3), head slightly raised at the front, tail tapering behind. Large beast. full body",
+    "negative_append": "coiled, coils, loops, spiral, curled up, knot, overhead view, top view, rearing, upright, cobra pose, close-up, portrait, head only, cropped, sand, dirt, grass, branch, rocks, water, waves, sea, ocean, river, sand dunes, landscape",
+    "note": "the registry's 'loose S-curve' gives a top-down coiled snake, which image-to-3D stands up as a flat 4.7 m cutout. The serpentine_side depth template (forge.REF_TEMPLATES) poses it; the prompt only has to agree with it (side view, stretched out)"
   },
   "ghost": {
     "prompt": "single creature, centered, ghost, a translucent pale spectral human figure in tattered flowing robes, gaunt sorrowful face, (no legs, the lower body tapers into a single wispy tail of mist:1.3), (floating in the air:1.2), arms held slightly out from the body. Medium undead. full body, neutral hovering pose, front view",
@@ -30,8 +30,8 @@
     "note": "the registry prompt gives a legged zombie or skeleton; floating needs the legless tapering-tail ghost the custom.ghost rig assumes"
   },
   "centaur-trooper": {
-    "prompt": "single creature, centered, (greek mythology centaur, half man half horse:1.4), (human from the waist up, horse from the waist down, the man's waist joins the horse's chest:1.3), bearded warrior with a breastplate and an arrow quiver on the back, empty open hands, four horse legs standing on the ground, horse tail. Large fey. full body, standing still, three-quarter front view",
-    "negative_append": "(rider, riding, horseback, saddle, reins, bridle:1.5), (horse head, horse ears, horse mane:1.4), minotaur, horns, two creatures, rearing, galloping, bow, spear, weapon in hand",
-    "note": "the registry prompt draws a man riding a horse (2 of 3) or a minotaur; force the human torso in place of the horse's neck"
+    "prompt": "single creature, centered, (fantasy centaur, half man half horse:1.4), (human from the waist up, horse from the waist down, the man's waist joins the horse's chest:1.3), bearded warrior with a breastplate and an arrow quiver on the back, empty open hands, (four horse legs with all four hooves on the ground:1.2), horse tail. Large fey. full body, standing still, three-quarter view",
+    "negative_append": "(rider, riding, horseback, saddle, reins, bridle:1.5), (horse head, horse ears, horse mane:1.4), minotaur, horns, two creatures, rearing, galloping, bow, spear, weapon in hand, statue, sculpture, marble, figurine, greek vase, pottery, yellow background, human feet",
+    "note": "the registry prompt draws a man riding a horse (2 of 3) or a minotaur; force the human torso in place of the horse's neck. The centaur_34 depth template (forge.REF_TEMPLATES, override strength 0.6 / end 0.6) poses the body: 3 rounds 2026-11-04 (docs/references.md); this is round 2, whose ref_2 is the pick"
   }
 }

@@ -58,3 +58,56 @@ ref_3 has a spear shaft crossing behind its open hand and scores empty, which is
 the mesh only if the shaft does not mesh as part of the arm. Known gaps: non-humanoid
 "hands" (claws of a beast plan) are untested; the check only looks at hands, so a shield
 on the arm or a weapon on the back is not seen (a held shield is usually caught by its hand).
+
+## Pose templates (`ref_template`)
+
+Some body plans cannot be posed by the prompt: juggernaut draws a snake as top-down coils
+whatever the words say (5 prompt rounds), and a centaur as a man riding a horse (8 of 8
+over three prompts). The ref stage drives controlnet-union-sdxl-promax (already used for
+the A-pose) with a per-plan template, `forge.REF_TEMPLATES` / `REF_TEMPLATE_BY_PLAN`:
+
+| plan | template | image | ControlNet type | strength / end |
+|---|---|---|---|---|
+| biped, winged_biped | `apose` (the style's `controlnet`) | `workflows/pose/apose_openpose*.png` | openpose | 0.6 / 0.6 |
+| serpentine | `serpentine_side` | `workflows/pose/serpentine_side_depth.png` | depth | 0.75 / 0.7 |
+| centauroid | `centaur_34` | `workflows/pose/centaur_34_depth.png` | depth | 0.75 / 0.7 |
+
+The depth templates are drawn by `tools/blender_ref_templates.py` (headless Blender, no
+download): a proxy body of tapered capsules rendered orthographically to 1024 x 1024 in the
+MiDaS convention (near white, far dark, background black). OpenPose has no keypoints for a
+snake or a horse body, so depth it is; no new ControlNet was needed.
+
+- `serpentine_side`: a 4 m snake along X in a shallow S on the ground (0.42 m amplitude,
+  0.33 m thick), head raised 0.32 m at +X, camera 20 degrees above the ground.
+- `centaur_34`: horse barrel, chest and rump, four legs with every hoof on the ground, a tail,
+  a human torso, head and arms (a little away from the body, open hands) rising from the
+  chest where the horse's neck would be; camera 65 degrees round from the front, 10 up.
+
+Override `ref_template` (data/overrides): `false` (no template), a template name, or an object
+(`image`, `type`, `strength`, `start`, `end`, `model`, `name`) merged over the plan's.
+`manifest.ref.controlnet` records `template`, `type`, `strength`, `end`. Only an openpose
+template is passed to the unarmed check as its wrist fallback.
+
+Rounds (2026-11-04, 4 candidates each, seeds the per-monster default):
+
+| monster | round | prompt / template | drawn |
+|---|---|---|---|
+| constrictor-snake | 1 | "side view, long body stretched out along the ground in a shallow wave", 0.75 / 0.7 | 4 of 4 side-view stretched snakes; 3 on sea waves or sand ("wave" read as water), ref_2 on white |
+| constrictor-snake | 2 | "gentle S-curve", water/waves/sand negatives | refs 0-2 clean side-view snakes on white, ref_3 a coiled ring. **Pick ref_2** |
+| centaur-trooper | 1 | registry-based centaur prompt, 0.75 / 0.7 | 4 of 4 real centaurs (no rider, no horse head, 4 hooves down), but the house style lost: yellow paper backgrounds, a statue and a photo; the human torso turned away in 2; ref_1 one human foot |
+| centaur-trooper | 2 | "fantasy centaur", statue/pottery/yellow negatives, override 0.6 / 0.6 | style still lost (paper, studio photos); refs 0 and 3 grew a horse head at the lower strength, ref_1 holds a bow; ref_2 a photo-like centaur facing the camera, 4 hooves down, empty hands, an arrow shaft behind the head. **Pick ref_2** |
+| centaur-trooper | 3 | 0.75 / 0.7 again, "manga ink drawing ... plain white background" weighted, no quiver | uncoloured line drawings and mannequins, torsos seen from behind. Worse; not kept |
+
+The kept config reproduces the picked candidates bit for bit (`ref --force` gave the same
+four files). The template wins over the style: the depth map's grey body pulls the
+colouring toward photo and paper looks; a style-preserving recipe for centaurs is open.
+
+## Unarmed check subject (name with a weapon word)
+
+`forge.py` passes the display name ("a kuo-toa whip") to `tools/unarmed_check.py` for the
+whole-image prompts. A name with one of the check's weapon words (`WEAPONS`: dagger, sword,
+bow, ..., whip, as a whole word) is replaced by the first clause of the monster's
+`data/visual_profiles.json` description (`--desc`, e.g. "a kuo-toa priest") when that has no
+weapon word, else by "a creature"; the output keeps it as `name`, the given one as
+`name_given`. The hand-crop prompts, which decide, never used the name, so scores of
+monsters without weapon words are unchanged (goblin-warrior re-run on its four candidates with `--desc`: subject "a goblin warrior", scores 3.349 / 3.335 / -1.537 / -0.824, identical to the manifest's).

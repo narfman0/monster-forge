@@ -59,6 +59,27 @@ def _style(v):
     return None if isinstance(v, str) and _NAME.match(v) else "must be a style name or data path"
 
 
+REF_TEMPLATE_KEYS = {"name": _text(60), "image": _style, "model": _style, "type": _text(40),
+                     "strength": None, "start": None, "end": None}
+
+
+def _ref_template(v):
+    """ref_template: false, a template name (forge.REF_TEMPLATES or "apose"), or an object
+    {name, image, model, type, strength 0-2, start/end 0-1} merged over the plan's template."""
+    if v is False or (isinstance(v, str) and _NAME.match(v)):
+        return None
+    if not isinstance(v, dict):
+        return "must be false, a template name or an object"
+    for k, x in v.items():
+        if k not in REF_TEMPLATE_KEYS:
+            return f"unknown key {k!r} (allowed: {sorted(REF_TEMPLATE_KEYS)})"
+        chk = REF_TEMPLATE_KEYS[k] or (_num(0, 2) if k == "strength" else _num(0, 1))
+        e = chk(x)
+        if e:
+            return f"{k} {e}"
+    return None
+
+
 def _screen_ratios(v):
     if not (isinstance(v, list) and len(v) == 3):
         return "must be a list of 3 numbers (LOD0, LOD1, LOD2 switch points)"
@@ -156,6 +177,8 @@ FIELDS = {
     "negative_extra": (_text(500), "ref", "appended to the negative prompt"),
     "style": (_style, "ref", "art style (name or data/*.json path; 'none' = unstyled)"),
     "seed_ref": (_num(0, 2**31 - 1, True), "ref", "reference image seed"),
+    "ref_template": (_ref_template, "ref", "ControlNet pose template: false (none), a name (apose, serpentine_side, "
+                     "centaur_34) or {image, type, strength, start, end} over the body plan's (docs/references.md)"),
     "yaw": (_num(-360, 360), "qa", "degrees about up (overrides auto facing)"),
     "forward": (_choice("-Z", "+Z"), "qa", "glTF facing direction"),
     "level": (_bool, "qa", "stance leveling on/off"),
@@ -228,7 +251,7 @@ def defaults(mon: dict, style_name: str | None = None) -> dict:
         "tri_budget": TRI_BUDGET_BY_SIZE.get(size, 12000), "vg_factor": 0.5, "upsample": 1024,
         "texture_size": tex, "normal_cage": 0.015, "ref_pick": 0, "seed_mesh": None,
         "ref_unarmed_check": bool(mon.get("unarmed_reference")),
-        "prompt_extra": "", "negative_extra": "", "style": style_name, "seed_ref": None,
+        "prompt_extra": "", "negative_extra": "", "style": style_name, "seed_ref": None, "ref_template": None,
         "yaw": None, "forward": "-Z", "level": plan in FEET_BY_PLAN,
         "level_tilt": TILT_CAP_BY_PLAN.get(plan, DEFAULT_TILT_CAP),
         "lod_ratios": list(LOD_RATIOS), "rig_facing_check": True, "lod_screen_ratios": None, "notes": "",

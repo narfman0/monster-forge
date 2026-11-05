@@ -103,6 +103,28 @@ def hand_boxes(img, det, wrists=()) -> tuple[list, str]:
     return [(0, int(0.3 * H), W // 2, int(0.85 * H)), (W // 2, int(0.3 * H), W, int(0.85 * H))], "sides"
 
 
+def weapon_words(text: str) -> list[str]:
+    """The WEAPONS nouns ("whip", "bow", ...) that occur as whole words in text."""
+    import re
+    nouns = [w.split(" ", 1)[1] for w in WEAPONS]
+    return [n for n in nouns if re.search(rf"\b{n}s?\b", text, re.I)]
+
+
+def subject(name: str, desc: str | None = None) -> str:
+    """Subject words for the whole-image prompts. A display name with a weapon word in it
+    ("a kuo-toa whip", "a bow guard") would bias the empty-hands prompts toward that weapon,
+    so it is replaced by the first clause of the visual description (data/visual_profiles.json)
+    when that has no weapon word, else by the neutral "a creature". The hand-crop prompts,
+    which decide, never use the subject."""
+    if not weapon_words(name):
+        return name
+    if desc:
+        clause = desc.split(":")[0].split(",")[0].split(" with ")[0].strip().rstrip(".")
+        if clause and not weapon_words(clause):
+            return clause if clause.lower().startswith(("a ", "an ", "the ")) else "a " + clause
+    return "a creature"
+
+
 def prompts(name: str) -> tuple[list[str], list[str]]:
     armed = [t.format(name=name, w=w) for t in ARMED for w in WEAPONS]
     empty = [t.format(name=name) for t in EMPTY]
@@ -178,11 +200,14 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("images", nargs="+")
     ap.add_argument("--name", default="a fantasy character", help="subject words for the prompts")
+    ap.add_argument("--desc", help="visual description; replaces --name when the name holds a weapon word")
     ap.add_argument("--pose-image", help="the A-pose ControlNet image the refs were drawn with (wrist fallback)")
     ap.add_argument("--no-hands", action="store_true", help="whole-image views only")
     a = ap.parse_args()
     wrists = pose_wrists(a.pose_image) if a.pose_image else []
-    print(json.dumps(score(a.images, a.name, not a.no_hands, wrists)))
+    out = score(a.images, subject(a.name, a.desc), not a.no_hands, wrists)
+    out["name_given"] = a.name
+    print(json.dumps(out))
     return 0
 
 

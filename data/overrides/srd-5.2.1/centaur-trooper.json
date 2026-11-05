@@ -1,5 +1,9 @@
 {
-  "ref_pick": 0,
-  "notes": "centauroid pilot, PROXY ONLY: juggernaut drew a man riding a horse in 8 of 8 candidates over three prompts (data/prompt_tweaks.json), never a centaur. Ref 0 (a rider sitting upright over the withers, side view) stands in to test the rig and clips of four legs plus an upright armed torso. Not shippable: re-reference with a stronger model (Z-Image / FLUX.2-klein) or a pose ControlNet before the batch. Side-view reference on a front-view plan: yaw pinned to 113 (QA's 180 + the facing check's -67 bearing).",
-  "yaw": 113
+  "ref_pick": 2,
+  "ref_template": {
+    "strength": 0.6,
+    "end": 0.6
+  },
+  "notes": "centauroid pilot. References from the centaur_34 depth ControlNet template (docs/references.md \"Pose templates\", round 2 of 3, 2026-11-04): ref 2 is a real centaur (human torso where the horse's neck would be, all four hooves down, empty hands), drawn photo-like rather than in the house ink style. The rider proxy (yaw 113) it replaces was refused by the rig stage (3 grounded feet). Three-quarter reference on a front-view plan: yaw pinned to 100.5 (the facing check's suggested yaw; QA's front-view 180 left it 79.5 degrees off).",
+  "yaw": 100.5
 }
