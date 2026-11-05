@@ -1,5 +1,5 @@
 {
   "ref_pick": 1,
-  "notes": "Tier-1 review 2026-11-05: ref_0 (default) faces the camera head-on (foreshortened) and its mesh timed out (312 s); ref_2 is a front three-quarter. ref_1: side three-quarter, tusks, four hooves down. Re-pick 1; the next pass meshes it. Pass 3 (2026-11-05, ref_1 re-mesh): on-model tusked boar, 4 hooves down, 3.0 m long, but BACKWARDS: thumb.png front tile the rump, back tile the snout and tusks, thumb_head on the rump; the gate refused 179 deg (toes 1.0), suggested 140.9. Pinned yaw 140.0 = QA -40.05 + 180; qa re-runs on the next pass, check thumb.png.",
+  "notes": "Tier-1 review 2026-11-05: ref_0 (default) faces the camera head-on (foreshortened) and its mesh timed out (312 s); ref_2 is a front three-quarter. ref_1: side three-quarter, tusks, four hooves down. Re-pick 1; the next pass meshes it. Pass 3 (2026-11-05, ref_1 re-mesh): on-model tusked boar, 4 hooves down, 3.0 m long, but BACKWARDS: thumb.png front tile the rump, back tile the snout and tusks, thumb_head on the rump; the gate refused 179 deg (toes 1.0), suggested 140.9. Pinned yaw 140.0 = QA -40.05 + 180; qa re-runs on the next pass, check thumb.png. Pass 4 (2026-11-05, qa re-run with the pinned yaw): thumb.png faces front (head to the front camera, rump to the back one), gate ok. Pin worked.",
   "yaw": 140.0
 }

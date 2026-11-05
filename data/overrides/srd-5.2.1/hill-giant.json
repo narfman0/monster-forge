@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(hulking oafish brute with a huge pot belly, thick limbs, small dull-witted head, crude hide loincloth and fur cape, bare legs:1.4)",
+  "negative_extra": "(old man, sage, robe, coat, jacket, monkey face, ape, fur-covered body:1.5)",
+  "notes": "Tier-2 review 2026-11-05 (pass 4): no brutish giant in 4: ref_0 a monkey-faced man in a long yellow robe (auto pick, meshed so, 4.9 m, faces front, gate ok 0.5), refs 1 and 3 thin old bearded men in coats, ref_2 a furry ape-man. Hands empty in all. Re-roll with an oafish-brute prompt."
+}

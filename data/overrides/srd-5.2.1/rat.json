@@ -1,0 +1,4 @@
+{
+  "ref_pick": 1,
+  "notes": "Tier-2 review 2026-11-05 (pass 4): ref_0 meshed as a crumpled shard-textured lump (0.25 m, 4367 tris), no tail, and BACKWARDS (face in the back tile). ref_1 (side view, low on all four, tail on the ground): re-pick 1, re-mesh next pass (no yaw: the mesh goes)."
+}

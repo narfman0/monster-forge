@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(a riderless war horse in barding, no rider, no person, empty saddle:1.5), standing on all four legs, side view",
+  "negative_extra": "(rider, knight, person, soldier, sword, lance, spear, banner, cape:1.6)",
+  "notes": "Tier-2 review 2026-11-05 (pass 4): ALL 3 candidates have an armoured knight riding (sword / lance, red cape); ref_0 meshed the knight with a sword and a cape sheet on the horse (2.6 m, faces front). Re-roll riderless."
+}

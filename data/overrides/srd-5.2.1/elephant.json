@@ -1,0 +1,4 @@
+{
+  "yaw": 134.56,
+  "notes": "Tier-2 review 2026-11-05 (pass 4): front-view elephants 3 of 3; ref_0 meshed clean, 6.0 m, 20000 tris, but BACKWARDS (front tile the rump and tail, back tile the face and tusks; thumb_head the rump); gate UNVERIFIED (toes 0.60 only, 14.5) let it through. yaw 134.56 pinned (QA -45.44 + 180); qa re-runs next pass."
+}

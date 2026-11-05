@@ -1087,6 +1087,19 @@ untested variants; off-model fork, heavy crossbow, mace props.
       black-dragon-wyrmling, shambling-mound), 5 third-round re-rolls (medusa,
       earth-elemental, ettin, death-dog, salamander), 2 false refusals to clear by hand
       (black-bear, giant-hyena). Open: a pinned `ref_pick` survives a prompt re-roll.
+      Pass 4 (2026-11-05, stopped at 14:45 for low memory): 147 of 155 ready for paint;
+      shambling-mound waits for a mesh pass (re-pick), mastiff / polar-bear / merrow for a qa
+      pass (yaw), shield-guardian for a re-roll (base slab); medusa, ettin and death-dog have
+      exhausted `prompt_extra` (3 rounds): per-id prompt in `prompt_tweaks.json`, a template,
+      or a compromise (lead). docs/review-tier1.md "Pass 4".
+- [ ] Tier-2 pass review (2026-11-05, pass 4): 61 of 113 reached, reviewed in
+      `docs/review-tier2.md`: 24 ready for paint, 14 re-picks and 8 yaw pins wait for the next
+      pass, 14 re-rolls written, hippogriff has no mesh (timeout), 52 never reached (restart
+      the pass). Prompt-table fixes found: riders on horses (4), dragon colour drift (6 of
+      12), hybrids drawn as one parent animal (6 of 7), sitting small quadrupeds (a
+      quadruped "standing on all four, side view" append), ground / shadow slabs (4), the
+      frost-giant registry prompt's quiver. The gate let 2 backwards quadrupeds through as
+      one-cue `unverified` (elephant, mammoth).
 - [x] (2026-11-05) Runner fixes from the pass-3 review (docs/batch.md): a `ref_pick` older than
       the candidates of a prompt re-roll is stale (the mesh uses the strip's own pick with
       `--pick`; `_batch.json` `stale_pin`; "Pins to re-choose" in `plan` / `report`);

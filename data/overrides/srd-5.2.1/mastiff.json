@@ -1,5 +1,6 @@
 {
   "prompt_extra": "(standing on all four legs, walking, side view, whole body in profile:1.4)",
   "negative_extra": "(sitting, sitting on its haunches, lying down, front view:1.4)",
-  "notes": "Pass 3 (2026-11-05, first reference and mesh): 3 of 3 on-model fawn mastiffs with black masks and collars, but ALL SITTING on their haunches; ref_0 meshed as a sitting dog (1.2 m, faces front, gate ok 7.0) that the quadruped walk rig cannot use. Re-roll with a standing side-view prompt."
+  "notes": "Pass 3 (2026-11-05, first reference and mesh): 3 of 3 on-model fawn mastiffs with black masks and collars, but ALL SITTING on their haunches; ref_0 meshed as a sitting dog (1.2 m, faces front, gate ok 7.0) that the quadruped walk rig cannot use. Re-roll with a standing side-view prompt. Pass 4 (2026-11-05, re-roll): the standing prompt worked: 3 of 3 fawn mastiffs standing on all four (ref_0 front three-quarter, refs 1-2 side view with a cast shadow). Auto pick 0 meshed as a clean standing mastiff, 1.2 m, 4 paws down, but turned ~35 deg (front tile shows the head three-quarter left); gate refused 35.5 at confidence 1.0, head end on the front side. yaw -144.5 pinned (the gate's suggested value; QA's ambiguous_ends 180 + 35.5); qa re-runs next pass, check thumb.png. Tail meshed as a short knob.",
+  "yaw": -144.5
 }

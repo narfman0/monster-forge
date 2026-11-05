@@ -1,0 +1,4 @@
+{
+  "ref_pick": 2,
+  "notes": "Tier-2 review 2026-11-05 (pass 4): ref_0 (the auto pick) draws the badger small in the frame; its mesh lost the face (a lump with whisker spikes, grey metallic texture), 0.6 m, 4857 tris. ref_2 is a large side-view badger filling the frame: re-pick 2, re-mesh next pass."
+}

@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(a huge crocodile lying low to the ground, long flat body, sprawling short legs, very long tail on the ground, long low snout:1.5), side view",
+  "negative_extra": "(standing upright, raised chest, tall, kaiju, monster, muscular, hind legs, front view:1.5)",
+  "notes": "Tier-2 review 2026-11-05 (pass 4): off-model: 3 of 3 kaiju-like crocodiles standing tall with the chest raised (godzilla posture, tail out of frame); ref_0 meshed as a 10.5 x 9.0 x 8.7 m bulky upright beast (a crocodile should be long and low); gate refused 40. Re-roll; no yaw pinned."
+}

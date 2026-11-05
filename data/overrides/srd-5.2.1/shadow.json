@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(a dark humanoid figure made of living shadow, a solid smoky black body with no visible bones, featureless dark face with two faint glowing eyes, legs fading into dark wisps at the ankles:1.4), plain light background",
+  "negative_extra": "(skeleton, bones, skull, ribcage, spine, bare bones, halo, glow behind:1.5)",
+  "notes": "Tier-2 review 2026-11-05 (pass 4): refs 0 and 2 drew black SKELETONS with red eyes (the 'undead' pull seen on flesh-golem / ogre); ref_1 a dark muscular humanoid in a bright glow halo with the feet fading out. ref_0 meshed as a 1.8 m skeleton (faces front, gate ok 0.5). Re-roll with a living-shadow prompt and a skeleton / halo negative."
+}

@@ -1,0 +1,4 @@
+{
+  "ref_pick": 2,
+  "notes": "Tier-2 review 2026-11-05 (pass 4): mesh killed (timeout) on ref_0, a plain eagle with no horse body. ref_2 is a proper hippogriff (eagle head and wings, horse hindquarters with hooves): re-pick 2; the next pass meshes it."
+}
