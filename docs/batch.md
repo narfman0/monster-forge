@@ -246,7 +246,19 @@ python3 -I tools/batch.py run --tier 1 --dry-run       # what it would do, touch
 python3 -I tools/batch.py run --tier 1 --stop-after-failures 10
 python3 -I tools/batch.py run --ids bandit,guard --stages ref,mesh,qa
 python3 -I tools/batch.py report                       # out/<source>/_batch.md + a summary
+python3 -I tools/batch.py facing --stale               # re-run facing gates recorded by older gate code
+python3 -I tools/batch.py facing --ids lich,ghast      # the same for named monsters
 ```
+
+**Edit overrides only for finished monsters, or between passes.** Staleness is evaluated
+live: `status()` runs when the pass reaches a monster, and forge's stages read
+`data/overrides/` live too, so an override written mid-run for a monster not yet reached
+changes the running pass (a prompt edit re-rolls it now, a `ref_pick` re-meshes, a `yaw`
+re-runs qa). There is no `--snapshot-overrides`: forge has no way to read overrides from
+anywhere but `data/overrides/<source>/`, so a snapshot would only fool the batch's own
+staleness checks while the stages still used the live files. Hold an edit back until
+the pass has passed the monster (its `_batch.json` entry has the stages of this session),
+or until the pass ends.
 
 Selection: `--tier 1`, `1,2` or `1-3` (0 = pilots, 4 = hold), `--plans`, `--ids` (also runs
 hold records), `--include-pilots`. `run` with no `--tier` does tiers 1-3. Order: tier, then
@@ -287,6 +299,22 @@ lod, rig, anim), each as `forge.py <stage> <id> --source <source>` in its own pr
   (an override edited only for `yaw` or notes does not re-roll). On the tier-1 review that
   is exactly its 24 re-roll ids (23 stale + warrior-infantry, which has no reference yet):
   `batch.py plan --tier 1 --stages ref,mesh,qa --reroll-changed-prompts`.
+- **Stale `ref_pick` pin.** forge honours an override `ref_pick` in the ref stage too
+  (`ref.png` = `ref_<pin>`), so after a re-roll the pin names a candidate of a strip
+  nobody looked at (pass 3: dryad, medusa, sea-hag meshed the wrong one). After a ref the
+  batch re-rolled for a changed prompt (fingerprint or `--reroll-changed-prompts`) it
+  stamps `manifest.ref.prompt_reroll`; if the override carries a `ref_pick` and the
+  override file is not newer than the new candidates, the pin is stale: the batch points
+  `ref.png` and `manifest.ref.picked` at the strip's own pick (the unarmed check's first
+  empty-handed candidate, else 0; `picked_by` says the pin was ignored, `stale_pin` keeps
+  it), runs the mesh with `forge.py mesh --pick <that>`, records `stale_pin {pin, reason}`
+  in `_batch.json` and an event, and `plan` / `report` list the monster under "Pins to
+  re-choose". `mesh_stale` then compares the mesh with the strip's own pick, not the pin.
+  A pin written after the re-roll (override newer than the candidates) is honoured as
+  before (it re-meshes when it differs). Any later write of the override file counts as
+  re-pinning, so write the new pin (or drop the old one) after looking at the strip.
+  References re-rolled before this rule (no stamp) whose pin was written together with a
+  prompt field and is older than the candidates are listed as "unconfirmed" only.
 - `ref --n 3` (the pilots' practice; the viewer shows the candidates for a re-pick), and
   at least `--n 4` for `unarmed_reference` records (the unarmed check picks the first
   empty-handed one).
@@ -313,6 +341,19 @@ lod, rig, anim), each as `forge.py <stage> <id> --source <source>` in its own pr
   placeholder). `unverified` (the head end or a disputed axis not settled, docs/rig-anim.md
   "Facing check") is not a refusal: the monster goes on, `_batch.json` keeps the reason and
   `hint_yaw`, and the report lists it under "Facing to verify". `--no-facing-gate` turns it off.
+  The gate re-runs only after a qa the pass runs, or before paint, so a record from an
+  older gate stays until then: **`batch.py facing [--ids ...] [--stale]`** re-runs it
+  (`rig.facing_check`, CPU Blender, one monster at a time, only while MemAvailable is at
+  least `--min-free-gb` 8; it waits otherwise and never asks ComfyUI to `/free`) for
+  monsters the pass will not touch (ref, mesh, qa done, nothing stale, not rigged, the
+  gate applies). `--stale` picks the gates recorded by older code (`rig/facing.json`
+  without head-end `cues`, or older than `tools/blender_rig.py` or `model.glb`); where
+  `rig/facing.json` is current but `_batch.json`'s record is older or differs, it
+  re-derives the verdict from the file without Blender. It writes `rig/facing.json` and
+  merges the monster's `stages.facing` (and its facing errors) into `_batch.json` (read,
+  update, temp file in the same dir, rename). A running `run` rewrites `_batch.json` from
+  its own copy at its next save and drops such entries: the report reads around that
+  (below), and `facing --stale` after the pass re-syncs them in seconds.
 - **Timeouts**: 3x the slowest run seen of the stage (`--timeout-scale`), at least
   120 s (`--timeout-floor`): ref 180 s with 4 candidates, mesh 312, paint 513, rig 465
   (SkinTokens) or 120. On a timeout (or a hang) the process group is killed (Blender and
@@ -343,7 +384,15 @@ lod, rig, anim), each as `forge.py <stage> <id> --source <source>` in its own pr
   seconds, facing, the unarmed pick and scores, stale stages), and the monsters
   needing review sorted by rig score (structural problems, SkinTokens scores below -2,
   facing warnings, missing sockets or clips, unarmed warnings). It reads every manifest in
-  the registry, pilots included.
+  the registry, pilots included. The totals count facing refusals, `unverified` facings,
+  pins to re-choose and monsters ready for paint; sections **Pins to re-choose** (stale
+  pins, re-rolls pending with a pin, unconfirmed old ones) and **Ready for paint** (ref,
+  mesh, qa done; nothing stale; no pin to re-choose; facing `ok` or the gate not applicable:
+  `rig_facing_check` false, an advisory plan, a kept `rig/chosen.glb`; not on hold; paint
+  pending; review verdicts are not read), with the not-ready ones and why. Facing is
+  taken from `_batch.json`, or re-derived from `rig/facing.json` when that file is newer
+  (marked "from rig/facing.json"); a manifest gate error or `manifest.rig` placeholder
+  that a later check superseded is not listed.
 
 ## What to watch
 

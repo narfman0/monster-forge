@@ -9,6 +9,7 @@ monster, resumable, with memory and ComfyUI guards. See docs/batch.md.
     python3 -I tools/batch.py run --tier 1 --stop-after-failures 10
     python3 -I tools/batch.py run --ids bandit,guard --stages ref,mesh,qa
     python3 -I tools/batch.py report                      # out/<source>/_batch.md + a short summary
+    python3 -I tools/batch.py facing --stale              # re-run gates recorded by older gate code
 
 Uses forge.py as a library (registry, manifests, paths, ComfyUI HTTP, RUN_ORDER) and
 viewer.py's stage_status() / rig_quality(), so "done" means what the viewer shows. Each
@@ -356,13 +357,14 @@ def status(rec: dict, source: str, args=None) -> dict:
     done = dict(st["stages"])
     done["rig"] = rig_done(d, man, st)
     stale = {}
+    ref_prompt = False  # the ref is stale for a changed prompt (the stale-pin rule follows it)
     why = ref_partial(d)
     if why:  # the viewer counts candidates alone as a reference; the mesh needs the pick
         done["ref"], stale["ref"] = False, why
     elif done["ref"]:
         why = prompt_stale(rec, d, man, args)
         if why:  # forge skips an existing ref.png: --force (and mesh follows: ref.png newer)
-            done["ref"], stale["ref"] = False, why
+            done["ref"], stale["ref"], ref_prompt = False, why, True
     if done["mesh"]:
         why = mesh_stale(rec, d, man)
         if why:  # forge's mesh clears model.glb and the thumbs, so qa follows by itself
@@ -389,7 +391,7 @@ def status(rec: dict, source: str, args=None) -> dict:
         elif s == "lod":
             pend.add("rig")
     return {"done": done, "pending": [s for s in STAGES if s in pend], "raw_pending": raw,
-            "skipped": skipped, "stale": stale, "man": man, "st": st, "dir": d}
+            "skipped": skipped, "stale": stale, "ref_prompt": ref_prompt, "man": man, "st": st, "dir": d}
 
 
 def ref_partial(d: Path) -> str | None:
@@ -429,9 +431,90 @@ def mesh_stale(rec: dict, d: Path, man: dict) -> str | None:
     except Exception:
         pin = None
     made = (man.get("mesh") or {}).get("ref_picked") if isinstance(man.get("mesh"), dict) else None
+    sp = stale_pin(rec, d, man)
+    if sp:  # the pin was chosen from the strip before a prompt re-roll: the stage's own pick counts
+        if made is not None and int(made) != sp["auto"]:
+            return f"mesh made from ref_{made}, the re-rolled strip's own pick is ref_{sp['auto']} (stale ref_pick {pin})"
+        return None
     if pin is not None and made is not None and int(pin) != int(made):
         return f"override ref_pick {pin} != the candidate the mesh was made from ({made})"
     return None
+
+
+# ---------------------------------------------------------------- stale ref_pick pins
+# forge honours an override `ref_pick` in both the ref stage (ref.png = ref_<pin>) and the
+# mesh stage, also right after a re-roll that drew a new strip: the pin then names a
+# candidate nobody looked at (pass 3: dryad, medusa, sea-hag meshed the wrong one). After a
+# ref it re-rolled for a changed prompt the batch stamps manifest.ref.prompt_reroll; a pin
+# in an override file no newer than the new candidates is then stale: the batch meshes the
+# ref stage's own pick (the unarmed check's best, else 0) with `forge.py mesh --pick`, and
+# `plan` / `report` list the monster under "Pins to re-choose". A pin written after the
+# re-roll (override newer than the candidates) is honoured as before. NB any later write of
+# the override file (a note, a yaw) makes its pin count as chosen after the re-roll.
+def auto_pick(ref: dict, n: int) -> int:
+    """The ref stage's own pick without a pin (forge.stage_ref): the unarmed check's first
+    empty-handed candidate, else 0."""
+    chk = ref.get("unarmed") if isinstance(ref, dict) else None
+    p = chk["best"] if isinstance(chk, dict) and isinstance(chk.get("best"), int) else 0
+    return max(0, min(p, n - 1)) if n else 0
+
+
+def _ov_pin(rec: dict) -> tuple:
+    """(ref_pick or None, override file mtime or None, override dict)."""
+    try:
+        ov = overrides.load(rec["source"], rec["id"])
+    except Exception:
+        return None, None, {}
+    p = overrides.path_for(rec["source"], rec["id"])
+    return ov.get("ref_pick"), (p.stat().st_mtime if p.exists() else None), ov
+
+
+def stale_pin(rec: dict, d: Path, man: dict) -> dict | None:
+    """{pin, auto, reason} when the override's ref_pick predates the prompt re-roll that drew
+    the current candidates (manifest.ref.prompt_reroll, stamped by the batch), else None."""
+    ref = man.get("ref") if isinstance(man.get("ref"), dict) else {}
+    rr = ref.get("prompt_reroll")
+    if not rr:
+        return None
+    pin, t_ov, _ = _ov_pin(rec)
+    refs = list(d.glob("ref_*.png")) if d.is_dir() else []
+    if pin is None or not refs:
+        return None
+    if t_ov is not None and t_ov > max(p.stat().st_mtime for p in refs) + 1:
+        return None  # pinned after the re-roll: a choice from this strip
+    auto = auto_pick(ref, len(refs))
+    return {"pin": int(pin), "auto": auto,
+            "reason": f"ref_pick {pin} predates the prompt re-roll of {rr.get('at')} ({rr.get('reason')}); "
+                      f"the mesh uses the strip's own pick ref_{auto}"}
+
+
+def pin_predates_strip(rec: dict, d: Path, man: dict) -> str | None:
+    """A reference re-rolled before the stale-pin rule (no prompt_reroll stamp) whose pin, set
+    together with a prompt field, is older than its candidates: forge meshed the pin blind.
+    Listed only (the mesh is not redone): re-choose and pin again."""
+    ref = man.get("ref") if isinstance(man.get("ref"), dict) else {}
+    if not ref or ref.get("prompt_reroll") or ref.get("picked_by") != "pinned":
+        return None
+    pin, t_ov, ov = _ov_pin(rec)
+    refs = list(d.glob("ref_*.png")) if d.is_dir() else []
+    if pin is None or t_ov is None or not refs or not any(k in ov for k in PROMPT_FIELDS):
+        return None
+    if t_ov < min(p.stat().st_mtime for p in refs) - 1:
+        return (f"ref_pick {pin} (override with a prompt field) is older than the candidates: the re-roll "
+                "kept the pin blind (before the stale-pin rule); look at the strip and pin again")
+    return None
+
+
+def pin_notes(rec: dict, s: dict) -> str | None:
+    """Why the monster's ref_pick must be chosen again, for plan and report, or None."""
+    sp = stale_pin(rec, s["dir"], s["man"])
+    if sp:
+        return f"stale pin: {sp['reason']}"
+    if s.get("ref_prompt") and _ov_pin(rec)[0] is not None:
+        return (f"the ref re-rolls for a changed prompt with ref_pick {_ov_pin(rec)[0]} pinned: the mesh will use "
+                "the new strip's own pick; pin again after a look")
+    why = pin_predates_strip(rec, s["dir"], s["man"])
+    return f"unconfirmed: {why}" if why else None
 
 
 # ---------------------------------------------------------------- prompt fingerprints
@@ -495,6 +578,31 @@ def stamp_prompt_fp(d: Path) -> None:
     if fp:
         ref["prompt_fp"] = fp
         fg.save_manifest(d, man)
+
+
+def stamp_prompt_reroll(rec: dict, d: Path, why: str) -> dict | None:
+    """After a ref the batch re-rolled for a changed prompt: manifest.ref.prompt_reroll, and
+    when the override's ref_pick is now stale (stale_pin) point ref.png and manifest.ref's
+    pick at the strip's own pick (forge's ref copied ref_<pin>; the mesh gets --pick).
+    Returns the stale_pin record or None."""
+    import shutil
+    man = fg.load_manifest(d)
+    ref = man.get("ref")
+    if not isinstance(ref, dict):
+        return None
+    ref["prompt_reroll"] = {"reason": why, "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    sp = stale_pin(rec, d, man)
+    if sp:
+        src = d / f"ref_{sp['auto']}.png"
+        if src.exists():
+            shutil.copyfile(src, d / "ref.png")
+        chk = ref.get("unarmed")
+        how = "unarmed_check" if isinstance(chk, dict) and isinstance(chk.get("best"), int) else "default"
+        ref.update({"picked": sp["auto"], "picked_by": f"{how} (batch: stale ref_pick {sp['pin']} ignored)",
+                    "stale_pin": {"pin": sp["pin"], "reason": sp["reason"]}})
+        fg.log(f"batch: {rec['id']}: {sp['reason']}")
+    fg.save_manifest(d, man)
+    return sp
 
 
 def prompt_stale(rec: dict, d: Path, man: dict, args=None) -> str | None:
@@ -743,6 +851,7 @@ def cmd_plan(args) -> int:
     want = set(args.stages.split(",")) if args.stages else None
     cur = None
     k = 0
+    pins = []  # (id, why): ref_pick pins to choose again (stale_pin, pin_notes)
     for rec, cls in items:
         if cls["tier"] != cur:
             cur = cls["tier"]
@@ -750,6 +859,9 @@ def cmd_plan(args) -> int:
             print(f"{'#':>4}  {'id':<30} {'plan':<17} {'size':<10} {'n':>2}  {'pending':<38} {'est':>7}  note")
         s = status(rec, args.source, args)
         pend = [x for x in s["pending"] if want is None or x in want]
+        pn = pin_notes(rec, s) if cls["tier"] else None
+        if pn:
+            pins.append((rec["id"], pn))
         if cls["tier"] == 0:
             left = ",".join(s["pending"]) or "-"
             print(f"{'':>4}  {rec['id']:<30} {rec['body_plan']:<17} {rec['size']:<10} {'':>2}  "
@@ -771,6 +883,10 @@ def cmd_plan(args) -> int:
                 n_run += 1
         else:
             counts["done"] += 1
+    if pins:
+        print(f"\n== Pins to re-choose ({len(pins)})")
+        for mid, why in pins:
+            print(f"  {mid}: {why}")
     print("\n== totals")
     for t in sorted(per_tier):
         print(f"  {names[t]}: {hms(per_tier[t])}")
@@ -824,6 +940,11 @@ class Progress:
         found = set(s["st"]["found_clips"])
         m["missing_clips"] = [c for c in rec.get("animation_set") or [] if c not in found] if found else None
         m["manifest_errors"] = [{k: e.get(k) for k in ("stage", "error", "at")} for e in s["man"].get("errors") or []]
+        sp = stale_pin(rec, s["dir"], s["man"])
+        if sp:  # cleared again once the review pins from the new strip
+            m["stale_pin"] = {"pin": sp["pin"], "reason": sp["reason"]}
+        else:
+            m.pop("stale_pin", None)
 
     def save(self) -> None:
         if not self.write:
@@ -972,6 +1093,11 @@ def forge_cmd(stage: str, rec: dict, args, force: bool = False) -> list:
     cmd = [sys.executable, "-I", str(FORGE), stage, rec["id"], "--source", args.source]
     if stage == "ref":
         cmd += ["--n", str(ref_n(rec, args, force))]
+    if stage == "mesh":  # forge's mesh honours the override pin: a stale one is overruled here
+        d = mon_dir(args.source, rec["id"])
+        sp = stale_pin(rec, d, fg.load_manifest(d)) if d.is_dir() else None
+        if sp:
+            cmd += ["--pick", str(sp["auto"])]
     if force:
         cmd.append("--force")  # a stale stage (status()["stale"]): forge would skip it otherwise
     return cmd
@@ -1066,7 +1192,7 @@ def facing_gate(rec: dict, d: Path) -> dict:
     """rig.facing_check on model.glb (Blender only) before paint and the rolls: a misfaced
     mesh would be refused by the rig stage after ~3 min of paint, and fixing it (pin yaw,
     qa --force) deletes the paint again."""
-    f = rig.facing_check(fg, rec, d)
+    f = rig.facing_check(fg, unit_rec(rec), d)  # a swarm's rig runs on its unit
     man = fg.load_manifest(d)
     if f["ok"]:  # a pinned yaw fixed it: drop this gate's earlier refusal (the report reads manifest errors)
         errs = man.get("errors") or []
@@ -1098,12 +1224,7 @@ def run_facing_gate(rec: dict, d: Path, m: dict, prog: Progress, args) -> bool:
         fg.log(f"batch: {rec['id']}: facing gate failed to run ({e}); continuing")
     # unverified: not refused, but the head end (or a disputed axis) is not settled; the
     # monster goes on and the report lists it under "Facing to verify" (docs/batch.md)
-    m["stages"]["facing"] = {"status": "refused" if not f["ok"] else "unverified" if f.get("unverified") else "ok",
-                             "angle_deg": f.get("angle_deg"), "confidence": f.get("confidence"),
-                             "suggested_yaw": f.get("suggested_yaw"),
-                             **({"unverified": f["unverified"]} if f.get("unverified") else {}),
-                             **({"hint_yaw": f["hint_yaw"]} if f.get("hint_yaw") is not None else {}),
-                             "seconds": round(time.time() - t0, 1), "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    m["stages"]["facing"] = facing_entry(f, time.time() - t0)
     if f["ok"] and f.get("unverified"):
         fg.log(f"batch: {rec['id']}: facing UNVERIFIED ({f['unverified']}); listed for review, continuing")
     if not f["ok"]:
@@ -1114,6 +1235,215 @@ def run_facing_gate(rec: dict, d: Path, m: dict, prog: Progress, args) -> bool:
     prog.refresh(rec, args.source)
     prog.save()
     return bool(f["ok"])
+
+
+def facing_entry(f: dict, seconds: float = 0.0, **extra) -> dict:
+    """_batch.json stages.facing from a rig.facing_check result."""
+    return {"status": "refused" if not f["ok"] else "unverified" if f.get("unverified") else "ok",
+            "angle_deg": f.get("angle_deg"), "confidence": f.get("confidence"),
+            "suggested_yaw": f.get("suggested_yaw"),
+            **({"unverified": f["unverified"]} if f.get("unverified") else {}),
+            **({"hint_yaw": f["hint_yaw"]} if f.get("hint_yaw") is not None else {}),
+            **({"error": f["error"]} if f.get("error") else {}),
+            "seconds": round(seconds, 1), "at": time.strftime("%Y-%m-%dT%H:%M:%S"), **extra}
+
+
+# ---------------------------------------------------------------- facing refresh
+# The gate's verdict comes from rig/facing.json (blender_rig.py "facing") plus rig.facing_check's
+# rules (FACING_MAX_DEG, confidences, disputes, unverified). Records written by an older gate
+# (no head-end `cues` in facing.json, or facing.json older than tools/blender_rig.py or than
+# model.glb) need Blender again; a facing.json newer than _batch.json's record (a refresh the
+# live pass overwrote, or the rig stage's own check) only needs the verdict re-derived.
+BLENDER_RIG = ROOT / "tools" / "blender_rig.py"
+
+
+def _epoch(at: str | None) -> float:
+    try:
+        return time.mktime(time.strptime(at, "%Y-%m-%dT%H:%M:%S"))
+    except Exception:
+        return 0.0
+
+
+def facing_json_state(d: Path) -> str:
+    """'missing', 'old' (needs Blender: pre-cues gate code, or older than blender_rig.py /
+    model.glb) or 'current'."""
+    fj = d / "rig" / "facing.json"
+    if not fj.exists():
+        return "missing"
+    try:
+        rep = json.loads(fj.read_text())
+    except (OSError, ValueError):
+        return "old"
+    t = fj.stat().st_mtime
+    model = d / "model.glb"
+    if ("cues" not in rep and "unverified" not in rep) or t < BLENDER_RIG.stat().st_mtime or \
+            (model.exists() and model.stat().st_mtime > t + 1):
+        return "old"
+    return "current"
+
+
+def derive_facing(rec: dict, d: Path) -> dict | None:
+    """rig.facing_check's verdict from the existing rig/facing.json, without Blender (rig.blender
+    swapped for a read of the report; fg.log silenced). None when there is no readable report."""
+    if not (d / "rig" / "facing.json").exists():
+        return None
+    keep_b, keep_log = rig.blender, fg.log
+    rig.blender = lambda fg_, job: json.loads(Path(job["report"]).read_text())
+    fg.log = lambda *a, **k: None
+    try:
+        return rig.facing_check(fg, unit_rec(rec), d)
+    except Exception:
+        return None
+    finally:
+        rig.blender, fg.log = keep_b, keep_log
+
+
+def effective_facing(rec: dict, d: Path, b: dict) -> dict | None:
+    """The facing verdict to report: _batch.json's record, unless rig/facing.json is newer
+    (then re-derived from it, marked from_json); None when model.glb is newer than both."""
+    fc = (b.get("stages") or {}).get("facing") or None
+    fj = d / "rig" / "facing.json"
+    model = d / "model.glb"
+    t_model = model.stat().st_mtime if model.exists() else 0.0
+    t_fc = _epoch(fc.get("at")) if fc else 0.0
+    t_fj = fj.stat().st_mtime if fj.exists() else 0.0
+    if t_fj > t_fc + 2 and t_fj + 1 >= t_model:
+        f = derive_facing(rec, d)
+        if f is not None:
+            e = facing_entry(f, from_json=True)
+            e["at"] = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(t_fj))
+            return e
+    if fc and t_fc + 2 >= t_model:
+        return fc
+    return None
+
+
+def merge_batch_facing(path: Path, mid: str, entry: dict) -> dict | None:
+    """Read _batch.json, replace one monster's stages.facing (and its facing errors), write a
+    temp file in the same dir and rename it over: never a half-written file. A live `run`
+    rewrites the whole file from its own copy at its next save, so this entry can be lost
+    while a pass runs: `facing --stale` re-derives it afterwards without Blender. Returns the
+    previous entry."""
+    data = json.loads(path.read_text()) if path.exists() else {"monsters": {}, "sessions": [], "events": []}
+    m = data.setdefault("monsters", {}).setdefault(mid, {"stages": {}, "errors": [], "seconds": 0.0})
+    before = (m.setdefault("stages", {})).get("facing")
+    m["stages"]["facing"] = entry
+    errs = [e for e in m.get("errors") or [] if e.get("stage") != "facing"]
+    if entry["status"] == "refused":
+        errs.append({"stage": "facing", "error": f"{entry['angle_deg']} deg off +Y, confidence {entry['confidence']}, "
+                                                 f"suggested yaw {entry.get('suggested_yaw')}", "at": entry["at"]})
+    m["errors"] = errs
+    data.setdefault("events", []).append({"at": entry["at"], "kind": "facing_refresh", "id": mid,
+                                          "before": (before or {}).get("status"), "after": entry["status"]})
+    data["events"] = data["events"][-500:]
+    tmp = path.with_name(f".{path.name}.facing.{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(data, indent=1) + "\n")
+    os.replace(tmp, path)
+    return before
+
+
+def gate_applies(rec: dict, d: Path) -> str | None:
+    """Why the facing gate does not apply to this monster (as needs_facing_gate), or None."""
+    u = unit_rec(rec)
+    if u["body_plan"] in rig.FACING_ADVISORY:
+        return f"advisory plan {u['body_plan']}"
+    if (d / "rig" / "chosen.glb").exists():
+        return "rig/chosen.glb kept (no roll)"
+    try:
+        if overrides.load(rec["source"], rec["id"]).get("rig_facing_check") is False:
+            return "rig_facing_check false"
+    except Exception:
+        pass
+    return None
+
+
+def cmd_facing(args) -> int:
+    """Re-run (or re-derive) the facing gate for monsters the live pass will not touch: ref,
+    mesh and qa done with no stale reason, rig not done. Blender (CPU) one monster at a time,
+    only with MemAvailable >= --min-free-gb (waits otherwise; never asks ComfyUI to /free)."""
+    if not args.ids and not args.stale:
+        raise SystemExit("facing: give --ids and/or --stale")
+    reg = fg.load_registry(args.source)
+    items = [(r, c) for r, c in work_list(reg, args) if c["tier"] != 0 or args.ids]
+    bdir = Path(args.batch_dir) if args.batch_dir else fg.OUT_ROOT / args.source
+    bpath = bdir / "_batch.json"
+    args.reroll_changed_prompts = True  # judge "will the pass touch it" as the strictest pass would
+    todo, rows = [], []
+    bmons = (viewer.load_json(bpath) or {}).get("monsters") or {}
+    for rec, cls in items:
+        mid = rec["id"]
+        d = mon_dir(args.source, mid)
+        s = status(rec, args.source, args)
+        b = bmons.get(mid, {})
+        fc = (b.get("stages") or {}).get("facing")
+        why = None
+        if not all(s["done"][x] for x in ("ref", "mesh", "qa")) or s["stale"]:
+            why = "ref/mesh/qa not all done or stale: the pass may still run it"
+        elif s["done"]["rig"]:
+            why = "rigged"
+        else:
+            why = gate_applies(rec, d)
+        state = facing_json_state(d)
+        if why is None:
+            if args.force or state in ("missing", "old"):
+                action = "blender"
+            else:
+                derived = derive_facing(rec, d)
+                if derived is None:
+                    action = "blender"
+                else:
+                    stale_rec = (not fc or fc.get("status") != facing_entry(derived)["status"] or
+                                 (d / "rig" / "facing.json").stat().st_mtime > _epoch(fc.get("at")) + 2)
+                    action = "sync" if stale_rec else "current"
+            if args.stale and action == "current":
+                continue
+            if args.stale and not args.ids and not fc and state == "missing":
+                continue  # --stale: only gates that ran before
+            todo.append((rec, d, action, fc))
+        elif args.ids:
+            rows.append((mid, "skip", why))
+    for mid, act, why in rows:
+        print(f"{mid}: {act} ({why})")
+    print(f"facing: {len(todo)} monsters: " + ", ".join(f"{r['id']} ({a})" for r, _, a, _ in todo))
+    if args.dry_run:
+        return 0
+    results = []
+    for rec, d, action, fc in todo:
+        mid = rec["id"]
+        t0 = time.time()
+        if action == "blender":
+            last = 0.0
+            while paint.mem_available_gb() < args.min_free_gb:
+                el = time.time() - t0
+                if el - last >= 60 or last == 0:
+                    fg.log(f"batch facing: {mid}: {paint.mem_available_gb():.1f} GB available < "
+                           f"{args.min_free_gb} GB, waiting ({el:.0f}s)")
+                    last = el or 1
+                time.sleep(15)
+            t1 = time.time()
+            try:
+                f = rig.facing_check(fg, unit_rec(rec), d)
+            except Exception as e:
+                fg.log(f"batch facing: {mid}: Blender failed ({e}); record left as it was")
+                results.append((mid, (fc or {}).get("status"), f"error: {str(e)[:120]}"))
+                continue
+            entry = facing_entry(f, time.time() - t1, refreshed_by="batch.py facing")
+        else:
+            f = derive_facing(rec, d)
+            if f is None:
+                results.append((mid, (fc or {}).get("status"), "error: no readable rig/facing.json"))
+                continue
+            entry = facing_entry(f, refreshed_by="batch.py facing (from rig/facing.json)")
+        merge_batch_facing(bpath, mid, entry)
+        results.append((mid, (fc or {}).get("status"), entry["status"]))
+        fg.log(f"batch facing: {mid}: {(fc or {}).get('status')} -> {entry['status']} "
+               f"({entry['angle_deg']} deg, confidence {entry['confidence']}"
+               + (f", {entry['unverified']}" if entry.get("unverified") else "")
+               + (f", suggested yaw {entry.get('suggested_yaw')}" if entry["status"] == "refused" else "") + ")")
+    print("\n| id | before | after |\n|---|---|---|")
+    for mid, before, after in results:
+        print(f"| {mid} | {before} | {after} |")
+    return 0
 
 
 # ---------------------------------------------------------------- run
@@ -1150,6 +1480,8 @@ def cmd_run(args) -> int:
                     print(f"    memory gate: wait for >= {args.min_free_gb} GB available")
                 print(f"    {' '.join(forge_cmd(st, rec, args, st in s['stale'])[2:])}   "
                       f"(timeout {timeout_for(st, rec, d, args):.0f}s)" + (f"  [stale: {s['stale'][st]}]" if st in s["stale"] else ""))
+                if st == "ref" and s.get("ref_prompt") and _ov_pin(rec)[0] is not None:
+                    print(f"    stale pin: ref_pick {_ov_pin(rec)[0]} predates this re-roll; mesh --pick <the strip's own pick>")
                 if st == "qa" and not gate_done and needs_facing_gate(rec, d, s["pending"], args):
                     print("    facing gate: rig.facing_check on model.glb (Blender); stop this monster if refused")
                     gate_done = True
@@ -1189,6 +1521,10 @@ def cmd_run(args) -> int:
                 m["stages"][st] = res
                 if st == "ref" and res["status"] == "ok":
                     stamp_prompt_fp(d)  # the prompt this reference was drawn with (prompt_stale)
+                    if s.get("ref_prompt"):  # re-rolled for a changed prompt: a pin from the old strip is stale
+                        sp = stamp_prompt_reroll(rec, d, s["stale"].get("ref", "prompt changed"))
+                        if sp:
+                            prog.event("stale_pin", id=mid, pin=sp["pin"], auto=sp["auto"])
                 m["seconds"] = round(m.get("seconds", 0) + res["seconds"], 1)
                 sess["stages_run"] += 1
                 if res["status"] != "ok":
@@ -1237,6 +1573,32 @@ def cmd_run(args) -> int:
 
 
 # ---------------------------------------------------------------- report
+def ready_for_paint(rows: list) -> tuple[list, list]:
+    """(rows ready for the paint pass, [(id, why not)] for the rest with qa done and paint
+    pending). Ready: ref, mesh, qa done; no stale stage; facing ok or not applicable; not
+    on hold (tier 4) or a pilot."""
+    ready, not_ready = [], []
+    for r in rows:
+        s, rec = r["s"], r["rec"]
+        if r["cls"]["tier"] in (0,) or "paint" not in s["pending"] or not s["done"]["qa"]:
+            continue
+        why = []
+        if r["cls"]["tier"] == 4:
+            why.append("hold")
+        if not all(s["done"][x] for x in ("ref", "mesh")):
+            why.append("ref/mesh pending")
+        if s["stale"]:
+            why.append("stale " + ",".join(s["stale"]))
+        if r.get("pin"):
+            why.append("ref_pick to re-choose")
+        if gate_applies(rec, s["dir"]) is None:
+            st = (r["fc"] or {}).get("status")
+            if st != "ok":
+                why.append(f"facing {st or 'not checked'}")
+        (not_ready.append((rec["id"], ", ".join(why))) if why else ready.append(r))
+    return ready, not_ready
+
+
 def cmd_report(args) -> int:
     reg = fg.load_registry(args.source)
     pilot_keys = {(reg[p]["body_plan"], reg[p]["rig_template"]): p for p in PILOTS if p in reg}
@@ -1248,9 +1610,16 @@ def cmd_report(args) -> int:
         rm = s["man"].get("rig") if isinstance(s["man"].get("rig"), dict) else {}
         q = viewer.rig_quality(rm) or {}
         found = set(s["st"]["found_clips"])
-        rows.append({"rec": rec, "cls": classify(rec, pilot_keys), "s": s, "q": q, "rig_m": rm,
+        b = (bj.get("monsters") or {}).get(rec["id"], {})
+        fcv = effective_facing(rec, s["dir"], b) if b else None
+        errors = s["man"].get("errors") or []
+        if fcv and fcv.get("status") != "refused":  # a gate refusal a later check superseded
+            errors = [e for e in errors if not str(e.get("error", "")).startswith("batch facing gate:")]
+            if rm.get("error") == "facing check failed" and set(rm) <= {"error", "facing"}:
+                rm, q = {}, {}
+        rows.append({"rec": rec, "cls": classify(rec, pilot_keys), "s": s, "q": q, "rig_m": rm, "fc": fcv,
                      "missing": [c for c in rec.get("animation_set") or [] if c not in found] if found else None,
-                     "errors": s["man"].get("errors") or [], "b": (bj.get("monsters") or {}).get(rec["id"], {}),
+                     "errors": errors, "b": b, "pin": pin_notes(rec, s) if rec["id"] not in PILOTS else None,
                      "unarmed": viewer.ref_unarmed(s["man"].get("ref") if isinstance(s["man"].get("ref"), dict)
                                                    else {})})
     n = len(rows)
@@ -1264,6 +1633,10 @@ def cmd_report(args) -> int:
             stage_s[st] += r.get("seconds") or 0
     done_all = sum(1 for r in rows if not r["s"]["pending"])
     complete = sum(1 for r in rows if r["missing"] == [])
+    n_unver = sum(1 for r in rows if (r["fc"] or {}).get("status") == "unverified")
+    n_refused = sum(1 for r in rows if (r["fc"] or {}).get("status") == "refused")
+    pins = [r for r in rows if r["pin"]]
+    ready, not_ready = ready_for_paint(rows)
     L += ["## Totals", "",
           f"- {n} records, {done_all} with every stage done, {complete} with every animation_set clip "
           f"(viewer anim_complete).",
@@ -1273,7 +1646,9 @@ def cmd_report(args) -> int:
              if stage_s else "") + ".",
           f"- ComfyUI restarts: {sum(1 for e in bj.get('events') or [] if e.get('kind') == 'comfy_restart')}, "
           f"hangs: {sum(1 for e in bj.get('events') or [] if e.get('kind') == 'comfy_hung')}, memory waits: "
-          f"{sum(1 for e in bj.get('events') or [] if e.get('kind') == 'memory_wait')}.", ""]
+          f"{sum(1 for e in bj.get('events') or [] if e.get('kind') == 'memory_wait')}.",
+          f"- Facing gate: {n_refused} refused, {n_unver} unverified (Facing to verify); pins to re-choose: "
+          f"{len(pins)}; ready for paint: {len(ready)}.", ""]
     # counts per stage
     L += ["## Stages", "", "| stage | done | pending | skipped | failed (manifest errors) |", "|---|---:|---:|---:|---:|"]
     for st in STAGES:
@@ -1289,7 +1664,7 @@ def cmd_report(args) -> int:
         for e in r["errors"]:
             by_stage[e.get("stage", "?")].append((r["rec"]["id"], e.get("error", ""), e.get("at", "")))
         for e in r["b"].get("errors") or []:
-            refused = ((r["b"].get("stages") or {}).get("facing") or {}).get("status") == "refused"
+            refused = (r["fc"] or {}).get("status") == "refused"
             if (e.get("stage") == "facing" and refused) or "still reads" in str(e.get("error", "")):
                 by_stage[e["stage"]].append((r["rec"]["id"], e.get("error", ""), e.get("at", "")))
     if not by_stage:
@@ -1303,11 +1678,26 @@ def cmd_report(args) -> int:
     L += ["## Facing to verify", "",
           "The facing gate passed these without naming the head end (or with the mirror axis disputed): "
           "look at thumb.png; pin `yaw` (QA's yaw + 180 for a backwards body) or leave it.", ""]
-    ver = [(r["rec"]["id"], ((r["b"].get("stages") or {}).get("facing") or {})) for r in rows]
+    ver = [(r["rec"]["id"], r["fc"] or {}) for r in rows]
     ver = [(mid, fc) for mid, fc in ver if fc.get("status") == "unverified"]
     L += [f"- `{mid}` {fc.get('angle_deg')} deg, confidence {fc.get('confidence')}: {fc.get('unverified')}"
           + (f" (one cue's yaw {fc['hint_yaw']})" if fc.get("hint_yaw") is not None else "") for mid, fc in ver] or ["None."]
     L.append("")
+    # ref_pick pins chosen from a strip a prompt re-roll replaced (stale_pin, pin_notes)
+    L += [f"## Pins to re-choose ({len(pins)})", "",
+          "An override `ref_pick` chosen before the reference was re-rolled for a changed prompt names a candidate of "
+          "the old strip: the batch meshes the new strip's own pick instead (`stale pin`) until a pin is written "
+          "after the re-roll. Look at the strip and pin again (or drop the pin).", ""]
+    L += [f"- `{r['rec']['id']}`: {r['pin']}" for r in pins] or ["None."]
+    L.append("")
+    # ref, mesh, qa done, nothing stale, facing settled, not on hold, paint pending
+    L += [f"## Ready for paint ({len(ready)})", "",
+          "ref, mesh and qa done; no stale stage; facing gate ok (or not applicable: `rig_facing_check` false, an "
+          "advisory plan, a kept rig/chosen.glb); not on hold; paint pending. Review verdicts (docs/review-*.md) are "
+          "not read here.", ""]
+    L += [", ".join(f"`{r['rec']['id']}`" for r in ready) or "None.", ""]
+    if not_ready:
+        L += ["Not ready (qa done, paint pending): " + "; ".join(f"`{mid}` {why}" for mid, why in not_ready), ""]
     # rig problems by plan
     L += ["## Rig problems by plan", ""]
     probs = collections.defaultdict(list)
@@ -1336,8 +1726,9 @@ def cmd_report(args) -> int:
         stg = b.get("stages") or {}
         sec = lambda k: "" if k not in stg else f"{stg[k].get('seconds')}" + ("" if stg[k].get("status") == "ok" else
                                                                              f" {stg[k].get('status')}")
-        fc = stg.get("facing") or {}
-        facing = "" if not fc else f"{fc.get('status')} {fc.get('angle_deg')} deg"
+        fc = r["fc"] or {}
+        facing = "" if not fc else f"{fc.get('status')} {fc.get('angle_deg')} deg" + \
+            (" (from rig/facing.json)" if fc.get("from_json") else "")
         u = r["unarmed"] or {}
         ref_m = r["s"]["man"].get("ref") if isinstance(r["s"]["man"].get("ref"), dict) else {}
         unarmed = "" if not u else f"{ref_m.get('picked')} by {ref_m.get('picked_by')} ({', '.join(str(x) for x in u['scores'])})"
@@ -1386,6 +1777,7 @@ def cmd_report(args) -> int:
     print(f"every stage done: {done_all}; anim complete: {complete}; failures: "
           f"{sum(len(v) for v in by_stage.values())} in {len(by_stage)} stages; rig problems: "
           f"{sum(len(v) for v in probs.values())}; review: {len(review)}; wall {hms(wall)}")
+    print(f"facing refused {n_refused}, unverified {n_unver}; pins to re-choose {len(pins)}; ready for paint {len(ready)}")
     print(f"wrote {out}")
     return 0
 
@@ -1426,6 +1818,19 @@ def main(argv=None) -> int:
     rp.add_argument("--source", default="srd-5.2.1")
     rp.add_argument("--batch-dir")
     rp.add_argument("--review-below", type=float, default=-2.0, help="rig scores below this need review")
+    fa = sub.add_parser("facing", help="re-run the facing gate (Blender, CPU) where its record is stale")
+    fa.add_argument("--source", default="srd-5.2.1")
+    fa.add_argument("--ids", help="comma list of monster ids")
+    fa.add_argument("--tier", help="with --stale: tiers to scan (default all but pilots)")
+    fa.add_argument("--plans", help="with --stale: body plans to scan")
+    fa.add_argument("--stale", action="store_true",
+                    help="only monsters whose recorded facing predates the gate code (no cues in rig/facing.json, "
+                         "or it is older than tools/blender_rig.py / model.glb) or whose _batch.json record is older "
+                         "than rig/facing.json")
+    fa.add_argument("--force", action="store_true", help="run Blender even when rig/facing.json is current")
+    fa.add_argument("--dry-run", action="store_true", help="list what it would do")
+    fa.add_argument("--batch-dir")
+    fa.add_argument("--min-free-gb", type=float, default=MIN_FREE_GB, help="wait for this much MemAvailable")
     au = sub.add_parser("audit", help="coverage tables and the gap list (markdown)")
     au.add_argument("--source", default="srd-5.2.1")
     args = ap.parse_args(argv)
@@ -1433,7 +1838,8 @@ def main(argv=None) -> int:
         bad = [x for x in args.stages.split(",") if x not in STAGES]
         if bad:
             ap.error(f"--stages: unknown {bad}; choose from {STAGES}")
-    return {"plan": cmd_plan, "run": cmd_run, "report": cmd_report, "audit": cmd_audit}[args.cmd](args)
+    return {"plan": cmd_plan, "run": cmd_run, "report": cmd_report, "audit": cmd_audit,
+            "facing": cmd_facing}[args.cmd](args)
 
 
 if __name__ == "__main__":

@@ -997,5 +997,15 @@ untested variants; off-model fork, heavy crossbow, mace props.
       black-dragon-wyrmling, shambling-mound), 5 third-round re-rolls (medusa,
       earth-elemental, ettin, death-dog, salamander), 2 false refusals to clear by hand
       (black-bear, giant-hyena). Open: a pinned `ref_pick` survives a prompt re-roll.
+- [x] (2026-11-05) Runner fixes from the pass-3 review (docs/batch.md): a `ref_pick` older than
+      the candidates of a prompt re-roll is stale (the mesh uses the strip's own pick with
+      `--pick`; `_batch.json` `stale_pin`; "Pins to re-choose" in `plan` / `report`);
+      `batch.py facing [--ids] [--stale]` re-runs gates recorded by older gate code (CPU
+      Blender, memory-gated); `report` counts `unverified` facings and pins and lists "Ready
+      for paint". Staleness stays live (forge reads `data/overrides` live, so no
+      `--snapshot-overrides`): edit overrides only for finished monsters or between passes.
+- [ ] After pass 4: `batch.py facing --stale` (the pass's saves drop the facing refreshes
+      merged while it ran; re-derived from `rig/facing.json` without Blender), then ~90 more
+      old-code gates in tiers 1-3 (`facing --stale --dry-run` lists them).
 - [ ] First batch run: `batch.py run --tier 1 --stages ref,mesh,qa` (~4.4 h), review the strips,
       then the paint pass once the ComfyUI memory limit is decided; `report` after the first 20.
