@@ -1,5 +1,7 @@
 {
-  "prompt_extra": "one long straight black iron pole with a two-pronged fork head at the top end, two parallel barbed prongs side by side",
-  "negative_extra": "single spike, spear point, knob",
-  "notes": "first roll drew a single spear point; the ornate butt was bigger than the point, so head_end chose the wrong end"
+  "prompt_extra": "a war fork: one long straight black iron pole ending in two long straight parallel prongs side by side like a giant two-tined pitchfork, a U-shaped fork head",
+  "negative_extra": "single spike, spear point, spearhead, trident, three prongs, knob, barbs along the shaft",
+  "notes": "first roll drew a single spear point (ornate butt bigger than the point, head_end chose it); the 'two prongs' reroll ref 3 was one barbed spike again. 2026-11-04 reroll: two-tined pitchfork wording, negative spearhead/trident; round 1 of the 2026-11-04 reroll gave a trident/sai (centre spike plus two hooked side prongs): round 2 asks for a tuning-fork U head with nothing between the prongs, new seed; round 2 (tuning-fork wording, seed 4242) drew paired spears and a sword: worse, so round 1 ref 0 is kept. STILL OFF-MODEL: a trident-like head (centre spike + two hooked side prongs), not two parallel tines; roll_deg 90 puts the side prongs across Z",
+  "ref_pick": 0,
+  "roll_deg": 90
 }

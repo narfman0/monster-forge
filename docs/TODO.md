@@ -202,20 +202,42 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       GLB passes the length / origin / -Z check. Sheet: `out/props/_contact.png`.
       Docs: `docs/equipment.md` "Generating props". Viewer: `?prop_r=<id>&prop_l=<id>`.
 - [x] Real longsword + longbow on the goblin-warrior's `grip_r` / `grip_l`: handle in the
-      fist, blade forward; the bow needs the +90 deg X turn in `prop.grip_offset`.
-- [ ] Weak refs, rerolled once with overrides (`data/overrides/props/*.json`) but still
-      off-model: glaive (a spear with a collar, no curved blade), harpoon (hooked blade),
-      fork (one barbed spike, not two prongs), greatclub (club with a crossguard), whip
-      (folded in a U, so `length_m` is spread over the fold: needs a procedural spline
-      whip), heavy crossbow (thin frame with holes). Mace is a spiky flanged head.
-- [ ] Low orientation confidence to eyeball in Godot: shortsword 0.05, harpoon 0.12,
-      quarterstaff 0.22, glaive 0.3 (flip_tip override), greatclub 0.32 (flip_tip),
-      heavy crossbow 0.33, javelin 0.36, warhammer 0.41, pistol 0.48 (barrel pitched up
-      ~20 deg: the stock is taken as level in the generator frame).
-- [ ] Bows: QA cuts string ribbons and adds a straight string, so LOD0 is under budget
-      (shortbow 403 of 800). A separate string mesh or bone chain for the draw.
-- [ ] forge.py comfy-fallback decimation can fail to converge and keep a far-off mesh
-      (first greatclub: 189 / 2126 / 182 faces, kept 2763 tris). Pass the best attempt.
+      fist, blade forward; the bow first needed a +90 deg X turn, now identity (the stave runs
+      through the fist; `attack_ranged` raises it). Rechecked 2026-11-04 with the `string` node.
+- [x] Weak refs rerolled (2026-11-04, up to 2 rounds, `data/overrides/props/<id>.json` `notes`
+      has every round). On-model now: glaive (curved single-edged blade on a pole; the
+      blade is ~30% of the length, `edge_rule: convex`), harpoon (barbed arrowhead, rope at
+      the butt, `roll_deg: 90`), greatclub (bat-shaped club, `flip_tip`). Better but still
+      off-model after 2 rounds, not retried: fork (a trident-like head, centre spike plus two
+      hooked side prongs, not two parallel tines; round 2 drew paired spears), heavy crossbow
+      (side-on, solid stock, prod at -Z, conf 0.98, but a modern telescopic sight and a
+      rifle-shaped stock; round 2 drew ring prods and scopes again). Mace: both rounds were
+      worse (a stick with a tiny cap; a star, a stick, sword hilts), so the first roll is
+      kept (big flanged disc head with a spike on top: passable, off-model in detail).
+- [x] Whip: procedural (`"procedural": "whip"`, `tools/blender_prop_procedural.py`):
+      handle with pommel knob and ferrule knot, braided lash tapering to a popper, 20 deg
+      droop toward -Z, 992 tris, 2.5 m along +Y (arc 2.53 m), `prop.source = "procedural"`;
+      same QA (prebuilt frame), check and LODs. Still no spline-IK bone chain (`rig` in
+      props.json).
+- [x] Low orientation confidence, checked on the axes sheets (2026-11-04): shortsword 0.05
+      ok (blade +Y, guard across Z, grip on the handle); quarterstaff 0.22 ok (symmetric
+      staff, grip 0.35 L); javelin 0.36 ok (point +Y); warhammer 0.41 wrong edge (the hook
+      was at -Z): `flip_edge`, the squared face is at -Z now; pistol 0.48 barrel climbed
+      ~25 deg: new override `pitch_deg` (-25), barrel level, muzzle -Z; glaive 0.3 -> 0.49
+      (new ref, `edge_rule: convex`); harpoon 0.12 -> 1.0, heavy crossbow 0.33 -> 0.98 (new
+      refs); greatclub 0.3 (new ref, upside down by head_end: `flip_tip`, verified).
+- [x] Bows: the string is its own mesh node `string` (straight, 4 sides, 3 mm, 8 tris,
+      material `bowstring`) next to the stave node `prop`, in model.glb and every LOD
+      (`blender_lods.py` `keep`); `grip_offset` stays identity. LOD0 (the stave) is still
+      under budget (shortbow 397 / longbow 692 of 800); a bone chain for the draw is open.
+- [x] forge.py comfy-fallback decimation: up to 5 DecimateMesh runs, bisecting between an
+      under and an over target, keeping the run closest to the budget from below
+      (`mesh.decimate_kept`). The old loop also ran a 4th, unlogged retarget and kept it
+      (first greatclub: logged 189 / 2126 / 182, kept 2765 tris). Test: the first greatclub's
+      sawn-log ref with `--decimator comfy`: 184 / 2220 / 641 faces, kept 641 of 700.
+- [ ] LOD check: every LOD0 passes, but spear LOD1-3 fail the -Z test (its round point is
+      as wide in X as in Z: 0.067 / 0.072 m at LOD0, decimation flips it) and shield LOD1
+      measures 0.822 of 0.8 m (2.8%, QEM grows the rim). Untouched since the first run.
 - [ ] Godot: `BoneAttachment3D` on `grip_r`/`grip_l` + `prop.grip_offset`; off-hand IK to
       the `offhand_grip` node of two-handed props; stowed props on `back`/`hip_*` need
       their own per-category offsets (not measured).

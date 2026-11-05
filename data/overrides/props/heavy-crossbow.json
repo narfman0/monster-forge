@@ -1,0 +1,6 @@
+{
+  "prompt_extra": "a heavy crossbow seen exactly from the side: a thick solid wooden stock like a rifle stock, lying level and pointing right, a short thick steel bow across its front end, a metal foot stirrup at the front tip, a trigger under the stock",
+  "negative_extra": "ring, hoop, circle, round frame, hollow frame, wire frame, top view, three-quarter view, bolt, arrow",
+  "notes": "first roll ref 2 was a thin hollow ring-shaped frame with holes (Pixal3D kept only wire-like bars). 2026-11-04 reroll: side view with a solid rifle-like stock, negative ring/hollow frame/top view; round 1 of the 2026-11-04 reroll (ref 3) was side-on with a solid stock but a modern telescopic sight and a rifle stock: round 2 adds medieval wording and negative scope/rifle/gun, new seed; round 2 (medieval wording, negative scope/rifle, seed 4242) drew 3/4 views with ring-shaped prods or a scope again: round 1 ref 3 is kept (side-on, solid stock, prod at -Z, conf 0.98). STILL OFF-MODEL in detail: a modern telescopic sight on top and a rifle-shaped stock",
+  "ref_pick": 3
+}

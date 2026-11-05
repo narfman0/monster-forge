@@ -1,0 +1,3 @@
+{
+  "notes": "2026-11-04 reroll, 2 rounds, both worse than the first roll, which is kept (no prompt override, so a re-run of ref reproduces it): round 1 (flanged-mace wording, negative sword hilt/disc/spike) gave a pick, a helmet-like ball, a sword hilt with a disc and a stick with a small flanged cap (meshed: the head barely wider than the haft, reads as a scepter); round 2 (seven-flange head three times the haft, seed 4242) gave a top-down star, a plain stick and sword-hilt discs. The kept mesh is a big round flanged head with a spike on top (ref drawn like a sword hilt): passable as a mace, off-model in detail (a spike on top, a disc rather than flanges)"
+}

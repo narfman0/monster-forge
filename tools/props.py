@@ -22,6 +22,9 @@ Stages (same names and skip rules as tools/forge.py; --force redoes them):
         in manifest.ref.scores.
 - mesh: forge.stage_mesh_guarded unchanged (Pixal3D -> remesh -> Blender weighted
         decimation -> bake), with the prop's tri_budget, 512 textures and no paint stage.
+        Props whose override sets `procedural` (the whip) are built in Blender instead
+        (tools/blender_prop_procedural.py, already in prop space; no ref, no GPU), and QA
+        takes them as built (manifest prop.source = "procedural").
 - qa:   tools/blender_prop_qa.py: orient into prop space, scale to length_m, origin at the
         grip, export model.glb; then this script re-reads model.glb (stdlib GLB reader)
         and checks length, origin and the -Z side numerically (manifest prop.glb_check).
@@ -70,9 +73,12 @@ PROP_FIELDS = {
     "flip_edge": (overrides._bool, "qa", "swap the edge side (-Z)"),
     "grip_frac": (overrides._num(0, 1), "qa", "grip point as a fraction of the length from the butt"),
     "roll_deg": (overrides._num(-180, 180), "qa", "extra rotation about +Y after orienting"),
+    "pitch_deg": (overrides._num(-90, 90), "qa", "extra rotation about +X after orienting (positive lifts the -Z end)"),
     "tip_rule": (overrides._choice("thin_end", "head_end", "thick_handle", "symmetric"), "qa", "tip-end rule"),
     "edge_rule": (overrides._choice("symmetric", "convex", "extension", "blunt", "stave_forward"), "qa",
                   "edge-side rule"),
+    "procedural": (overrides._choice("whip"), "mesh",
+                   "build the mesh in Blender (tools/blender_prop_procedural.py) instead of SDXL + Pixal3D"),
 }
 overrides.FIELDS.update(PROP_FIELDS)
 
@@ -187,9 +193,22 @@ def ref_prompt(p: dict, ov: dict) -> tuple[str, str, str]:
     return prompt, neg, view
 
 
+GENERATED_ONLY = ("ref.png", "crop.png", "model_hi.glb", "mesh.api.json", "decimate.json", "importance.png")
+
+
 def stage_ref(p: dict, d: Path, args) -> None:
     man = fg.load_manifest(d)
     refs = sorted(d.glob("ref_*.png"))
+    if ov_for(p).get("procedural"):
+        # no reference image: drop a generated prop's leftovers so nothing stale is shown
+        for f in [*refs, *(d / n for n in GENERATED_ONLY)]:
+            f.unlink(missing_ok=True)
+        shutil.rmtree(d / "textures", ignore_errors=True)
+        man.update(prop_header(p))
+        man["ref"] = {"skipped": "procedural prop (override `procedural`): no reference image"}
+        fg.save_manifest(d, man)
+        log(f"{p['id']}: procedural, no ref")
+        return
     if refs and (d / "ref.png").exists() and not args.force:
         log(f"{p['id']}: ref exists, skip")
         return
@@ -311,11 +330,43 @@ def mesh_args(p: dict, ov: dict, args) -> argparse.Namespace:
     return a
 
 
+def stage_mesh_procedural(p: dict, d: Path, ov: dict) -> None:
+    """tools/blender_prop_procedural.py: the mesh built in Blender, already in prop space."""
+    job = {"dst": str(d / "model_raw.glb"), "report": str(d / "procedural.json"), "kind": ov["procedural"],
+           "length_m": p["length_m"], "tri_budget": ov.get("tri_budget") or p["tri_budget"],
+           "seed": fg.base_seed(p["id"]) % 100000}
+    (d / "procedural.json").unlink(missing_ok=True)
+    with fg.ResourceSampler() as rs:
+        proc = subprocess.run([fg.BLENDER, "-b", "--factory-startup", "-P",
+                               str(ROOT / "tools" / "blender_prop_procedural.py"), "--", json.dumps(job)],
+                              capture_output=True, text=True, timeout=600)
+    if proc.returncode != 0 or not (d / "procedural.json").exists():
+        sys.stderr.write(proc.stdout[-4000:] + proc.stderr[-4000:])
+        raise RuntimeError(f"{p['id']}: procedural build failed (rc={proc.returncode})")
+    rep = json.loads((d / "procedural.json").read_text())
+    man = fg.load_manifest(d)
+    man.update(prop_header(p))
+    for k in ("qa", "prop", "lod", "tri_count", "errors"):
+        man.pop(k, None)
+    man["mesh"] = {"source": "procedural", "builder": "tools/blender_prop_procedural.py", "kind": ov["procedural"],
+                   "build": rep, "seconds": rs.result["seconds"],
+                   "resources": {k: v for k, v in rs.result.items() if "vram" not in k}}
+    man.setdefault("timings", {})["mesh"] = rs.result["seconds"]
+    fg.save_manifest(d, man)
+    fg.clear_lods(d)
+    for stale in ("model.glb", "thumb.png", "qa.json"):
+        (d / stale).unlink(missing_ok=True)
+    log(f"{p['id']}: procedural {ov['procedural']} built, {rep['tris']} tris, droop {rep['tip_droop_m']} m")
+
+
 def stage_mesh(p: dict, d: Path, args) -> None:
     if (d / "model_raw.glb").exists() and not args.force:
         log(f"{p['id']}: mesh exists, skip")
         return
     ov = ov_for(p)
+    if ov.get("procedural"):
+        stage_mesh_procedural(p, d, ov)
+        return
     a = mesh_args(p, ov, args)
     # forge retries a failed 1024 cascade at 0 only when args.upsample is None (its
     # default, or the override file, is then 1024): pass None for a non-flag 1024
@@ -340,8 +391,9 @@ def stage_qa(p: dict, d: Path, args) -> None:
     job = {"src": str(d / "model_raw.glb"), "dst": str(d / "model.glb"), "report": str(d / "qa.json"),
            "thumb": str(d / "thumb.png"), "id": p["id"], "category": p["category"], "grip": p["grip"],
            "length_m": p["length_m"], "grip_frac": ov.get("grip_frac"), "flip_tip": bool(ov.get("flip_tip")),
-           "flip_edge": bool(ov.get("flip_edge")), "roll_deg": ov.get("roll_deg"),
-           "rules": {k: ov[f"{k}_rule"] for k in ("tip", "edge") if ov.get(f"{k}_rule")}}
+           "flip_edge": bool(ov.get("flip_edge")), "roll_deg": ov.get("roll_deg"), "pitch_deg": ov.get("pitch_deg"),
+           "rules": {k: ov[f"{k}_rule"] for k in ("tip", "edge") if ov.get(f"{k}_rule")},
+           "prebuilt": bool(ov.get("procedural"))}
     fg.clear_lods(d)
     (d / "qa.json").unlink(missing_ok=True)
     with fg.ResourceSampler() as rs:
@@ -360,6 +412,7 @@ def stage_qa(p: dict, d: Path, args) -> None:
     man["prop"] = {
         "frame": "glTF: origin = grip, +Y toward the tip/head, -Z = edge / striking face / arrow direction "
                  "(shields: origin at the strap, +Y top rim, -Z out of the face)",
+        "source": "procedural" if ov.get("procedural") else "generated",
         "grip": rep["grip"], "grip_from_butt_m": rep["grip_from_butt_m"],
         "axes": rep["decisions"], "rules": rep["rules"],
         "orientation_confidence": rep["orientation_confidence"],
@@ -368,6 +421,10 @@ def stage_qa(p: dict, d: Path, args) -> None:
         "grip_offset": GRIP_OFFSET.get(p["category"], GRIP_OFFSET["default"]),
         "overrides": {k: ov[k] for k in PROP_FIELDS if ov.get(k) is not None},
     }
+    if rep.get("bow_string"):
+        # the string is its own mesh node (`string`, sibling of the stave node `prop`)
+        man["prop"]["nodes"] = {"stave": "prop", "string": "string"}
+        man["prop"]["string"] = rep["bow_string"]
     man.pop("lod", None)
     man.setdefault("timings", {})["qa"] = rs.result["seconds"]
     fg.save_manifest(d, man)
@@ -548,7 +605,8 @@ def stage_lod(p: dict, d: Path, args) -> None:
     ratios = ov_for(p).get("lod_ratios") or LOD_RATIOS
     fg.clear_lods(d)
     job = {"src": str(d / "model.glb"), "out_dir": str(d), "report": str(lods),
-           "ratios": {str(i + 1): r for i, r in enumerate(ratios)}, "min_tris": LOD_MIN_TRIS}
+           "ratios": {str(i + 1): r for i, r in enumerate(ratios)}, "min_tris": LOD_MIN_TRIS,
+           "keep": ["string"] if p["category"] == "bow" else []}
     with fg.ResourceSampler() as rs:
         proc = subprocess.run([fg.BLENDER, "-b", "--factory-startup", "-P", str(ROOT / "tools" / "blender_lods.py"),
                                "--", json.dumps(job)], capture_output=True, text=True, timeout=600)
@@ -589,6 +647,8 @@ def contact_sheet(dst: str, dirs: list[str]) -> None:
         man = json.loads((dd / "manifest.json").read_text()) if (dd / "manifest.json").exists() else {}
         if (dd / "ref.png").exists():
             sheet.paste(Image.open(dd / "ref.png").convert("RGB").resize((TH, TH)), (x, y + LAB))
+        elif man.get("prop", {}).get("source") == "procedural":
+            dr.text((x + 20, y + LAB + 90), "procedural\n(no reference)", fill=(90, 90, 90), font=font)
         if (dd / "thumb.png").exists():
             sheet.paste(Image.open(dd / "thumb.png").convert("RGB").resize((4 * TH, TH)), (x + TH, y + LAB))
         else:

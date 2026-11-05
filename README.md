@@ -51,7 +51,8 @@ Held weapons and shields are separate props (`docs/equipment.md`): `python3 -I t
 run --all` turns `data/registry/props.json` into `out/props/<id>/model.glb` (origin at the
 grip, +Y toward the tip, -Z the edge or arrow direction, scaled to `length_m`) plus LODs, a
 4-view axes sheet and a manifest; `tools/props.py contact` makes `out/props/_contact.png`.
-Per-prop overrides go in `data/overrides/props/<id>.json`.
+Per-prop overrides go in `data/overrides/props/<id>.json`. The whip is procedural (built in Blender,
+`tools/blender_prop_procedural.py`), and bows carry their string as a separate `string` node.
 
 ## Viewer
 

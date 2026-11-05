@@ -1,6 +1,7 @@
 {
-  "prompt_extra": "one long straight wooden shaft with a barbed iron arrow-shaped point at the top end and a short coil of rope tied at the butt",
-  "negative_extra": "ring, loop, circle, hoop",
-  "notes": "first roll drew a ring-shaped head; no clean harpoon in 4 tries; 2 is a shaft with one barbed hook",
-  "ref_pick": 2
+  "prompt_extra": "a harpoon: one long plain straight wooden shaft, a small iron arrowhead point with two short backward barbs on the top end, a little rope wound around the butt end",
+  "negative_extra": "hook, scythe, sickle, curved blade, axe blade, ring, loop, hoop, circle, coiled rope",
+  "notes": "first roll drew a ring-shaped head; reroll ref 2 was a shaft with a scythe-like hook hanging off its side. 2026-11-04 reroll: small barbed arrowhead point, negative hook/scythe/curved blade; round 2026-11-04 ref 3: clean barbed arrowhead with rope at the butt; the barbs lay in the X plane, so roll_deg 90 puts them across Z (the -Z check wants the head wider along Z)",
+  "ref_pick": 3,
+  "roll_deg": 90
 }

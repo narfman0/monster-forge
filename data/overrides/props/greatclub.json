@@ -1,6 +1,7 @@
 {
-  "prompt_extra": "a long two-handed club: a narrow grip at the bottom end widening to a thick knotted head at the top end, floating, no base",
-  "negative_extra": "floor, ground, base, slab, log section, stump, shadow, sawn end",
-  "notes": "first roll drew a sawn log lying on a teal slab; the GPU decimator then never reached the budget (189 / 2126 / 182 faces); ref 0 is a club with a sword-like crossguard; head_end picked the guard end: flip_tip",
+  "prompt_extra": "a big plain wooden club shaped like a huge baseball bat: a narrow wooden grip at the bottom end widening steadily into a thick knotted rounded head at the top end, all one piece of wood, no metal",
+  "negative_extra": "crossguard, guard, hilt, sword, blade, pommel ring, metal, floor, ground, base, slab, log section, stump, shadow, sawn end",
+  "notes": "first roll drew a sawn log on a teal slab (the GPU decimator then never reached the budget: 189 / 2126 / 182 faces, the unrecorded 4th run with 2765 tris was kept); reroll ref 0 was a club with a sword-like crossguard (flip_tip). 2026-11-04 reroll: baseball-bat shape, negative crossguard/hilt/metal; round 1 of the 2026-11-04 reroll, ref 2: a bat-shaped club (thick body, narrow handle with a flared knob end), on-model; head_end (conf 0.3) took the knob end for the head: flip_tip (axes sheet checked)",
+  "ref_pick": 2,
   "flip_tip": true
 }

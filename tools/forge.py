@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -539,6 +540,44 @@ def mesh_settings(mon: dict, args) -> dict:
     return settings
 
 
+DECIMATE_RUNS = 5  # GPU DecimateMesh runs per mesh (the first + up to 4 retargets)
+
+
+def next_decimate_target(attempts: list, target: int) -> int | None:
+    """Next DecimateMesh target_face_count from the [requested, faces] runs so far, or None
+    when there is nothing new to try. With a bracket (a request that came out under the
+    target and a larger one that came out over it) bisect it geometrically; otherwise scale
+    the last request by target / faces, as before."""
+    done = [(r, f) for r, f in attempts if f]
+    tried = {r for r, _ in attempts}
+    if not done:
+        return None
+    under = [r for r, f in done if f < target]
+    over = [r for r, f in done if f > target]
+    lo, hi = (max(under), min([r for r in over if r > max(under)], default=None)) if under else (None, None)
+    if lo is not None and hi is not None:
+        nxt = int(round(math.sqrt(lo * hi)))
+    else:
+        r, f = done[-1]
+        nxt = int(r * target / f * 0.98)
+    nxt = max(nxt, 4)
+    if nxt in tried:
+        return None
+    return nxt
+
+
+def pick_decimate_attempt(attempts: list, target: int) -> int:
+    """Index of the [requested, faces] run to keep: the closest to the target from below
+    (up to 5% over counts as on budget); if every run is over, the smallest one."""
+    ok = [(i, f) for i, (_, f) in enumerate(attempts) if f is not None]
+    if not ok:
+        return len(attempts) - 1
+    under = [(i, f) for i, f in ok if f <= 1.05 * target]
+    if under:
+        return max(under, key=lambda x: (x[1], x[0]))[0]
+    return min(ok, key=lambda x: (x[1], -x[0]))[0]
+
+
 def stage_mesh(mon: dict, d: Path, args) -> None:
     if (d / "model_raw.glb").exists() and not args.force:
         log(f"{mon['id']}: mesh exists, skip")
@@ -560,6 +599,7 @@ def stage_mesh(mon: dict, d: Path, args) -> None:
     attempts, times = [], {}
     t0 = time.time()
     dec, hi_out, used = None, {}, settings["decimator"]
+    decimate_kept = None
     if settings["decimator"] == "weighted":
         hi_out = run_prompt(hi_poly_graph(wf), f"{mon['id']} mesh (hi-poly)")
         fetch_output(hi_out["save_hi"]["3d"][0], d / "model_hi.glb")
@@ -585,17 +625,26 @@ def stage_mesh(mon: dict, d: Path, args) -> None:
             lo.unlink(missing_ok=True)
     if not used.startswith("weighted"):
         (d / "mesh.api.json").write_text(json.dumps(wf, indent=1))
-        outputs = run_prompt(wf, f"{mon['id']} mesh")
-        # DecimateMesh collapses edges in parallel batches and overshoots non-linearly.
-        # Re-run with a corrected target; ComfyUI caches everything upstream of decimate.
-        for _ in range(3):
+        # DecimateMesh collapses edges in parallel batches and overshoots non-linearly (and
+        # not even monotonically on a bad remesh: the first greatclub gave 189 / 2126 / 182
+        # faces). Re-run with a corrected target (ComfyUI caches everything upstream of
+        # decimate) and keep the best run, not the last one.
+        runs = []
+        for i in range(DECIMATE_RUNS):
+            req = wf["decimate"]["inputs"]["target_face_count"]
+            outputs = run_prompt(wf, f"{mon['id']} mesh" + (" retarget" if i else ""))
             faces = lowpoly_faces(outputs)
-            attempts.append([wf["decimate"]["inputs"]["target_face_count"], faces])
+            runs.append((req, faces, outputs))
+            attempts.append([req, faces])
             if faces is None or 0.85 * target <= faces <= 1.05 * target:
                 break
-            wf["decimate"]["inputs"]["target_face_count"] = int(
-                wf["decimate"]["inputs"]["target_face_count"] * target / max(faces, 1) * 0.98)
-            outputs = run_prompt(wf, f"{mon['id']} mesh retarget")
+            nxt = next_decimate_target(attempts, target)
+            if nxt is None:
+                break
+            wf["decimate"]["inputs"]["target_face_count"] = nxt
+        kept = pick_decimate_attempt(attempts, target)
+        outputs = runs[kept][2]
+        decimate_kept = kept
     dt = round(time.time() - t0, 1)
     fetch_output(outputs["save_glb"]["3d"][0], d / "model_raw.glb")
     tex = d / "textures"
@@ -612,6 +661,7 @@ def stage_mesh(mon: dict, d: Path, args) -> None:
             info[nid] = src["text"][0]
     man["mesh"] = {"model": wf["unet"]["inputs"]["unet_name"], "seed": seed, "settings": settings,
                    "decimate_attempts": attempts, "mesh_info": info, "seconds": dt,
+                   "decimate_kept": decimate_kept,
                    "ref_picked": (pick if pick is not None else man.get("ref", {}).get("picked"))}
     man["mesh"]["decimator_used"] = used
     if dec is not None:
@@ -625,7 +675,9 @@ def stage_mesh(mon: dict, d: Path, args) -> None:
     clear_lods(d)
     for stale in ("model.glb", "thumb.png", "thumb_head.png", "thumb_ground.png"):
         (d / stale).unlink(missing_ok=True)
-    log(f"{mon['id']}: mesh done in {dt}s ({used}, {attempts[-1][1]} faces)")
+    log(f"{mon['id']}: mesh done in {dt}s ({used}, {attempts[-1 if decimate_kept is None else decimate_kept][1]} faces"
+        + (f", kept run {decimate_kept + 1} of {len(attempts)}" if decimate_kept is not None and len(attempts) > 1 else "")
+        + ")")
 
 
 def stage_mesh_guarded(mon: dict, d: Path, args) -> None:

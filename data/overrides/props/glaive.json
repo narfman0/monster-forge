@@ -1,6 +1,7 @@
 {
-  "prompt_extra": "a polearm: one long straight wooden pole, four times longer than its blade, with a curved single-edged blade fixed on the top end",
-  "negative_extra": "sword, dagger, short handle, knife",
-  "notes": "first roll drew a long dagger with no pole; ref 2 is a spear-like pole with an ornate collar near the butt; head_end picked the collar: flip_tip",
-  "flip_tip": true
+  "prompt_extra": "a glaive polearm: one long plain straight wooden pole, and on its top end one large curved single-edged blade shaped like a broad falchion or cleaver blade, the blade one quarter of the length",
+  "negative_extra": "spear point, spearhead, narrow point, collar, ornament, tassel, sword hilt, crossguard, dagger, knife, short handle",
+  "notes": "round 1 (first roll) drew a long dagger with no pole; round 1 reroll ref 2 was a spear with an ornate collar near the butt (head_end picked the collar, flip_tip). 2026-11-04 reroll: ask for a broad falchion-like blade on a plain pole, negative spearhead/collar; round 2026-11-04 ref 1: a curved single-edged blade on a pole (blade ~30% of the length); the extension rule put the hooked tip side at -Z, the convex cutting side belongs there: edge_rule convex",
+  "ref_pick": 1,
+  "edge_rule": "convex"
 }

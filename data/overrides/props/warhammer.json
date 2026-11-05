@@ -1,6 +1,7 @@
 {
   "prompt_extra": "a war hammer: one long straight wooden haft with a heavy square hammer head across its top end and a short spike on the back of the head",
   "negative_extra": "spikes all around, star shape, mace, dagger, sword blade",
-  "notes": "first roll drew a spiked star on a dagger; ref 0 (best score) stands on a wooden display base",
-  "ref_pick": 3
+  "notes": "first roll drew a spiked star on a dagger; ref 0 (best score) stands on a wooden display base; 2026-11-04 axes-sheet check: the blunt rule put the long curved hook at -Z and the squared flat bar (the hammer face) at +Z: flip_edge",
+  "ref_pick": 3,
+  "flip_edge": true
 }

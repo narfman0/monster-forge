@@ -51,8 +51,9 @@ How the axes are found (each decision records a signal and a confidence 0-1):
    larger side for shields) = length_m.
 
 Bows: only the largest island (the stave) is kept, faces more than 6 cm behind the stave
-in the middle 80% (fused string ribbons) are cut, and a straight 3-sided string with its
-own material is added between the limb tips (Pixal3D cannot keep a 2 mm string).
+in the middle 80% (fused string ribbons) are cut, and a straight 4-sided string with its
+own material is added between the limb tips (Pixal3D cannot keep a 2 mm string) as a
+separate mesh node `string`; the stave node is `prop`.
 Two-handed props get an `offhand_grip` empty (child of the mesh) for the off hand's IK.
 
 Failure modes (they are why there is an override for each decision, see tools/props.py):
@@ -63,7 +64,10 @@ stave_forward weak); a crossbow whose prod is longer than its stock (e1 = prod: 
 
 Job keys: src, dst, report, thumb, id, category, grip (1|2), length_m, rules (tip, edge),
 grip_frac (fraction of length from the butt, overrides the measured grip), flip_tip,
-flip_edge (bool), roll_deg (extra rotation about +Y), label.
+flip_edge (bool), roll_deg (extra rotation about +Y), pitch_deg (extra rotation about +X,
+positive lifts the -Z end), label, prebuilt (bool: the source is
+already in prop space with the grip at the origin, as tools/blender_prop_procedural.py
+writes it; orientation and grip search are skipped, the rest runs as usual).
 """
 import json
 import math
@@ -97,6 +101,7 @@ RULES = {
 RULE_BY_ID = {"scimitar": ("thin_end", "convex"), "sickle": ("thin_end", "extension"),
               "glaive": ("head_end", "extension"), "warhammer": ("head_end", "blunt"),
               "light-hammer": ("head_end", "blunt")}
+PREBUILT = bool(job.get("prebuilt"))  # procedural props: already in prop space, grip at the origin
 tip_rule, edge_rule = RULE_BY_ID.get(job.get("id"), RULES.get(CAT, ("head_end", "symmetric")))
 tip_rule, edge_rule = (job.get("rules") or {}).get("tip", tip_rule), (job.get("rules") or {}).get("edge", edge_rule)
 report["rules"] = {"tip": tip_rule, "edge": edge_rule}
@@ -268,7 +273,13 @@ Pc = P - ctr
 t, u, w = Pc @ e1, Pc @ e2, Pc @ e3
 lo_end, hi_end = end_regions(t)
 
-if CAT in ("crossbow", "firearm"):
+if PREBUILT:
+    # tools/blender_prop_procedural.py builds in prop space: nothing to decide
+    ctr = np.zeros(3)
+    Yb, Zb = np.array([0, 1.0, 0]), np.array([0, 0, 1.0])
+    decisions["frame"] = {"rule": "procedural: built in prop space", "confidence": 1.0}
+    report["rules"] = {"tip": "procedural", "edge": "procedural"}
+elif CAT in ("crossbow", "firearm"):
     # e1 = stock/barrel -> forward (Blender +Y); generator up -> Blender +Z. The reference
     # is drawn level and side on, so the stock is taken as horizontal in the generator
     # frame (PCA alone tilts it toward the hanging grip and the prod).
@@ -414,6 +425,11 @@ transform(Rm)
 if job.get("roll_deg"):
     transform(Matrix.Rotation(math.radians(job["roll_deg"]), 4, "Z"))
     report["roll_deg"] = job["roll_deg"]
+if job.get("pitch_deg"):
+    # about +X (glTF and Blender share X): positive lifts the -Z end (muzzle, edge) up
+    # toward +Y; for a reference drawn tilted (the pistol's barrel climbs ~25 deg)
+    transform(Matrix.Rotation(math.radians(job["pitch_deg"]), 4, "X"))
+    report["pitch_deg"] = job["pitch_deg"]
 report["decisions"] = decisions
 
 # length axis in Blender: Z (glTF +Y), Y for crossbows/firearms (glTF -Z)
@@ -490,7 +506,10 @@ def tilt_to_handle(z_lo, z_hi):
 
 gfrac = job.get("grip_frac")
 z0 = float(P[:, 2].min())
-if CAT == "shield":
+if PREBUILT:
+    gp = [0.0, 0.0, 0.0]
+    grip["method"] = "procedural: built with the grip at the origin"
+elif CAT == "shield":
     co = P
     r = np.hypot(co[:, 0] - 0.5 * (co[:, 0].min() + co[:, 0].max()), co[:, 2] - 0.5 * (co[:, 2].min() + co[:, 2].max()))
     R = float(r.max())
@@ -630,44 +649,58 @@ if CAT == "bow":
         me.update()
     report["bow_ribbon_faces_dropped"] = len(bad)
     report["bow_specks_dropped"] = drop_islands(0, largest_only=True)[2]
+string_obj = None
 if CAT == "bow" and job.get("add_string", True):
     # Pixal3D cannot keep a 2 mm string; the reference is drawn without one (or it was
-    # dropped above), so add a straight 3-sided string between the two limb tips, set
-    # 1 cm inside each tip, in its own plain material.
+    # dropped above), so add a straight 4-sided string between the two limb tips, set
+    # 1 cm inside each tip, in its own plain material and as its own mesh node `string`
+    # (sibling of the stave node `prop`), so a game can hide it or swap in a drawn one.
     co = verts_np()
     top, bot = co[np.argmax(co[:, 2])], co[np.argmin(co[:, 2])]
     a_, b_ = Vector(top) + Vector((0, 0, -0.01)), Vector(bot) + Vector((0, 0, 0.01))
     r_ = 0.003
     d_ = (a_ - b_).normalized()
-    n1 = d_.orthogonal().normalized()
+    n1 = Vector((1, 0, 0)) - Vector((1, 0, 0)).dot(d_) * d_
+    n1.normalize()
     n2 = d_.cross(n1)
+    smesh = bpy.data.meshes.new("string")
     bm = bmesh.new()
-    bm.from_mesh(me)
-    ring = lambda c_: [bm.verts.new(c_ + r_ * (math.cos(k * 2.094) * n1 + math.sin(k * 2.094) * n2)) for k in range(3)]
+    NS = 4
+    ring = lambda c_: [bm.verts.new(c_ + r_ * (math.cos(k * 2 * math.pi / NS) * n1 + math.sin(k * 2 * math.pi / NS) * n2))
+                       for k in range(NS)]
     ra, rb = ring(a_), ring(b_)
+    for k in range(NS):
+        bm.faces.new((ra[k], ra[(k + 1) % NS], rb[(k + 1) % NS], rb[k]))
+    bm.normal_update()
+    bm.to_mesh(smesh)
+    bm.free()
     smat = bpy.data.materials.new("bowstring")
     smat.use_nodes = True
     smat.node_tree.nodes["Principled BSDF"].inputs[0].default_value = (0.85, 0.8, 0.65, 1)
     smat.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = 0.8
-    me.materials.append(smat)
-    mi = len(me.materials) - 1
-    for k in range(3):
-        f_ = bm.faces.new((ra[k], ra[(k + 1) % 3], rb[(k + 1) % 3], rb[k]))
-        f_.material_index = mi
-    bm.to_mesh(me)
-    bm.free()
-    me.update()
-    report["bow_string"] = {"top_gltf": to_gltf(a_), "bottom_gltf": to_gltf(b_), "radius_m": r_,
-                            "min_z_gap_m": round(float(min(a_.y, b_.y)), 4)}
+    smesh.materials.append(smat)
+    string_obj = bpy.data.objects.new("string", smesh)
+    bpy.context.scene.collection.objects.link(string_obj)
+    obj.name = me.name = "prop"  # the stave is node `prop`, the string node `string`
+    report["bow_string"] = {"node": "string", "stave_node": "prop", "sides": NS, "radius_m": r_,
+                            "top_gltf": to_gltf(a_), "bottom_gltf": to_gltf(b_),
+                            "length_m": round(float((a_ - b_).length), 4),
+                            "behind_grip_m": round(float(-0.5 * (a_.y + b_.y)), 4),
+                            "tris": 2 * NS}
 
 # ---------------------------------------------------------------- stats + export
 report["tris"] = sum(len(p.vertices) - 2 for p in me.polygons)
 report["verts"] = len(me.vertices)
 report["materials"] = [m.name for m in me.materials if m]
+if string_obj is not None:  # tris = the stave (LOD0 budget); the string is reported apart
+    report["tris_string"] = report["bow_string"]["tris"]
+    report["materials"].append("bowstring")
 report["textures"] = [{"name": i.name, "size": list(i.size)} for i in bpy.data.images if i.size[0] > 0]
 report["has_uv"] = len(me.uv_layers) > 0
 bpy.ops.object.select_all(action="DESELECT")
 obj.select_set(True)
+if string_obj is not None:
+    string_obj.select_set(True)
 if offhand is not None:
     # marker node for the off hand's IK target (docs/equipment.md), child of the prop
     emp = bpy.data.objects.new("offhand_grip", None)

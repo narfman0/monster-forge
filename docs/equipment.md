@@ -143,7 +143,9 @@ confidence, `orientation_confidence` = the lowest, `offhand_grip`, `length_check
 `glb_check` and `grip_offset`). Per-prop overrides: `data/overrides/props/<id>.json`, the
 monster fields of `tools/overrides.py` (`ref_pick`, `prompt_extra`, `tri_budget`, ...)
 plus `view`, `remesh_resolution`, `flip_tip`, `flip_edge`, `grip_frac`, `roll_deg`,
-`tip_rule`, `edge_rule` (registered by `props.py`).
+`pitch_deg` (about +X, positive lifts the -Z end), `tip_rule`, `edge_rule` and
+`procedural` (registered by `props.py`). `manifest.prop.source` is `generated` or
+`procedural`.
 
 - **ref**: `single object, centered, ` + the registry prompt + the house style. The view
   phrase is replaced per category: elongated props "lying horizontal, pointing right"
@@ -158,6 +160,22 @@ plus `view`, `remesh_resolution`, `flip_tip`, `flip_edge`, `grip_frac`, `roll_de
   plus remesh 384 gave no visible gain on the longsword and pushed ComfyUI to its 16 GB
   ceiling. Plain collapse (`--vg-factor 0`) and the weighted one gave the same blade.
   Bows get 1.6 x the budget because QA cuts the string ribbons out afterwards.
+  With the GPU decimator (`--decimator comfy`, or the weighted path's fallback when the
+  target is under 1.6 x the topology floor) `forge.py` re-runs DecimateMesh up to 5 times,
+  bisecting between a target that came out under and one that came out over, and keeps the
+  run closest to the budget from below (`manifest.mesh.decimate_kept`), not the last one.
+  The first greatclub (a sawn log) gave 189 / 2126 / 182 faces and silently kept a fourth,
+  unlogged run of 2765 tris; re-run on the same reference it now ends at 641 of 700.
+- **procedural** (override `"procedural": "whip"`): no ref and no GPU; the mesh stage runs
+  `tools/blender_prop_procedural.py`, which builds the prop in prop space and writes
+  `model_raw.glb` + `procedural.json`; QA takes it as built (`prebuilt`: no PCA or grip
+  search, only the scale to `length_m`, export, the axes sheet and the GLB check), then
+  the LODs run as usual. The whip: one 8-sided tube, a 0.3 m handle (pommel knob, spiral
+  leather wrap, ferrule knot; grip 0.11 m above the butt) and a braided lash tapering from
+  13 mm to a 2 mm popper that droops progressively toward -Z (20 deg at the tip, 0.3 m of
+  sag), 992 tris, a generated 512 px base colour texture (wrap and braid). `length_m` is the
+  extent along +Y; the arc is 2.53 m. The generated whip folded in a U, so its length axis
+  was half the whip.
 - **qa** (`tools/blender_prop_qa.py`): PCA of area-uniform surface samples gives the long
   axis (e1), the wide axis (e2) and the thin axis (e3). Category rules then decide:
 
@@ -177,8 +195,12 @@ plus `view`, `remesh_resolution`, `flip_tip`, `flip_edge`, `grip_frac`, `roll_de
   for shields) is `length_m`, and moved so the grip is the origin. Loose islands under 0.5%
   of the area are dropped. Bows keep only the stave: the reference is drawn without a
   string (SDXL's strings cross and float; Pixal3D turns them into ribbons), ribbons fused
-  to the stave more than 6 cm behind it are cut, and a straight 3-sided string with its own
-  material joins the limb tips. Two-handed props get an `offhand_grip` empty in model.glb.
+  to the stave more than 6 cm behind it are cut, and a straight 4-sided string (3 mm
+  radius, 8 tris, material `bowstring`) joins the limb tips, 1 cm inside each. The string
+  is its own mesh node `string`, a sibling of the stave node `prop`, in model.glb and in
+  every LOD (`blender_lods.py` job key `keep`), so a game can hide it or replace it with
+  a drawn string; `manifest.prop.nodes` / `prop.string` record it. The stave alone is
+  what the tri budget counts (shortbow 397 of 800, longbow 692 of 800). Two-handed props get an `offhand_grip` empty in model.glb.
   `props.py` then re-reads model.glb with a stdlib GLB reader and checks, in glTF axes:
   the length along the axis (2%), the origin inside the bounds, and a -Z test per category
   (blade: the upper 40% is wider along Z than X; axes: the head reaches farther to -Z;
@@ -191,16 +213,19 @@ plus `view`, `remesh_resolution`, `flip_tip`, `flip_edge`, `grip_frac`, `roll_de
   prod); a whip drawn coiled; weapons with a big pommel or no visible handle narrowing
   (the grip falls back to 12% of the length); `head_end` on a polearm whose point is
   slimmer than an ornate butt or collar (first fork, glaive) and on a club with a
-  sword-like guard (greatclub). Fix those with the overrides above; the SRD set needed
-  `flip_tip` on glaive and greatclub and `ref_pick` / prompt extras on ten props.
+  sword-like guard (greatclub); a reference drawn tilted (the pistol's barrel climbed
+  ~25 deg: `pitch_deg`). Fix those with the overrides above. The per-prop decisions and
+  the axes-sheet verdicts are in each `data/overrides/props/<id>.json` `notes` and in
+  `docs/TODO.md` section F.
 - **lod**: `tools/blender_lods.py`, ratios 0.5 / 0.3 / 0.18 of LOD0, floor 100 tris (LOD3
   ~100-270 tris).
 
 **Attaching in Godot.** The rig's `grip_r` / `grip_l` bones are the fist centre in prop
-space, so melee props attach there with no offset. Bows, crossbows, pistols and shields
-turn +90 degrees about X (prop +Y up, prop -Z forward); `manifest.prop.grip_offset` has
-the rotation per category, and the viewer applies it (`?prop_r=longsword&prop_l=longbow`,
-`viewer/README.md`). Checked on the goblin-warrior: the longsword's handle sits in the
-right fist, blade forward at rest; the longbow stands upright in the left fist, string
-toward the body. Two-handed props also need the off hand IK on `offhand_grip`; a strapped
+space, so melee props and bows attach there with no offset (a bow's stave runs through
+the fist; the `attack_ranged` clip raises it). Crossbows, pistols and shields turn +90
+degrees about X (prop +Y up, prop -Z forward); `manifest.prop.grip_offset` has the
+rotation per category, and the viewer applies it (`?prop_r=longsword&prop_l=longbow`,
+`viewer/README.md`). Checked on the goblin-warrior (2026-11-04, after the string became
+its own node): the longsword's handle sits in the right fist, blade forward; the longbow's
+stave runs through the left fist, string behind it. Two-handed props also need the off hand IK on `offhand_grip`; a strapped
 (not centre-grip) shield would sit ~0.12 m up the forearm.

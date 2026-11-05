@@ -1,5 +1,4 @@
 {
-  "prompt_extra": "the braided lash stretched out in one straight line from the handle, not folded, not coiled",
-  "negative_extra": "coil, loop, folded, curled",
-  "notes": "first roll was folded in a U, so the length axis was half the whip"
+  "procedural": "whip",
+  "notes": "generated whip folded in a U (first roll and the 'stretched out' reroll), so length_m was spread over the fold; 2026-11-04: procedural spline whip from tools/blender_prop_procedural.py (handle with pommel knob and ferrule knot, braided lash tapering to a popper, ~20 deg droop toward -Z at the tip), built in prop space, no ref"
 }

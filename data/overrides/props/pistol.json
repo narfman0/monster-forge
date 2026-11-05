@@ -1,0 +1,4 @@
+{
+  "pitch_deg": -25,
+  "notes": "2026-11-04 axes-sheet check: grip at the origin on the pistol grip and muzzle toward -Z were right, but the barrel climbed ~25 deg (the reference is drawn tilted and QA takes the generator frame as level): pitch_deg -25 levels it"
+}

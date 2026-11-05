@@ -21,7 +21,11 @@ LOD0's material and textures (one material set per monster):
   viewer reuses the loaded LOD0 material. `embed_textures` true writes self-contained
   files (about 1x the texture bytes again per LOD).
 
-Job keys: src (model.glb), out_dir, ratios {"1": 0.5, ...} (else `lod_ratios` from
+Props (tools/props.py) may carry extra mesh nodes that are not decimated: `keep` lists
+their node names (the bows' `string`); they are exported unchanged next to the main mesh
+in every LOD and their triangles are reported apart (`keep_tris`).
+
+Job keys: src (model.glb), out_dir, keep (node names, default none), ratios {"1": 0.5, ...} (else `lod_ratios` from
 data/overrides/<source>/<id>.json when id + source are given, else 0.5 / 0.25 / 0.1), min_tris (300),
 embed_textures (false), merge (false), report (lods.json path).
 """
@@ -48,13 +52,20 @@ out_dir = job.get("out_dir") or os.path.dirname(job["src"])
 t0 = time.time()
 
 
+KEEP = set(job.get("keep") or [])
+
+
 def load():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=job["src"], merge_vertices=bool(job.get("merge", False)))
-    meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    meshes = [o for o in bpy.context.scene.objects if o.type == "MESH" and o.name not in KEEP]
     if len(meshes) != 1:
         raise SystemExit(f"expected one mesh in {job['src']}, got {len(meshes)}")
     return meshes[0]
+
+
+def kept_objects():
+    return [o for o in bpy.context.scene.objects if o.type == "MESH" and o.name in KEEP]
 
 
 def tris(me):
@@ -74,6 +85,9 @@ base_tris = tris(obj.data)
 report = {"src": os.path.basename(job["src"]), "embed_textures": embed, "min_tris": min_tris,
           "lods": {"0": {"file": os.path.basename(job["src"]), "tris": base_tris, "ratio": 1.0,
                          "bounds": bounds(obj)}}}
+if KEEP:
+    report["keep"] = sorted(KEEP)
+    report["keep_tris"] = sum(tris(o.data) for o in kept_objects())
 for lod in sorted(ratios):
     if lod == 0:
         continue
@@ -115,6 +129,8 @@ for lod in sorted(ratios):
     me.shade_smooth()
     bpy.ops.object.select_all(action="DESELECT")
     obj.select_set(True)
+    for o in kept_objects():
+        o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=dst, export_format="GLB", use_selection=True, export_yup=True,
                               export_apply=True, export_image_format="AUTO" if embed else "NONE")
     report["lods"][str(lod)] = {"file": os.path.basename(dst), "tris": tris(me), "ratio": ratios[lod],
