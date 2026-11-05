@@ -33,6 +33,11 @@ same side, ownership between the arm and the wing follows the welded surface, no
 arm skin held), so feathers behind the forearm leave the arm and the arm's skin loses the
 wing's weight (the harpy roll_1's sword cut: 172 -> 38 edges past 4x).
 
+**Body seam** (`body_seam`, after the arm-wing seam): the same surface rule between the wing
+and the body (centre line + legs) and between the arm and the body, so feathers hanging from
+the hips beside the thighs leave the wing tip, wing feathers on the floor leave the ankle, and
+the back and waist leave the arm (harpy roll_1: fly 96 -> 4 edges past 4x, sword cut 48 -> 14).
+
 **Adoption** (`_adopt`): a SkinTokens chain short of find_wings' reach that owns ADOPT of a
 lobe's vertices is renamed wing_<side>_00.. instead of getting a second chain beside it.
 
@@ -72,6 +77,11 @@ WEIGHTS = {"reach": 0.3, "bias": 1.0, "blend": 0.1, "far": 0.15, "strip": True, 
 # `wing_core` from the arm core over the surface; past `hold` of the arm core the arm's share
 # falls off as g_wing / (g_arm - hold + g_wing), geodesic over the welded mesh
 SEAM = {"core": 0.04, "hold": 0.03, "wing_core": 0.3}
+# body seam (`body_seam`, x height): the body core is the skin on the centre line (within
+# `trunk`) and within SEAM["core"] of each leg's joint path; a limb's (wing's, arm's) share of
+# its weight + the body's falls from 1 to 0 across `band` around the point where the vertex
+# is as far from the limb's core as from the body core, over the welded surface
+BODY_SEAM = {"trunk": 0.04, "band": 0.1}
 WELD = 1e-5        # metres: glTF splits vertices at UV seams; these are one surface point
 
 
@@ -433,6 +443,154 @@ def seam_blend(arm, me, arms: list[dict], chains: dict, height: float, rig_topol
     return out
 
 
+def _weights(me, cols: list[str]) -> np.ndarray:
+    """(n verts, len(cols)) weight matrix of the named vertex groups."""
+    ci = {n: j for j, n in enumerate(cols)}
+    names = {g.index: g.name for g in me.vertex_groups}
+    W = np.zeros((len(me.data.vertices), len(cols)))
+    for v in me.data.vertices:
+        for g in v.groups:
+            j = ci.get(names[g.group])
+            if j is not None:
+                W[v.index, j] = g.weight
+    return W
+
+
+def body_seam(arm, me, arms: list[dict], legs: list[dict], chains: dict, lobes: dict, cx: float, height: float,
+              W0: dict) -> dict:
+    """Wing vs body and arm vs body over the welded surface (winged bipeds, after seam_blend).
+
+    SkinTokens skins by proximity and the inserted chain's region is euclidean, so on the
+    harpy roll_1 the long feathers that hang from the hips beside the thighs (0.5-0.9 m from
+    a leg over the surface, 1.0-1.4 m from the wing) got the wing tip's weight where they came
+    within its reach and kept the thigh/hip's next to it: 77 of fly's 96 edges past 4x were
+    wing_*_03 against bone_0/14/18/20 when the wing swung out. A wing feather lying on the
+    floor kept the ankle's weight (bone_20 1.0, 2.2 m from the leg over the surface). In the
+    sword cut the back (on the centre line) held 0.5-0.8 of the right upper arm and the waist
+    0.33 of the forearm that hangs beside it, so the raised arm pulled a sheet off the torso.
+
+    Body core: the skin within BODY_SEAM["trunk"] of the centre line (front and back, head to
+    tail) and within SEAM["core"] of each leg's joint path; g_body the geodesic distance from
+    it. Per side with an inserted chain:
+
+    - wing: g_wing from the lobe's vertices the chain owns farther than SEAM["wing_core"] from
+      the body core. The body's share of a vertex's wing + body weight is 1 within
+      SEAM["hold"] of the body core, else falls from 1 to 0 across BODY_SEAM["band"] around
+      g_body = g_wing. Wing weight past that share goes to the vertex's body bones (its
+      pre-wing weights when it has none left); body weight past it goes to the wing on
+      vertices that hold wing weight, or on the side's outer vertices nearer the wing.
+    - arm (that side's): g_arm from the arm core (seam_blend's); the arm's share of its
+      weight + the body's falls from 1 to 0 across the band around g_arm - hold = g_body. Arm
+      weight past it goes to the body; the body never gives weight to the arm.
+
+    Arm vs wing stays seam_blend's; other bones (the other wing) keep theirs. `lobes`
+    {side: {"verts", "outer"}} vertex indices, `W0` {bone: weights} before the wing chains."""
+    m = arm.matrix_world
+    segs = {b.name: (np.array((m @ b.head_local)[:]), np.array((m @ b.tail_local)[:])) for b in arm.data.bones
+            if b.use_deform}
+    kids = {b.name: [c.name for c in b.children] for b in arm.data.bones}
+    cols = list(segs)
+    W = _weights(me, cols)
+    orig = W.copy()
+    P0 = np.stack([W0.get(n, np.zeros(len(W))) for n in cols], axis=1)
+    V = np.empty(len(me.data.vertices) * 3)
+    me.data.vertices.foreach_get("co", V)
+    mw = np.array(me.matrix_world)
+    V = V.reshape(-1, 3) @ mw[:3, :3].T + mw[:3, 3]
+    E = np.empty(len(me.data.edges) * 2, dtype=np.int64)
+    me.data.edges.foreach_get("vertices", E)
+    wid, adj = _surface(V, E.reshape(-1, 2))
+    h, band, hold = height, BODY_SEAM["band"] * height, SEAM["hold"] * height
+
+    def path(pts):
+        return np.min([_seg(V, p, q) for p, q in zip(pts, pts[1:])], axis=0)
+
+    core = np.abs(V[:, 0] - cx) < BODY_SEAM["trunk"] * h
+    for g in legs:
+        ch = [n for n in g["chain"] if n in segs]
+        if ch:
+            core |= path([segs[n][0] for n in ch] + [segs[ch[-1]][1]]) < SEAM["core"] * h
+    gb = _surface_dist(wid, adj, np.nonzero(core)[0])
+    wing_all = {n for c in chains.values() for n in c["bones"]}
+    arm_of = {}
+    for a_ in arms:
+        up = a_["upper"]
+        arm_of[a_["side"]] = [n for n in [up, *_desc(up, kids)] if n in segs and n not in wing_all]
+
+    def give(i, frm, to, share_to, prior):
+        """Move vertex i's weight on columns `frm` + `to` so `to` holds share_to of it,
+        spread over `to` like its current weights there, else like `prior`, else the
+        nearest `to` bone."""
+        T = W[i, frm].sum() + W[i, to].sum()
+        tv = W[i, to].copy()
+        if tv.sum() <= 0:
+            tv = prior[i, to].copy() if prior is not None else tv
+        if tv.sum() <= 0:
+            tv[int(np.argmin([float(_seg(V[i:i + 1], *segs[cols[j]])[0]) for j in to]))] = 1.0
+        fv = W[i, frm].copy()
+        if fv.sum() <= 0:
+            fv[:] = 1.0
+        W[i, to] = share_to * T * tv / tv.sum()
+        W[i, frm] = (1 - share_to) * T * fv / fv.sum()
+
+    out = {"body_core_verts": int(core.sum()), **{k: round(v * h, 4) for k, v in BODY_SEAM.items()}}
+    for side, c in chains.items():
+        sg = 1.0 if side == "r" else -1.0
+        iw = [cols.index(n) for n in c["bones"] if n in segs]
+        ia = [cols.index(n) for n in arm_of.get(side, [])]
+        ib = [j for j, n in enumerate(cols) if n not in wing_all and j not in ia]
+        lob = np.zeros(len(V), dtype=bool)
+        outer = np.zeros(len(V), dtype=bool)
+        lob[lobes[side]["verts"]] = True
+        outer[lobes[side]["outer"]] = True
+        Ww, Bw, tot = W[:, iw].sum(1), W[:, ib].sum(1), W.sum(1)
+        wcore = lob & (Ww > 0.5 * np.maximum(tot, 1e-9)) & (gb > SEAM["wing_core"] * h)
+        rs = out[side] = {"wing_core_verts": int(wcore.sum())}
+        if wcore.any():
+            gw = _surface_dist(wid, adj, np.nonzero(wcore)[0])
+            ok = np.isfinite(gb) & np.isfinite(gw)
+            with np.errstate(invalid="ignore"):
+                b = np.clip(0.5 - (gb - gw) / band, 0.0, 1.0)
+            b[gb <= hold] = 1.0
+            T = Ww + Bw
+            to_b = ok & (Ww > (1 - b) * T + 1e-6)
+            to_w = ok & ~to_b & (Bw > b * T + 1e-6) & ((Ww > 0) | ((gw < gb) & outer)) & ((V[:, 0] - cx) * sg > 0)
+            for i in np.nonzero(to_b | to_w)[0]:
+                give(i, iw, ib, b[i], P0)
+            rs.update({"wing_to_body": int(to_b.sum()), "body_to_wing": int(to_w.sum())})
+        if ia:
+            a_ = next(x for x in arms if x["side"] == side)
+            up, fo, hd = a_["upper"], a_["forearm"], a_.get("hand")
+            pts = [segs[up][0], segs[fo][0], segs[hd][0] if hd else segs[fo][1]] + ([segs[hd][1]] if hd else [])
+            acore = path(pts) < SEAM["core"] * h
+            ga = _surface_dist(wid, adj, np.nonzero(acore)[0])
+            with np.errstate(invalid="ignore"):
+                s = np.clip(0.5 - (ga - hold - gb) / band, 0.0, 1.0)
+            s[ga <= hold] = 1.0
+            A, Bw = W[:, ia].sum(1), W[:, ib].sum(1)
+            mv = np.isfinite(gb) & (A > s * (A + Bw) + 1e-6)
+            for i in np.nonzero(mv)[0]:
+                give(i, ia, ib, 1 - s[i], P0)
+            rs["arm_to_body"] = int(mv.sum())
+    changed = np.nonzero(np.abs(W - orig).max(axis=1) > 1e-6)[0]
+    groups = [me.vertex_groups.get(n) or me.vertex_groups.new(name=n) for n in cols]
+    for i in changed:
+        for j in np.nonzero((W[i] > 1e-5) | (orig[i] > 0))[0]:
+            if W[i, j] > 1e-5:
+                groups[j].add([int(i)], float(W[i, j]), "REPLACE")
+            else:
+                groups[j].remove([int(i)])
+    out["changed_verts"] = int(len(changed))
+    return out
+
+
+def _desc(n: str, kids: dict) -> list[str]:
+    out = []
+    for c in kids.get(n, []):
+        out += [c, *_desc(c, kids)]
+    return out
+
+
 def add_missing_wings(arm, me, rig_topology, rig_reweight, feet: int, upright: bool) -> dict | None:
     """In Blender: when the skeleton has fewer than 2 wing chains (find_wings, with the
     plan's foot count as the clips find legs), detect the missing sides' lobes on the mesh,
@@ -507,12 +665,19 @@ def add_missing_wings(arm, me, rig_topology, rig_reweight, feet: int, upright: b
             prev = e
         rep["chains"][lobe["side"]] = {"bones": names, "parent": parent}
     bpy.ops.object.mode_set(mode="OBJECT")
+    # the weights before the chains: a vertex body_seam hands back to the body gets these
+    pre = [b.name for b in arm.data.bones if b.use_deform]
+    W0 = dict(zip(pre, _weights(me, pre).T))
+    sides = {}
     for lobe in lobes:
         c = rep["chains"][lobe["side"]]
+        sides[lobe["side"]] = {"verts": lobe["_verts"], "outer": lobe["_clean"]}
         rep["weights"].append(rig_reweight.reweight(arm, me, {**wing_spec(c["bones"], height), "lobe": lobe.pop("_verts"),
                                                             "clean": lobe.pop("_clean")}))
     if arms and rep["chains"]:  # the arm-wing seam over the surface (winged bipeds)
         rep["seam"] = seam_blend(arm, me, arms, rep["chains"], height, rig_topology)
+        # then wing vs body and arm vs body over the surface (hip feathers, the back, the waist)
+        rep["body_seam"] = body_seam(arm, me, arms, legs, rep["chains"], sides, cx, height, W0)
     return rep
 
 

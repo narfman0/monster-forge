@@ -106,6 +106,14 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       and the seam on the 20 other winged bipeds are unverified (a batch check of fly/sword-cut
       tearing per monster); `fly` still stretches the hanging wing tips skinned to the thighs
       (docs/rig-anim.md "Wing chains from the mesh").
+      (2026-11-04) Body seam (`blender_wing_weights.body_seam`, after the arm-wing seam): wing
+      vs body (centre line + legs) and arm vs body ownership follow the welded surface too, so
+      the hip feathers beside the thighs leave the wing tip, a floor feather leaves the ankle,
+      and the back and waist leave the arm. Harpy: `fly` 96 -> 4, sword cut 48 -> 14, `idle`/
+      `walk` 1/5 -> 0/0, `hit`/`death` 28/40 -> 0/4, sockets unchanged, score -0.84 -> -0.42;
+      `rig --force` on the goblin and dragon leaves their files byte-identical. Left: 14 edges
+      on top of the right shoulder in the cut (wing root vs raised upper arm); the rule on the
+      other winged bipeds is unverified.
 - [x] (2026-11-04) `rig_reweight` override (`tools/rig_reweight.py`, applied in the finalize
       path before sockets, so `rig --force` keeps it): geometric re-weight of a chain
       ({bones, reach, bias, blend, strip, fit, hand_room, far}), optionally fitting its
@@ -478,23 +486,48 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
         - The longsword hilt is in the right fist at idle and over the cut, and in the left
           fingers on `grip_l`.
       New findings, open:
-  - [ ] Harpy fly still tears at the hanging wing tips next to the legs (Blender 96 edges).
+  - [x] Harpy fly still tears at the hanging wing tips next to the legs (Blender 96 edges).
+        (2026-11-04) Not wing feathers holding leg weight: the torn strip was the hip feathers
+        (0.5-0.9 m from a leg over the surface, 1.0-1.4 m from the wing) that the inserted
+        chain's euclidean region gave pure `wing_*_03` weight next to thigh/hip-weighted
+        neighbours; plus a floor feather of the wing on the ankle (`bone_20` 1.0). Body seam
+        (C): fly 96 -> 4 edges past 4x, walk 5 -> 0; the 0% blades and the 25% strip are gone
+        in Blender sheets. Godot to re-check.
         - At 0% (wings spread), the lower feathers stretch sideways from the hips into flat
           blades out past the wing span, longer on the right.
         - At 25% a thin strip runs from the hip down to the floor below the feet (side view).
         - At 50% a dark sliver crosses in front of the shins at ankle height.
         - Walk 50% shows the same kind of strip, from the knee to the floor (side view).
-  - [ ] Harpy sword cut: the raised right armpit pulls a flat grey sheet. At 25% it hangs
+  - [x] Harpy sword cut: the raised right armpit pulls a flat grey sheet. At 25% it hangs
         down the side of the torso, and at 50% it spans across the chest under the arm. This
         is likely the right side of Blender's 48 edges. The new clip raises the fist above
         the head (grip y 1.73/1.62 m at 25/50%, round 5: 1.27/1.18), and at 50% the fist is
         in front of the face. Round 5's lower cut showed no sheet.
+        (2026-11-04) SkinTokens' weights: the back on the centre line (x 0.0-0.1, z 0.8-1.1)
+        held 0.5-0.82 of the right upper arm `bone_11`, and the waist (0.28, 0.11, 0.86) 0.33 of
+        the forearm `bone_12` hanging beside it; the raised arm pulled them up (worst at frames
+        4-10). The body seam's arm -> body (C) frees them: cut 48 -> 14, the sheet is gone at
+        25% and 50% in Blender close-ups. The 14 left are on top of the right shoulder
+        (`bone_11` vs `wing_r_00`/`bone_3`, the wing root beside the shoulder); a root 6 cm
+        farther back gave 11 and looked the same (not kept). Godot to re-check.
   - [ ] Harpy idle frame 0 -> attack_melee frame 0 now jumps 0.167 m (round 5 0.014), and
         -> walk 0.175 m (0.113). Walk dips to -0.023 m (round 5 -0.008), still inside the
         check's -0.03 m limit.
-  - [ ] Harpy arms still not mirrored: `hand_r` at x +0.48 and `hand_l` at -0.37, elbows
+        (2026-11-04) Attack: the 0.167 m vertex was the back skin with 0.82 upper-arm weight
+        (skinning, fixed by the body seam); now 0.137 m at the right hand (`hand_r` 1.0): the
+        clip's frame 0 has the hand 5 cm and `grip_r` 7.8 cm from idle's frame 0 (clip side,
+        for the clip stream). Walk: the left foot (`bone_16`/`17` heads 0.17 m from idle), the
+        cycle starting mid-stride (clip side). Walk's lowest point is a hip feather tip lying on
+        the floor at rest, skinned to the pelvis `bone_0` (rest (0.48, -0.17, 0.0)), -0.027 m at
+        frame 14 in Blender (unchanged by the body seam): the pelvis bob takes it under the
+        floor; the clip grounds the feet only.
+  - [x] Harpy arms still not mirrored: `hand_r` at x +0.48 and `hand_l` at -0.37, elbows
         `bone_12`/`bone_8` at +0.37/-0.25 (round 5 hands +0.51/-0.48). The left fist sits
         nearer the body.
+        (2026-11-04) Mesh, not skeleton: the body's centre line is at x +0.053 (spine bones
+        +0.068), because the origin is the bbox centre and the wings are not mirrored (right
+        wing 0.86 m from the centre line, left 0.97). About the centre line the arms mirror:
+        hands 0.428/0.427 m, elbows 0.32/0.31, shoulders 0.19/0.16, legs within 3 cm. No `fit`.
 
 ### F. Props (2026-11-04)
 - [x] `tools/props.py` + `tools/blender_prop_qa.py`: all 32 props in `out/props/<id>/` (prop
