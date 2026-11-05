@@ -33,6 +33,13 @@ Part finders that took some tuning (`rig_topology.py`):
 - `find_tail(..., ground=True)` (the clips): when no horizontal tail of 4+ bones exists, a
   chain of 2+ bones that leaves the hips backwards and slopes down into the ground band
   (the giant eagle's 2-bone tail fan).
+- `find_snout` (horizontal): the bone reaching farthest forward above a third of the
+  height, but not a wing: bones more than `SNOUT_SIDE` (0.15) x the height off the centre
+  line on a chain that reaches `WING_REACH` x the height sideways are skipped. The giant
+  eagle's left wing tip (`bone_11`, 0.6 m ahead of the beak) had been its head, so the
+  lunge led with a wing; it is `bone_5` (the beak) now. No other pilot's head changes. For
+  avian the clips' neck also starts above the bone the wings hang from (`bone_3`), so a
+  head turn no longer swings the wings.
 
 **SkinTokens rolls.** SkinTokens (`tools/skintokens/`, its own uv venv) predicts a
 skeleton and skin weights from `model.glb`. It samples without a seed, so every run gives a
@@ -155,6 +162,39 @@ socket bones the registry's `sockets` field asks for (`docs/equipment.md`):
 
 Sockets the stage could not place are logged and listed in `manifest.rig.sockets_missing`.
 
+**Standing on the feet** (`blender_rig.ground_feet`, finalize, legged plans except
+insectoids). QA grounds the mesh on its lowest vertex. When that is not a foot, so the
+lowest vertex the legs own (max weight) is more than `FEET_GAP` (3 cm) up, and the skin
+below the feet belongs to chains that leave the body at a branch (not the root or the
+trunk), the game files are lowered onto the feet and each such chain is turned up at its
+root, about the horizontal axis across it, until its skin clears the ground by `CLEAR`
+(0.02) x the height. The pose is baked into LOD0 and the rigged LODs (weighted from LOD0 in
+the old rest pose first) and applied as the new rest pose, so no repaint is needed;
+`rig/chosen.glb` and its quality score keep the QA pose. Recorded in `rig.json` and
+`manifest.rig.grounded` (`shift_m`, `turned_deg` per chain, `feet_low_m`, `min_z_m`).
+Giant eagle: lowered 0.355 m, tail fan `bone_28` turned 33.9 degrees and the left feather
+lobe `bone_30` 3.7; feet at z = 0, every LOD's lowest vertex within 1.4 cm of it, height
+4.16 -> 3.81 m. The other pilots' feet already stand on the ground (the harpy's 4 cm gap
+is hip feathers skinned to the root, which cannot be turned, so it is left as it is).
+
+**`rig_reweight` override** (`tools/rig_reweight.py`, run by `blender_rig.py` finalize before
+the sockets): a list of chains, each `{bones: [root..tip], reach, bias, blend, strip, fit,
+hand_room, far}`. Vertices within `reach` of the chain and nearer to it (x `bias`) than to
+any other bone go to their two nearest chain bones (a `blend` band keeps some old weight);
+`strip` removes the chain's weights elsewhere; `far` drops weights of bones farther than
+that from the vertex in and around the region (bleed across the body); `fit` first moves
+the chain's joints to the centroid of the limb's cross-section at each end, and
+`hand_room` stops the tip bone that far short of the limb's end so the 4%-height hand bone
+`add_sockets` adds there spans the fist. Only the game files change: `rig/chosen.glb` and
+its quality score keep SkinTokens' weights, and every `rig --force` re-applies it. The
+harpy uses `[{bones: [bone_18, bone_19], reach 0.15, fit, hand_room 0.068}]`: SkinTokens
+skinned its right arm to the wing chains (the left wing's bone_12/bone_13 included) and put
+bone_18/bone_19's weights on the right thigh, and the arm bones ran along the outside of the
+arm. After: `hand_r`/`grip_r` 1.3/0.2 cm from the skin (5.5/8.0 before), 3.3/3.0 cm from the
+fist centre (10/12 before); bone_18/bone_19 own 197/108 vertices (0/0); edges stretched
+past 4x over the sword cut 175 -> 77, over `fly` 211 -> 223 (right side 129 -> 139, the arm
+now stays at the side while the wing beats; it used to fly up into the wing).
+
 A successful `rig` or `anim` run drops that stage's entries from `manifest.errors` (which
 forge.py appends on every failure), so a fixed monster no longer reads as broken.
 The viewer's `sockets` toggle draws each socket bone with its axes, and `prop` hangs a
@@ -223,8 +263,27 @@ overshoots: for such a fan the settle passes also ease the turn back down while 
 more than `FLOOR_TOL`, the last pass only lifts. Giant eagle walk (a scratch job; its record
 has no `walk`): lowest vertex -0.085 -> +0.001 m, body raise 0.092 -> 0, stride 0.5 -> 0.8,
 fan turned up to 25.7 degrees; its idle, lunge and hit no longer lift the body either (the
-lunge runs at full size, was 0.8). The eagle's feet stand 0.36 m above the ground at rest
-(QA grounds the mesh on the fan): the clips keep the rest pose's feet.
+lunge runs at full size, was 0.8). Since the rig stage stands the eagle on its feet (above)
+its fan rests 8 cm above the ground and the floor clips barely turn it (0-6 degrees); idle,
+lunge, hit and death stay within 1.8 cm of the ground, fly hovers at 0.32 m as before.
+
+**Idle height** (`anim.idle_lift`, override `idle_lift`). The game moves a monster with
+`walk`, else `swim`, else `fly` (godot-dnd `Monster.move_clip()`). A monster whose
+`animation_set` has no `walk` only swims or flies, so its idle is held where that clip holds
+the body (`match_move`): a `lift` move clip (legless swim, the ghost's fly) gives the idle
+the same constant body lift, a `hover` one (a bird's fly) the same lowest-vertex height,
+and a legged flier idles in the air on a slow, small beat of its fly clip (0.6 of the flap,
+2.5 s) instead of standing on nothing. Monsters that walk keep a floor idle (harpy, dragon:
+they land). The override takes metres of lift, `"match_move"`, or `false` for the floor.
+Body lift idle / move, before -> after: giant octopus 0.062 / 0.341 -> 0.341 / 0.341 (lowest
+vertex 0.00 -> 0.28, swim 0.21); merfolk 0 / 0.18 -> 0.18 / 0.18 (swim pitches the body, so
+its lowest vertex is 0.43); giant eagle lowest vertex 0.00 / 0.32 -> 0.32 / 0.32; ghost and
+hunter shark already matched (0.18, 0.74).
+
+**Lift clips that would touch the ground.** `lift` keeps the body at one height, but a pose
+can still push a part through the floor (the ghost's hit tilts its robe train to -1.3 cm):
+those frames, and only those, are raised by the dip (ghost hit: lowest vertex -0.013 -> 0,
+lift 0.18 -> at most 0.193 m).
 
 Known limits: the owlbear walk and lunge run at half size. The kept skeleton
 (`rig/chosen.glb` = roll_1 since score v2) skins the tail fan to the tail chain (`bone_13`);
@@ -249,15 +308,15 @@ centauroid stay on the legged framework (centauroid adds the arms via `anim.ARME
 | plan | pilot | rig | clips | result |
 |---|---|---|---|---|
 | serpentine | constrictor-snake | `fallback:spine_chain` (16 bones). SkinTokens: 7-13 joint star, no chain (4 of 4) | `walk`/`swim` slither (curvature wave head -> tail, mid-body root holds place and heading), `idle`, `attack_melee` strike (front quarter rears and strikes), `hit`, `death` (front slumps). Ground `contact` | works; the coiled mesh's touching coils needed a weight fix (below) |
-| floating | ghost | SkinTokens roll 3 (34 joints): a biped under the robe, legs to the hem, both arms, `hand_r/l` | `idle`, `fly` (lean + hem trailing), `attack_melee` (both arms reach, FK-aimed), `hit`, `death` (falls forward onto the ground). All but death `lift`: a constant 0.1 x height above the ground in every clip | works |
-| avian | giant-eagle | SkinTokens roll 3 (32 joints): both wing chains, 2 legs, no spine (`problems` spine, leg_pairs) | legged framework: `idle`, `fly` (both wings flap), `attack_melee` (lunge), `hit` (no body tilt for avian), `death` (pitches forward onto its breast, wings fold back). The 2-bone tail fan resting on the ground is turned up instead of the body being raised (Anim stage) | works; `walk` (not in this record's set) builds clean in scratch. `find_snout` takes the left wing's leading bone as the head (the wing reaches farthest forward), so the lunge leads with it |
+| floating | ghost | SkinTokens roll 3 (34 joints): a biped under the robe, legs to the hem, both arms, `hand_r/l` | `idle`, `fly` (lean + hem trailing), `attack_melee` (both arms reach, FK-aimed), `hit`, `death` (falls forward onto the ground; the robe train, flat on the floor behind the feet at rest, folds back at the hem's first bone below 0.15 x the height so it lies flat instead of standing up as a 0.9 m sheet: last-frame top 1.28 -> 0.78 m, body raise 0.30 -> 0.18). All but death `lift`: a constant 0.1 x height above the ground in every clip | works |
+| avian | giant-eagle | SkinTokens roll 3 (32 joints): both wing chains, 2 legs, no spine (`problems` spine, leg_pairs) | legged framework: `idle`, `fly` (both wings flap), `attack_melee` (lunge), `hit` (no body tilt for avian), `death` (pitches forward onto its breast, wings fold back). The 2-bone tail fan resting on the ground is turned up instead of the body being raised (Anim stage) | works; `walk` (not in this record's set) builds clean in scratch. The head is the beak (`find_snout` skips wings) and the rig stage stands it on its feet (Rig stage) |
 | amorphous | black-pudding | `fallback:vertical` (4 bones, one straight line through the upper body's bbox centre). SkinTokens: 21-24 joints, 0.83-0.88 bleed | squash and stretch = the root's scale (`vscale`: on the bone axis closest to world up), lean = chain about X. `idle` pulse, `walk` ooze, `attack_melee` engulf (rear up, surge and flatten forward), `hit`, `death` (flattens into a puddle 1.5x wide). Ground `contact` | works |
-| plant_object | violet-fungus | `fallback:vertical` (5 bones). SkinTokens roll 3 was clean but rooted at the cap with the stalk hanging down | stalk sway `idle`, `walk` shuffle (rock), `attack_melee`/`attack_special` (coil back, whip forward), `hit`, `death` (topples onto its right side). Limbs (tendrils, branches) found off the stalk swing too when the skeleton has them | works (this mesh has no tendrils) |
+| plant_object | violet-fungus | `fallback:vertical` (5 bones). SkinTokens roll 3 was clean but rooted at the cap with the stalk hanging down | stalk sway `idle`, `walk` shuffle (rock), `attack_melee`/`attack_special` (coil back, whip forward), `hit`, `death` (topples onto its right side: the root bone, which owns the base clump, stays planted and the stalk breaks over at the next two bones (0.7 / 0.3 of the angle) by the angle that brings the cap onto the ground, bisected in `fit_angle`: 83.6 degrees; the base used to roll over with it and stand on its side). Limbs (tendrils, branches) found off the stalk swing too when the skeleton has them | works (this mesh has no tendrils) |
 | tentacled | giant-octopus | `fallback:tentacle_hub`: root + body + 8 tentacles x 5 bones (tips = local maxima of geodesic distance from the mantle). SkinTokens rolls 2-3 also gave a usable hub (58-67 joints), but unnamed | `idle` (phase-shifted curls), `swim`/`fly` (all pulse together, `lift`), `walk` (crawl wave), `attack_melee` (two front tentacles rear and lash), `hit`, `death` (splay flat, body flattens) | works |
 | aquatic | hunter-shark | SkinTokens roll 2 (32 joints): spine head to tail, pectoral fins, tail lobes | `swim`/`idle`/`walk` carangiform wave (grows toward the tail), `attack_melee` (dart + head snap), `hit`, `death` (rolls belly-up, sinks to the ground). All but death `lift` 0.25 x height | works |
 | centauroid | centaur-trooper (proxy: a horse and rider) | SkinTokens roll 3 (66 joints): both arms, head, spine; 3 legs (the reference prances, one front hoof lifted) | stage refuses: 3 of 4 feet. Built in scratch with feet 3: all six clips (sword cut and bow draw on the rider's arms, quadruped walk and death) | strategy verified on a proxy; no centaur mesh yet |
-| merfolk_naga | merfolk-skirmisher | SkinTokens (52 joints): spine, tail chain, arms with fingers. Both arms are out sideways, the right one raised: `find_arms` takes them since the raised-arm fallback (sockets `hand_l` bone_16, `hand_r` bone_28, `back` on the chest bone_3, `head` bone_5; score -1.40 -> -0.80, no problems) | `idle`, `swim` (body pitched 55 degrees, tail kicks about X, `lift`), `walk` (tail slithers sideways), `attack_melee`/`attack_ranged` (biped sword cut on the right arm, also for the throw), `hit`, `death` (topples onto its right side) | works |
-| swarm | swarm-of-rats | `fallback:root` (1 bone, all weights 1) | root only: `idle` bob, `walk`/`fly`/`swim` scurry (lift for fly/swim), `attack_melee` surge, `hit`, `death` (flattens) | works; the game spreads units |
+| merfolk_naga | merfolk-skirmisher | SkinTokens (52 joints): spine, tail chain, arms with fingers. Both arms are out sideways, the right one raised: `find_arms` takes them since the raised-arm fallback (sockets `hand_l` bone_16, `hand_r` bone_28, `back` on the chest bone_3, `head` bone_5; score -1.40 -> -0.80, no problems) | `idle`, `swim` (body pitched 55 degrees, tail kicks about X, `lift`), `walk` (tail slithers sideways), `attack_melee`/`attack_ranged` (biped sword cut on the right arm, also for the throw), `hit`, `death` (topples onto its right side; the left arm, on top, drops against the body instead of pointing at the sky, the right one swings up past the head) | works |
+| swarm | swarm-of-rats | `fallback:root` (1 bone, all weights 1) | root only: `idle` bob, `walk`/`fly`/`swim` scurry (lift for fly/swim), `attack_melee` surge, `hit`, `death` (scatter and sink: 1.7x wide, 0.3 of the height, a slight slew; a squash to 0.15 flattened the rats) | works; the pilot mesh is a 1.4 m column of rats (the reference draws a wall of them). The batch should model one unit per swarm and leave the swarm to the game (particles or instances) |
 
 Fallback skeletons (`blender_rig.py`):
 
@@ -292,4 +351,7 @@ depth came out about 3x too tall.
 Ground modes (`Clip.ground`): `floor` (legged), `hover` (fly: lowest vertex `HOVER` above the
 ground, per clip), `rest` (death), `contact` (legless: lowest vertex on the ground every frame),
 `lift` (floating, aquatic, swim: the same constant height in every clip, so clips do not pop
-against each other). Bone scale layers: `Clip.scale`, keyed with the rotations.
+against each other; a frame whose pose dips below the ground is raised by the dip), `none`
+(a rooted fall: `Clip.fit` bisects the clip's fall angle until the last frame's lowest
+vertex not owned by the planted root bone touches the ground). Bone scale layers:
+`Clip.scale`, keyed with the rotations.

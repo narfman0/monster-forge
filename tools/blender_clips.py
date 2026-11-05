@@ -137,13 +137,16 @@ fangs = [n for n in kids[root] if job["sprawl"] and n not in {x for g in legs fo
 
 
 def neck_and_spine() -> tuple[list[str], list[str]]:
-    """Split the root-to-head path where the front legs (or arms) branch off: below is the
-    spine, above the neck and head."""
+    """Split the root-to-head path where the front legs (or arms, or a bird's wings)
+    branch off: below is the spine, above the neck and head."""
     if not head:
         return [], []
     path = rig_topology.path_to_root(head, bones)
     cut = -1
-    for limb in [g["chain"][0] for g in front] + [a["root"] for a in arms]:
+    # a bird's wings are its forelimbs: the neck starts above the bone they hang from, so
+    # a head turn does not swing the wings with it
+    wing_roots = [w["chain"][0] for w in wings] if PLAN == "avian" else []
+    for limb in [g["chain"][0] for g in front] + [a["root"] for a in arms] + wing_roots:
         up = rig_topology.path_to_root(limb, bones)  # where the limb joins the head's path
         joint = max((i for i, n in enumerate(path) if n in up), default=-1)
         cut = max(cut, joint)
@@ -264,6 +267,7 @@ class Clip:
         self.targets: list = []                     # (leg, IK empty, rest position)
         self.scale: dict[str, object] = {}          # bone -> fn(t) -> local scale Vector
         self.hover = HOVER                          # hover: lowest vertex this high, metres
+        self.fit = None                             # {"set", "lo", "hi", "bone"}: see fit_angle()
 
     def turn(self, bone, axis: str, fn) -> None:
         if bone:
@@ -487,6 +491,40 @@ def clear_pose() -> None:
         bpy.data.actions.remove(a)
 
 
+def fit_angle(clip: Clip) -> None:
+    """A rooted fall (ground "none"): bisect the clip's fall angle (`fit["set"]`, between
+    `lo` and `hi` degrees) until the last frame's lowest vertex not owned by `fit["bone"]`
+    (the planted base) touches the ground. The root does not move, so the base stays where
+    it stands."""
+    f = clip.fit
+    mask = np.concatenate([np.array([max(v.groups, key=lambda g: g.weight).group != o.vertex_groups[f["bone"]].index
+                                     if v.groups else True for v in o.data.vertices])
+                           if f["bone"] in o.vertex_groups else np.ones(len(o.data.vertices), bool) for o in meshes])
+    lo, hi = f["lo"], f["hi"]
+    for _ in range(12):
+        mid = (lo + hi) / 2
+        f["set"](mid)
+        key_fk(clip)
+        scene.frame_set(clip.frames + 1)
+        dg = bpy.context.evaluated_depsgraph_get()
+        zs = []
+        for o in meshes:
+            ev = o.evaluated_get(dg)
+            m = ev.to_mesh()
+            co = np.empty(len(m.vertices) * 3)
+            m.vertices.foreach_get("co", co)
+            zs.append((co.reshape(-1, 3) @ np.array(ev.matrix_world.to_3x3()).T)[:, 2] + ev.matrix_world.translation.z)
+            ev.to_mesh_clear()
+        z = float(np.concatenate(zs)[mask].min())
+        if z > 0:
+            lo = mid
+        else:
+            hi = mid
+    f["set"](lo)
+    key_fk(clip)
+    clip.info["fall_deg"] = round(lo, 1)
+
+
 def build(clip: Clip) -> dict:
     """Key, ground, bake and export one clip; returns its report."""
     t0 = time.time()
@@ -500,12 +538,18 @@ def build(clip: Clip) -> dict:
     key_fk(clip)
     zero = [0.0] * (clip.frames + 1)
     key_root(clip, zero)
+    if clip.fit:
+        fit_angle(clip)
     corr = zero
     fix = [[0.0] * (clip.frames + 1) for _ in legs]
     tail_up = [0.0] * (clip.frames + 1)
-    if clip.ground == "lift":  # constant: nothing to settle
+    if clip.ground == "lift":  # constant, so clips do not pop against each other ...
         corr = [clip.hover] * (clip.frames + 1)
         key_root(clip, corr)
+        lows, _, _ = sample(clip)  # ... except where a pose would push a part (a hem) through the ground
+        if lows.min() < 0:
+            corr = [h + max(0.0, -float(z)) for h, z in zip(corr, lows)]
+            key_root(clip, corr)
     elif clip.ground != "none":
         if tail and clip.ground == "floor":
             clip.rot.setdefault(tail[0], []).append((TAIL_AXIS, lambda t: tail_up[round(t * clip.frames)]))
@@ -786,23 +830,25 @@ def death() -> Clip:
     return c
 
 
-def fly() -> Clip:
+def fly(name: str = "fly", amp: float = 1.0, seconds: float | None = None) -> Clip:
     """Hover: wings beat (a wave down each chain), legs hang limp, the body rises on the
-    downstroke and sinks on the upstroke, held off the ground by the hover lift."""
-    c = Clip("fly", 1.2 if height < 3 else 1.6, True)
+    downstroke and sinks on the upstroke, held off the ground by the hover lift. `amp`
+    scales the beat and the bob, `seconds` sets the loop (the lifted idle of a creature that
+    only flies: 0.6 over 2.5 s, one slow beat)."""
+    c = Clip(name, seconds or (1.2 if height < 3 else 1.6), True)
     c.ground = "hover"
     c.ik = lambda g, t: 0.0
-    bob = 0.06 if height < 3 else 0.1
+    bob = (0.06 if height < 3 else 0.1) * amp
     c.lift = lambda t: Vector((0, 0, bob * math.sin(2 * math.pi * (t - 0.1))))
     lean = -12 if job["upright"] else 4
     c.tilt = lambda t: Quaternion(AXES["X"], math.radians(lean + 2 * math.sin(2 * math.pi * (t - 0.3))))
     c.pivot = Vector((cx, leg_y, 0.6 * height))
     for w in wings:
         s, ch = w["side"], w["chain"]
-        c.turn(ch[0], "Y", lambda t, s=s: sym(s, -28 * math.cos(2 * math.pi * t)))
-        c.turn(ch[0], "Z", lambda t, s=s: sym(s, -8 * math.sin(2 * math.pi * t)))
+        c.turn(ch[0], "Y", lambda t, s=s: sym(s, -28 * amp * math.cos(2 * math.pi * t)))
+        c.turn(ch[0], "Z", lambda t, s=s: sym(s, -8 * amp * math.sin(2 * math.pi * t)))
         for i, n in enumerate(ch[1:4], 1):
-            c.turn(n, "Y", lambda t, s=s, i=i: sym(s, -10 * math.cos(2 * math.pi * (t - 0.08 * i))))
+            c.turn(n, "Y", lambda t, s=s, i=i: sym(s, -10 * amp * math.cos(2 * math.pi * (t - 0.08 * i))))
     for g in legs:
         if job["upright"]:
             c.turn(g["chain"][0], "X", lambda t: 15 + 3 * math.sin(2 * math.pi * t))
@@ -1064,6 +1110,7 @@ def death_serpent() -> Clip:
 # every clip hovers (ground "hover": the lowest vertex FLOAT x height above the ground
 # over the cycle), the hem chains trail and sway, death sinks onto the ground face down.
 FLOAT = 0.1
+HEM_FOLD = 0.15     # death: hem bones whose joint is this low (x height) fold the train flat
 hem = rig_topology.find_legs(bones, height, 4, False) if PLAN == "floating" else []
 
 
@@ -1155,9 +1202,17 @@ def death_float() -> Clip:
     for a in arms:
         c.turn(a["upper"], "X", keys((0, 0), (0.3, 30), (0.8, 60), (1, 60)))
         c.turn(a["forearm"], "X", keys((0, 0), (0.4, 20), (1, 20)))
+    fold = []
     for g in hem:
-        c.turn(g["chain"][0], "X", keys((0, 0), (0.5, -8), (1, -8)))  # the hem lies flat behind
-    c.info = {"falls": "forward"}
+        c.turn(g["chain"][0], "X", keys((0, 0), (0.5, -8), (1, -8)))
+        # the train spreads flat on the floor behind the feet at rest, square to the body:
+        # carried through the fall it would stand up as a sheet behind the lying body, so
+        # the hem's first low bone folds back against the fall and the train stays flat
+        low = next((n for n in g["chain"][1:] if by_name[n]["head"][2] < HEM_FOLD * height), None)
+        if low:
+            c.turn(low, "X", lambda t: -fall(t))
+            fold.append(low)
+    c.info = {"falls": "forward", "hem_fold": fold}
     return c
 
 
@@ -1343,17 +1398,30 @@ def hit_plant() -> Clip:
 
 
 def death_plant() -> Clip:
-    """Wilt: the stalk sags, then topples over to its right and lies on the ground; limbs
-    go limp. Holds."""
+    """Wilt: the stalk sags, then topples over to its right onto the ground; limbs go limp.
+    Holds. The root bone owns the base clump (the vertical fallback weights it alone up to
+    about a fifth of the height) and stays planted: the stalk breaks over at the bones
+    above it, by the angle that brings the cap down onto the ground (`fit`, found in
+    build()), so the base never stands up on its side."""
     c = plant_clip("death", 2.0, False)
-    c.ground, c.rest_from = "rest", 0.8
-    c.pivot = Vector((cx + 0.2 * height, by_name[STALK[0]]["head"][1], 0))
-    fall = lambda t: 85 * ease_in((t - 0.3) / 0.45) - 4 * math.sin(math.pi * smooth((t - 0.75) / 0.15))
-    c.tilt = lambda t: Quaternion(AXES["Y"], math.radians(fall(t)))
+    c.ground = "none"
+    over = [n for n in STALK if n != root][:2]
+    share = [0.7, 0.3][:len(over)]
+    if not over:  # a stalk of one bone: the whole plant tips over about its base
+        c.ground, c.rest_from = "rest", 0.8
+        c.pivot = Vector((cx + 0.2 * height, by_name[STALK[0]]["head"][1], 0))
+    fit = {"deg": 85.0}
+    fall = lambda t: fit["deg"] * ease_in((t - 0.3) / 0.45) - 4 * math.sin(math.pi * smooth((t - 0.75) / 0.15))
+    if over:
+        for n, k in zip(over, share):
+            c.turn(n, "Y", lambda t, k=k: k * fall(t))
+        c.fit = {"set": lambda v: fit.__setitem__("deg", v), "lo": 20.0, "hi": 130.0, "bone": root}
+    else:
+        c.tilt = lambda t: Quaternion(AXES["Y"], math.radians(fall(t)))
     stalk_turn(c, "X", keys((0, 0), (0.3, -12), (1, -12)), 0.0)
     for ch in LIMBS:
         limb_turn(c, ch, keys((0, 0), (0.5, -25), (1, -25)))
-    c.info = {"falls_on": "right"}
+    c.info = {"falls_on": "right", "breaks_at": over[:1]}
     return c
 
 
@@ -1609,7 +1677,11 @@ def death_naga() -> Clip:
     c.tilt = lambda t: Quaternion(AXES["Y"], math.radians(fall(t)))
     c.turn_chain(torso, "X", keys((0, 0), (0.3, -12), (1, 6)))
     for a in arms:
-        c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, keys((0, 0), (0.3, -10), (0.75, -50), (1, -50))(t)))
+        # the right arm (underneath) swings up past the head, out of the ground; the left
+        # one (on top) drops against the side, which after the roll lies along the body
+        # instead of standing up (an arm held out sideways at rest points at the sky)
+        end = -50 if a["side"] == "r" else 70
+        c.turn(a["upper"], "Y", lambda t, s=a["side"], e=end: sym(s, keys((0, 0), (0.3, -10), (0.75, e), (1, e))(t)))
         c.turn(a["forearm"], "X", keys((0, 0), (0.4, 25), (1, 25)))
     return c
 
@@ -1656,8 +1728,14 @@ def hit_swarm() -> Clip:
 
 
 def death_swarm() -> Clip:
+    """Scatter and sink: the cluster spreads out over the ground (1.7x in X and Y) and
+    settles to 0.3 of its height, a heap of bodies rather than a pancake (a squash to
+    0.15 flattened the rats of the column-shaped pilot mesh into a disc). Holds."""
     c = swarm_clip("death", 1.5, False)
-    c.scale[root] = lambda t: vscale(root, 1 + 0.3 * smooth(t / 0.7), 1 - 0.85 * smooth(t / 0.7))
+    k = lambda t: smooth(t / 0.7)
+    c.scale[root] = lambda t: vscale(root, 1 + 0.7 * k(t), 1 - 0.7 * k(t))
+    c.tilt = lambda t: Quaternion(AXES["Z"], math.radians(12 * k(t)))  # the heap slews a little as it spreads
+    c.info = {"spread": 1.7, "sink": 0.3}
     return c
 
 
@@ -1700,6 +1778,41 @@ def legless_clips() -> dict:
 
 
 makers = legless_clips() if legless else plan_clips()
+
+
+def lifted_idle(base):
+    """job idle_lift (anim.py): "match_move" holds the idle where the move clip
+    (job move_clip: swim or fly, for a creature with no walk) holds the body, its ground
+    mode and height: a "lift" move clip (legless swim, a ghost's fly) gives the same
+    constant body lift, a "hover" one (a bird's fly) the same lowest-vertex height; a
+    number lifts the idle by that many metres ("lift"). A legged flier's idle is then a
+    gentler beat of its fly clip, so it hovers instead of standing on the air."""
+    v = job["idle_lift"]
+    mv = makers.get(job.get("move_clip") or "")
+    if v == "match_move" and mv is None:
+        return base
+    if v == "match_move" and legs and wings and job.get("move_clip") == "fly":
+        def hover_idle(s):
+            c = fly("idle", 0.6, 2.5)  # the idle's usual length: one slow beat per loop
+            c.info["idle_lift"] = v
+            return c
+        return hover_idle
+
+    def make(s):
+        c = base(s)
+        if v == "match_move":
+            m = mv(1.0)  # its settings only: nothing is keyed until build()
+            c.ground, c.hover = m.ground, m.hover
+        else:
+            c.ground, c.hover = "lift", float(v)
+        c.ik = lambda g, t: 0.0
+        c.info = {**c.info, "idle_lift": v}
+        return c
+    return make
+
+
+if job.get("idle_lift") not in (None, False, 0) and "idle" in makers:
+    makers["idle"] = lifted_idle(makers["idle"])
 report = {"height": round(height, 3), "drop": round(drop, 3), "root": root, "head": head, "neck": neck,
           "spine": spine, "tail": tail, "arms": {a["side"]: a["chain"] for a in arms},
           "wings": {w["side"]: w["chain"] for w in wings}, "legs": [g["chain"] for g in legs],

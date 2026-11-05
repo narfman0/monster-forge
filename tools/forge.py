@@ -361,11 +361,84 @@ def resolve_style(name: str | None) -> str:
     raise RuntimeError(f"unknown style {name!r} (no data/styles/{name}.json)")
 
 
+UNARMED_CHECK = ROOT / "tools" / "unarmed_check.py"
+
+
+def ref_pose_image(mon: dict, style: dict) -> Path | None:
+    """The A-pose ControlNet image apply_style() feeds for this monster, if any."""
+    cn = (style or {}).get("controlnet")
+    if not cn or mon["body_plan"] not in cn.get("body_plans", []):
+        return None
+    imgs = cn["pose_images"]
+    return ROOT / imgs.get(mon["size"], imgs["default"])
+
+
+def unarmed_check(mon: dict, d: Path, n: int, style: dict) -> dict | None:
+    """Score ref_0..ref_<n-1> for a held weapon (tools/unarmed_check.py, docs/references.md).
+    Returns the manifest's ref.unarmed record ({model, threshold, scores, armed, best,
+    candidates}; best = the first candidate at or under the threshold, else the lowest), or None when the check is off (`ref_unarmed_check` false) or not needed
+    (no `unarmed_reference`). A failed check logs and records the error, never fails the stage."""
+    if not mon.get("unarmed_reference") or ov_for(mon).get("ref_unarmed_check") is False:
+        return None
+    paths = [str(d / f"ref_{i}.png") for i in range(n)]
+    cmd = [PIL_PYTHON, "-I", str(UNARMED_CHECK), "--name", "a " + mon["name"].lower(), *paths]
+    pose = ref_pose_image(mon, style)
+    if pose:
+        cmd[3:3] = ["--pose-image", str(pose)]
+    t0 = time.time()
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        if proc.returncode != 0:
+            raise RuntimeError(proc.stderr.strip().splitlines()[-1] if proc.stderr.strip() else proc.returncode)
+        rep = json.loads(proc.stdout.strip().splitlines()[-1])
+    except Exception as e:  # keep the stage going: the pick falls back to ref_pick / 0
+        log(f"{mon['id']}: WARNING unarmed check failed ({e}); pick not checked")
+        return {"error": str(e)[:500]}
+    cands = rep["candidates"]
+    scores = [c["score"] for c in cands]
+    # the first empty-handed candidate (the candidates are otherwise exchangeable, and the
+    # lowest score is not the most on-model one: bandit ref_2 is a fox); all armed: the lowest
+    armed = [i for i, c in enumerate(cands) if c["armed"]]
+    best = next((i for i in range(len(cands)) if i not in armed),
+                min(range(len(scores)), key=lambda i: (scores[i], i)))
+    out = {"model": rep["model"], "threshold": rep["threshold"], "scores": scores, "armed": armed, "best": best,
+           "candidates": [{k: c.get(k) for k in ("score", "top", "hand_source", "hands", "whole")} for c in cands],
+           "seconds": round(time.time() - t0, 1)}
+    if len(out["armed"]) == len(cands):
+        out["warning"] = (f"every candidate scores armed (> {rep['threshold']}): re-roll the ref "
+                          "(--n 4 --seed ...) or pin ref_pick after a look")
+        log(f"{mon['id']}: WARNING {out['warning']}; scores {scores}")
+    else:
+        log(f"{mon['id']}: unarmed check {scores} (armed {out['armed']}, first empty-handed {best})")
+    return out
+
+
 def stage_ref(mon: dict, d: Path, args) -> None:
     man = load_manifest(d)
     refs = sorted(d.glob("ref_*.png"))
     if refs and (d / "ref.png").exists() and not args.force:
         log(f"{mon['id']}: ref exists, skip")
+        ref = man.get("ref") or {}
+        if mon.get("unarmed_reference") and "unarmed" not in ref and refs:
+            # score the kept candidates once, for the record; ref.png (and the mesh made
+            # from it) stay as they are
+            ov = ov_for(mon)
+            style = load_style(resolve_style(args.style or ov.get("style")))
+            n = sum(1 for i in range(len(refs)) if (d / f"ref_{i}.png").exists())
+            chk = unarmed_check(mon, d, n, style)
+            if chk is not None:
+                # the candidate in use: a pinned ref_pick, else what the mesh was made from
+                picked = next((x for x in (ov.get("ref_pick"), (man.get("mesh") or {}).get("ref_picked"),
+                                           ref.get("picked")) if x is not None), 0)
+                chk["in_use"] = picked
+                if chk.get("scores") and picked < len(chk["scores"]) and picked in chk["armed"]:
+                    chk["warning_pick"] = (f"kept pick ref_{picked} scores armed ({chk['scores'][picked]}); "
+                                           f"ref_{chk['best']} is the first empty-handed one")
+                    log(f"{mon['id']}: WARNING {chk['warning_pick']}")
+                man.setdefault("ref", {})["unarmed"] = chk
+                if "scores" in chk:
+                    man["ref"]["unarmed_scores"] = chk["scores"]
+                save_manifest(d, man)
         return
     for p in refs:
         p.unlink()
@@ -397,14 +470,21 @@ def stage_ref(mon: dict, d: Path, args) -> None:
     images = outputs["save"]["images"]
     for i, img in enumerate(images):
         fetch_output(img, d / f"ref_{i}.png")
-    pick = min(args.pick if args.pick is not None else ov.get("ref_pick", 0), len(images) - 1)
+    chk = unarmed_check(mon, d, len(images), style)
+    if args.pick is not None or ov.get("ref_pick") is not None:  # pinned: the check only records
+        pick, how = args.pick if args.pick is not None else ov["ref_pick"], "pinned"
+    elif chk and "best" in chk:
+        pick, how = chk["best"], "unarmed_check"
+    else:
+        pick, how = 0, "default"
+    pick = min(pick, len(images) - 1)
     shutil.copyfile(d / f"ref_{pick}.png", d / "ref.png")
     dt = round(time.time() - t0, 1)
     man.update({"id": mon["id"], "name": mon["name"], "source": mon["source"],
                 "size": mon["size"], "body_plan": mon["body_plan"], "scale_m": mon["scale_m"]})
     man["ref"] = {"model": wf["ckpt"]["inputs"]["ckpt_name"], "prompt": prompt,
                   "negative": wf["neg"]["inputs"]["text"], "seed": seed0, "n": len(images),
-                  "picked": pick, "steps": wf["sample"]["inputs"]["steps"],
+                  "picked": pick, "picked_by": how, "steps": wf["sample"]["inputs"]["steps"],
                   "cfg": wf["sample"]["inputs"]["cfg"], "sampler": wf["sample"]["inputs"]["sampler_name"],
                   "size": [wf["latent"]["inputs"]["width"], wf["latent"]["inputs"]["height"]],
                   "style": style.get("name") if style else None,
@@ -414,6 +494,10 @@ def stage_ref(mon: dict, d: Path, args) -> None:
                                   "strength": wf["cn_apply"]["inputs"]["strength"]}
                                  if "cn_apply" in wf else None),
                   "seconds": dt}
+    if chk is not None:
+        man["ref"]["unarmed"] = chk
+        if "scores" in chk:
+            man["ref"]["unarmed_scores"] = chk["scores"]
     man.setdefault("timings", {})["ref"] = dt
     save_manifest(d, man)
     log(f"{mon['id']}: ref done in {dt}s ({len(images)} candidates, picked {pick})")

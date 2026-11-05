@@ -10,7 +10,11 @@ report, sprawl, upright, plan); tools/rig.py turns them into the roll score.
 mode "fallback": a generated skeleton for plans SkinTokens cannot rig (job: src = model.glb,
 dst, report, kind, plan); see fallback() below. tools/rig.py RIG_STRATEGY says which plans.
 mode "finalize": from the chosen rig write the game files (job: src, base_color,
-lods {k: path}, out_dir, report, hands, sockets):
+lods {k: path}, out_dir, report, hands, sockets, reweight):
+
+- reweight (optional, the `rig_reweight` override): chains re-weighted geometrically and
+  optionally fitted into the limb (tools/rig_reweight.py) before anything else. Only the
+  game files see it; rig/chosen.glb and its quality score keep SkinTokens' weights.
 
 - model_rigged.glb: the rig with the current albedo, so a later paint needs no new rig.
   Sockets (docs/equipment.md) are added first: the hand bones are renamed hand_r/hand_l
@@ -19,6 +23,9 @@ lods {k: path}, out_dir, report, hands, sockets):
   fist in the prop frame, and `back`, `hip_l`, `hip_r` are new non-deforming bones on the
   upper spine and pelvis. SkinTokens names bones bone_<n>, so without this a game has no
   way to find a hand;
+- a legged mesh QA grounded on something other than its feet (a tail fan) is lowered onto
+  them and the parts below the feet are turned up, as a new rest pose (ground_feet; job
+  key feet = the plan's foot count);
 - model_rigged_lod<k>.glb: each LOD with skin weights transferred from LOD0 by nearest
   surface point. All share one armature, so the joint order matches and an engine can swap
   LOD geometry under one skeleton. As with model_lod<k>.glb they carry no images.
@@ -30,11 +37,12 @@ from pathlib import Path
 
 import bpy
 import numpy as np
-from mathutils import Quaternion, Vector
+from mathutils import Matrix, Quaternion, Vector
 from mathutils.bvhtree import BVHTree
 from mathutils.kdtree import KDTree
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import rig_reweight  # noqa: E402
 import rig_topology  # noqa: E402
 
 job = json.loads(sys.argv[sys.argv.index("--") + 1])
@@ -110,10 +118,14 @@ def clamp_metallic(materials) -> None:
         bsdf.inputs["Metallic"].default_value = 0.0
 
 
-def transfer(lod_path: str, dst: Path) -> None:
+def transfer(lod_path: str):
+    """Import a static LOD and give it LOD0's weights (nearest surface point, at most 4
+    influences, normalised) under the one armature; returns the LOD object (export_lod)."""
     before = set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=lod_path)
     lod = next(o for o in bpy.data.objects if o not in before and o.type == "MESH")
+    for o in set(bpy.data.objects) - before - {lod}:
+        bpy.data.objects.remove(o)
     for i in range(min(len(lod.data.materials), len(me.data.materials))):
         lod.data.materials[i] = me.data.materials[i]  # LOD0's material, so the name matches (docs/lods.md)
     select(me, lod)
@@ -125,10 +137,116 @@ def transfer(lod_path: str, dst: Path) -> None:
     bpy.ops.object.vertex_group_normalize_all(group_select_mode="ALL", lock_active=False)
     lod.parent = arm
     lod.modifiers.new("Armature", "ARMATURE").object = arm
+    return lod
+
+
+def export_lod(lod, dst: Path) -> None:
     select(lod, arm)
     bpy.ops.export_scene.gltf(filepath=str(dst), export_format="GLB", use_selection=True, export_yup=True,
                               export_image_format="NONE")
-    bpy.data.objects.remove(lod)
+
+
+FEET_GAP = 0.03  # metres: feet standing higher than this at rest get the body lowered onto them
+CLEAR = 0.02     # x height: a chain turned up off the ground clears it by this much (room for a crouch)
+
+
+def ground_feet(feet: int, objs: list) -> dict | None:
+    """Stand a legged mesh on its feet. QA grounds the mesh on its lowest vertex; when that
+    is not a foot (the giant eagle rests on its tail fan, its feet 0.35 m up), the rest
+    pose lowers the whole body until the lowest vertex the legs own touches z = 0, and
+    every other chain that then goes below the ground (a tail fan, a feather lobe) is
+    turned up at its root just far enough to rest on it (about the horizontal axis across
+    the chain, as the clips turn a tail). The pose is baked into the meshes (`objs`: LOD0
+    and the rigged LODs, weighted in the old rest pose) and becomes the new rest pose.
+    Returns what it did, or None when the feet already stand on the ground or what holds
+    them up is not a chain that can be turned."""
+    if feet <= 0 or job.get("sprawl"):
+        return None
+    bones = bone_dicts()
+    by_name = {b["name"]: b for b in bones}
+    kids = rig_topology._children(bones)
+    rest, _ = mesh_world()
+    height = float(rest[:, 2].max() - rest[:, 2].min())
+    legs = rig_topology.find_legs(bones, height, feet, False)
+    if len(legs) < feet:
+        return None
+    names = {g.index: g.name for g in me.vertex_groups}
+    owner = np.array([names[max(v.groups, key=lambda g: g.weight).group] if v.groups else "" for v in me.data.vertices])
+    leg_bones = {n for g in legs for n in g["chain"]}
+    on_leg = np.isin(owner, sorted(leg_bones))
+    ground = float(rest[:, 2].min())
+    shift = float(rest[on_leg, 2].min()) - ground if on_leg.any() else 0.0
+    if shift <= FEET_GAP:
+        return None
+    clear = CLEAR * height
+    # chains (from a branch point, not legs) whose skin would go below the ground; the
+    # outermost such chain is turned, so a fan with branches turns as one
+    sink = []
+    for b in bones:
+        n = b["name"]
+        if n in leg_bones or not b["parent"] or len(kids[b["parent"]]) < 2:
+            continue
+        chain = [n] + rig_topology._descendants(n, kids)
+        if leg_bones & set(chain):
+            continue
+        mask = np.isin(owner, chain)
+        if mask.any() and rest[mask, 2].min() - shift < ground + clear:
+            sink.append((n, chain, mask))
+    sink = [c for c in sink if not any(c[0] in o[1][1:] for o in sink)]
+    # only when what holds the feet up can be turned out of the way: the skin below the
+    # feet must belong to those chains, not to the root or the trunk (the harpy's hip
+    # feathers, skinned to the root, hang 4 cm below its feet)
+    below = rest[:, 2] < ground + shift - 1e-4
+    covered = np.zeros(len(rest), bool)
+    for _, _, mask in sink:
+        covered |= mask
+    if (below & ~covered).sum() > 0.02 * max(1, below.sum()):
+        return None
+    w = arm.matrix_world
+    to_arm = w.inverted()
+    bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.mode_set(mode="POSE")
+    root = next(b["name"] for b in bones if b["parent"] is None)
+    pr = arm.pose.bones[root]
+    pr.matrix = to_arm @ Matrix.Translation((0, 0, -shift)) @ w @ pr.bone.matrix_local
+    turned = {}
+    for n, chain, mask in sink:
+        pb = arm.pose.bones[n]
+        pb.rotation_mode = "QUATERNION"
+        h0 = Vector(by_name[n]["head"])
+        end = Vector(rest[mask][np.argmin(rest[mask, 2])])  # the part that touches the ground
+        d = Vector((end.x - h0.x, end.y - h0.y, 0))
+        if d.length < 1e-6:
+            continue
+        ax = d.normalized().cross(Vector((0, 0, 1)))  # + lifts the far end
+        r = (w @ pb.bone.matrix_local).to_quaternion()
+        lo, hi = 0.0, 90.0
+        for _ in range(14):
+            mid = (lo + hi) / 2
+            pb.rotation_quaternion = r.inverted() @ Quaternion(ax, math.radians(mid)) @ r
+            bpy.context.view_layer.update()
+            if skinned()[mask, 2].min() < ground + clear:
+                lo = mid
+            else:
+                hi = mid
+        pb.rotation_quaternion = r.inverted() @ Quaternion(ax, math.radians(hi)) @ r
+        if hi >= 0.1:  # a chain the turns before it already lifted needs none
+            turned[n] = round(hi, 2)
+    bpy.context.view_layer.update()
+    posed = skinned()
+    bpy.ops.object.mode_set(mode="OBJECT")
+    for o in objs:  # bake the pose into each mesh, then make it the rest pose
+        mod = next(m for m in o.modifiers if m.type == "ARMATURE")
+        select(o)
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+        o.modifiers.new("Armature", "ARMATURE").object = arm
+    select(arm)
+    bpy.ops.object.mode_set(mode="POSE")
+    bpy.ops.pose.armature_apply(selected=False)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    return {"shift_m": round(shift, 4), "turned_deg": turned,
+            "feet_low_m": round(float(posed[on_leg, 2].min() - ground), 4),
+            "min_z_m": round(float(posed[:, 2].min() - ground), 4)}
 
 
 def add_sockets() -> dict:
@@ -859,15 +977,21 @@ if job["mode"] == "score" and job.get("quality", True):
     report.update(quality())
 if job["mode"] == "finalize":
     out = Path(job["out_dir"])
+    if job.get("reweight"):  # the rig_reweight override (tools/rig_reweight.py), before the sockets
+        report["reweight"] = [rig_reweight.reweight(arm, me, spec) for spec in job["reweight"]]
     report["sockets"] = add_sockets()
     set_albedo(job["base_color"])
     clamp_metallic(me.data.materials)  # same rule as blender_qa.py, for rigs built from older model.glb files
+    lods = {k: transfer(path) for k, path in job["lods"].items()}  # weighted in the chosen rig's rest pose
+    grounded = ground_feet(int(job.get("feet", 0)), [me, *lods.values()])
+    if grounded:
+        report["grounded"] = grounded
     select(me, arm)
     bpy.ops.export_scene.gltf(filepath=str(out / "model_rigged.glb"), export_format="GLB", use_selection=True,
                               export_yup=True)
     report["lods"] = {}
-    for k, path in job["lods"].items():
-        transfer(path, out / f"model_rigged_lod{k}.glb")
+    for k, lod in lods.items():
+        export_lod(lod, out / f"model_rigged_lod{k}.glb")
         report["lods"][k] = f"model_rigged_lod{k}.glb"
 with open(job["report"], "w") as f:
     json.dump(report, f, indent=1)

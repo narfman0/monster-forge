@@ -40,6 +40,9 @@ python3 -I tools/forge.py contact <id>... --name batch1
 ```
 
 Needs the ComfyUI server on 8188 with the models listed in `docs/pilot-report.md`.
+`ref` draws `--n` candidates; for `unarmed_reference` monsters it scores them for a weapon
+held in a hand (DWPose hand crops + SigLIP, `tools/unarmed_check.py`) and picks the first
+empty-handed one unless `ref_pick` is pinned (`docs/references.md`, override `ref_unarmed_check`).
 Per-monster settings (tri budget, upsample, yaw, leveling, prompt extras, LOD ratios, ...)
 go in `data/overrides/<source>/<id>.json`; QA levels the stance so all feet touch the
 ground, `lod` writes `model_lod1-3.glb` from `model.glb` (`docs/lods.md`), `rig` writes

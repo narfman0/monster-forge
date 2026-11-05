@@ -97,6 +97,12 @@ PAINT_KEYS = {
 }
 
 
+def _idle_lift(v):
+    if v == "match_move" or v is False:
+        return None
+    return _num(0, 20)(v)
+
+
 def _paint(v):
     if not isinstance(v, dict):
         return "must be an object"
@@ -110,6 +116,31 @@ def _paint(v):
     return None
 
 
+REWEIGHT_KEYS = {"bones": None, "bias": _num(0.1, 10.0), "reach": _num(0.01, 2.0), "blend": _num(0.001, 0.5),
+                 "strip": _bool, "fit": _bool, "hand_room": _num(0.0, 0.5), "far": _num(0.02, 5.0)}
+
+
+def _reweight(v):
+    """rig_reweight: a list of chains for tools/rig_reweight.py."""
+    if not (isinstance(v, list) and 1 <= len(v) <= 8):
+        return "must be a list of 1-8 chain objects"
+    for i, c in enumerate(v):
+        if not isinstance(c, dict):
+            return f"[{i}] must be an object"
+        bad = [k for k in c if k not in REWEIGHT_KEYS]
+        if bad:
+            return f"[{i}] unknown keys {bad} (allowed: {sorted(REWEIGHT_KEYS)})"
+        b = c.get("bones")
+        if not (isinstance(b, list) and 1 <= len(b) <= 16 and all(isinstance(x, str) and _NAME.match(x) for x in b)):
+            return f"[{i}].bones must be a list of 1-16 bone names"
+        for k, chk in REWEIGHT_KEYS.items():
+            if chk and k in c:
+                e = chk(c[k])
+                if e:
+                    return f"[{i}].{k} {e}"
+    return None
+
+
 # field -> (validator, stage it affects, help)
 FIELDS = {
     "tri_budget": (_num(300, 200000, True), "mesh", "LOD0 triangle budget"),
@@ -119,6 +150,8 @@ FIELDS = {
     "normal_cage": (_num(0.001, 0.2), "mesh", "normal bake search band (fraction of bbox diagonal)"),
     "ref_pick": (_num(0, 15, True), "mesh", "which ref_<i>.png feeds the mesh stage"),
     "seed_mesh": (_num(0, 2**31 - 1, True), "mesh", "Pixal3D seed"),
+    "ref_unarmed_check": (_bool, "ref", "unarmed_reference monsters: score the candidates for a held weapon and "
+                          "pick the most empty-handed unless ref_pick is pinned (docs/references.md)"),
     "prompt_extra": (_text(500), "ref", "appended to the reference prompt"),
     "negative_extra": (_text(500), "ref", "appended to the negative prompt"),
     "style": (_style, "ref", "art style (name or data/*.json path; 'none' = unstyled)"),
@@ -128,7 +161,11 @@ FIELDS = {
     "level": (_bool, "qa", "stance leveling on/off"),
     "level_tilt": (_num(0, 60), "qa", "max tilt (deg) leveling may apply"),
     "lod_ratios": (_ratios, "lod", "LOD1.. triangle ratios of LOD0"),
-    "rig_facing_check": (_bool, "rig", "refuse to roll a skeleton when model.glb looks misfaced (false = roll anyway)"),
+    "rig_reweight": (_reweight, "rig", "geometric re-weight of bone chains in the game files, before sockets: "
+                     "[{bones: [root..tip], bias, reach (m), blend (m), strip, fit, hand_room (m), far (m)}] (tools/rig_reweight.py)"),
+    "rig_facing_check": (_bool, "rig","refuse to roll a skeleton when model.glb looks misfaced (false = roll anyway)"),
+    "idle_lift": (_idle_lift, "anim", "idle height: metres of lift, \"match_move\" (where the swim/fly clip "
+                  "holds the body) or false (floor); unset: match_move when the animation_set has no walk"),
     "paint": (_paint, "paint", "multiview paint: {enabled, views, denoise, ip_weight, cn_strength, ...}"),
     "lod_screen_ratios": (_screen_ratios, None,
                           "viewer auto LOD: LOD0/LOD1/LOD2 when the model covers more than these fractions "
@@ -190,10 +227,14 @@ def defaults(mon: dict, style_name: str | None = None) -> dict:
     return {
         "tri_budget": TRI_BUDGET_BY_SIZE.get(size, 12000), "vg_factor": 0.5, "upsample": 1024,
         "texture_size": tex, "normal_cage": 0.015, "ref_pick": 0, "seed_mesh": None,
+        "ref_unarmed_check": bool(mon.get("unarmed_reference")),
         "prompt_extra": "", "negative_extra": "", "style": style_name, "seed_ref": None,
         "yaw": None, "forward": "-Z", "level": plan in FEET_BY_PLAN,
         "level_tilt": TILT_CAP_BY_PLAN.get(plan, DEFAULT_TILT_CAP),
         "lod_ratios": list(LOD_RATIOS), "rig_facing_check": True, "lod_screen_ratios": None, "notes": "",
+        # anim.idle_lift: a monster that cannot walk idles where its swim/fly clip holds it
+        "idle_lift": "match_move" if "walk" not in (mon.get("animation_set") or [])
+        and {"swim", "fly"} & set(mon.get("animation_set") or []) else False,
     }
 
 

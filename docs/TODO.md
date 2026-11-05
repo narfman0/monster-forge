@@ -20,10 +20,10 @@ young-red-dragon) all the way to rigged + animated Godot-ready GLBs **before** t
   nohup it from a shell.
 - Viewer: `python3 -I tools/viewer.py` -> http://127.0.0.1:8787/
 
-- **Unarmed references need a candidate check.** The empty-hands prompt held in only 2 of 4
-  goblin candidates (one hid a bow, one a dagger in the fist); the auto-pick took an armed
-  one. The batch needs an automatic pick (silhouette/VLM check for held objects) or `--n 4`
-  plus a review step for the 79 `unarmed_reference` monsters.
+- **Unarmed references: candidate check in the ref stage** (2026-11-04, B). The empty-hands
+  prompt held in only 2 of 4 goblin candidates (a bow, a dagger in the fist). The ref stage
+  now scores every candidate (DWPose hand crops + SigLIP) and picks the first empty-handed
+  one; batch runs of the 79 `unarmed_reference` monsters should use `--n 4`.
 - **ComfyUI memory ceiling.** Paint pushes ComfyUI to ~17 GB RSS; with `MemoryHigh=16G` in
   `comfyui.service.d/memory.conf` and swap full it stalls and stops answering `/queue`
   (twice on 2026-11-04). Either raise MemoryHigh to ~20G or restart the unit before paint.
@@ -63,11 +63,26 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
 - [x] Forward axis: keep -Z (`forge.py` default). Matches Godot node forward; leave
       `use_model_front` off in `look_at()`. Check UniMate's expectation in step E.
 - [ ] Any `qa --force` deletes paint and LODs; `paint` deletes LODs. Use `--stages paint,lod`.
+- [x] (2026-11-04) Unarmed-candidate check (`tools/unarmed_check.py`, `docs/references.md`):
+      after the ref stage draws its candidates, each `unarmed_reference` monster's hands are
+      found with DWPose (ComfyUI's controlnet_aux weights) and scored with zero-shot SigLIP
+      so400m ("a hand holding <weapon>" vs empty-hand prompts; downloaded, 3.5 GB,
+      Apache-2.0); > 2.5 = armed; the first unarmed candidate is picked unless `ref_pick` is
+      pinned; `manifest.ref.unarmed_scores` / `ref.unarmed`, a warning when all are armed.
+      Override `ref_unarmed_check` (default on). 20 of 20 right on goblin-warrior (bow 3.35,
+      dagger 3.34, empty -1.54/-0.82), bandit, guard, knight (two swords 7.87) and gladiator;
+      empty hands reach 1.90, so the margin is thin. The goblin's pinned `ref_pick` 2 is kept
+      (its ref.png is unchanged). bandit, guard, knight and gladiator now have 4 refs each.
 
 ### C. M3 Rig
 - [x] `forge.py rig`: N rolls, retry, score, keep the winner, rigged LODs, manifest `rig` key.
 - [ ] Add wing chains and wing weights to the stage (harpy is by hand; other winged bipeds will
       hit the same gap). The dragon's came from SkinTokens.
+- [x] (2026-11-04) `rig_reweight` override (`tools/rig_reweight.py`, applied in the finalize
+      path before sockets, so `rig --force` keeps it): geometric re-weight of a chain
+      ({bones, reach, bias, blend, strip, fit, hand_room, far}), optionally fitting its
+      joints into the limb. Harpy right arm (`[bone_18, bone_19]`, fit): see E. The wing
+      re-weight (`blender_wing_weights.py`) could become a `rig_reweight` entry too (not done).
 - [x] Facing check before rigging (see Rig findings). (2026-11-04) Mirror-plane body axis +
       head-end cue on `model.glb`, `manifest.rig.facing`; refuses to roll past 30 degrees at
       confidence >= 0.5 (`rig_facing_check` override to skip). All 6 pilots pass (0-6.5
@@ -124,6 +139,13 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       Giant eagle walk (scratch): min_z -0.085 -> +0.001 m, body raise 0.092 -> 0, stride
       0.5 -> 0.8; its idle, lunge (now full size) and hit no longer raise the body. All other
       pilots' clips unchanged (clip and frame counts, min_z, raises).
+- [x] (2026-11-04, anim3) Round 4 fixes (E): ghost train folds flat in death and lift clips
+      raise frames that dip, the fungus falls from a planted root, the merfolk's top arm lies
+      down, the swarm scatters and sinks, lifted idle for swim/fly-only monsters, the eagle's
+      head is its beak (`find_snout` skips wings) and it stands on its feet (rig
+      `ground_feet`, H). All 15 pilots re-animated: identical clip and frame counts; only
+      ghost, giant-eagle, violet-fungus, giant-octopus and merfolk change numbers (gate in
+      the anim3 report).
 - [ ] UniMate text-to-motion for attacks (own uv venv under tools/).
 - [x] Bake to actions -> one armature-only `anims/<clip>.glb` per clip (viewer/README.md).
 
@@ -163,9 +185,16 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       `tools/check_monsters.gd`, `docs/monsters.md`).
 - [x] Metallic: the Pixal3D metallic bake is noise (255 on goblin and harpy, 0 on wolf), so
       the goblin read as full metal in Godot. QA and rig exports now clamp metallic to 0.
-- [ ] Harpy: `grip_r` is 12-27 cm from its hand because the right arm is skinned mostly to
-      the wing chain behind it (SkinTokens, and the skeleton sits 7 cm off centre). It
-      wields nothing, so not on the batch path; fix with an arm-aware re-skin or a re-roll.
+- [x] Harpy: `grip_r` was 12-27 cm from its hand because the right arm was skinned to the
+      wing chains (the left wing's bone_12/bone_13 too) and bone_18/bone_19's weights sat on
+      the right thigh. (2026-11-04) Fixed with the `rig_reweight` override (C), no re-skin
+      or re-roll: `hand_r`/`grip_r` 1.3/0.2 cm from the skin (5.5/8.0), 3.3/3.0 cm from the
+      fist centre (10/12); bone_18/bone_19 own 197/108 vertices (0/0). Sword cut: the arm
+      and sword move together and the thigh no longer follows the arm (edges stretched past
+      4x 175 -> 77); fly: wings as before (past 4x 211 -> 223, the arm now stays down instead
+      of flying into the wing). Clip and frame counts unchanged. Checked in Blender sheets
+      only: Godot not re-synced. The "+6.8 cm off centre" is the bbox (asymmetric wings):
+      the torso's own centre is x 0.01-0.03, so the spine sits ~4-5 cm right; not changed.
 - [ ] Bows and shields need a per-prop carry pose: at rest a bow on `grip_l` lies on its
       side. Options: a `carry` offset per prop in props.json, or stow it on `back`/`hip`
       outside `attack_ranged`. The lab also keeps the sword out during the shot: loadout
@@ -179,20 +208,42 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       clip goes below -0.03 m. godot-dnd: `Monster.move_clip()` (walk, else swim/fly),
       `blend_time` cross-fade (lab 0.25 s), sync `--all` needs clips, ground/channel/
       transition probes in the check. Pipeline findings, open:
-  - [ ] ghost death: the back of the robe stays upright as a ~0.9 m vertical sheet while
+  - [x] ghost death: the back of the robe stays upright as a ~0.9 m vertical sheet while
         the body lies flat (the hem's weights go to bones the fall does not carry). The hit
         clip dips the hem to -0.010 m, despite `lift`.
-  - [ ] merfolk-skirmisher: no `hand_r`/`grip_r` (raised arm missed), so the registry spear
+        (2026-11-04, anim3) Not the weights: the train lies flat on the floor behind the
+        feet at rest, square to the body, so the fall stood it up. The hem's first bone
+        below 0.15 x the height (`bone_28`, `bone_32`) now folds back against the fall:
+        last frame top 1.28 -> 0.78 m, body raise 0.30 -> 0.18 m. `lift` clips raise a frame
+        that dips: hit lowest vertex -0.013 -> 0.000 (lift up to 0.193 m). No re-weight step.
+  - [x] merfolk-skirmisher: no `hand_r`/`grip_r` (raised arm missed), so the registry spear
         is never shown. attack_melee barely moves the spread arms. Death leaves the raised
         arm pointing straight up.
-  - [ ] swarm-of-rats mesh is a 1.44 m column of rats (bbox 0.83 x 1.44 x 1.50), not a
+        (2026-11-04, anim3) Both arms since df2a463 (`hand_r` bone_28, `grip_r`): the cut
+        winds the right arm overhead and down across the body (sheet). Death: the right arm
+        was found now and swung up, but the left arm, held out sideways at rest, pointed at
+        the sky once she lay on her right side; it now drops against the body (hand 0.76 ->
+        0.65 m, along the torso). The tail fin still stands up at the end (0.83 m).
+  - [x] swarm-of-rats mesh is a 1.44 m column of rats (bbox 0.83 x 1.44 x 1.50), not a
         spread swarm. The death y-scale 0.15 squashes the rats flat.
-  - [ ] violet-fungus death topples the root clump with the stalk, so the base stands up
+        (2026-11-04, anim3) Death is "scatter and sink": 1.7x in X and Y, 0.3 of the height,
+        a 12 degree slew. The mesh stays (no GPU); the batch models one unit per swarm (H).
+  - [x] violet-fungus death topples the root clump with the stalk, so the base stands up
         vertically.
+        (2026-11-04, anim3) The fallback weights were right (the root bone owns 100% of the
+        base up to 0.2 m); the clip tipped the root. Now the root stays and the stalk breaks
+        over at `spine_01`/`spine_02` by the angle that rests the cap on the ground
+        (bisected, 83.6 degrees). No re-rig.
   - [ ] Height changes between clips are by design but pop without a blend: octopus idle on
         the floor vs swim at 0.215 m, merfolk idle vs swim at 0.65 m, eagle idle vs fly at
         0.41 m. Idle -> move in one frame moves vertices 0.14-1.31 m (a 0.25 s cross-fade
         brings this down to 0.03-0.26 m). Decide whether to add a take-off clip or a lifted idle.
+        (2026-11-04, anim3) [x] Lifted idle: `anim.idle_lift` / override `idle_lift`. No
+        `walk` in the animation_set -> the idle is held where swim/fly holds the body
+        (`match_move`); walkers keep a floor idle (harpy, dragon). Octopus idle lift 0.062 ->
+        0.341 m (= swim), merfolk 0 -> 0.18 (= swim), eagle hovers at 0.32 like fly (a slow
+        small-beat fly loop). The merfolk's swim still pitches the body 55 degrees, so its
+        idle -> swim change is a turn, not a height pop. Re-check in Godot.
   - [ ] Note: hunter-shark rest mesh is strongly curved (2.97 m tall for 4.5 m long). It
         swims level at 0.74 m and death lies belly-up on its dorsal fin.
 
@@ -317,9 +368,12 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
       reference spreads them sideways (front view, ref 1). The side-view ref with wings raised
       back gave one wing that was also taken as the tail. No roll had a spine. Batch: prompt
       "wings spread wide to the sides"; theropods (`custom.theropod`) are wingless. The tail
-      fan resting on the ground is now turned up (walk dip 8.5 cm -> none, D). Open: the
-      eagle's feet stand 0.36 m up at rest (QA grounds it on the fan), and `find_snout` takes
-      a left-wing bone as its head.
+      fan resting on the ground is now turned up (walk dip 8.5 cm -> none, D). (anim3) Fixed:
+      the rig stage stands it on its feet (`blender_rig.ground_feet`: lowered 0.355 m, fan
+      turned up 33.9 degrees, baked into LOD0-3, `manifest.rig.grounded`), and `find_snout`
+      skips wing chains (head `bone_11` -> `bone_5`, the beak). Its mesh is 29.5 degrees off
+      +Y (just under the facing check's 30): the wings lie on a diagonal; a pinned `yaw` and
+      a re-run of qa/paint/lod would fix it (GPU).
 - [x] amorphous (black-pudding): `fallback:vertical` (4 bones) with squash-and-stretch bone
       scales. Batch: fallback. Ref pick matters: drips under a raised blob meshed as a spider.
       The lemure (`blob_torso`, arms) will want SkinTokens + arms instead.
@@ -343,7 +397,8 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
       sockets placed. Batch: SkinTokens; the marilith's 6 arms untested.
 - [x] swarm (swarm-of-rats): `fallback:root` + root-only clips. The reference draws a wall of
       rats (one cluster mesh); the batch should model one unit with the unit's plan and leave
-      the swarm to particles.
+      the swarm to particles. Death scatters and sinks (1.7x wide, 0.3 high) rather than
+      squashing the pilot's column flat.
 - [x] Fix found on the way: `blender_rig.add_sockets` renamed the head to `head` and then
       failed to parent `back` to it (KeyError), now aliased. The bone was the head after all
       (it owns the skull); `back` went there because the left "arm" was a hair chain off the

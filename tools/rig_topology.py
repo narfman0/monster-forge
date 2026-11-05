@@ -8,6 +8,7 @@ GROUND = 0.18      # a foot ends within this fraction of the height above the gr
 TOES = 0.09        # bones this low are toes: climbing past them finds the foot, not the shin
 MIN_DROP = 0.35    # a leg's drop over its length: rejects a tail lying on the ground
 WING_REACH = 0.4   # a wing reaches this far sideways (x height) from the centre line
+SNOUT_SIDE = 0.15  # find_snout: the head bone's midpoint is this close (x height) to the centre line
 
 
 def _children(bones: list[dict]) -> dict:
@@ -237,13 +238,26 @@ def find_wings(bones: list[dict], height: float, legs: list[dict], arms: list[di
 def find_snout(bones: list[dict], height: float, legs: list[dict]) -> str | None:
     """Head of a horizontal body (forward is +Y): the bone reaching farthest forward off
     the legs and above a third of the height. find_head's highest-bone rule picks a hip
-    or a raised wing there. A leaf whose parent also carries other leaves (a jaw beside an
-    ear) gives way to that parent, the skull."""
+    or a raised wing there. Wing chains are not the head: a bone off the centre line
+    (midpoint more than SNOUT_SIDE x the height from it) on a chain that branches off the
+    body and reaches WING_REACH x the height sideways (the giant eagle's left wing tip,
+    bone_11, which reaches 0.6 m farther forward than its beak). A leaf whose parent also
+    carries other leaves (a jaw beside an ear) gives way to that parent, the skull."""
     by_name = {b["name"]: b for b in bones}
     kids = _children(bones)
     leg_bones = {n for g in legs for n in g["chain"]}
+    cx = centre_x(bones, legs)
+    wing = set()
+    for b in bones:  # chains from a branch point that reach a wing's span sideways
+        if not b["parent"] or len(kids[b["parent"]]) < 2 or b["name"] in leg_bones:
+            continue
+        chain = [b["name"]] + _descendants(b["name"], kids)
+        if max(abs(by_name[n]["tail"][0] - cx) for n in chain) >= WING_REACH * height:
+            wing |= {n for n in chain
+                     if abs((by_name[n]["head"][0] + by_name[n]["tail"][0]) / 2 - cx) > SNOUT_SIDE * height}
     cands = [b for b in bones if b["name"] not in leg_bones and b["parent"]
              and (b["head"][2] + b["tail"][2]) / 2 > height / 3]
+    cands = [b for b in cands if b["name"] not in wing] or cands
     if not cands:
         return None
     top = max(cands, key=lambda b: max(b["head"][1], b["tail"][1]))

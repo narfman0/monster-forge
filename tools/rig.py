@@ -341,7 +341,8 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
     rep = blender(fg, {"mode": "finalize", "src": str(chosen), "base_color": str(albedo if albedo.exists() else tex / "base_color.png"),
                        "lods": lod_paths, "out_dir": str(d), "report": str(d / "rig.json"),
                        "sprawl": mon["body_plan"] in SPRAWLED, "hands": bool(mon.get("hands")),
-                       "sockets": mon.get("sockets") or []})
+                       "sockets": mon.get("sockets") or [], "feet": FEET.get(mon["body_plan"], 0),
+                       "reweight": overrides.load(mon["source"], mon["id"]).get("rig_reweight") or []})
     # the kept skeleton's quality terms, also when it was not rolled now (a hand-fixed rig)
     q = scored(blender(fg, score_job(mon, chosen, d / "rig" / "chosen.json")), mon["body_plan"], bool(mon.get("hands")))
     (d / "rig" / "chosen.json").write_text(json.dumps(q, indent=1))
@@ -355,6 +356,8 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
                   "sockets": rep["sockets"], "sockets_missing": missing,
                   "empty_bones": rep["empty_bones"], "seconds": round(time.time() - t0, 1),
                   "facing": facing, "quality": summary(q),
+                  # rest pose lowered onto the feet (blender_rig.ground_feet), e.g. off a tail fan
+                  **({"grounded": rep["grounded"]} if rep.get("grounded") else {}),
                   **({"picked": info["picked"], "rolls": info["rolls"]} if info else
                      {k: v for k, v in (man.get("rig") or {}).items() if k in ("picked", "rolls")} or {"picked": "chosen.glb"})}
     man.setdefault("timings", {})["rig"] = man["rig"]["seconds"]

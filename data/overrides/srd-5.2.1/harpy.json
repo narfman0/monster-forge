@@ -1,4 +1,15 @@
 {
   "upsample": 1024,
-  "notes": "Face texture stays soft at 2K with the 512 pipeline: the voxel colour is the limit, so pin the 1024 cascade (also the default since the LOD chain)."
+  "notes": "Face texture stays soft at 2K with the 512 pipeline: the voxel colour is the limit, so pin the 1024 cascade (also the default since the LOD chain). rig_reweight 2026-11-04: SkinTokens skinned the right arm to the wing chains (the left wing's bone_12/bone_13 too) and put bone_18/bone_19's weights on the right thigh, with the arm bones along the outside of the arm; the forearm/hand chain is re-weighted and fitted into the arm, hand_room = the 4%-height hand bone add_sockets adds (docs/rig-anim.md). bone_17 left alone: re-weighting it too doubled the sword-cut tearing at the shoulder feathers.",
+  "rig_reweight": [
+    {
+      "bones": [
+        "bone_18",
+        "bone_19"
+      ],
+      "reach": 0.15,
+      "fit": true,
+      "hand_room": 0.068
+    }
+  ]
 }

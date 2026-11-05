@@ -27,6 +27,20 @@ LEGLESS = {"serpentine", "floating", "amorphous", "plant_object", "tentacled", "
 ARMED = {"centauroid", "merfolk_naga", "floating"}
 
 
+def idle_lift(mon: dict, want: list) -> tuple:
+    """(idle_lift, move clip) for blender_clips.py. The game moves a monster with `walk`,
+    else `swim`, else `fly` (godot-dnd Monster.move_clip()). A monster whose
+    animation_set has no walk moves only by swimming or flying, so its idle is held where
+    that clip holds the body ("match_move") and idle -> move does not drop or jump; one
+    that walks keeps its idle on the floor (the harpy, the dragon). The `idle_lift`
+    override (metres, "match_move", or false for the floor) replaces the rule."""
+    move = next((c for c in ("walk", "swim", "fly") if c in want), None)
+    lift = overrides.load(mon["source"], mon["id"]).get("idle_lift")
+    if lift is None:
+        lift = "match_move" if move in ("swim", "fly") else None
+    return (lift or None), move
+
+
 def stage_anim(fg, mon: dict, d: Path, args) -> None:
     want = list(mon.get("animation_set") or [])
     adir = d / "anims"
@@ -43,7 +57,9 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
     adir.mkdir(exist_ok=True)
     report = adir / "clips.json"
     report.unlink(missing_ok=True)
-    job = {"src": str(d / "model_rigged.glb"), "out_dir": str(adir), "report": str(report), "clips": want,
+    lift, move = idle_lift(mon, want)
+    job = {"idle_lift": lift, "move_clip": move,
+           "src": str(d / "model_rigged.glb"), "out_dir": str(adir), "report": str(report), "clips": want,
            "feet": overrides.FEET_BY_PLAN.get(plan, 0), "sprawl": plan in SPRAWLED, "upright": plan in UPRIGHT,
            "arms": plan in ARMED and bool(mon.get("hands")), "plan": plan}
     t0 = time.time()
