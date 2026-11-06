@@ -158,3 +158,50 @@ Batch over the 50 ok/partial bipeds (medusa skipped), sheets
   two-handers (berserker, knight, hobgoblin-captain) swing one-handed with the off hand free.
 - Unverified: none of these clips has been loaded in the viewer or Godot; judged from Blender
   workbench renders and metrics only. Nothing is promoted in out/ yet.
+
+## Direct UAL rig spike (2026-11-06)
+Instead of retargeting onto SkinTokens skeletons: rig the mesh to UAL's own skeleton, so UAL clips play
+with no solve. `python3 -I tools/rig_ual.py <id>... [--fit auto|skintokens] [--weights skintokens|heat|transfer]`
+runs `tools/blender_rig_ual.py` (local Blender, CPU) and writes `out/srd-5.2.1/<id>/rig_ual/<fit>_<weights>/`
+(model_rigged.glb + LODs, `anims/<clip>.glb`, metrics.json) and sheets in
+`~/.cache/monster-forge-scratch/rigual/<id>_<fit>_<weights>{,_fit}.png`. Not wired into forge.py.
+- **Skeleton.** A copy of UAL's armature (65 bones, UAL names) with the joints moved onto the mesh; the
+  180 deg turn (UAL faces +Z) is on the Armature node, which no clip keys. Arms, hands and legs turn their
+  rest frame by the shortest arc from UAL's direction to ours, spine/neck/head/clavicles keep UAL's
+  frame (our hunch rides along as an offset). A clip's local rotations are UAL's (a constant per-bone
+  rest conversion); the pelvis height is scaled by leg length. Checked: dir-bone segments point exactly
+  where UAL's do on every clip (0.0 deg). Optional floor lift (same rule as the retarget) for deaths.
+- **Sockets.** hand_l/hand_r are UAL's own bones; grip_l/r (+Y along UAL's knuckle line, so a blade
+  follows the fist like the retarget's grip roll), head, back, hip_l/r added non-deforming. The glb has
+  the same layout as model_rigged.glb (Armature root, skinned `monster`, LODs, one action per clip file).
+- **Fit "auto"** (no SkinTokens): voxelised mesh, medial Dijkstra paths hand-hand, sole-sole (apex =
+  crotch; none = robe), pelvis-head; shoulders from the depth profile, all calibrated by running the same
+  detector on UAL's mannequin drooped to our arm angle. Within 2-6% of the height (median) of SkinTokens'
+  joints on archmage, ape, flesh-golem. Fails on goblin-warrior: big head (no neck to find), ears and
+  spiked forearm guards taken for hands (max 0.6 h off). **Fit "skintokens"**: the mapped SkinTokens joints.
+- **Weights.** (c) SkinTokens weights merged by name onto UAL bones: works, but only as well as the joints
+  agree (painted around SkinTokens' joints): fine on golem/ape, archmage idle stretch 7.2 vs 4.2 retarget.
+  (b) transfer from the conformed UAL mannequin: worst everywhere (stretch 2-6x; the robe and coat follow
+  whichever thigh is nearest). (a) bone heat: Blender's heat fails outright on all 4 meshes (not
+  manifold); heat on a voxel-remeshed proxy (1.2% h) + nearest-surface transfer works in ~1 s and wins:
+  lowest stretch on every clip of every monster, below the retarget on most. Fingers are folded into
+  the hand (no finger weights): hands move as rigid fists, which reads fine at sheet size.
+
+Edge stretch p99.9 (heat proxy weights; auto fit, goblin with the SkinTokens fit) vs the retarget route:
+
+| | idle | walk | run | attack | hit | cast | death |
+|---|---|---|---|---|---|---|---|
+| archmage | 4.6 / 4.2 | 5.0 / 10.5 | 9.2 / 15.5 | 9.2 / 15.0 | 4.6 / 4.4 | 5.1 / 9.4 | 5.6 / 12.4 |
+| goblin-warrior | 3.9 / 1.7 | 4.4 / 2.6 | 7.0 / 5.6 | 10.7 / 8.9 | 3.5 / 1.8 | - | 10.8 / 11.0 |
+| ape | 1.6 / 1.7 | 1.8 / 4.4 | 2.8 / 8.8 | 2.4 / 3.5 | 1.6 / 2.5 | - | 2.7 / 4.5 |
+| flesh-golem | 1.4 / 1.5 | 1.6 / 1.9 | 2.4 / 3.5 | 2.3 / 3.8 | 1.4 / 1.5 | - | 2.4 / 4.2 |
+
+Seen on the sheets: left/right right everywhere; feet planted on idle/walk (lowest vertex within 1% h,
+the floor tolerance); deaths lie on the floor (lift 0.3 m on the ape: UAL's mannequin is thinner);
+scale follows the mesh (goblin 1.0 m hip_scale 0.42-0.48, golem 2.4 m 1.36-1.41). The ape and the
+archmage stand straighter than at rest in the arms/legs (UAL's directions) but keep their hunch. The
+archmage robe still smears on run and the lunge (it splits down the middle onto the two thighs), less
+than with the retarget; long robes stay an exclusion case. The goblin's tabard follows the right thigh.
+Cost: 9-14 s per monster on ai's CPU (rig ~2 s, heat ~1 s, the rest clip export and tiles); the 50
+bipeds at --jobs 8 in ~2 min. No GPU. Unverified: not loaded in the viewer or Godot; hands judged only at
+sheet size; the auto fit was tried on 4 meshes only.
