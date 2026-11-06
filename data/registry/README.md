@@ -109,7 +109,7 @@ The pose depends on the plan:
 Swarm prompts ask for one representative unit plus a small cluster.
 
 For `unarmed_reference` records, the description mentions only worn gear
-("scabbard at the hip", "arrow quiver on the back"), never a held weapon.
+(no quivers, scabbards, holsters or weapons: weapons are attached in the game), never a held weapon.
 `forge.py ref` adds the house style's `unarmed_suffix` and `unarmed_negative`
 for these records.
 

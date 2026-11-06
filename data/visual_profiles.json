@@ -124,7 +124,7 @@
   "scale_m": 1.8
  },
  "assassin": {
-  "desc": "lean hooded assassin in dark leather armor and face mask, scabbard and holster on a belt at the hip",
+  "desc": "lean hooded assassin in dark leather armor and face mask",
   "scale_m": 1.8
  },
  "awakened-shrub": {
@@ -156,11 +156,11 @@
   "scale_m": 3.7
  },
  "bandit": {
-  "desc": "scruffy outlaw in patched leather armor, bandana over face, scabbard at the hip and a bolt case on the belt",
+  "desc": "scruffy outlaw in patched leather armor, bandana over face",
   "scale_m": 1.8
  },
  "bandit-captain": {
-  "desc": "swaggering bandit leader in studded leather and long coat, scabbard and holster at the hip",
+  "desc": "swaggering bandit leader in studded leather and long coat",
   "scale_m": 1.8
  },
  "barbed-devil": {
@@ -252,7 +252,7 @@
   "scale_m": 0.5
  },
  "centaur-trooper": {
-  "desc": "centaur with a human torso on a horse body, breastplate over the human torso, arrow quiver on the back",
+  "desc": "centaur with a human torso on a horse body, breastplate over the human torso",
   "scale_m": 2.4
  },
  "chain-devil": {
@@ -572,7 +572,7 @@
   "scale_m": 1.8
  },
  "gnoll-warrior": {
-  "desc": "hyena-headed humanoid with spotted fur and crude armor, arrow quiver on the back",
+  "desc": "hyena-headed humanoid with spotted fur and crude armor",
   "scale_m": 2.1
  },
  "goat": {
@@ -580,15 +580,15 @@
   "scale_m": 1.2
  },
  "goblin-boss": {
-  "desc": "small goblin chieftain in mismatched chain armor and crude crown, scabbard at the hip and an arrow quiver on the back",
+  "desc": "small goblin chieftain in mismatched chain armor and crude crown",
   "scale_m": 1.1
  },
  "goblin-minion": {
-  "desc": "small green-skinned goblin with pointed ears and ragged leather, knife sheaths on the belt",
+  "desc": "small green-skinned goblin with pointed ears and ragged leather",
   "scale_m": 1.0
  },
  "goblin-warrior": {
-  "desc": "small goblin in scrap leather armor, scabbard at the hip and an arrow quiver on the back",
+  "desc": "small goblin in scrap leather armor",
   "scale_m": 1.0
  },
  "gold-dragon-wyrmling": {
@@ -628,7 +628,7 @@
   "scale_m": 1.8
  },
  "guard-captain": {
-  "desc": "seasoned guard captain in breastplate and cloak, scabbard at the hip",
+  "desc": "seasoned guard captain in breastplate and cloak",
   "scale_m": 1.8
  },
  "guardian-naga": {
@@ -668,11 +668,11 @@
   "scale_m": 4
  },
  "hobgoblin-captain": {
-  "desc": "hobgoblin officer in polished plate-and-lamellar armor with banner sash and an arrow quiver on the back",
+  "desc": "hobgoblin officer in polished plate-and-lamellar armor with banner sash",
   "scale_m": 1.8
  },
  "hobgoblin-warrior": {
-  "desc": "disciplined goblinoid soldier with orange-red skin, lamellar armor, scabbard at the hip and an arrow quiver on the back",
+  "desc": "disciplined goblinoid soldier with orange-red skin, lamellar armor",
   "scale_m": 1.8
  },
  "homunculus": {
@@ -732,7 +732,7 @@
   "scale_m": 1.8
  },
  "kobold-warrior": {
-  "desc": "small reptilian humanoid with rust-red scales, dog-like snout, crude leather, knife sheaths on the belt",
+  "desc": "small reptilian humanoid with rust-red scales, dog-like snout, crude leather",
   "scale_m": 0.9
  },
  "kraken": {
@@ -836,7 +836,7 @@
   "scale_m": 2.6
  },
  "noble": {
-  "desc": "well-dressed noble in fine doublet, breastplate and cape, scabbard at the hip",
+  "desc": "well-dressed noble in fine doublet, breastplate and cape",
   "scale_m": 1.8
  },
  "ochre-jelly": {
@@ -888,11 +888,11 @@
   "scale_m": 0.3
  },
  "pirate": {
-  "desc": "weathered pirate in loose shirt, sash and bandana, knife sheaths on the sash",
+  "desc": "weathered pirate in loose shirt, sash and bandana",
   "scale_m": 1.8
  },
  "pirate-captain": {
-  "desc": "flamboyant pirate captain in long coat and tricorne hat, scabbard and holster at the hip",
+  "desc": "flamboyant pirate captain in long coat and tricorne hat",
   "scale_m": 1.8
  },
  "pit-fiend": {
@@ -1004,7 +1004,7 @@
   "scale_m": 0.2
  },
  "scout": {
-  "desc": "ranger-like scout in leather armor and green cloak, scabbard at the hip and an arrow quiver on the back",
+  "desc": "ranger-like scout in leather armor and green cloak",
   "scale_m": 1.8
  },
  "sea-hag": {
@@ -1036,7 +1036,7 @@
   "scale_m": 2.5
  },
  "skeleton": {
-  "desc": "humanoid skeleton in scraps of armor, scabbard at the hip and an arrow quiver on the back",
+  "desc": "humanoid skeleton in scraps of armor",
   "scale_m": 1.8
  },
  "solar": {
@@ -1072,7 +1072,7 @@
   "scale_m": 0.3
  },
  "spy": {
-  "desc": "nondescript agent in a dark hooded cloak and leather, scabbard and holster at the hip",
+  "desc": "nondescript agent in a dark hooded cloak and leather",
   "scale_m": 1.8
  },
  "steam-mephit": {
@@ -1136,11 +1136,11 @@
   "scale_m": 2.7
  },
  "tough": {
-  "desc": "burly thug in leather armor, bolt case on the belt",
+  "desc": "burly thug in leather armor",
   "scale_m": 1.8
  },
  "tough-boss": {
-  "desc": "hulking gang boss in chain mail, bolt case on the belt",
+  "desc": "hulking gang boss in chain mail",
   "scale_m": 1.9
  },
  "treant": {
@@ -1172,7 +1172,7 @@
   "scale_m": 1.8
  },
  "vampire-familiar": {
-  "desc": "pale gaunt human servant in dark clothes, knife sheaths on the belt",
+  "desc": "pale gaunt human servant in dark clothes",
   "scale_m": 1.8
  },
  "vampire-spawn": {
@@ -1208,7 +1208,7 @@
   "scale_m": 1.8
  },
  "warrior-veteran": {
-  "desc": "grizzled veteran soldier in splint armor, bolt case on the belt",
+  "desc": "grizzled veteran soldier in splint armor",
   "scale_m": 1.8
  },
  "water-elemental": {
@@ -1228,15 +1228,15 @@
   "scale_m": 2.0
  },
  "wererat": {
-  "desc": "hybrid rat-humanoid with gray fur, rat head and tail, tattered clothing, bolt case on the belt",
+  "desc": "hybrid rat-humanoid with gray fur, rat head and tail, tattered clothing",
   "scale_m": 1.7
  },
  "weretiger": {
-  "desc": "hybrid tiger-humanoid with striped orange fur and tiger head, tattered clothing, arrow quiver on the back",
+  "desc": "hybrid tiger-humanoid with striped orange fur and tiger head, tattered clothing",
   "scale_m": 2.0
  },
  "werewolf": {
-  "desc": "hybrid wolf-humanoid with gray fur, wolf head, clawed hands and tattered clothing, arrow quiver on the back",
+  "desc": "hybrid wolf-humanoid with gray fur, wolf head, clawed hands and tattered clothing",
   "scale_m": 2.0
  },
  "white-dragon-wyrmling": {
@@ -1244,7 +1244,7 @@
   "scale_m": 2.1
  },
  "wight": {
-  "desc": "undead warrior with dried gray skin, glowing eyes, corroded armor, scabbard at the hip and an arrow quiver on the back",
+  "desc": "undead warrior with dried gray skin, glowing eyes, corroded armor",
   "scale_m": 1.8
  },
  "will-o-wisp": {
