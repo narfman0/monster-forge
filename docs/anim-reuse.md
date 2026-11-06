@@ -36,3 +36,31 @@ thigh/calf/foot/ball_l|r.
   OverhandThrow, Zombie_Idle/Walk/Scratch (undead!), Walk_Carry, Slide, Climb, Consume, ...
 Use the non-RM files (we move the monster in the game). Map: idle=Idle_Loop, walk=Walk_Loop, run=Sprint/Jog,
 attack=Sword_*/Punch_*, hit=Hit_Chest/Knockback, death=Death01, cast=Spell_Simple_Shoot, undead walk=Zombie_*.
+
+## Bone map (tools/bonemap.py, 2026-11-06)
+`python3 -I tools/bonemap.py <id>... | --all [--json f] [--show]`: pure Python, reads only the glb's JSON
+chunk, writes `out/srd-5.2.1/<id>/bonemap.json` ({our_bone: ual_bone}, confidence, problems, skipped
+extras, `ual_missing`). Rules are in the module docstring. Extra bones are skipped (rest local pose,
+follow the parent), never interpolated; missing UAL bones fold into the next mapped child
+(spine_02 -> spine_03, neck_01 -> Head). All rigs face -Z with hand_l on -X (checked on every one);
+UAL faces +Z with left on +X, so the retarget turns UAL 180 deg about Y and maps sides by name.
+
+Result over the 50 rigged bipeds/winged bipeds: 13 ok, 36 partial, 1 fail.
+- fail: medusa: the rig stage named the root bone `head` and no chain reaches the floor (scrambled rig).
+- partial, all essential bones mapped: 26 lack only neck_01 (the head bone sits right on the chest
+  bone), 6 lack neck_01 + spine_02, 3 only spine_02 (2-bone spine), cultist also has no toe bones
+  (ball dropped). half-dragon: 3-bone shins (digitigrade, one joint skipped per leg) and its tail
+  also reaches the floor (rejected by the mirror test).
+- Not failures, but worth knowing: 17 rigs have no `head` socket (head found structurally); in 15
+  the arm runs on through a finger and hand_l/r is the last finger joint, so UAL hand_* goes to the
+  wrist 2-4 joints up (the grip socket still rides along). In SkinTokens' 4-joint arms the wrist pick
+  is a length-share guess: flesh-golem's (forearm 0.49 m, hand 0.39 m) is the least certain.
+- Unverified: nothing has been retargeted yet; the maps are judged from rest positions only.
+
+Spike candidates (no giant is rigged yet; flesh-golem, 2.4 m, is the largest rigged biped):
+| monster | status | joints | differences from UAL |
+|---|---|---|---|
+| archmage | ok | 34 | 1:1 on all 22; skipped: 2 pelvis->thigh bones, skull tip, heel bones. Robe: SkinTokens' ankles sit 0.15 m behind the knees |
+| goblin-warrior | partial | 40 | 2-bone spine (spine_02 folded), no neck; 1.0 m tall, tests scale. Alternative with a full map: bugbear-warrior (ok, 59 joints, 2.1 m, wrist 4 finger joints above the hand socket) |
+| flesh-golem (giant stand-in) | partial | 56 | no neck; wrist 4 joints above the hand socket, long-forearm guess (see above) |
+| ape | partial | 30 | no neck (head on the chest bone), otherwise 1:1; long arms (hands at 0.84 m of 1.7 m), crouched legs |
