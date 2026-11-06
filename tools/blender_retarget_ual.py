@@ -209,6 +209,70 @@ for s in SIDES:  # the hand keeps its rest bend against the forearm
         O_INV[hd] = O_INV[fa]
 
 
+def gltf_frame(path, name):
+    """A node's rest world matrix straight from the glb's JSON, in Blender axes: the prop frame Godot
+    uses (the importer may turn bones to point at their children)."""
+    import struct
+    with open(path, "rb") as f:
+        _, _, _, n, _ = struct.unpack("<4sIIII", f.read(20))
+        g = json.loads(f.read(n))
+    nodes = g["nodes"]
+    parent = {c: i for i, nd in enumerate(nodes) for c in nd.get("children", [])}
+
+    def local(nd):
+        if "matrix" in nd:
+            return Matrix([nd["matrix"][r::4] for r in range(4)])
+        t = Matrix.Translation(nd.get("translation", (0, 0, 0)))
+        x, y, z, w = nd.get("rotation", (0, 0, 0, 1))
+        sc = nd.get("scale", (1, 1, 1))
+        return t @ Quaternion((w, x, y, z)).to_matrix().to_4x4() @ Matrix.Diagonal((*sc, 1))
+    i = next((k for k, nd in enumerate(nodes) if nd.get("name") == name), None)
+    if i is None:
+        return None
+    m = local(nodes[i])
+    while i in parent:
+        i = parent[i]
+        m = local(nodes[i]) @ m
+    yup = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))  # glTF -> Blender
+    return yup @ m
+
+
+# Grip roll: grip_<s> is the prop frame (+Y blade, made world-forward at rest by the rig stage), not
+# a hand-anatomy frame, so the forearm's O leaves the blade wherever the swing turned it (sideways
+# at idle, at the ground in the cast). UAL has no weapon bone; a fist's handle runs along the knuckle
+# line, so UAL's sword direction is pinky_01 -> index_01 (constant in UAL's hand frame: 78 deg off
+# the hand axis in Idle, Sword_Idle, Sword_Attack, Spell). One constant correction per hand, in the
+# reference pose: roll about the forearm until the grip's +Y lies in the plane of UAL's blade, then
+# swing the rest of the way (capped at GRIP_SWING deg, a wrist bend), so blade = D @ b_ref every frame.
+GRIP_SWING = 45.0
+HAND_FIX = {}
+if job.get("grip_fix", True):
+    for s in SIDES:
+        hd, fa = INV.get(f"hand_{s}"), INV.get(f"lowerarm_{s}")
+        fr = gltf_frame(job["src"], f"grip_{s}")
+        if not hd or fr is None or f"index_01_{s}" not in u_ref_pos:
+            continue
+        g = (O_INV.get(hd, Quaternion()) @ (fr.to_quaternion() @ Vector((0, 1, 0)))).normalized()
+        b = (u_ref_pos[f"index_01_{s}"] - u_ref_pos[f"pinky_01_{s}"]).normalized()
+        a = (u_ref_pos[f"hand_{s}"] - u_ref_pos[f"lowerarm_{s}"]).normalized()
+        gp, bp = g - a * g.dot(a), b - a * b.dot(a)
+        roll = 0.0
+        if gp.length > 1e-4 and bp.length > 1e-4:
+            gp.normalize()
+            bp.normalize()
+            roll = math.atan2(a.dot(gp.cross(bp)), gp.dot(bp))
+        R = Quaternion(a, roll)
+        g2 = R @ g
+        sw = g2.rotation_difference(b)
+        ang = math.degrees(sw.angle)
+        if ang > GRIP_SWING:
+            sw = Quaternion().slerp(sw, GRIP_SWING / ang)
+        O_INV[hd] = sw @ R @ O_INV.get(hd, Quaternion())
+        HAND_FIX[s] = {"before_deg": round(math.degrees(g.angle(b)), 1), "roll_deg": round(math.degrees(roll), 1),
+                       "swing_deg": round(min(ang, GRIP_SWING), 1),
+                       "after_deg": round(math.degrees((sw @ g2).angle(b)), 1)}
+
+
 # --- retarget ---------------------------------------------------------------------------
 
 def ual_pose(ua):
@@ -264,6 +328,11 @@ def foot_low(posw, names_by_side, ref):
 
 OUR_FEET = {s: [INV.get(f"foot_{s}"), INV.get(f"ball_{s}")] for s in SIDES}
 UAL_FEET = {s: [f"foot_{s}", f"ball_{s}"] for s in SIDES}
+
+
+MOVING = [b.name for b in order if b.name in MAP]
+LOOPS = {"idle", "walk", "run"}
+IDLE0 = {}  # the idle's first frame: joint positions (loop phase) and keyed basis (lead-in/out)
 
 
 def segments(ual_clip):
@@ -326,15 +395,25 @@ def retarget(clip, ual_clip):
                         print(f"DBG {clip} {ua_}: ours {tuple(round(x, 2) for x in do)} ual {tuple(round(x, 2) for x in du)} "
                               f"rest {tuple(round(x, 2) for x in dr)} angle {math.degrees(do.angle(du)):.0f}")
         frames.append({"basis": basis, "dz": dz, "u_low": u_low, "uf": uf, "up": up,
-                       "ual_pts": np.array([v.translation[:] for v in up.values()])})
-    return {"frames": frames, "n": n, "seconds": round(secs, 3), "ual_range": [[sg[2], sg[3]] for sg in segs]}
+                       "ual_pts": np.array([v.translation[:] for v in up.values()]),
+                       "jp": np.array([M[k].translation[:] for k in MOVING])})
+    res = {"frames": frames, "n": n, "seconds": round(secs, 3), "ual_range": [[sg[2], sg[3]] for sg in segs]}
+    if clip in LOOPS and clip != "idle" and IDLE0.get("jp") is not None and job.get("phase", True) and n > 2:
+        # start the loop at the frame of its cycle nearest the idle's first frame (frame n repeats 0)
+        d = [float(np.linalg.norm(f["jp"] - IDLE0["jp"], axis=1).max()) for f in frames[:n]]
+        k = int(np.argmin(d))
+        res["frames"] = frames[k:n] + frames[:k] + [dict(frames[k])]
+        res["phase_frame"], res["phase_joint_m"] = k, [round(d[0], 4), round(d[k], 4)]
+    if clip == "idle":
+        IDLE0["jp"] = frames[0]["jp"]
+    return res
 
 
 act_fps = job.get("ual_fps", 24)  # the UAL glbs are 24 fps (scene fps after import)
 
 # --- review tiles -----------------------------------------------------------------------
 TILES = Path(job["tiles"]) if job.get("tiles") else None
-TW, TH = 240, 240
+TW = TH = int(job.get("tile_px", 240))
 
 
 def setup_render():
@@ -434,7 +513,6 @@ def render(path):
 t_all = time.time()
 out = Path(job["out_dir"])
 out.mkdir(parents=True, exist_ok=True)
-LOOPS = {"idle", "walk", "run"}
 results = {}
 for clip, uc in job["clips"].items():
     t0 = time.time()
@@ -446,12 +524,12 @@ for clip, uc in job["clips"].items():
 if TILES:
     TILES.mkdir(parents=True, exist_ok=True)
     cam, ground = setup_render()
-    # UAL reference strips, same frames
+    # UAL reference strips, same frames (the loops' phase is shifted, docs/anim-reuse.md)
     for ua, acts, ms in packs:
         lr_colors(ms, lambda nm: nm[-1] if nm[-2:] in ("_l", "_r") else None)
     for o in ours:
         o.hide_render = True
-    for clip in job.get("sheet_clips", []):
+    for clip in (job.get("sheet_clips", []) if job.get("ual_tiles", True) else []):
         r = results[clip]
         ua, act, ms = ual_for(r["ual"].split("+")[0])
         segs, secs = segments(r["ual"])
@@ -530,34 +608,6 @@ for g, root_ in GROUP_ROOT.items():  # an arm: the forearm on (the upper arm's o
     GROUP_VERTS[g] = np.nonzero(np.isin(_dom, list(names_)))[0]
 
 
-def gltf_frame(path, name):
-    """A node's rest world matrix straight from the glb's JSON, in Blender axes: the prop frame Godot
-    uses (the importer may turn bones to point at their children)."""
-    import struct
-    with open(path, "rb") as f:
-        _, _, _, n, _ = struct.unpack("<4sIIII", f.read(20))
-        g = json.loads(f.read(n))
-    nodes = g["nodes"]
-    parent = {c: i for i, nd in enumerate(nodes) for c in nd.get("children", [])}
-
-    def local(nd):
-        if "matrix" in nd:
-            return Matrix([nd["matrix"][r::4] for r in range(4)])
-        t = Matrix.Translation(nd.get("translation", (0, 0, 0)))
-        x, y, z, w = nd.get("rotation", (0, 0, 0, 1))
-        sc = nd.get("scale", (1, 1, 1))
-        return t @ Quaternion((w, x, y, z)).to_matrix().to_4x4() @ Matrix.Diagonal((*sc, 1))
-    i = next((k for k, nd in enumerate(nodes) if nd.get("name") == name), None)
-    if i is None:
-        return None
-    m = local(nodes[i])
-    while i in parent:
-        i = parent[i]
-        m = local(nodes[i]) @ m
-    yup = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))  # glTF -> Blender
-    return yup @ m
-
-
 def add_blade():
     """A 0.9 m test blade on grip_r (green, +Y along it, edge at -Z): the socket check in the tiles."""
     fr = gltf_frame(job["src"], "grip_r")
@@ -629,11 +679,12 @@ def evaluate(clip, n, loop, tag, f0=1):
         first[tag] = {"pos": pos[0], "joints": joints[0], "cycle": pos}
     elif base:
         rep["from_idle_m"] = round(float(np.linalg.norm(pos[0] - base["pos"], axis=1).max()), 4)
+        rep["to_idle_m"] = round(float(np.linalg.norm(pos[-1] - base["pos"], axis=1).max()), 4)
         rep["from_idle_joint_m"] = round(max((joints[0][k] - base["joints"][k]).length for k in joints[0]), 4)
         rep["from_idle_max_m"] = round(max(float(np.linalg.norm(pos[0] - p, axis=1).max())
                                            for p in base["cycle"][::4]), 4)
     rep["max_joint_disp_m"] = round(max((j[k] - joints[0][k]).length for j in joints for k in j), 4)
-    if TILES and clip in job.get("sheet_clips", []):
+    if TILES and clip in job.get("sheet_clips", []) and (tag == "ours" or job.get("proc_tiles", True)):
         pts = np.concatenate(pos[::3])
         for view in ("front", "side"):
             frame_cam(cam, ground, view, pts, GROUND)
@@ -645,24 +696,62 @@ def evaluate(clip, n, loop, tag, f0=1):
 
 summary = {"id": bm["id"], "height": round(HEIGHT, 3), "hip_scale": round(HIP, 4), "our_leg": round(our_leg, 4),
            "ual_leg": round(ual_leg, 4), "modes": {k: MODE[k] for k in MAP}, "dir_bones": sorted(O_INV),
-           "clips": {}, "procedural": {}}
+           "clips": {}, "procedural": {}, "grip_fix": HAND_FIX}
 arm.animation_data_create()
-moving = [b.name for b in order if b.name in MAP]
+moving = MOVING
 FLOOR_TOL = 0.01  # x height: a vertex may sit this far below the ground before the body is raised
 
 
-def key_clip(clip, r, lift=None):
+# Lead-in / lead-out (seconds) for the one-shots: eased from the idle's first frame into the clip's
+# first frame and back out of its last, so a clip starts (and but for death ends) on the idle pose
+# like the procedural ones. The hit reacts fast (short lead-in).
+LEADS = {"hit": (0.1, 0.2), "death": (0.2, 0.0)}
+LEAD_DEFAULT = (0.2, 0.25)
+
+
+def blend_basis(a, b, w):
+    out = {}
+    for nm in moving:
+        (la, qa), (lb, qb) = a[nm], b[nm]
+        if qa.dot(qb) < 0:
+            qb = -qb
+        out[nm] = (la.lerp(lb, w), qa.slerp(qb, w))
+    return out
+
+
+def lead_frames(clip, bases):
+    """bases with the eased lead-in prepended and lead-out appended; (bases, frames in, frames out)."""
+    if clip in LOOPS or not job.get("lead", True) or "basis" not in IDLE0:
+        return bases, 0, 0
+    lin, lout = LEADS.get(clip, LEAD_DEFAULT)
+    ni, no = round(lin * FPS), round(lout * FPS)
+    def ease(u):
+        return u * u * (3 - 2 * u)
+    pre = [blend_basis(IDLE0["basis"], bases[0], ease(k / ni)) for k in range(ni)]
+    post = [blend_basis(bases[-1], IDLE0["basis"], ease((k + 1) / no)) for k in range(no)]
+    return pre + bases + post, ni, no
+
+
+def key_clip(clip, r, lift=None, lead=False):
     """A fresh action with every frame keyed (loc + quat on the mapped bones; the rest stay at rest);
-    `lift`: extra world Z on the pelvis per frame."""
+    `lift`: extra world Z on the pelvis per frame; `lead`: add the lead-in/out (r["lead"] = (in, out)
+    frames, r["n_keyed"] = last frame index)."""
     if arm.animation_data.action:
         old = arm.animation_data.action
         arm.animation_data.action = None
         bpy.data.actions.remove(old)
     act = bpy.data.actions.new(clip)
     arm.animation_data.action = act
+    bases = [solve(fr["up"], fr["dz"] + lift[i], fr.get("adj"))[1] if lift is not None and lift[i] else fr["basis"]
+             for i, fr in enumerate(r["frames"])]
+    ni = no = 0
+    if lead:
+        bases, ni, no = lead_frames(clip, bases)
+    r["lead"], r["n_keyed"] = (ni, no), len(bases) - 1
+    if clip == "idle":
+        IDLE0["basis"] = bases[0]
     prev = {}
-    for i, fr in enumerate(r["frames"]):
-        basis = solve(fr["up"], fr["dz"] + lift[i], fr.get("adj"))[1] if lift is not None and lift[i] else fr["basis"]
+    for i, basis in enumerate(bases):
         for nm in moving:
             loc, q = basis[nm]
             if nm in prev and prev[nm].dot(q) < 0:
@@ -763,10 +852,11 @@ for clip, r in results.items():
     swung = clearance(r) if job.get("floor", True) else {}
     act = key_clip(clip, r)
     lift = floor_lift(r) if job.get("floor", True) else None
-    if lift:
-        act = key_clip(clip, r, lift)
-    scene.frame_start, scene.frame_end = 1, r["n"] + 1
-    rep = {"ual_clip": r["ual"], "seconds": r["seconds"], **evaluate(clip, r["n"], clip in LOOPS, "ours"),
+    act = key_clip(clip, r, lift, lead=True)
+    scene.frame_start, scene.frame_end = 1, r["n_keyed"] + 1
+    rep = {"ual_clip": r["ual"], "seconds": round(r["n_keyed"] / FPS, 3), "ual_seconds": r["seconds"],
+           "lead_frames": list(r["lead"]), **{k: r[k] for k in ("phase_frame", "phase_joint_m") if k in r},
+           **evaluate(clip, r["n_keyed"], clip in LOOPS, "ours"),
            "pelvis_fix_dz": [round(min(f["dz"] for f in r["frames"]), 4), round(max(f["dz"] for f in r["frames"]), 4)],
            "floor_lift_max": round(max(lift), 4) if lift else 0.0, "floor_lift_last": round(lift[-1], 4) if lift else 0.0, "clearance_deg": swung, "ref": REF,
            "ual_foot_rise_max_frac": round(max(f["u_low"] for f in r["frames"]) / 1.8, 4),

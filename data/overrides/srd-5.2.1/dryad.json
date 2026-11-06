@@ -1,6 +1,11 @@
 {
   "ref_pick": 1,
-  "notes": "Tier-1 review 2026-11-05: all 3 candidates are a fey woman in a white kimono with flowers in the hair (no bark skin). ref_0 (default) is framed by two big flowering vines, which meshed as floating leaf arcs and a long stick round the body (1.73 m wide). ref_2 has only a small sprig by the left hand and a plant by the right foot. Re-pick 2; check the new mesh for the sprigs. Pass 2 (05:21): the ref_2 mesh still has a long vine stick from the left hand and big leaf blobs at the feet (1.5 m wide), and no candidate has bark skin. Needs a re-roll: forge.py ref dryad --force --n 4, then re-pin ref_pick (the pinned 2 refers to the old candidates). Pass 3 (2026-11-05, re-roll with the bark-skin prompt): no candidate has bark skin (3 doll-like women in leaf-and-wicker dresses); the old ref_pick 2 carried over to the new strip and the new ref_2 has a long wicker train pooled on the floor (mesh 1.46 m wide, trailing sheet behind). ref_0 again framed by vine arcs. Re-pick 1: dress above the ankles, bare feet, leaf crown, nothing around her (the runner re-meshes it).",
   "prompt_extra": "(bark-textured green-brown skin, hair of leaves and small flowers, a simple dress of woven vines worn on the body:1.3), nothing around her, isolated on a plain white background",
-  "negative_extra": "(vines around the body, flowering branches, plants on the ground, flowers beside her, frame, wreath border:1.5), kimono"
+  "negative_extra": "(vines around the body, flowering branches, plants on the ground, flowers beside her, frame, wreath border:1.5), kimono",
+  "anim_ual_exclude": [
+    "walk",
+    "run",
+    "cast"
+  ],
+  "notes": "Tier-1 review 2026-11-05: all 3 candidates are a fey woman in a white kimono with flowers in the hair (no bark skin). ref_0 (default) is framed by two big flowering vines, which meshed as floating leaf arcs and a long stick round the body (1.73 m wide). ref_2 has only a small sprig by the left hand and a plant by the right foot. Re-pick 2; check the new mesh for the sprigs. Pass 2 (05:21): the ref_2 mesh still has a long vine stick from the left hand and big leaf blobs at the feet (1.5 m wide), and no candidate has bark skin. Needs a re-roll: forge.py ref dryad --force --n 4, then re-pin ref_pick (the pinned 2 refers to the old candidates). Pass 3 (2026-11-05, re-roll with the bark-skin prompt): no candidate has bark skin (3 doll-like women in leaf-and-wicker dresses); the old ref_pick 2 carried over to the new strip and the new ref_2 has a long wicker train pooled on the floor (mesh 1.46 m wide, trailing sheet behind). ref_0 again framed by vine arcs. Re-pick 1: dress above the ankles, bare feet, leaf crown, nothing around her (the runner re-meshes it)."
 }

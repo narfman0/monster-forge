@@ -1,4 +1,9 @@
 {
   "ref_pick": 2,
+  "anim_ual_exclude": [
+    "walk",
+    "run",
+    "attack_melee"
+  ],
   "notes": "Tier-1 review 2026-11-05: ref_0 (auto) is a wide straddle stance with the tail curled up beside the left arm like a held scythe; it meshed as a tail fused to the arm and the facing gate refused it at 88.5 deg (symmetry axis found sideways; thumb.png shows it facing front, a false refusal). ref_1: A-pose, tail behind the legs on the ground, empty clawed hands. Re-pick 1 (the batch re-meshes; the gate re-runs). Pass 2 (05:18): the ref_1 mesh faces front but its tail meshed as a long thin blade sticking out sideways and the floor shadow ellipse as dark slabs under the feet; the gate again refused at 179 deg (false, face to the front camera). Third try: ref_2 (A-pose, spiny forearms, tail down between the legs, no floor shadow). If ref_2 is no better, re-roll with a no-shadow / tail-behind prompt. Facing (2026-11-05, fixed check): cleared: front-view reference, so the sign comes from the front view and the angle is the mirror axis (~0-7 deg); the toe rule's 'backwards' (robe / cloak / chains / tail at the feet) is recorded as cue_disagrees only. No yaw, no rig_facing_check needed."
 }

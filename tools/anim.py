@@ -7,6 +7,12 @@ finds wings, else a levitation; breath on any head chain; cast, swim, burrow on 
 plans, cast and swim for floating, cast, breath, burrow and fly for serpentine;
 attack_ranged for two-armed plans), in one Blender run. Clips it cannot make are listed in
 manifest.anim.missing.
+
+Override `anim_source: "ual"` (bipeds, winged bipeds) also retargets the Quaternius UAL clips onto
+the rig after the procedural run (tools/retarget_ual.py, on this machine's Blender) into anims_ual/
+with a per-clip quality gate against the procedural clip (anims_ual/ual.json); anims/ is untouched
+until `forge.py promote <id>` (or `retarget_ual.py --promote`) copies the passing clips over it,
+moving the procedural files to anims_proc/. docs/anim-reuse.md.
 """
 import json
 import subprocess
@@ -64,6 +70,7 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
     done = (fg.load_manifest(d).get("anim") or {}).get("clips") or want
     if want and all((adir / f"{c}.glb").exists() for c in done) and not args.force:
         fg.log(f"{mon['id']}: clips exist, skip")  # incl. the ones it cannot make (manifest anim.missing)
+        stage_ual(fg, mon, d, args)
         return
     plan = mon["body_plan"]
     if plan not in overrides.FEET_BY_PLAN and plan not in LEGLESS:
@@ -99,3 +106,32 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
     fg.save_manifest(d, man)
     fg.log(f"{mon['id']}: {len(clips)} clips in {dt}s: {', '.join(clips)}"
            + (f"; missing {man['anim']['missing']}" if man["anim"]["missing"] else ""))
+    stage_ual(fg, mon, d, args)
+
+
+def stage_ual(fg, mon: dict, d: Path, args) -> None:
+    """Override anim_source "ual": retarget the UAL clips into anims_ual/ (retarget_ual.run: Blender on
+    this machine, ~15 s), gate each against the procedural clip, record manifest.anim.ual. Nothing in
+    anims/ changes here; promote() does that."""
+    if overrides.load(mon["source"], mon["id"]).get("anim_source") != "ual":
+        return
+    if mon["body_plan"] not in UPRIGHT:
+        fg.log(f"{mon['id']}: anim_source ual is for bipeds only, skip")
+        return
+    import bonemap
+    import retarget_ual
+    if (d / "anims_ual" / "ual.json").exists() and not args.force:
+        fg.log(f"{mon['id']}: UAL clips exist, skip")
+        return
+    if not (d / "bonemap.json").exists():
+        bonemap.run(mon["id"])
+    if json.loads((d / "bonemap.json").read_text()).get("status") not in ("ok", "partial"):
+        raise RuntimeError(f"{mon['id']}: bonemap.json status is not ok/partial; UAL clips cannot be mapped")
+    t0 = time.time()
+    m = retarget_ual.run(mon["id"], retarget_ual.plan_clips(mon), "none", {}, blender=fg.BLENDER, quiet=True)
+    man = fg.load_manifest(d)
+    man.setdefault("anim", {})["ual"] = {c: v["use"] for c, v in m["verdict"].items()}
+    man.setdefault("timings", {})["anim_ual"] = round(time.time() - t0, 1)
+    fg.save_manifest(d, man)
+    fg.log(f"{mon['id']}: UAL clips in anims_ual/: " + ", ".join(f"{c}={v['use']}" for c, v in m["verdict"].items())
+           + f"; promote with `forge.py promote {mon['id']}`")

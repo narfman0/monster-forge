@@ -1,0 +1,7 @@
+{
+  "anim_ual_exclude": [
+    "walk",
+    "run",
+    "attack_melee"
+  ]
+}

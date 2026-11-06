@@ -1168,7 +1168,9 @@ RUN_ORDER = ["ref", "mesh", "qa", "paint", "lod", "rig", "anim"]
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["ref", "mesh", "qa", "paint", "lod", "rig", "anim", "run", "contact"])
+    ap.add_argument("cmd", choices=["ref", "mesh", "qa", "paint", "lod", "rig", "anim", "run", "contact", "promote"],
+                    help="promote: copy the UAL clips that passed the gate from anims_ual/ into anims/ "
+                    "(procedural files move to anims_proc/; docs/anim-reuse.md)")
     ap.add_argument("ids", nargs="+", help="monster ids (registry slugs)")
     ap.add_argument("--source", default="srd-5.2.1")
     ap.add_argument("--force", action="store_true", help="redo stages whose outputs exist")
@@ -1212,6 +1214,11 @@ def main() -> int:
         dst = OUT_ROOT / args.source / f"_{args.name}.png"
         dirs = [str(OUT_ROOT / args.source / (mid + args.out_suffix)) for mid in args.ids]
         return subprocess.run([PIL_PYTHON, "-I", str(ROOT / "tools" / "contact_sheet.py"), str(dst), *dirs]).returncode
+    if args.cmd == "promote":
+        import retarget_ual
+        for mid in args.ids:
+            log(f"{mid}: promoted {retarget_ual.promote(mid)}")
+        return 0
     if args.cmd == "run":
         want = args.stages.split(",") if args.stages else RUN_ORDER
         bad = [x for x in want if x not in RUN_ORDER]

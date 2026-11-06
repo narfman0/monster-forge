@@ -205,6 +205,8 @@ with other ComfyUI clients.
 | `rig_reweight` | JSON list of 1-8 chains | rig | geometric re-weight before sockets: `[{"bones": [root..tip], "reach", "bias", "blend", "strip", "fit", "hand_room", "far"}]` (textarea, checked against the ranges in `tools/overrides.py`; `docs/rig-anim.md`) |
 | `rig_facing_check` | bool | rig | refuse to roll when `model.glb` looks misfaced (default true) |
 | `idle_lift` | number 0-20, `match_move` or `false` | anim | idle height: metres of lift, where the swim/fly clip holds the body, or the floor (text box offering the two keywords; unset = `match_move` when the `animation_set` has no `walk` but swims or flies, else `false`) |
+| `anim_source` | `procedural` / `ual` | anim | bipeds: `ual` also retargets the Quaternius UAL clips into `anims_ual/` with a per-clip quality gate; `forge.py promote <id>` copies the passing ones into `anims/` (`docs/anim-reuse.md`). Default `procedural` |
+| `anim_ual_exclude` | JSON list of clip names | anim | with `anim_source: ual`: clips that stay procedural whatever the gate says (a visual call) |
 | `paint` | object (JSON in the form) | paint | multiview paint settings (`enabled`, `views`, `denoise`, ...; see `tools/overrides.py`) |
 | `lod_screen_ratios` | 3 decreasing floats in (0, 4] | - (viewer only) | auto LOD switch points, fraction of viewport height for LOD0/LOD1/LOD2; unset = viewer settings |
 | `notes` | string | - | why the override exists |
@@ -262,6 +264,11 @@ aquatic and swim clips hover at one constant height for every clip of the monste
 except the serpentine swim, which slithers on the ground like its walk; the other legless
 clips keep the lowest vertex on the ground (`contact`). Blobs also key
 bone scale (squash and stretch). The plan table is in `docs/rig-anim.md`, "Body plans".
+
+Promoted UAL clips (`forge.py promote <id>`, `docs/anim-reuse.md`) replace files in `anims/` under
+the same names (plus `run`, which the procedural stage does not make: shown outlined as outside
+the set); the procedural files they replace sit in `anims_proc/`, and `manifest.anim.source` says
+which clips are `ual`. The page needs no change for them.
 
 Looping clips have identical first and last frames. On legged plans the idle's first frame
 is the rest pose, the one-shots start (and, but for death, end) on it, and the walk starts at

@@ -1,4 +1,8 @@
 {
   "ref_pick": 1,
+  "anim_ual_exclude": [
+    "walk",
+    "run"
+  ],
   "notes": "Tier-1 review 2026-11-05: ref_0 (auto, empty -1.84) is a robe pooling in a wide skirt on the floor with no legs or feet: the mesh is a cone with a 1.1 m puddle hem (bad for a biped rig and walk), and the facing gate refused it at 179 deg (false: thumb shows the chest sigil to the front camera; no toes for the toe rule). ref_1 (empty -0.48): hooded robe over a white underskirt with both shoes showing, arms out. Re-pick 1. Do NOT pin the suggested yaw. Facing (2026-11-05, fixed check): cleared: front-view reference, so the sign comes from the front view and the angle is the mirror axis (~0-7 deg); the toe rule's 'backwards' (robe / cloak / chains / tail at the feet) is recorded as cue_disagrees only. No yaw, no rig_facing_check needed."
 }

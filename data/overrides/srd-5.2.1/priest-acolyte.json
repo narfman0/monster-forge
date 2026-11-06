@@ -1,4 +1,9 @@
 {
   "ref_pick": 3,
+  "anim_ual_exclude": [
+    "walk",
+    "run",
+    "attack_melee"
+  ],
   "notes": "Tier-1 review 2026-11-05: 4 of 4 robed acolytes with empty hands (-3.72..-2.35). ref_0 (auto) is a white hood over a black void (no face: reads as a cultist / wraith); ref_1 a black head silhouette; ref_2 a hood with a shadowed face. ref_3 (-2.75): a young bald acolyte with a visible face, red-over-white vestments, prayer beads, bare feet on the ground. Re-pick 3."
 }

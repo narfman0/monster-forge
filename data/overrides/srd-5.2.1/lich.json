@@ -1,3 +1,8 @@
 {
+  "anim_ual_exclude": [
+    "walk",
+    "run",
+    "attack_melee"
+  ],
   "notes": "Tier-1 review 2026-11-05: the facing gate refused at 179.5 deg, but thumb.png shows the crowned skull face and the belt to the front camera (QA front_view yaw 180 right); the floor-length robe hides the toes. Do NOT pin the suggested yaw; clear the refusal by hand. Ref: 4 of 4 crowned skeletal wizards in robes, empty skeletal hands; ref_0 kept. Facing (2026-11-05, fixed check): cleared: front-view reference, so the sign comes from the front view and the angle is the mirror axis (~0-7 deg); the toe rule's 'backwards' (robe / cloak / chains / tail at the feet) is recorded as cue_disagrees only. No yaw, no rig_facing_check needed."
 }

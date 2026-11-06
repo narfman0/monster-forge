@@ -147,6 +147,15 @@ def _idle_lift(v):
     return _num(0, 20)(v)
 
 
+UAL_CLIPS = ("idle", "walk", "run", "attack_melee", "hit", "death", "cast")
+
+
+def _ual_clips(v):
+    if not isinstance(v, list) or any(c not in UAL_CLIPS for c in v):
+        return f"a list of {list(UAL_CLIPS)}"
+    return None
+
+
 def _paint(v):
     if not isinstance(v, dict):
         return "must be an object"
@@ -220,6 +229,11 @@ FIELDS = {
                        "default, false turns it off"),
     "idle_lift": (_idle_lift, "anim", "idle height: metres of lift, \"match_move\" (where the swim/fly clip "
                   "holds the body) or false (floor); unset: match_move when the animation_set has no walk"),
+    "anim_source": (_choice("procedural", "ual"), "anim", "bipeds: \"ual\" also retargets the Quaternius UAL clips "
+                    "(tools/retarget_ual.py) into anims_ual/ with a per-clip quality gate; `retarget_ual.py --promote` "
+                    "copies the passing ones into anims/ (docs/anim-reuse.md). Default procedural"),
+    "anim_ual_exclude": (_ual_clips, "anim", "anim_source ual: clips that keep the procedural version whatever "
+                         "the gate says (a visual call: torn robe, a tail riding a leg)"),
     "paint": (_paint, "paint", "multiview paint: {enabled, views, denoise, ip_weight, cn_strength, ...}"),
     "lod_screen_ratios": (_screen_ratios, None,
                           "viewer auto LOD: LOD0/LOD1/LOD2 when the model covers more than these fractions "
@@ -287,6 +301,7 @@ def defaults(mon: dict, style_name: str | None = None) -> dict:
         "level_tilt": TILT_CAP_BY_PLAN.get(plan, DEFAULT_TILT_CAP),
         "lod_ratios": list(LOD_RATIOS), "rig_facing_check": True, "lod_screen_ratios": None, "notes": "",
         # on for rig.TAIL_ADDED's plans (rig.adds_tail; overrides cannot import rig)
+        "anim_source": "procedural", "anim_ual_exclude": None,
         "rig_tail_chain": plan in {"quadruped", "winged_quadruped", "centauroid"},
         # anim.idle_lift: a monster that cannot walk idles where its swim/fly clip holds it
         "idle_lift": "match_move" if "walk" not in (mon.get("animation_set") or [])

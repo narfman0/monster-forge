@@ -1612,6 +1612,7 @@ const FIELD_UI = {
   level: { type: 'choice', opts: [true, false] }, level_tilt: { type: 'float', step: 1 },
   lod_ratios: { type: 'list' }, lod_screen_ratios: { type: 'list' }, paint: { type: 'json', area: true }, notes: { type: 'text', area: true },
   ref_unarmed_check: { type: 'choice', opts: [true, false] },
+  anim_source: { type: 'choice', opts: ['procedural', 'ual'] }, anim_ual_exclude: { type: 'json' },
   idle_lift: { type: 'lift', opts: ['match_move', 'false'], check: checkIdleLift,
     help: 'metres (0-20), match_move (swim/fly height) or false (floor)' },
   rig_reweight: { type: 'json', area: true, rows: 3, check: checkReweight,
