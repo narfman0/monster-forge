@@ -64,3 +64,25 @@ Spike candidates (no giant is rigged yet; flesh-golem, 2.4 m, is the largest rig
 | goblin-warrior | partial | 40 | 2-bone spine (spine_02 folded), no neck; 1.0 m tall, tests scale. Alternative with a full map: bugbear-warrior (ok, 59 joints, 2.1 m, wrist 4 finger joints above the hand socket) |
 | flesh-golem (giant stand-in) | partial | 56 | no neck; wrist 4 joints above the hand socket, long-forearm guess (see above) |
 | ape | partial | 30 | no neck (head on the chest bone), otherwise 1:1; long arms (hands at 0.84 m of 1.7 m), crouched legs |
+
+## Retarget spike (2026-11-06, uncommitted)
+`tools/retarget_ual.py <id>... [--clips ...]` runs `tools/blender_retarget_ual.py` on the local Blender
+(run on the ai box) and writes `anims_ual/<clip>.glb` (same layout as `anims/`: armature only, one
+action named after the clip), `<clip>.json`, `metrics.json` (the procedural clips' metrics beside them)
+and sheets in `~/.cache/monster-forge-scratch/retarget/<id>_{move,action}.png` (ours front/side, UAL
+side, procedural side; left limbs blue, right orange, a green test blade on grip_r). ~13 s per monster.
+Clips: idle=Idle_Loop, walk=Walk_Loop, run=Sprint_Loop, attack=Sword_Attack, hit=Hit_Chest,
+death=Death01, cast=Spell_Simple_Enter+Shoot+Exit (chained; Shoot alone starts with the arm up).
+What the method needed, found on the sheets:
+- Deltas are measured from UAL's Idle_Loop frame 0, not its T-pose: from the T-pose UAL's stance is
+  added onto ours (ape: thigh 0.81 forward, foot turned out 67 deg, one foot floating). Idle frame 0
+  is now our rest pose.
+- Arms match UAL's bone directions (rest A-pose vs T); legs and spine keep our stance (delta) while
+  upright and blend to UAL's directions as the trunk tilts 25-65 deg: a rest offset keeps its size
+  under rotation, so a thigh 19 deg off UAL's stood up out of the ground once lying (golem, ape).
+- Pelvis offset scaled by leg length; per-frame ground fix from the feet joints; then, against the
+  mesh, arms/head swing up (max 60 deg) and the whole body lifts so nothing is >1% of height under
+  the floor (our heads, torsos and long arms went 0.17-0.44 m under on the death).
+Open: grip_r's rest frame is not UAL's sword frame, so the test blade points sideways at rest and
+down-forward in the cast; robes tear on big leg motion (archmage run/attack); clips start far from
+the idle (walk 0.3-0.8 m) so the game must crossfade; not yet loaded in the viewer or Godot.
