@@ -1073,6 +1073,7 @@ scratch files. Per-plan settings: `rig.RIG_STRATEGY`, `anim.LEGLESS`/`ARMED`,
       succeed); rig and anim now clear their own entries on success (C).
 
 ### I. Batch (2026-11-04)
+(2026-11-06) Prompt table after the pass-5 review: `_frozen.pass5_ids` (71) + `skip_frozen: "pass5"` rules `insectoid_side`, `aquatic_side`, `tiny_fur`, `giant_brute`, `single_head_dragon`; hydra / chimera / sphinx-of-lore per-id prompts; unarmed pick = lowest score under 2.5; `unarmed_check.py` +pot / jug / rope or cord / sack / stave (UNTESTED: no GPU/RAM during the paint pass; re-run the goblin, expected [3.35, 3.34, -1.54, -0.82]). 12 prompts change (chuul, scorpion, giant-shark, killer-whale, plesiosaurus, badger, weasel, adult-silver-dragon, hill-giant, hydra, chimera, sphinx-of-lore), all already waiting on a re-roll. Multi-head bodies need a depth template (next GPU step).
 `tools/batch.py` runs the SRD batch (`plan`, `run`, `report`, `audit`); coverage audit, tiers and
 the run book in `docs/batch.md`. 315 monsters, ~35.1 h for tiers 1-3 (301), ~36.3 h with the hold
 tier. (2026-11-05) `batch.py` follows cade6ef: tiers 1 = 155, 2 = 113, 3 = 33, 4 = 14 (was 146 /

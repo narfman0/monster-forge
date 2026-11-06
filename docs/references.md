@@ -20,11 +20,13 @@ a hand" vs "empty hand":
    (`--pose-image`, biped and winged_biped), the two sides of the body.
 2. SigLIP `google/siglip-so400m-patch14-384` (Apache-2.0, 3.5 GB, downloaded once to the
    Hugging Face cache) scores each crop: hand score = max logit over "a hand holding
-   <weapon>" (13 weapons) - max logit over four empty-hand prompts. A candidate's score is
+   <weapon>" (18 weapons and held objects: pot, jug, rope or cord, sack and stave added 2026-11-06, untested against the goblin) - max logit over four empty-hand prompts. A candidate's score is
    its highest hand; above **2.5** it counts as armed.
-3. The pick is the first candidate at or under 2.5 (candidates are otherwise exchangeable,
-   and the lowest score is not the most on-model one). If every candidate is armed it takes
-   the lowest and logs a warning (`ref.unarmed.warning`): re-roll with another `--seed`, or
+3. The pick is the lowest-scoring (emptiest) candidate at or under 2.5 (2026-11-06; it was
+   the first one under it, which took sprite's dragonfly at 2.02 and frost-giant's caped
+   ref_0 at 0.49 over ref_3 at -3.04; ties go to the lower index; `ref_pick` / `--pick`
+   still pin). Records accepted before the change keep their pick: nothing is re-picked until
+   it is re-rolled. If every candidate is armed it takes the lowest and logs a warning (`ref.unarmed.warning`): re-roll with another `--seed`, or
    look and pin `ref_pick`.
 
 It runs in ComfyUI's venv (`PIL_PYTHON`) next to the loaded SDXL: ~2 GB of VRAM, ~8 s for 4
@@ -172,7 +174,15 @@ ancient-brass-dragon). A plan, rule or per-id entry with `skip_frozen` passes th
 the new rules leave their prompt (and the batch's fingerprint) unchanged and nothing good is
 re-rolled. The older entries (`_plans.avian`, ghoul, specter, ...) have no `skip_frozen`
 and apply as before. Drop an id from the list to let the rules in at its next re-roll.
-Generated (with the dragon colour table) by
+**`_frozen.pass5_ids`** (71, 2026-11-06) are the pass-5 acceptances (the ready-for-paint lists
+of `docs/review-tier2.md` Pass 5 and `docs/review-tier3.md` that were not in `ids`, plus the
+re-pick / qa-pending records): their references were drawn WITH the older rules, so adding them
+to `ids` would have dropped those rules from their prompt (49 prompts changed, 79 stale refs).
+They are skipped only by entries marked `"skip_frozen": "pass5"` (the rules below written after
+the review); the older `true` entries still apply, so their prompts stay byte-identical.
+adult-silver-dragon, badger and weasel left `ids` (they need a re-roll). `except_ids_after_pass5`
+on a rule excludes ids except pass-5 acceptances (bone-devil in `fleshy_undead`). `sizes` is a
+rule match key. Generated (with the dragon colour table) by
 `~/.cache/monster-forge-scratch/prompts/gen_tweaks.py`, not tracked.
 
 | entry | what | table / live (not frozen) |
@@ -183,6 +193,12 @@ Generated (with the dragon colour table) by
 | rule `dragon_colour` | the 40 chromatic and metallic dragon ids: "(<colour> scales all over the body:1.3), (<colour> wing membranes:1.2)" and the colours it drifts to, negated (black: green / teal / blue, orange wings; red: blue / black / teal, fire on the ground; metallics: teal / green / blue) | 40 / 11 |
 | rule `fleshy_undead` | registry prompts with corpse / undead / rotting / skeletal / emaciated / stitched / withered words, not the skeletons, mummies, lich, the incorporeal ones or shambling-mound: "(intact skin and flesh, no exposed bones:1.2)", negative bare skeleton / ribcage / bones | 10 / 2 (bone-devil, crawling claw) |
 | rule `no_carried_gear` | `unarmed_reference` records: negative quiver / arrows / weapons on the back / sheathed weapon | 79 / 15 |
+| rule `insectoid_side` (pass5) | insectoid plan: "(side view, seen from the side, standing on its legs:1.3)"; negative top-down / overhead / seen from above / bird's eye (chuul, scorpion, crab, beetle, ankheg drew top-down) | 15 / 2 (chuul, scorpion) |
+| rule `aquatic_side` (pass5) | aquatic plan: "(swimming horizontally, side view, whole body in frame:1.3)"; negative head-on / breaching / leaping out of the water / front view / jumping | 9 / 3 (giant-shark, killer-whale, plesiosaurus) |
+| rule `tiny_fur` (pass5) | quadruped plan, size tiny: "(simple smooth fur, soft rounded body, no whiskers, no stray hairs:1.2)"; negative whiskers / fur strands / spiky fur / hair tufts (shard-shell meshes) | 6 / 2 (badger, weasel) |
+| rule `giant_brute` (pass5) | cloud / fire / frost / hill / stone / storm giant: "(a huge muscular warrior-sized brute, bare muscular arms, tunic, not a robe, not a wizard, not old, no long beard:1.3)"; negative robe / wizard / sage / old man / long white beard / staff | 6 / 1 (hill-giant) |
+| rule `single_head_dragon` (pass5) | black and red dragons: negative "two heads, second head" | 8 / 0 (adult-black-dragon and ancient-red-dragon, which grew one, are accepted re-picks) |
+| per-id `prompt` (2026-11-06) | hydra (five snake-like necks from one body, "(five heads:1.5)"), chimera and sphinx-of-lore strengthened (one body, necks, "not a bust, not a portrait", lion from head to tail); sphinx-of-valor left alone (accepted re-pick 2) | 3 |
 | per-id `prompt` | riding-horse, warhorse (a bare horse: no saddle, no barding), warhorse-skeleton, sphinx-of-lore, sphinx-of-valor, chimera (three heads named), ankylosaurus, triceratops, giant-crocodile, medusa (snakes on the head only), ettin and death-dog ("two heads" up front, two bodies negated); griffon, hippogriff, pegasus wait (`skip_frozen`: their re-picks are on-model) | 15 / 12 |
 
 Registry source fix (`data/visual_profiles.json`, rebuilt): frost-giant, solar and sprite no

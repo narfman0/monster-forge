@@ -12,7 +12,7 @@ Method (zero-shot, no training):
    keypoints: its wrist, else the A-pose ControlNet image's wrists (`--pose-image`), else
    the two sides of the body at mid height (`hand_source` says which).
 2. google/siglip-so400m-patch14-384 (Apache-2.0, ~3.5 GB in the Hugging Face cache)
-   scores each crop against "a hand holding <weapon>" (13 weapons) and empty-hand
+   scores each crop against "a hand holding <weapon>" (18 weapons and held objects) and empty-hand
    prompts. SigLIP logits are independent sigmoids, so a hand's score is
        max(logit, holding prompts) - max(logit, empty-hand prompts)
    and a candidate's score is its highest hand. Above THRESHOLD (2.5) reads as armed.
@@ -36,7 +36,9 @@ import sys
 MODEL = "google/siglip-so400m-patch14-384"
 THRESHOLD = 2.5
 WEAPONS = ["a dagger", "a sword", "a bow", "a crossbow", "a spear", "an axe", "a club", "a mace", "a staff",
-           "a wand", "a shield", "a whip", "a weapon"]
+           "a wand", "a shield", "a whip", "a weapon",
+           # 2026-11-06: held objects the 13 above missed (ogre's pots scored -0.4, satyr's cords 2.47)
+           "a pot", "a jug", "a rope or cord", "a sack", "a stave"]
 # whole-image prompts: only used when no hand is found (see score())
 ARMED = ["{name} holding {w} in its hand"]
 EMPTY = ["{name} with empty open hands, holding nothing", "{name} with bare empty hands"]

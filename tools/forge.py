@@ -318,7 +318,7 @@ RULE_INSERT_BEFORE = ". Low-poly game asset"
 
 def tweak_rule(rule: dict, mon: dict) -> dict | None:
     """The rule as it applies to `mon`, or None. Match keys (all given must hold): `plans`,
-    `ids`, `id_match` (regex, fullmatch on the id), `types`, `prompt_match` (regex, searched
+    `ids`, `id_match` (regex, fullmatch on the id), `types`, `sizes`, `prompt_match` (regex, searched
     case-insensitively in the registry reference_prompt), `unarmed_reference` (bool);
     `except_ids` excludes. `by_group` {value: {insert, negative_append, ...}} is the generator:
     `id_match`'s first group picks the entry, merged over the rule (one rule covers e.g. every
@@ -331,6 +331,8 @@ def tweak_rule(rule: dict, mon: dict) -> dict | None:
     if rule.get("ids") and mid not in rule["ids"]:
         return None
     if rule.get("types") and mon.get("type") not in rule["types"]:
+        return None
+    if rule.get("sizes") and mon.get("size") not in rule["sizes"]:
         return None
     if "unarmed_reference" in rule and bool(mon.get("unarmed_reference")) != bool(rule["unarmed_reference"]):
         return None
@@ -359,12 +361,23 @@ def ref_prompt(mon: dict) -> tuple[str, str, list[str]]:
     append / insert are then moot), else its own replace / prepend / append. Negatives add up
     (plan, rules, id). `_frozen.ids` are records with an accepted reference: any plan, rule or
     per-id entry with `skip_frozen` passes them by, so a new table rule does not change (and
-    re-roll) a reference already judged good; drop an id from the list to let the rules in."""
+    re-roll) a reference already judged good; drop an id from the list to let the rules in.
+    `_frozen.pass5_ids` (accepted in the 2026-11-06 pass-5 review) are skipped only by entries
+    with `"skip_frozen": "pass5"`: the older `true` entries shaped their references and still apply."""
     tw = load_prompt_tweaks()
-    frozen = mon["id"] in set((tw.get("_frozen") or {}).get("ids") or [])
+    fz = tw.get("_frozen") or {}
+    frozen = mon["id"] in set(fz.get("ids") or [])
+    # pass-5 acceptances (`pass5_ids`): their references were drawn WITH the older rules, so only
+    # an entry marked `"skip_frozen": "pass5"` (a rule added after the pass-5 review) passes them by
+    pass5 = mon["id"] in set(fz.get("pass5_ids") or [])
 
     def live(t):
-        return t if t and not (frozen and t.get("skip_frozen")) else {}
+        if not t:
+            return {}
+        if mon["id"] in (t.get("except_ids_after_pass5") or []) and not pass5:
+            return {}  # excluded by a later rule edit, but a pass-5 acceptance keeps the rule it was drawn with
+        sf = t.get("skip_frozen")
+        return {} if sf and (frozen or (pass5 and sf == "pass5")) else t
 
     plan = live((tw.get("_plans") or {}).get(mon["body_plan"]) or {})
     if mon.get("rig_template") in (plan.get("except_templates") or []):
@@ -612,7 +625,7 @@ def ref_pose_image(mon: dict, style: dict) -> Path | None:
 def unarmed_check(mon: dict, d: Path, n: int, style: dict) -> dict | None:
     """Score ref_0..ref_<n-1> for a held weapon (tools/unarmed_check.py, docs/references.md).
     Returns the manifest's ref.unarmed record ({model, threshold, scores, armed, best,
-    candidates}; best = the first candidate at or under the threshold, else the lowest), or None when the check is off (`ref_unarmed_check` false) or not needed
+    candidates}; best = the lowest-scoring candidate at or under the threshold, else the lowest), or None when the check is off (`ref_unarmed_check` false) or not needed
     (no `unarmed_reference`). A failed check logs and records the error, never fails the stage."""
     if not mon.get("unarmed_reference") or ov_for(mon).get("ref_unarmed_check") is False:
         return None
@@ -635,11 +648,12 @@ def unarmed_check(mon: dict, d: Path, n: int, style: dict) -> dict | None:
         return {"error": str(e)[:500]}
     cands = rep["candidates"]
     scores = [c["score"] for c in cands]
-    # the first empty-handed candidate (the candidates are otherwise exchangeable, and the
-    # lowest score is not the most on-model one: bandit ref_2 is a fox); all armed: the lowest
+    # the emptiest candidate at or under the threshold (lowest score; ties go to the lower index):
+    # the first one under it was often marginal (sprite's ref_0 2.02 a dragonfly, frost-giant's
+    # ref_0 0.49 with the flared cape while ref_3 scored -3.04); all armed: the lowest anyway
     armed = [i for i, c in enumerate(cands) if c["armed"]]
-    best = next((i for i in range(len(cands)) if i not in armed),
-                min(range(len(scores)), key=lambda i: (scores[i], i)))
+    free = [i for i in range(len(cands)) if i not in armed]
+    best = min(free or range(len(scores)), key=lambda i: (scores[i], i))
     out = {"model": rep["model"], "threshold": rep["threshold"], "scores": scores, "armed": armed, "best": best,
            "candidates": [{k: c.get(k) for k in ("score", "top", "hand_source", "hands", "whole")} for c in cands],
            "seconds": round(time.time() - t0, 1)}
@@ -648,7 +662,7 @@ def unarmed_check(mon: dict, d: Path, n: int, style: dict) -> dict | None:
                           "(--n 4 --seed ...) or pin ref_pick after a look")
         log(f"{mon['id']}: WARNING {out['warning']}; scores {scores}")
     else:
-        log(f"{mon['id']}: unarmed check {scores} (armed {out['armed']}, first empty-handed {best})")
+        log(f"{mon['id']}: unarmed check {scores} (armed {out['armed']}, emptiest {best})")
     return out
 
 
@@ -672,7 +686,7 @@ def stage_ref(mon: dict, d: Path, args) -> None:
                 chk["in_use"] = picked
                 if chk.get("scores") and picked < len(chk["scores"]) and picked in chk["armed"]:
                     chk["warning_pick"] = (f"kept pick ref_{picked} scores armed ({chk['scores'][picked]}); "
-                                           f"ref_{chk['best']} is the first empty-handed one")
+                                           f"ref_{chk['best']} is the emptiest one")
                     log(f"{mon['id']}: WARNING {chk['warning_pick']}")
                 man.setdefault("ref", {})["unarmed"] = chk
                 if "scores" in chk:

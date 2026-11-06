@@ -102,7 +102,10 @@
       ],
       "insert": "(intact skin and flesh, no exposed bones:1.2)",
       "negative_append": "(bare skeleton, exposed ribcage, bare bones, x-ray:1.3)",
-      "note": "2026-11-05 (docs/review-tier1.md, tier-2 shadow): 'undead' / 'corpse' / 'rotting' draw a bare skeleton (ghoul 6 of 6, flesh-golem, grimlock, ogre-zombie, shadow). The ghoul treatment for fleshy creatures; skeletons, mummies, liches and the incorporeal ones are excepted"
+      "note": "2026-11-05 (docs/review-tier1.md, tier-2 shadow): 'undead' / 'corpse' / 'rotting' draw a bare skeleton (ghoul 6 of 6, flesh-golem, grimlock, ogre-zombie, shadow). The ghoul treatment for fleshy creatures; skeletons, mummies, liches and the incorporeal ones are excepted 2026-11-06: bone-devil (a skeletal devil that drew a fleshy red one) is excluded via except_ids_after_pass5: a pass-5 acceptance (forge.ref_prompt) keeps the rule it was drawn with, so its prompt stays byte-identical until it leaves _frozen.pass5_ids for a re-roll",
+      "except_ids_after_pass5": [
+        "bone-devil"
+      ]
     },
     {
       "name": "no_carried_gear",
@@ -110,6 +113,61 @@
       "unarmed_reference": true,
       "negative_append": "(quiver, arrows, arrows on the back, weapons on the back, sheathed weapon:1.3)",
       "note": "2026-11-05 (docs/review-tier2.md 9): frost-giant drew a fan of arrows behind the back from its registry prompt's quiver. The registry prompts of live records no longer name carried gear (visual_profiles.json); this keeps SDXL from adding it"
+    },
+    {
+      "name": "insectoid_side",
+      "skip_frozen": "pass5",
+      "plans": [
+        "insectoid"
+      ],
+      "insert": "(side view, seen from the side, standing on its legs:1.3)",
+      "negative_append": "top-down view, overhead view, seen from above, bird's eye",
+      "note": "2026-11-06 (docs/review-tier2.md Pass 5 finding 8): chuul, scorpion, giant-fire-beetle, ankheg and crab drew top-down (meshed standing on edge). The quadruped plan's side-view replace had no insectoid counterpart. A rule (not a plan entry) because plans have no insert"
+    },
+    {
+      "name": "aquatic_side",
+      "skip_frozen": "pass5",
+      "plans": [
+        "aquatic"
+      ],
+      "insert": "(swimming horizontally, side view, whole body in frame:1.3)",
+      "negative_append": "head-on, breaching, leaping out of the water, front view, jumping",
+      "note": "2026-11-06 (finding 9): giant-shark head-on, killer-whale breaching, plesiosaurus rearing"
+    },
+    {
+      "name": "tiny_fur",
+      "skip_frozen": "pass5",
+      "plans": [
+        "quadruped"
+      ],
+      "sizes": [
+        "tiny"
+      ],
+      "insert": "(simple smooth fur, soft rounded body, no whiskers, no stray hairs:1.2)",
+      "negative_append": "whiskers, fur strands, spiky fur, hair tufts",
+      "note": "2026-11-06 (finding 10): badger, weasel, rat meshed as shard shells (hatched ink fur, whisker shards). Tiny quadrupeds only"
+    },
+    {
+      "name": "giant_brute",
+      "skip_frozen": "pass5",
+      "ids": [
+        "cloud-giant",
+        "fire-giant",
+        "frost-giant",
+        "hill-giant",
+        "stone-giant",
+        "storm-giant"
+      ],
+      "insert": "(a huge muscular warrior-sized brute, bare muscular arms, tunic, not a robe, not a wizard, not old, no long beard:1.3)",
+      "negative_append": "robe, wizard, sage, old man, long white beard, staff",
+      "note": "2026-11-06 (finding 7): cloud-, frost- and hill-giant came out as robed elderly sages. The six giants of type giant that are SRD 'Giant' family (not ettin / troll, which have their own prompts)"
+    },
+    {
+      "name": "single_head_dragon",
+      "skip_frozen": "pass5",
+      "id_match": "(?:(?:young|adult|ancient)-)?(?:black|red)-dragon(?:-wyrmling)?",
+      "negative_append": "two heads, second head",
+      "note": "2026-11-06 (finding 1): adult-black-dragon ref_0 and ancient-red-dragon ref_0 grew a second head. A separate rule, not dragon_colour's negatives: dragon_colour is skip_frozen true, so editing it would change the accepted pass-5 dragons' prompts"
     }
   ],
   "_frozen": {
@@ -119,7 +177,6 @@
       "adult-bronze-dragon",
       "adult-copper-dragon",
       "adult-green-dragon",
-      "adult-silver-dragon",
       "adult-white-dragon",
       "ancient-black-dragon",
       "ancient-blue-dragon",
@@ -130,7 +187,6 @@
       "axe-beak",
       "azer-sentinel",
       "baboon",
-      "badger",
       "bandit",
       "bandit-captain",
       "barbed-devil",
@@ -307,7 +363,6 @@
       "vulture",
       "warrior-infantry",
       "warrior-veteran",
-      "weasel",
       "werebear",
       "wereboar",
       "wererat",
@@ -331,7 +386,80 @@
       "young-white-dragon",
       "zombie"
     ],
-    "note": "records with an accepted reference on 2026-11-05 (tier-1 pass 4, tier-2 review, pilots and hand picks): every plan, rule and per-id entry with skip_frozen passes them by (forge.ref_prompt), so the table rules of 2026-11-05 do not change their prompt and the batch does not re-roll them. Drop an id from this list to let the rules in at its next re-roll. Generated by ~/.cache/monster-forge-scratch/prompts/gen_tweaks.py: every SRD record with ref.png except those re-rolled for a known problem."
+    "note": "records with an accepted reference on 2026-11-05 (tier-1 pass 4, tier-2 review, pilots and hand picks): every plan, rule and per-id entry with skip_frozen passes them by (forge.ref_prompt), so the table rules of 2026-11-05 do not change their prompt and the batch does not re-roll them. Drop an id from this list to let the rules in at its next re-roll. Generated by ~/.cache/monster-forge-scratch/prompts/gen_tweaks.py: every SRD record with ref.png except those re-rolled for a known problem. 2026-11-06: adult-silver-dragon, badger and weasel left the list (docs/review-tier2.md Pass 5: they need a re-roll, so the new rules should reach them). `pass5_ids` = the 49 ready-for-paint records of pass 5 that were not frozen plus the 23 whose reference was accepted with a re-pick / qa pass pending (docs/review-tier2.md Pass 5 and docs/review-tier3.md): their references were drawn WITH the older rules, so only entries marked skip_frozen \"pass5\" (rules written after the review) pass them by; the older skip_frozen true entries still apply to them, which keeps their prompts byte-identical.",
+    "pass5_ids": [
+      "shadow",
+      "riding-horse",
+      "warhorse",
+      "warhorse-skeleton",
+      "ankylosaurus",
+      "triceratops",
+      "adult-gold-dragon",
+      "ancient-copper-dragon",
+      "ancient-gold-dragon",
+      "ancient-silver-dragon",
+      "deva",
+      "erinyes",
+      "incubus",
+      "succubus",
+      "horned-devil",
+      "nalfeshnee",
+      "pit-fiend",
+      "planetar",
+      "solar",
+      "vrock",
+      "dust-mephit",
+      "ice-mephit",
+      "magma-mephit",
+      "steam-mephit",
+      "balor",
+      "homunculus",
+      "giant-bat",
+      "bat",
+      "owl",
+      "stirge",
+      "roc",
+      "swarm-of-ravens",
+      "kraken",
+      "ancient-brass-dragon",
+      "ancient-bronze-dragon",
+      "ancient-green-dragon",
+      "ancient-white-dragon",
+      "hawk",
+      "basilisk",
+      "piranha",
+      "swarm-of-piranhas",
+      "glabrezu",
+      "dragon-turtle",
+      "djinni",
+      "water-elemental",
+      "animated-flying-sword",
+      "allosaurus",
+      "giant-seahorse",
+      "archelon",
+      "frost-giant",
+      "sphinx-of-valor",
+      "adult-black-dragon",
+      "adult-red-dragon",
+      "ancient-red-dragon",
+      "gargoyle",
+      "bone-devil",
+      "imp",
+      "sprite",
+      "ankheg",
+      "giant-fire-beetle",
+      "giant-crab",
+      "crab",
+      "spider",
+      "tarrasque",
+      "wyvern",
+      "tyrannosaurus-rex",
+      "cloaker",
+      "giant-wasp",
+      "giant-centipede",
+      "remorhaz",
+      "seahorse"
+    ]
   },
   "owlbear": {
     "prompt": "single creature, centered, full body side view of an owlbear walking on all fours, (four-legged bear body:1.2) with (dark brown fur:1.3) and big claws, (owl head with brown-feathered face, round yellow eyes and hooked beak:1.25), feathered neck and shoulders. Large fantasy monstrosity, whole body in frame, legs and paws visible",
@@ -408,9 +536,9 @@
     "note": "2026-11-05: living white horses with bony legs and a saddle, a lance with a pennant, a skeletal rider"
   },
   "sphinx-of-lore": {
-    "prompt": "single creature, centered, (a sphinx, one creature with the body of a lion standing on all four legs:1.4), tawny fur, (large feathered wings on the back, partly spread:1.2), (a woman's human head with a calm wise face and an elaborate striped headdress on the lion's neck:1.4), lion tail. Large celestial. full body, side view",
-    "negative_append": "(woman riding, rider, person sitting on the lion, standing woman, human body, human arms, dress, robe:1.6), lion head, lion mane",
-    "note": "2026-11-05: a woman riding a winged lion, winged women in dresses"
+    "prompt": "single creature, centered, (a sphinx, one creature with the full body of a lion from head to tail, standing on all four legs, seen from the side:1.5), tawny fur, (large feathered wings on the back, partly spread:1.2), (a woman's human head with a calm wise face and an elaborate striped headdress sits on the lion's neck, no human chest or arms:1.4), lion tail. Large celestial. full body, side view, standing, whole lion in frame",
+    "negative_append": "(woman riding, rider, person sitting on the lion, standing woman, human body, human arms, human chest, breasts, topless, nude, dress, robe, bust, portrait, head and shoulders, close-up, cropped:1.6), lion head, lion mane",
+    "note": "2026-11-06: round-3 re-roll prompt: the round-2 refs drew a topless bust or a woman beside a lioness; says full body, lion body head to tail, not a bust, human head on the lion's neck"
   },
   "sphinx-of-valor": {
     "prompt": "single creature, centered, (a sphinx, one creature with the body of a lion standing on all four legs:1.4), golden fur, (large feathered wings on the back, partly spread:1.2), (a stern bearded man's human head in a striped pharaoh headdress on the lion's neck:1.4), lion tail. Large celestial. full body, side view",
@@ -418,9 +546,9 @@
     "note": "2026-11-05: a sitting winged lion with a lion's head; head-only emblems"
   },
   "chimera": {
-    "prompt": "single creature, centered, (a chimera, one lion body standing on all four legs:1.3), tawny fur, (three heads side by side on the shoulders: a maned lion head in the middle, a horned goat head on one side and a red dragon head on the other:1.5), (leathery red dragon wings partly spread:1.2), a long tail. Large monstrosity. full body, side view",
-    "negative_append": "(one head, single head, dragon body, dragon legs, scales on the body:1.4), rider, sitting",
-    "note": "2026-11-05: refs 0-1 red dragons, ref_2 (re-pick) a lion with a second dragon head, no goat head: re-roll"
+    "prompt": "single creature, centered, (a chimera: ONE single lion body standing on all four legs, one pair of shoulders, one tail:1.5), tawny fur, (three heads growing from the same shoulders on three separate necks: a maned lion head in the middle, a horned goat head on the left neck, a red dragon head on the right neck:1.5), (three heads on one body:1.4), (leathery red dragon wings partly spread:1.2), a long serpent-tipped tail. Large monstrosity. full body, side view",
+    "negative_append": "(three animals, several bodies, stacked animals, animal standing on another animal, separate goat, two lions, herd, group, one head, single head, dragon body, dragon legs, scales on the body:1.6), rider, sitting",
+    "note": "2026-11-06: strengthened for the round-3 re-roll (the round-2 prompt drew three whole animals 3 of 3 / a lion with a second dragon head and no goat): one body and three necks said before the heads; the prompt_extra of the override still adds. Probably needs a depth template"
   },
   "griffon": {
     "skip_frozen": true,
@@ -475,5 +603,10 @@
       "a single severed undead human hand": "a single severed human hand"
     },
     "note": "2026-11-05 (fleshy_undead): 'undead' draws bones; the hand keeps its withered skin (the rule adds flesh)"
+  },
+  "hydra": {
+    "prompt": "single creature, centered, (a hydra, one heavy four-legged reptile body:1.4), dark green scales, (FIVE long snake-like necks rising from the same shoulders, each neck ending in its own dragon-like head:1.5), (five heads:1.5), the heads fan out above the body, one body with four legs and one tail. Huge monstrosity. full body, side view",
+    "negative_append": "(one head, single head, two heads, three heads, standing on hind legs, upright, several bodies, multiple animals, five hydras, snakes only, no body:1.5), multiple views, character sheet",
+    "note": "2026-11-06 (docs/review-tier3.md): hydra drew one head 3 of 3 with the registry prompt + prompt_extra; a whole per-id subject with the head count up front, as death-dog / ettin. Probably still needs a depth template"
   }
 }
