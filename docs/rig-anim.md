@@ -996,6 +996,41 @@ two hip-feather tips on the floor (ground contacts, round 7) keep the standing f
 2.2 cm short at the stride ends; its wings hide most of the sword cut. The spider's death rests on curled
 legs rather than its belly.
 
+## Clip audit (2026-11-06)
+
+`python3 -I tools/clip_audit.py --all --jobs 8` (Blender on the machine that runs it; ai: 115 rigs in
+2.7 min) plays every procedural clip in `anims/` on `model_rigged.glb` (`tools/blender_clip_audit.py`,
+skinned mesh on every frame) and writes `out/srd-5.2.1/_audit/<id>.json` (metrics), `flags.json` and
+`clips.md` (per-plan table, flag counts, monsters worst first). Read-only: nothing under `<id>/` is
+written; promoted UAL clips and `rig.tool: ual` rigs are skipped. `--report` redoes the flags from
+the metrics (thresholds in `clip_audit.T`), `--sheets 12` renders the 12 worst non-bipeds
+(`_audit/sheets/<id>.png`: 5 side + 2 front frames per clip, plus 4 consecutive frames around each
+flagged pop; left limbs blue, right orange, tail green, wings purple, head yellow).
+Metrics per clip: lowest vertex (sink / float, x height), edge stretch p99.9 and where the worst edges
+are (part), per-vertex pops (a one-frame jump over 2x both neighbours' moves, or an out-and-back
+flicker), loop closure, from_idle, walk stride and lift per foot / leg length, stance-foot backward
+speed (the ground speed the walk implies) and its spread over the feet, socket drift against the 24
+nearest vertices, wing-tip and tail-tip travel, death last frame (floor, top, still), idle motion,
+limb share inside a torso ellipsoid; per rig the tail's vertices near the floor (`tail_low_share`).
+
+Result (115 rigs, 32 non-biped): flagged non-bipeds are almost all quadrupeds with a tail chain on
+floor vertices. Seen on the sheets: giant-toad's right hind leg is the tail *and* a wing chain (hit
+flips it up, attack/hit sink 18-32% h, walk barely steps); boar's tail chain is its right hind leg;
+giant-weasel's hind leg hangs under the tail root; badger, hippo, centaur, black-bear and giant-hyena
+tails are fused to the rump/hind thigh and drag through the floor or tear. `tail_low_share` separates
+them (0.07-0.44 vs 0-0.04 on the clean hanging tails). Polar bear: weights bleed between the legs
+(webs in walk/swim, stretch 5.7 idle, 15 swim). Weasel walk: the body drops one frame after the loop
+seam (per-frame ground correction, unsmoothed); boar/badger idle and attack pops sit on the tail end.
+Implied walk ground speed is 0.38x the SRD walk speed (median of 104 walks; 0.09-0.83).
+False alarms found on the sheets and fixed in the thresholds: idle float/wander on fliers that idle in
+the air (lifted idle now follows `anim.idle_lift`), serpentine wander/from_idle (displacements now
+against max(height, length)), wing-membrane stretch 4.5 (+1.5 where wings tear most), legs tucked in a
+lying death (limb_in_torso skipped on death), hyena sinks of 2.5% h (sink 0.02 -> 0.03, the stage's
+DIP_MAX), eased 3-frame hit snaps (pop needs 2x both neighbours), tail-end pops of 0.02-0.03 h not
+visible (pop 0.03), black-pudding settling (death_hold 0.005). Not trusted: stride/gait on sprawled
+legs (insectoid skipped), gait spread on owlbear/black-bear, limb_in_torso on bipeds' cuts, socket
+drift, every biped flag (not looked at; bipeds go to UAL).
+
 ## Body plans (2026-11-04)
 
 One pilot per plan the six pilots did not cover took the whole chain (`forge.py run`, paint
