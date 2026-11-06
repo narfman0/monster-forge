@@ -190,8 +190,10 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
 - [ ] Facing left: 3 pins to judge (adult-brass-dragon -36.7 is sideways: drop it;
       black-dragon-wyrmling -155.6 worse than auto; ancient-black-dragon -141.7 about equal).
       Gate false refusals on a wrong mirror axis at a good yaw: gorgon, black-bear,
-      giant-hyena, bulette (the first needs a look, then `rig_facing_check` false). Insectoids
-      still use the old rule (spider pins stay).
+      giant-hyena, bulette (the first needs a look, then `rig_facing_check` false).
+      (2026-11-06) Insectoids: `insectoid_yaw` (mirror axis, camera end), 14 of 16 within 15
+      deg of the pins (5 before); scorpion (re-roll pending) comes out backwards; giant-wasp's
+      pin 161.0 is the one 18 deg off (auto 179.5 is straight by eye). Pins stay.
 - [x] Roll score v2 (2026-11-04): spine, head, tail, wing and arm chains per plan, leg count
       and pairs, joint band, joints outside the mesh, weight bleed, and a pose test (each
       part bent 30 degrees: torn edges, far vertices moving, skin not following). Terms in

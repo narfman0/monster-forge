@@ -164,7 +164,7 @@ Instead of retargeting onto SkinTokens skeletons: rig the mesh to UAL's own skel
 with no solve. `python3 -I tools/rig_ual.py <id>... [--fit auto|skintokens] [--weights skintokens|heat|transfer]`
 runs `tools/blender_rig_ual.py` (local Blender, CPU) and writes `out/srd-5.2.1/<id>/rig_ual/<fit>_<weights>/`
 (model_rigged.glb + LODs, `anims/<clip>.glb`, metrics.json) and sheets in
-`~/.cache/monster-forge-scratch/rigual/<id>_<fit>_<weights>{,_fit}.png`. Not wired into forge.py.
+`~/.cache/monster-forge-scratch/rigual/<id>_<fit>_<weights>{,_fit}.png`. Pipeline: see "Direct UAL rig batch" below.
 - **Skeleton.** A copy of UAL's armature (65 bones, UAL names) with the joints moved onto the mesh; the
   180 deg turn (UAL faces +Z) is on the Armature node, which no clip keys. Arms, hands and legs turn their
   rest frame by the shortest arc from UAL's direction to ours, spine/neck/head/clavicles keep UAL's
@@ -205,3 +205,42 @@ than with the retarget; long robes stay an exclusion case. The goblin's tabard f
 Cost: 9-14 s per monster on ai's CPU (rig ~2 s, heat ~1 s, the rest clip export and tiles); the 50
 bipeds at --jobs 8 in ~2 min. No GPU. Unverified: not loaded in the viewer or Godot; hands judged only at
 sheet size; the auto fit was tried on 4 meshes only.
+
+## Direct UAL rig batch (2026-11-06)
+All 84 rigged bipeds/winged bipeds with an ok/partial bonemap (37 newly rigged ones mapped first: 5 ok,
+29 partial, 3 fail = earth-elemental, shambling-mound (no hand sockets), goblin-minion (one leg found);
+medusa still fails), `--fit skintokens --weights heat`, run on ai (`--jobs 8`, 84 rigs in ~2.7 min, 10-17 s
+each, CPU). Outputs `out/srd-5.2.1/<id>/rig_ual/skintokens_heat/` + `rig_ual/verdict.json` (status, reasons,
+`procedural_clips`, per-clip edge stretch p99.9 / min_z / floor lift). Sheets: 3 monsters each,
+`~/.cache/monster-forge-scratch/rigual/batch_00..27.png` (fit, idle, walk x3, run x2, attack x3, hit, cast,
+death x2, side and front).
+- Fixes needed on the way: (1) heat on the remeshed proxy failed outright on 36 meshes ("failed to find a
+  solution": voxel crumbs and loose prop parts that see no bone); the proxy now drops loose parts under
+  2% of its vertices and, if heat still fails, retries at 2% / 3% voxels (all 84 solve, 1 needed 2%: sea-hag).
+  (2) heat is no longer tried on the mesh itself first: on priest it "worked" on the non-manifold shells and
+  the robe shattered (p99.9 21 -> 12 via the proxy); `heat_direct` keeps the old order. (3) UAL2's actions
+  are loaded too (`ual_extra`): the zombie clips (mummy, ghoul, ghast, zombie, ogre-zombie) were missing.
+- Checked on all: sockets present with the old rig's set (56 with head/back/hip, 28 hands/grips only, as
+  their SkinTokens rigs) and parented right (grip -> hand, head -> Head, back -> spine_03, hip -> pelvis);
+  left/right right in every front view; feet planted on idle/walk; deaths on the floor (lift <= 0.9 m).
+- **use_ual 67** (41 with every clip; 26 keep some clips procedural, mostly robes/coats/capes on run and
+  the lunge: archmage, assassin, animated-armor, bandit-captain, bugbear-stalker, cultist(-fanatic), druid,
+  dryad, goblin-warrior, green-hag, guard(-captain), knight, mage, mummy-lord, noble, pirate-captain,
+  priest(-acolyte), sea-hag, spy, tough-boss, vampire, werewolf, zombie). Clips on UAL: idle 67/67, hit
+  67/67, cast 11/11, walk 59/67, death 55/67, attack 41/61, run 40/62.
+- **needs_skintokens 12** (appendage with no UAL bone, heat hangs it on a thigh/spine): tails barbed-devil,
+  bearded-devil, dretch, half-dragon, kobold-warrior, rakshasa, wererat, weretiger, sahuagin-warrior (+ fins);
+  wings harpy; extra limbs ettercap; chains chain-devil.
+- **needs_review 5**: ettin (two heads, each rides a shoulder), lich (robe, and no procedural clips to keep),
+  night-hag (robe, stretch 6.6 already at idle), scout (cape takes the right arm and streams sideways), troll
+  (a rag strip joins the feet and becomes a sheet on walk/run).
+- Pipeline, opt-in: override `rig_source: "ual"` (or `forge.py rig <id> --rig-source ual`) makes the rig
+  stage call `rig_ual.stage`: no SkinTokens roll, heat weights, fit `rig_ual_fit` = `auto` (model.glb alone,
+  default) or `skintokens` (the existing SkinTokens rig's joints; kept once as `rig/skintokens_rigged.glb`).
+  It copies the UAL rig's `model_rigged*.glb` over the game files (painted albedo set), drops the old
+  skeleton's `anims/`, `anims_proc/`, `manifest.anim`, writes the clips + `ual.json` (retarget_ual's gate,
+  no procedural baseline, `anim_ual_exclude` honoured) into `anims_ual/`; `forge.py anim` then makes the
+  procedural clips on the UAL skeleton and skips the retarget; `forge.py promote <id>` as before.
+  Tried only on a scratch copy on ai (ape auto, goblin-warrior skintokens; anim + promote ran). Not run on out/.
+- Unverified: nothing loaded in the viewer or Godot; judged from workbench sheets at tile size (hands,
+  faces, the procedural clips on the UAL skeleton not looked at). Verdicts are not wired into anything.

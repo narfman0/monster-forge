@@ -105,12 +105,21 @@ kids = rig_topology._children(bones)
 PLAN = job.get("plan", "")
 LEGLESS = {"serpentine", "aquatic", "floating", "amorphous", "plant_object", "tentacled", "swarm", "merfolk_naga"}
 legless = PLAN in LEGLESS
+# An upright body whose rig has fewer leg chains than the plan's feet (a lich's robe, a
+# hezrou or medusa whose roll found one leg) gets the standing set (stand_clips(): no
+# steps, the body sways and leans over its base, the arms do the work, death collapses)
+# instead of failing; the leg chains it did find stay unkeyed and ride the body.
+STAND = None
 if legless:
     legs = []
 else:
     legs = rig_topology.find_legs(bones, height, 8 if job["sprawl"] else job["feet"], job["sprawl"])
     if len(legs) < job["feet"]:
-        raise SystemExit(f"found {len(legs)} legs, need {job['feet']}")
+        if not job["upright"]:
+            raise SystemExit(f"found {len(legs)} legs, need {job['feet']}")
+        STAND = {"legs_found": len(legs), "need": job["feet"], "unkeyed_legs": [g["chain"] for g in legs]}
+        print(f"found {len(legs)} legs, need {job['feet']}: standing clip set (no steps)")
+        legs = []
 drop = max(g["drop"] for g in legs) if legs else 0.3 * height
 cx = rig_topology.centre_x(bones, legs)
 for g in legs:
@@ -2271,6 +2280,120 @@ def death_float() -> Clip:
     return c
 
 
+# Standing set (STAND, above): an upright body with fewer leg chains than feet. Nothing
+# steps, so nothing slides: the body is one rigid sway / lean / fall over the ground under
+# its middle (Clip.pivot = PIVOT), the lowest vertex held on the ground every frame
+# ("contact"), the torso, neck and arms layered on top. Every loop starts on the rest pose
+# (from_rest) and every one-shot starts there, so idle -> any clip is 0 m.
+STAND_ROLL = 4.0    # walk: degrees the body rocks side to side, over its base
+STAND_LEAN = 3.0    # walk: degrees it leans into the travel
+
+
+def stand_clip(name: str, seconds: float, loop: bool, ground: str = "contact") -> Clip:
+    c = Clip(name, seconds, loop)
+    c.ground = ground
+    return c
+
+
+def upper(c: Clip, axis: str, fn) -> None:
+    """A lean of the upper body: the torso chain when the rig has one, else the neck."""
+    c.turn_chain(torso or neck[:-1] or neck, axis, fn)
+
+
+def idle_stand() -> Clip:
+    """Breathing and looking about, a slow small sway over the base."""
+    c = stand_clip("idle", 3.0, True)
+    c.tilt = lambda t: Quaternion(AXES["Y"], math.radians(from_rest(wave(1.2, 1, 0.1))(t)))
+    upper(c, "X", from_rest(wave(2.5, 1, 0.1)))
+    c.turn_chain(neck[:-1] or neck, "Z", from_rest(wave(8.0, 1, 0.1)))
+    c.turn(skull, "X", from_rest(wave(4.0, 2, 0.2)))
+    relax_arms(c)
+    for a in arms:
+        c.turn(a["upper"], "X", from_rest(wave(4.0, 1, 0.3)))
+        c.turn(a["forearm"], "X", from_rest(lambda t: 4.0 * math.sin(2 * math.pi * (t - 0.4))))
+    return c
+
+
+def walk_stand() -> Clip:
+    """In-place glide: the body rocks side to side over its base and leans into the
+    travel, the upper body counters the rock, the arms swing against each other."""
+    c = stand_clip("walk", 1.2, True)
+    rock = from_rest(wave(STAND_ROLL, 1))
+    # leans in on each "step" (twice a cycle), upright where the rock changes sides
+    c.tilt = lambda t: Quaternion(AXES["Y"], math.radians(rock(t))) @ \
+        Quaternion(AXES["X"], math.radians(-STAND_LEAN * (1 - math.cos(4 * math.pi * t)) / 2))
+    upper(c, "Y", lambda t: -0.5 * rock(t))
+    c.turn_chain(neck[:-1] or neck, "Y", lambda t: -0.3 * rock(t))
+    relax_arms(c)
+    for a in arms:
+        sg = 1 if a["side"] == "r" else -1
+        c.turn(a["upper"], "X", lambda t, sg=sg: sg * ARM_SWING * math.sin(2 * math.pi * t))
+    c.info = {"walk": "stand_glide", "rock_deg": STAND_ROLL, "lean_deg": STAND_LEAN}
+    return c
+
+
+def attack_stand() -> Clip:
+    """Wind up back, lean in and strike: both arms reach forward (one with no pair), or
+    the head and neck lunge when the rig found no arms; recover."""
+    c = stand_clip("attack_melee", 1.0, False)
+    k = keys((0, 0), (0.3, -0.4), (0.5, 1), (0.65, 1), (1, 0))
+    c.tilt = lambda t: Quaternion(AXES["X"], math.radians(-10 * k(t)))
+    upper(c, "X", lambda t: -12 * k(t))
+    reach = keys((0, 0), (0.3, 0.6), (0.5, 1), (0.65, 1), (1, 0))
+    for a in arms:
+        sx = 1 if a["side"] == "r" else -1
+        aim_arm(c, a, lambda t, sx=sx: Vector((0.25 * sx, 1, 0.25)).normalized(),
+                lambda t, sx=sx: Vector((0.05 * sx, 1, 0.0 - 0.3 * reach(t))).normalized(), reach)
+    if not arms:
+        c.turn_chain(neck, "X", lambda t: -20 * k(t))
+    c.turn(skull, "X", keys((0, 0), (0.3, 10), (0.5, -8), (1, 0)))
+    c.info = {"attack": "arms" if arms else "head"}
+    return c
+
+
+def hit_stand() -> Clip:
+    c = stand_clip("hit", 0.5, False)
+    k = keys((0, 0), (0.18, 1), (1, 0))
+    c.tilt = lambda t: Quaternion(AXES["X"], math.radians(6 * k(t)))
+    upper(c, "X", lambda t: 10 * k(t))
+    c.turn_chain(neck, "X", lambda t: 12 * k(t))
+    relax_arms(c)
+    for a in arms:
+        c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, -15 * k(t)))
+        c.turn(a["forearm"], "X", lambda t: 20 * k(t))
+    return c
+
+
+def death_stand() -> Clip:
+    """Slump, then topple forward about the front of the base onto the ground, arms limp;
+    holds lying."""
+    c = stand_clip("death", 2.0, False, "rest")
+    c.rest_from = 0.75
+    front_y = max(p[1] for b in bones for p in (b["head"], b["tail"]) if p[2] < 0.25 * height) \
+        if any(p[2] < 0.25 * height for b in bones for p in (b["head"], b["tail"])) else PIVOT.y
+    c.pivot = Vector((cx, front_y, 0.0))
+    fall = lambda t: -85 * ease_in((t - 0.25) / 0.5) + 5 * math.sin(math.pi * smooth((t - 0.75) / 0.15))
+    c.tilt = lambda t: Quaternion(AXES["X"], math.radians(fall(t)))
+    upper(c, "X", keys((0, 0), (0.25, -20), (0.7, 5), (1, 5)))
+    c.turn_chain(neck, "X", keys((0, 0), (0.3, -20), (0.8, 15), (1, 15)))
+    relax_arms(c, keys((0, 1), (0.5, 0)))
+    for a in arms:
+        c.turn(a["upper"], "X", keys((0, 0), (0.3, 30), (0.8, 60), (1, 60)))
+        c.turn(a["forearm"], "X", keys((0, 0), (0.4, 20), (1, 20)))
+    c.info = {"falls": "forward"}
+    return c
+
+
+def stand_clips() -> dict:
+    sets = {"idle": lambda s: idle_stand(), "walk": lambda s: walk_stand(), "attack_melee": lambda s: attack_stand(),
+            "hit": lambda s: hit_stand(), "death": lambda s: death_stand()}
+    if arms:
+        sets["cast"] = lambda s: cast(stand_clip)
+    if "l" in arm_by_side and "r" in arm_by_side:
+        sets["attack_ranged"] = lambda s: attack_ranged()
+    return sets
+
+
 # amorphous (oozes) and other vertical-chain bodies (blob fallback: spine_00 at the base is
 # the root, the chain runs up the middle). Squash and stretch is the root's scale (local Y
 # is up, so (w, h, w) widens and flattens about the base); leaning is turning the chain
@@ -2840,7 +2963,7 @@ def legless_clips() -> dict:
     return sets
 
 
-makers = legless_clips() if legless else plan_clips()
+makers = legless_clips() if legless else stand_clips() if STAND else plan_clips()
 
 
 def lifted_idle(base):
@@ -2951,6 +3074,7 @@ report = {"height": round(height, 3), "drop": round(drop, 3), "size": round(SIZE
           "spine": spine, "tail": tail, "arms": {a["side"]: a["chain"] for a in arms},
           "wings": {w["side"]: w["chain"] for w in wings}, "legs": [g["chain"] for g in legs],
           "clips": {}, "skipped": [], **({"body": BODY["path"]} if BODY else {}),
+          **({"stand_fallback": STAND} if STAND else {}),
           **({"tentacles": TENTS} if TENTS else {}), **({"body": STALK, "limbs": LIMBS} if STALK else {}),
           **({"body": STACK} if STACK and not STALK else {}), **({"tail": FISHTAIL} if FISHTAIL else {})}
 order = sorted(job["clips"], key=lambda n: n != "idle") if LIFTED else job["clips"]  # the idle sets IDLE_Z

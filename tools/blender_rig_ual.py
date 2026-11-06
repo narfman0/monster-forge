@@ -4,10 +4,12 @@ rig spike"). Run by tools/rig_ual.py:
     blender -b --factory-startup --python-exit-code 1 -P tools/blender_rig_ual.py -- '<job json>'
 
 job: src (model_rigged.glb: its mesh is the game mesh; its SkinTokens skeleton + weights are the
-reference and weight source "skintokens"), bonemap (bonemap.json), ual (UAL1_Standard.glb), fit
-("auto" | "skintokens"), weights ("skintokens" | "heat" | "transfer"), fingers ("hand": finger
-weights folded into the hand | "keep"), sockets (registry list), lods {k: path}, clips {ours: UAL
-clip, "A+B" chained}, out_dir, tiles (dir or null), tile_px.
+reference and weight source "skintokens"; or a bare model.glb for fit "auto" + weights heat/transfer),
+bonemap (bonemap.json; optional without a skeleton), ual (UAL1_Standard.glb), ual_extra (more packs on
+the same rig whose actions are added, UAL2 for Zombie_*), fit ("auto" | "skintokens"), weights
+("skintokens" | "heat" | "transfer"; heat_voxel, heat_direct), fingers ("hand": finger weights folded
+into the hand | "keep"), sockets (registry list), lods {k: path}, base_color (albedo to set, optional),
+clips {ours: UAL clip, "A+B" chained}, out_dir, tiles (dir or null), tile_px, export_anims.
 
 1. Fit. Our armature is a copy of UAL's (same names, hierarchy and bone frames up to a rotation),
    with the joints moved onto the mesh. UAL faces -Y (Blender) with its left on +X; our meshes face
@@ -65,21 +67,40 @@ def select(*objs):
 
 # --- inputs -----------------------------------------------------------------------------
 bpy.ops.import_scene.gltf(filepath=job["src"])
-SK = next(o for o in bpy.data.objects if o.type == "ARMATURE")
+# src may be a bare mesh (model.glb, forge.py rig with rig_source "ual"): no SkinTokens skeleton,
+# no bonemap; then only fit "auto" with weights "heat"/"transfer" work and there is no sanity reference
+SK = next((o for o in bpy.data.objects if o.type == "ARMATURE"), None)
 ME = max((o for o in bpy.data.objects if o.type == "MESH"), key=lambda o: len(o.data.vertices))
 for o in list(bpy.data.objects):
     if o.type == "MESH" and o is not ME:
         bpy.data.objects.remove(o)
-BM = json.loads(Path(job["bonemap"]).read_text())
-SK_POS = {b.name: (SK.matrix_world @ b.head_local).copy() for b in SK.data.bones}
-SK_TAIL = {b.name: (SK.matrix_world @ b.tail_local).copy() for b in SK.data.bones}
-SK_PARENT = {b.name: b.parent.name if b.parent else None for b in SK.data.bones}
+BM = json.loads(Path(job["bonemap"]).read_text()) if job.get("bonemap") and Path(job["bonemap"]).exists() else {"map": {}, "chains": {}}
+if SK is None and (job.get("fit", "auto") != "auto" or job.get("weights", "skintokens") == "skintokens"):
+    raise SystemExit("src has no skeleton: use fit auto and weights heat or transfer")
+SK_POS = {b.name: (SK.matrix_world @ b.head_local).copy() for b in SK.data.bones} if SK else {}
+SK_TAIL = {b.name: (SK.matrix_world @ b.tail_local).copy() for b in SK.data.bones} if SK else {}
+SK_PARENT = {b.name: b.parent.name if b.parent else None for b in SK.data.bones} if SK else {}
 for m in list(ME.modifiers):  # the SkinTokens armature goes; its weights stay as vertex groups
     ME.modifiers.remove(m)
 _mw = ME.matrix_world.copy()
 ME.parent = None
 ME.matrix_world = _mw
-bpy.data.objects.remove(SK)
+if SK:
+    bpy.data.objects.remove(SK)
+if job.get("base_color"):  # the painted albedo (rig.py finalize does the same on the SkinTokens route)
+    _img = bpy.data.images.load(job["base_color"])
+    _img.colorspace_settings.name = "sRGB"
+    for _mat in ME.data.materials:
+        _bsdf = next((n for n in _mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None) if _mat and _mat.use_nodes else None
+        for _l in (_bsdf.inputs["Base Color"].links if _bsdf else []):
+            _n = _l.from_node
+            while _n.type != "TEX_IMAGE":
+                _n = next(i.links[0].from_node for i in _n.inputs if i.is_linked)
+            _n.image = _img
+        for _l in (list(_bsdf.inputs["Metallic"].links) if _bsdf else []):  # blender_rig.clamp_metallic's rule
+            _mat.node_tree.links.remove(_l)
+        if _bsdf:
+            _bsdf.inputs["Metallic"].default_value = 0.0
 # world-space mesh, triangles
 ME.data.calc_loop_triangles()
 MW = np.array(ME.matrix_world)
@@ -108,6 +129,19 @@ if UA.animation_data:
                 ACTS.setdefault(t.name, s.action)
     for t in list(UA.animation_data.nla_tracks):
         UA.animation_data.nla_tracks.remove(t)
+for extra in job.get("ual_extra") or []:  # more packs on the same rig (UAL2: Zombie_*): actions only
+    _b = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=extra)
+    for o in [o for o in bpy.data.objects if o not in _b]:
+        if o.type == "ARMATURE" and o.animation_data:
+            for t in o.animation_data.nla_tracks:
+                for s in t.strips:
+                    if s.action and t.name not in ACTS:
+                        s.action.use_fake_user = True
+                        ACTS[t.name] = s.action
+            for t in list(o.animation_data.nla_tracks):
+                o.animation_data.nla_tracks.remove(t)
+        bpy.data.objects.remove(o)
 UA.matrix_world = R180 @ UA.matrix_world  # face +Y like ours, left on -X
 UA.name, UA.data.name = "UAL_Armature", "UAL_Armature"  # our copy takes "Armature"
 bpy.context.view_layer.update()
@@ -590,7 +624,7 @@ def fit_skintokens():
 FIT = job.get("fit", "auto")
 J, LO = fit_auto() if FIT == "auto" else fit_skintokens()
 # sanity reference: SkinTokens' mapped joints vs ours (also when they are the fit)
-_inv = {v: k for k, v in BM["map"].items()}
+_inv = {v: k for k, v in BM["map"].items() if k in SK_POS}
 REPORT["vs_skintokens"] = {u: round((J[u] - SK_POS[_inv[u]]).length / HEIGHT, 3) for u in CORE if u in _inv and u in J}
 _d = sorted(REPORT["vs_skintokens"].values())
 REPORT["vs_skintokens_median"] = _d[len(_d) // 2] if _d else None
@@ -805,28 +839,75 @@ def heat_on(obj):
     return W
 
 
+def drop_small_islands(obj, frac):
+    """Delete the loose parts of obj smaller than frac of its vertices (voxel crumbs, a prop's tip):
+    bone heat finds no solution when a part sees no bone. Their vertices on the game mesh still get
+    weights: the nearest-surface transfer maps them onto the body. Returns the parts dropped."""
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.verts.ensure_lookup_table()
+    comp = [-1] * len(bm.verts)
+    sizes = []
+    for v in bm.verts:
+        if comp[v.index] >= 0:
+            continue
+        c, st, n = len(sizes), [v], 0
+        comp[v.index] = c
+        while st:
+            x = st.pop()
+            n += 1
+            for e in x.link_edges:
+                o = e.other_vert(x)
+                if comp[o.index] < 0:
+                    comp[o.index] = c
+                    st.append(o)
+        sizes.append(n)
+    small = {c for c, n in enumerate(sizes) if n < frac * len(bm.verts)}
+    if small:
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if comp[v.index] in small], context="VERTS")
+        bm.to_mesh(obj.data)
+    bm.free()
+    return len(small)
+
+
 def weights_heat():
-    """Bone heat on the mesh; where it fails (Pixal3D meshes are not manifold: 'failed to find a
-    solution'), bone heat on a watertight voxel-remeshed proxy and a nearest-surface transfer."""
+    """Bone heat on a watertight voxel-remeshed proxy and a nearest-surface transfer (Pixal3D meshes
+    are not manifold: heat on the mesh itself fails, 'failed to find a solution'; job heat_direct
+    tries the mesh first).
+    The proxy drops its small loose parts; if heat still fails, coarser voxels are tried."""
     t = time.time()
-    W = heat_on(ME)
-    n = len(ME.data.vertices)
+    # direct heat only on request: where it "works" on a non-manifold mesh (priest) the loose shells
+    # get each other's bones and the robe shatters; the proxy gives connected shells one field
+    W = heat_on(ME) if job.get("heat_direct") else {}
     cover = float(np.mean(sum(W.values()) > 1e-6)) if W else 0.0
-    REPORT["heat_direct_cover"] = round(cover, 4)
+    REPORT["heat_direct_cover"] = round(cover, 4) if job.get("heat_direct") else None
     if cover < 0.98:
-        proxy = ME.copy()
-        proxy.data = ME.data.copy()
-        proxy.name = "heat_proxy"
-        scene.collection.objects.link(proxy)
-        proxy.vertex_groups.clear()
-        rm = proxy.modifiers.new("remesh", "REMESH")
-        rm.mode = "VOXEL"
-        rm.voxel_size = job.get("heat_voxel", 0.012) * HEIGHT
-        select(proxy)
-        bpy.ops.object.modifier_apply(modifier=rm.name)
-        Wp = heat_on(proxy)
-        REPORT["heat_proxy_verts"] = len(proxy.data.vertices)
-        REPORT["heat_proxy_cover"] = round(float(np.mean(sum(Wp.values()) > 1e-6)), 4) if Wp else 0.0
+        tries = [(job.get("heat_voxel", 0.012), 0.0), (job.get("heat_voxel", 0.012), 0.02), (0.02, 0.02), (0.03, 0.05)]
+        for voxel, frac in tries:
+            proxy = ME.copy()
+            proxy.data = ME.data.copy()
+            proxy.name = "heat_proxy"
+            scene.collection.objects.link(proxy)
+            proxy.vertex_groups.clear()
+            rm = proxy.modifiers.new("remesh", "REMESH")
+            rm.mode = "VOXEL"
+            rm.voxel_size = voxel * HEIGHT
+            select(proxy)
+            bpy.ops.object.modifier_apply(modifier=rm.name)
+            dropped = drop_small_islands(proxy, frac) if frac else 0
+            Wp = heat_on(proxy)
+            pc = float(np.mean(sum(Wp.values()) > 1e-6)) if Wp else 0.0
+            REPORT["heat_proxy_verts"] = len(proxy.data.vertices)
+            REPORT["heat_proxy_cover"] = round(pc, 4)
+            REPORT["heat_voxel"], REPORT["heat_islands_dropped"] = voxel, dropped
+            if pc >= 0.9:
+                break
+            bpy.data.objects.remove(proxy)
+            proxy = None
+        if proxy is None:
+            REPORT["heat_seconds"] = round(time.time() - t, 1)
+            return {}
         ME.vertex_groups.clear()
         select(proxy, ME)
         bpy.context.view_layer.objects.active = proxy

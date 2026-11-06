@@ -1207,6 +1207,9 @@ def main() -> int:
     ap.add_argument("--paint-views", dest="paint_views", help="paint: comma list of views")
     ap.add_argument("--rig-rolls", type=int, default=None, help="rig: SkinTokens rolls to score (default 4)")
     ap.add_argument("--rig-reroll", action="store_true", help="rig: roll again, replacing rig/chosen.glb")
+    ap.add_argument("--rig-source", dest="rig_source", default=None, choices=["skintokens", "ual"],
+                    help="rig: skintokens (default) or ual: bipeds rigged straight onto the UAL skeleton, clips "
+                    "into anims_ual/ (overrides the override rig_source; docs/anim-reuse.md)")
     args = ap.parse_args()
 
     reg = load_registry(args.source)

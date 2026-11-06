@@ -230,6 +230,36 @@ Tiers: 0 = 15, 1 = 155, 2 = 113, 3 = 33, 4 = 14.
     which deletes the paint. The batch runs the facing check right after qa and stops the
     monster before paint when it would be refused (`manifest.rig.facing`, an `errors`
     entry with the suggested yaw), so no paint is wasted.
+  - Insectoids (15 + the swarm-of-insects unit): QA's upper-mass end turned 8 of 9 tier-2/3
+    insectoids backwards (the abdomen is the high bulk) or sideways (a crab or a splayed
+    spider is wider than long). Since 2026-11-06 `blender_qa.py` `insectoid_yaw`: axis =
+    the mirror plane when its contrast is >= 0.42 (`insectoid_mirror_*`), else the
+    principal axis (`insectoid_pca_*`, fire beetle 0.35, giant scorpion 0.28); head = the
+    end toward the camera (`*_camera_end`), or within 15 deg of a pure profile the end the
+    low surface (legs, below 25% of the height) crowds toward (`*_leg_end`; no mesh on disk
+    takes this branch, so it is unvalidated). Validation on the 16 model_raw.glb on disk
+    (truth = the `yaw` pins, the review's "faces front" at QA's yaw, top views by eye):
+    within 15 deg 14 of 16 vs the pins (5 before), 15 of 16 by eye: giant-wasp lands at
+    179.5, 18.5 off its pin 161.0, which was QA's 1.02-ratio principal axis + 180 and is
+    the one that is off in the top view. Miss: scorpion (the shrimp mesh waiting on a
+    re-roll), 21 deg off profile with the head turned away from the camera: 176 deg off
+    (the old rule had it right). Other plans are untouched: 27 meshes of 13 other plans
+    give byte-identical yaw and method. The existing insectoid pins stay (they agree with
+    the new rule within 3 deg but wasp); new meshes need no pin.
+  - Rigs with fewer leg chains than feet (2026-11-06): `blender_clips.py` used to stop at
+    "found N legs, need 2" (lich 0, medusa 1, hezrou 0 on ai; the batch re-ran the stage
+    every pass). An upright plan now gets the standing set (`stand_clips()`; anim.py
+    records `manifest.anim.stand_fallback` and logs it): no steps; idle = breathing and a
+    1.2 deg sway, `walk` = an in-place glide (4 deg side-to-side rock over the base, 3 deg
+    lean per "step", arms swinging), `attack_melee` = lean in with both arms reaching (the
+    neck when no arms), `hit` = a recoil, `death` = slump and topple forward to the ground,
+    plus `cast` and `attack_ranged` with arms. The lowest vertex stays on the ground in
+    every frame (`contact`). Other plans still fail on missing legs. Checked on ai (copies):
+    every clip starts on the idle (`from_idle_m` 0), loops close (`loop_delta` 0), `min_z`
+    >= -0.008; idle `from_idle_max_m` lich 0.205, medusa 0.099, hezrou 0.337 (3 m). The
+    unkeyed leg chains ride the body: hezrou's legs stay straight as it falls, and medusa's
+    head is its root bone, so its neck turns move the whole body. archmage and ape: every
+    clip byte-identical before and after.
   - Props off model (fork, heavy crossbow, mace; 10 wielders): `props.py` re-rolls only.
   - No record wields a prop without hands. The djinni (floating) wields a scimitar but the
     floating attack is a two-arm reach.

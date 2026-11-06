@@ -89,7 +89,12 @@ report["raw_dims"] = [round(float(x), 4) for x in (v.max(0) - v.min(0))]
 #   the mesh, which stays in the reference camera's frame, has its head toward -Y; every
 #   side-view mesh of these plans on disk does, and the upper-mass end this replaced turned
 #   15 of them backwards. Within SIDE_ON_DEG of a pure profile the camera says nothing and
-#   high_centre_end decides. Other plans (spiders, snakes, blobs) keep the upper-mass end.
+#   high_centre_end decides. Other plans (snakes, blobs) keep the upper-mass end.
+# - insectoid (insectoid_yaw): axis = the mirror plane when it reaches INSECT_MIRROR_MIN (a
+#   crab or a splay-legged spider is wider than long, so the principal axis is lateral),
+#   else the principal axis; head = the camera end, or within INSECT_SIDE_ON_DEG of a pure
+#   profile the end the legs crowd toward (legs ride the thorax, the abdomen trails). The
+#   upper-mass end turned 8 of 9 backwards or sideways: an insect's high bulk is its abdomen.
 WINGED_AXIS_PLANS = {"winged_quadruped", "avian"}
 CAMERA_END_PLANS = WINGED_AXIS_PLANS | {"quadruped", "aquatic"}
 MIRROR_SURE = 0.55
@@ -100,6 +105,9 @@ THICK_LOW_MIN = 0.02
 THICK_LOW_Z = 0.6
 LOW_Z = 0.45
 SIDE_ON_DEG = 8.0
+INSECT_MIRROR_MIN = 0.42
+INSECT_SIDE_ON_DEG = 15.0
+INSECT_LEG_Z = 0.25  # of the height: legs and feet, below the body
 
 
 def principal_axis(xy, w):
@@ -175,6 +183,27 @@ def winged_axis(cen, area, nrm):
     return min(axes, key=lambda a: sum(axis_gap(a, b) for b in axes)), "body_median"
 
 
+def insectoid_yaw(cen, area):
+    """(yaw, method) for an insectoid (see the comment above)."""
+    phi, contrast = mirror_plane(cen, area)
+    pca, ratio = principal_axis(cen[:, :2], area)
+    report["facing_mirror"] = [phi, round(contrast, 3)]
+    report["footprint_axis_ratio"] = round(ratio, 2)
+    bearing, rule = (phi, "mirror") if contrast >= INSECT_MIRROR_MIN else (pca, "pca")
+    r = math.radians(bearing)
+    axis = np.array((math.sin(r), math.cos(r)))
+    if abs(axis[1]) >= math.sin(math.radians(INSECT_SIDE_ON_DEG)):
+        head, end = (-axis if axis[1] > 0 else axis), "camera_end"
+    else:  # a pure profile: the end the legs crowd toward
+        t = (cen[:, :2] - np.average(cen[:, :2], axis=0, weights=area)) @ axis
+        z = cen[:, 2]
+        low = z < z.min() + INSECT_LEG_Z * (z.max() - z.min())
+        lead = float(np.average(t[low], weights=area[low])) / max(float(np.ptp(t)), 1e-9)
+        report["facing_leg_lead"] = round(lead, 3)
+        head, end = (axis if lead >= 0 else -axis), "leg_end"
+    return math.degrees(math.atan2(head[0], head[1])), f"insectoid_{rule}_{end}"
+
+
 def auto_yaw():
     """(yaw, method) for a mesh not drawn front view (see the comment above)."""
     plan = job.get("body_plan", "")
@@ -187,6 +216,8 @@ def auto_yaw():
     nrm = np.empty(n * 3)
     me.polygons.foreach_get("normal", nrm)
     nrm = nrm.reshape(-1, 3)
+    if plan == "insectoid":
+        return insectoid_yaw(cen, area)
     if plan in WINGED_AXIS_PLANS:
         bearing, rule = winged_axis(cen, area, nrm)
     else:

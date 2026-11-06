@@ -64,8 +64,11 @@ camera's frame, which is what the head end relies on:
 - **Head end** (quadruped, winged quadruped, avian, aquatic): the end nearer the camera
   (`*_camera_end`), since a reference shows the face. Within 8 deg of a pure profile the
   camera says nothing and `high_centre_end` decides. `toes` is not ported: no mesh on disk
-  has needed the branch but white-dragon-wyrmling. Insectoid, serpentine and the rest keep
-  the upper-mass end and "ambiguous ends: assume it faces the camera".
+  has needed the branch but white-dragon-wyrmling. Serpentine and the rest keep the
+  upper-mass end and "ambiguous ends: assume it faces the camera".
+- **Insectoid** (`insectoid_yaw`, 2026-11-06): the mirror plane at contrast >= 0.42, else
+  the principal axis; the camera end, or within 15 deg of a profile the end the legs crowd
+  toward. 14 of 16 within 15 deg of the pins (5 before); see `docs/batch.md`.
 
 Validation (2026-11-05, the code above on every model_raw.glb of those plans, 113 meshes;
 truth = pins, the review, and top views read by eye to about +-10 deg, so the thresholds

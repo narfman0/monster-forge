@@ -395,6 +395,9 @@ def tail_changed(rep: dict) -> bool:
 
 
 def stage_rig(fg, mon: dict, d: Path, args) -> None:
+    import rig_ual  # opt-in direct UAL rig (override rig_source "ual" / --rig-source ual), docs/anim-reuse.md
+    if rig_ual.rig_source(mon, args) == "ual":
+        return rig_ual.stage(fg, mon, d, args)
     man = fg.load_manifest(d)
     if not (d / "model.glb").exists():
         raise RuntimeError(f"{mon['id']}: no model.glb; run `qa` first")

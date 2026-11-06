@@ -6,7 +6,8 @@ from the skeleton itself (walk, idle, attack_melee, hit, death; fly: a wing beat
 finds wings, else a levitation; breath on any head chain; cast, swim, burrow on the legged
 plans, cast and swim for floating, cast, breath, burrow and fly for serpentine;
 attack_ranged for two-armed plans), in one Blender run. Clips it cannot make are listed in
-manifest.anim.missing.
+manifest.anim.missing. An upright rig with fewer leg chains than feet (lich, medusa, hezrou)
+gets the standing set (no steps; manifest.anim.stand_fallback) instead of failing.
 
 Override `anim_source: "ual"` (bipeds, winged bipeds) also retargets the Quaternius UAL clips onto
 the rig after the procedural run (tools/retarget_ual.py, on this machine's Blender) into anims_ual/
@@ -101,11 +102,15 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
                    **{c: rep["clips"][c] for c in clips},
                    "parts": {k: rep[k] for k in ("root", "head", "neck", "spine", "tail", "arms", "wings", "legs", "body",
                                                      "tentacles") if k in rep}}
+    if rep.get("stand_fallback"):  # fewer leg chains than feet: blender_clips.py's standing set
+        man["anim"]["stand_fallback"] = rep["stand_fallback"]
     man.setdefault("timings", {})["anim"] = dt
     rig.clear_stage_errors(man, "anim")
     fg.save_manifest(d, man)
     fg.log(f"{mon['id']}: {len(clips)} clips in {dt}s: {', '.join(clips)}"
-           + (f"; missing {man['anim']['missing']}" if man["anim"]["missing"] else ""))
+           + (f"; missing {man['anim']['missing']}" if man["anim"]["missing"] else "")
+           + (f"; standing set ({rep['stand_fallback']['legs_found']} of {rep['stand_fallback']['need']} leg chains)"
+              if rep.get("stand_fallback") else ""))
     stage_ual(fg, mon, d, args)
 
 
@@ -113,6 +118,8 @@ def stage_ual(fg, mon: dict, d: Path, args) -> None:
     """Override anim_source "ual": retarget the UAL clips into anims_ual/ (retarget_ual.run: Blender on
     this machine, ~15 s), gate each against the procedural clip, record manifest.anim.ual. Nothing in
     anims/ changes here; promote() does that."""
+    if (fg.load_manifest(d).get("rig") or {}).get("tool") == "ual":
+        return  # rig_source "ual": the rig stage already wrote anims_ual/ (no retarget onto UAL's own skeleton)
     if overrides.load(mon["source"], mon["id"]).get("anim_source") != "ual":
         return
     if mon["body_plan"] not in UPRIGHT:

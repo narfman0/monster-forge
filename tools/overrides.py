@@ -227,6 +227,11 @@ FIELDS = {
     "rig_tail_chain": (_bool, "rig", "insert a tail chain from the mesh when a quadruped / winged quadruped / "
                        "centauroid roll has none or one under 4 bones (tools/blender_tail_chain.py); on by "
                        "default, false turns it off"),
+    "rig_source": (_choice("skintokens", "ual"), "rig", "bipeds / winged bipeds: \"ual\" rigs the mesh straight onto "
+                   "the Quaternius UAL skeleton (heat weights, no SkinTokens roll; tools/rig_ual.py) and writes its "
+                   "clips into anims_ual/ for `forge.py promote` (docs/anim-reuse.md). Default skintokens"),
+    "rig_ual_fit": (_choice("auto", "skintokens"), "rig", "rig_source ual: joints found on the mesh (auto, default) "
+                    "or taken from the existing SkinTokens rig (skintokens; kept as rig/skintokens_rigged.glb)"),
     "idle_lift": (_idle_lift, "anim", "idle height: metres of lift, \"match_move\" (where the swim/fly clip "
                   "holds the body) or false (floor); unset: match_move when the animation_set has no walk"),
     "anim_source": (_choice("procedural", "ual"), "anim", "bipeds: \"ual\" also retargets the Quaternius UAL clips "
@@ -301,7 +306,7 @@ def defaults(mon: dict, style_name: str | None = None) -> dict:
         "level_tilt": TILT_CAP_BY_PLAN.get(plan, DEFAULT_TILT_CAP),
         "lod_ratios": list(LOD_RATIOS), "rig_facing_check": True, "lod_screen_ratios": None, "notes": "",
         # on for rig.TAIL_ADDED's plans (rig.adds_tail; overrides cannot import rig)
-        "anim_source": "procedural", "anim_ual_exclude": None,
+        "anim_source": "procedural", "anim_ual_exclude": None, "rig_source": "skintokens", "rig_ual_fit": "auto",
         "rig_tail_chain": plan in {"quadruped", "winged_quadruped", "centauroid"},
         # anim.idle_lift: a monster that cannot walk idles where its swim/fly clip holds it
         "idle_lift": "match_move" if "walk" not in (mon.get("animation_set") or [])
