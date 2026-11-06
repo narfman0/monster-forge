@@ -203,7 +203,12 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       The 22-vs-28-joint wolf rolls are no longer on disk, so that case is untested.
 - [ ] Weights-heatmap thumb per roll (the score's overlay sheets are a scratch script so far).
 - [ ] `find_legs` misses feet that fan into toes from a high ankle (owlbear roll_2): the
-      score then counts missing legs and the anim stage would fail on that roll.
+      score then counts missing legs. (2026-11-06) The anim stage no longer fails on it: its
+      rescue pass takes toe fans, and a body still short of legs walks on the ones found
+      (docs/rig-anim.md "Missing legs"); roll scoring still uses the strict rules.
+- [ ] Re-roll on the GPU (missing-legs pass, 2026-11-06): bronze-dragon-wyrmling (no fore-leg
+      chains), bulette (3 chains on the right, 1 on the left), crocodile (the mesh has no right
+      hind leg: re-mesh first); gold-dragon-wyrmling's wings tear (fly/swim/death stretch 17-21).
 - [ ] Owlbear: no roll on disk has a spine (all four hang the legs off one root); re-roll,
       the facing is fine (4 degrees). Wolf: no tail chain (its only roll).
 - [x] (2026-11-05) Tail chains from the mesh (`tools/blender_tail_chain.py`, docs/rig-anim.md

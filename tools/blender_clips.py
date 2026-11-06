@@ -114,14 +114,23 @@ legless = PLAN in LEGLESS
 # hezrou or medusa whose roll found one leg) gets the standing set (stand_clips(): no
 # steps, the body sways and leans over its base, the arms do the work, death collapses)
 # instead of failing; the leg chains it did find stay unkeyed and ride the body.
+# A horizontal body whose rig still has fewer legs than feet after find_legs' rescue pass (toe
+# fans from a high ankle, 2-bone legs, a tail or a wing tip on the floor taken for a leg: the
+# dragon wyrmlings, crocodile, giant lizard and frog, rust monster) walks on the legs it has
+# (PARTIAL: the gait's odd-count phases, the missing leg rides the body, listed in the warnings)
+# instead of failing; with no leg at all it gets the standing set. rig_fix_legs "mirror" (rig
+# stage) adds a missing leg whose twin is there.
 STAND = None
+PARTIAL = None
 if legless:
     legs = []
 else:
-    legs = rig_topology.find_legs(bones, height, 8 if job["sprawl"] else job["feet"], job["sprawl"])
-    if len(legs) < job["feet"]:
-        if not job["upright"]:
-            raise SystemExit(f"found {len(legs)} legs, need {job['feet']}")
+    legs = rig_topology.find_legs(bones, height, 8 if job["sprawl"] else job["feet"], job["sprawl"],
+                                  rescue=not job["upright"])
+    if len(legs) < job["feet"] and not job["upright"] and legs:
+        PARTIAL = {"legs_found": len(legs), "need": job["feet"]}
+        print(f"found {len(legs)} legs, need {job['feet']}: walking on the legs found")
+    elif len(legs) < job["feet"]:
         STAND = {"legs_found": len(legs), "need": job["feet"], "unkeyed_legs": [g["chain"] for g in legs]}
         print(f"found {len(legs)} legs, need {job['feet']}: standing clip set (no steps)")
         legs = []
@@ -278,6 +287,9 @@ REST_V = np.array([(o.matrix_world @ v.co)[:] for o in meshes for v in o.data.ve
 # clips are built without it) and logged in the report's `warnings` (manifest anim.warnings)
 # instead of clips that swing a leg as a tail or flap a leg as a wing.
 WARNINGS: list[str] = []
+if PARTIAL:
+    WARNINGS.append(f"found {PARTIAL['legs_found']} of {PARTIAL['need']} legs: the clips step with those, the "
+                    "missing leg rides the body (re-rig, or rig_fix_legs \"mirror\" when its twin is there)")
 TAIL_LOW = 0.1       # x height: a hanging tail's vertices this near the floor at rest ...
 TAIL_LOW_MAX = 0.06  # ... over this share of them: a hind leg or the rump (clean tails 0-0.04, those 0.07-0.44)
 
@@ -3186,7 +3198,7 @@ report = {"height": round(height, 3), "drop": round(drop, 3), "size": round(SIZE
           "spine": spine, "tail": tail, "arms": {a["side"]: a["chain"] for a in arms},
           "wings": {w["side"]: w["chain"] for w in wings}, "legs": [g["chain"] for g in legs],
           "clips": {}, "skipped": [], **({"body": BODY["path"]} if BODY else {}),
-          **({"stand_fallback": STAND} if STAND else {}),
+          **({"stand_fallback": STAND} if STAND else {}), **({"partial_legs": PARTIAL} if PARTIAL else {}),
           **({"tentacles": TENTS} if TENTS else {}), **({"body": STALK, "limbs": LIMBS} if STALK else {}),
           **({"body": STACK} if STACK and not STALK else {}), **({"tail": FISHTAIL} if FISHTAIL else {}),
           **({"warnings": WARNINGS} if WARNINGS else {})}

@@ -388,6 +388,14 @@ def tail_fused(mon: dict) -> bool:
     return adds_tail(mon) and overrides.load(mon["source"], mon["id"]).get("rig_tail_chain") == "fused"
 
 
+def fix_legs(mon: dict) -> str | None:
+    """Override `rig_fix_legs`: "mirror" inserts a mirrored chain for each leg the roll left
+    out whose twin is there (blender_leg_mirror.py), in finalize and the chosen-rig score. Off by
+    default."""
+    v = overrides.load(mon["source"], mon["id"]).get("rig_fix_legs")
+    return v if v == "mirror" else None
+
+
 def tail_summary(t: dict) -> dict:
     """manifest rig.tail_added: the chain, adoption, the profile's numbers, the weights' counts."""
     return {"bones": t["chain"]["bones"], "parent": t["chain"]["parent"],
@@ -449,12 +457,13 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
                        "sprawl": mon["body_plan"] in SPRAWLED, "hands": bool(mon.get("hands")),
                        "sockets": mon.get("sockets") or [], "feet": FEET.get(mon["body_plan"], 0),
                        "upright": mon["body_plan"] in UPRIGHT_BODY, "add_wings": adds_wings(mon),
-                       "add_tail": adds_tail(mon), "tail_fused": tail_fused(mon),
+                       "add_tail": adds_tail(mon), "tail_fused": tail_fused(mon), "fix_legs": fix_legs(mon),
                        "reweight": overrides.load(mon["source"], mon["id"]).get("rig_reweight") or []})
     # the kept skeleton's quality terms, also when it was not rolled now (a hand-fixed rig);
     # with the wing chains finalize inserted, so the score is that of the game skeleton
     q = scored(blender(fg, {**score_job(mon, chosen, d / "rig" / "chosen.json"), "add_wings": adds_wings(mon),
-                            "add_tail": adds_tail(mon), "tail_fused": tail_fused(mon), "feet": FEET.get(mon["body_plan"], 0)}), mon["body_plan"], bool(mon.get("hands")))
+                            "add_tail": adds_tail(mon), "tail_fused": tail_fused(mon), "fix_legs": fix_legs(mon),
+                            "feet": FEET.get(mon["body_plan"], 0)}), mon["body_plan"], bool(mon.get("hands")))
     (d / "rig" / "chosen.json").write_text(json.dumps(q, indent=1))
     man = fg.load_manifest(d)
     missing = [s for s in (mon.get("sockets") or []) if s not in rep["sockets"]]
@@ -472,6 +481,8 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
                   **({"wings_added": wings_summary(rep["wings_added"])} if wings_changed(rep) else {}),
                   # a tail chain found on the mesh, inserted or adopted (blender_tail_chain.py)
                   **({"tail_added": tail_summary(rep["tail_added"])} if tail_changed(rep) else {}),
+                  # legs the roll left out, mirrored from the other side (rig_fix_legs "mirror", blender_leg_mirror.py)
+                  **({"legs_mirrored": rep["legs_mirrored"]} if rep.get("legs_mirrored") else {}),
                   **({"picked": info["picked"], "rolls": info["rolls"]} if info else
                      {k: v for k, v in (man.get("rig") or {}).items() if k in ("picked", "rolls")} or {"picked": "chosen.glb"})}
     if wings_changed(rep):
@@ -480,6 +491,12 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
     elif rep.get("wings_added"):
         fg.log(f"{mon['id']}: WARNING rig has wings on {sorted(rep['wings_added']['had'])} only and found no "
                f"wing lobe on the mesh for {rep['wings_added']['missing']}")
+    lm = rep.get("legs_mirrored")
+    if lm and lm.get("added"):
+        fg.log(f"{mon['id']}: rig mirrored legs {[a['source'][0] for a in lm['added']]} -> "
+               f"{[a['bones'][0] for a in lm['added']]} ({lm['legs_found']} of {lm['need']} legs found)")
+    if lm and lm.get("skipped"):
+        fg.log(f"{mon['id']}: WARNING rig_fix_legs mirror skipped {lm['skipped']}")
     if tail_changed(rep):
         ta = man["rig"]["tail_added"]
         fg.log(f"{mon['id']}: rig added tail chain {ta['bones']} on {ta['parent']} (found on the mesh)"

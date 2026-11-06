@@ -4,6 +4,8 @@ Plain Python, shared by blender_rig.py (roll scoring) and blender_clips.py (clip
 is a dict: name, parent (name or None), head, tail (xyz, Z up, in metres).
 """
 
+import math
+
 GROUND = 0.18      # a foot ends within this fraction of the height above the ground
 TOES = 0.09        # bones this low are toes: climbing past them finds the foot, not the shin
 MIN_DROP = 0.35    # a leg's drop over its length: rejects a tail lying on the ground
@@ -40,12 +42,197 @@ def _dist(a, b) -> float:
     return sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
 
 
-def find_legs(bones: list[dict], height: float, want: int, sprawl: bool = False) -> list[dict]:
+def find_legs(bones: list[dict], height: float, want: int, sprawl: bool = False, rescue: bool = False) -> list[dict]:
     """Up to `want` legs, best first: {"chain": [hip ... foot], "foot", "shin", "level",
     "length"}. The foot is the bone that carries any toes, so toes move with it. With a
     real foot on the ground, IK drives `shin` and the foot is kept level; a spider leg's
     last bone plunges to the ground from high up, so there `shin` is that bone itself and
-    IK drives its tip (level is False). Sprawled legs rank by length, so fangs lose."""
+    IK drives its tip (level is False). Sprawled legs rank by length, so fangs lose.
+
+    `rescue` (the anim stage, the mirror-leg fix): when this finds fewer than `want` legs,
+    rescue_legs() looks again with looser rules and its answer is taken when it has as many
+    legs or more. A rig that already has its legs gets exactly the same answer."""
+    legs = _find_legs(bones, height, want, sprawl)
+    if rescue and not sprawl and len(legs) < want:
+        more = rescue_legs(bones, height, want)
+        if len(more) >= len(legs):  # as many and none of them a tail on the floor (bronze wyrmling)
+            return more
+    return legs
+
+
+TOE_FAN_TOP = 0.35  # rescue_legs: a toe fan's ankle is at most this x the height above the ground
+TOE_FAN_RISE = 0.05  # ... and no toe rises more than this x the height above the ankle
+TAIL_RUN = 1.0      # rescue_legs: a "leg" that runs backwards more than this x its drop ...
+TAIL_MID = 0.1      # ... and ends this close (x height) to the root's centre line is a tail on the floor
+TWIN_Y = 0.15      # rescue_legs: a raised twin's foot is this close (x height) front to back to its leg's
+SAME_FOOT = 0.06    # rescue_legs: soles this close (x height) are one foot skinned to two chains; the better chain is kept
+FOOT_SPAN = 0.15    # rescue_legs: a foot without a toe fan whose bones lie longer than this (x height) on the floor is a tail
+LEG_ROOT_SIDE = 0.35  # rescue_legs: a chain that starts this far out (x height) and above half the height is a wing
+
+
+def _toe_fans(bones: list[dict], height: float, kids: dict, by_name: dict, grounded: bool = True) -> set:
+    """Ankles that fan into toes (rescue_legs): a bone low on the body with 2+ children whose
+    subtrees stay at or below it, at least two of them reaching the ground band (`grounded`;
+    without it a raised paw counts too). The red dragon wyrmling's right fore foot (bone_19,
+    ankle at 0.25 x the height, toes ending at 0.17-0.21), the crocodile's (toes rooted at
+    0.10-0.11, just above TOES)."""
+    out = set()
+    for b in bones:
+        n = b["name"]
+        if len(kids[n]) < 2 or b["head"][2] > TOE_FAN_TOP * height or _inserted_wing(n) or _inserted_tail(n):
+            continue
+        sub = _descendants(n, kids)
+        top = max(max(by_name[x]["head"][2], by_name[x]["tail"][2]) for x in sub)
+        if top > b["head"][2] + TOE_FAN_RISE * height:
+            continue
+        reach = [min(min(by_name[x]["head"][2], by_name[x]["tail"][2]) for x in [c, *_descendants(c, kids)])
+                 for c in kids[n]]
+        if not grounded or sum(r <= GROUND * height for r in reach) >= 2:
+            out.add(n)
+    return out
+
+
+def rescue_legs(bones: list[dict], height: float, want: int) -> list[dict]:
+    """Legs the strict rules of find_legs miss, for a non-sprawled body (anim stage, mirror-leg
+    fix; the SkinTokens rolls of the dragon wyrmlings, crocodile, giant lizard and rust monster):
+
+    - a foot that fans into toes from an ankle above TOES (_toe_fans) is the foot, so the
+      chain above it is the leg (find_legs took each toe as a one-bone "leg");
+    - not legs: a chain that runs backwards farther than it drops and ends near the root's
+      centre line (the crocodile's tail on the floor, which find_legs took), one that starts
+      LEG_ROOT_SIDE x the height or more out to the side and above half the height (a dragon's
+      wing finger whose tip rests on the floor: the red and gold wyrmlings', 0.43-0.6 out at
+      0.64-0.67 up; the giant frog's hips are 0.38 out at 0.33 up), one whose foot is not a
+      toe fan and lies farther out from its hip than it drops or spans more than FOOT_SPAN x
+      the height on the floor (the red dragon wyrmling's tail curled on the floor beside it,
+      the green's curled under it: 0.23-0.24), and one of 2 bones (the giant frog's folded
+      hind legs flip under the foot IK: they ride the body);
+    - of two chains whose soles are within SAME_FOOT x the height, only the better one;
+    - at most half of `want` per side first, then the rest by rank (two hind legs on one side
+      do not crowd out the other side's only leg);
+    - still short: a raised leg, the missing twin of a leg taken: a chain off the same bone, on
+      the other side of it, within TWIN_Y x the height front to back, that drops (down to a
+      toe fan when it has one) to 0.1 x the height or more below that bone (the rearing red
+      dragon wyrmling holds both fore paws up and only the right one's toes reach the ground
+      band; the brass wyrmling's left fore leg is lifted mid-stride)."""
+    by_name = {b["name"]: b for b in bones}
+    kids = _children(bones)
+    low = height * GROUND
+    toes = height * TOES
+    fans = _toe_fans(bones, height, kids, by_name)
+    raised = _toe_fans(bones, height, kids, by_name, grounded=False) - fans
+    feet = set(fans)
+    for b in bones:  # find_legs' own feet
+        if _inserted_wing(b["name"]) or _inserted_tail(b["name"]):
+            continue
+        if kids[b["name"]] or min(b["head"][2], b["tail"][2]) > low:
+            continue
+        foot = b["name"]
+        while True:
+            p = by_name[foot]["parent"]
+            if not p or by_name[p]["head"][2] > toes:
+                break
+            if not all(by_name[x]["head"][2] <= toes for x in _descendants(p, kids)):
+                break
+            foot = p
+        feet.add(foot)
+    # a toe inside another foot's fan is not a foot of its own
+    feet = {f for f in feet if not any(f in _descendants(o, kids) for o in feet if o != f)}
+    raised = {f for f in raised if not any(f in _descendants(o, kids) or o in _descendants(f, kids) for o in feet)}
+    root = next(b for b in bones if not b["parent"])
+    mid_x = root["head"][0]
+
+    def leg(foot: str) -> dict | None:
+        chain = [foot]
+        while True:
+            p = by_name[chain[0]]["parent"]
+            if not p or len(kids[p]) > 1:
+                break
+            chain.insert(0, p)
+        if len(chain) < 3:
+            return None  # a 2-bone "leg" (the giant frog's folded hind legs) flips under IK: it rides the body
+        last = by_name[foot]
+        fan = foot in fans or foot in raised
+        tip_only = last["head"][2] > toes and not fan
+        pts = [by_name[n]["head"] for n in chain] + ([last["tail"]] if tip_only else [])
+        length = sum(_dist(a, b) for a, b in zip(pts, pts[1:]))
+        drop = pts[0][2] - pts[-1][2]
+        if length <= 0 or drop / length < MIN_DROP:
+            return None
+        run = pts[-1][1] - pts[0][1]
+        if -run > TAIL_RUN * drop and abs(pts[-1][0] - mid_x) < TAIL_MID * height:
+            return None  # backwards along the floor on the centre line: a tail
+        if abs(pts[0][0] - mid_x) >= LEG_ROOT_SIDE * height and pts[0][2] >= 0.5 * height:
+            return None  # starts out at the side: a wing whose tip rests on the floor (the dragons')
+        if not fan:
+            sole = [p for n in [foot, *_descendants(foot, kids)] for p in (by_name[n]["head"], by_name[n]["tail"])]
+            span = max(math.hypot(p[0] - q[0], p[1] - q[1]) for p in sole for q in sole)
+            if math.hypot(pts[-1][0] - pts[0][0], run) > drop or span > FOOT_SPAN * height:
+                return None  # lies out along the floor: a curled tail, not a leg
+        return {"chain": chain, "foot": foot, "shin": foot if tip_only else chain[-2], "level": not tip_only,
+                "length": length, "drop": drop, "x": by_name[foot]["head"][0]}
+
+    legs = sorted((g for g in map(leg, feet) if g), key=lambda g: g["drop"] / g["length"], reverse=True)
+    cx = sum(b["head"][0] for b in bones) / len(bones)  # the skeleton's middle, not the feet's (3 on one side)
+    def sole(g: dict) -> list:  # the lowest point of the foot and its toes
+        return min((by_name[n][e] for n in [g["foot"], *_descendants(g["foot"], kids)] for e in ("head", "tail")),
+                   key=lambda p: p[2])
+
+    twins = []
+    for g in legs:  # two chains on one leg (the green wyrmling's right hind: bone_9.. and bone_50.., soles 3 cm apart)
+        if not any(_dist(sole(g), sole(o)) < SAME_FOOT * height for o in twins):
+            twins.append(g)
+    legs = twins
+    picked, per_side = [], {"r": 0, "l": 0}
+    for g in legs:
+        s = "r" if g["x"] >= cx else "l"
+        if per_side[s] < max(1, want // 2):
+            picked.append(g)
+            per_side[s] += 1
+    picked += [g for g in legs if g not in picked][:max(0, want - len(picked))]
+    picked = picked[:want]
+    used = {n for g in picked for n in g["chain"]}
+    for o in list(picked):  # a raised leg: the missing twin of a leg taken, off the same bone
+        if len(picked) >= want:
+            break
+        par = by_name[o["chain"][0]]["parent"]
+        if not par:
+            continue
+        px = by_name[par]["head"][0]
+        oy = by_name[o["foot"]]["head"][1]
+        if any((g["x"] - px) * (o["x"] - px) < 0 and by_name[g["chain"][0]]["parent"] == par for g in picked):
+            continue  # it has its twin (a rearing dragon's hind feet stand level with its fore paws: not twins)
+        for sib in kids[par]:
+            if sib == o["chain"][0] or sib in used or _inserted_wing(sib) or _inserted_tail(sib):
+                continue
+            chain = longest_chain(sib, kids)
+            cut = next((i for i, n in enumerate(chain) if n in fans or n in raised), None)
+            chain = chain[:cut + 1] if cut is not None else chain
+            if used & set(chain):
+                continue  # runs on into a leg taken (the bulette's bone_22 carries bone_23..26)
+            foot = chain[-1]
+            fan = cut is not None
+            last = by_name[foot]
+            pts = [by_name[n]["head"] for n in chain] + ([] if fan else [last["tail"]])
+            if len(pts) < 3:
+                continue
+            length = sum(_dist(p, q) for p, q in zip(pts, pts[1:]))
+            drop = pts[0][2] - pts[-1][2]
+            if length <= 0 or drop / length < MIN_DROP or pts[-1][2] > by_name[par]["head"][2] - 0.1 * height:
+                continue
+            if (last["head"][0] - px) * (o["x"] - px) >= 0 or abs(last["head"][1] - oy) >= TWIN_Y * height:
+                continue  # same side, or not level with it front to back (the neck and head off the chest)
+            picked.append({"chain": chain, "foot": foot, "shin": chain[-2] if fan else foot, "level": fan,
+                           "length": length, "drop": drop, "x": last["head"][0]})
+            used |= set(chain)
+            break
+    picked.sort(key=lambda g: g["drop"] / g["length"], reverse=True)
+    for g in picked:
+        del g["x"]
+    return picked
+
+
+def _find_legs(bones: list[dict], height: float, want: int, sprawl: bool = False) -> list[dict]:
     by_name = {b["name"]: b for b in bones}
     kids = _children(bones)
     low = height * GROUND

@@ -7,7 +7,9 @@ finds wings, else a levitation; breath on any head chain; cast, swim, burrow on 
 plans, cast and swim for floating, cast, breath, burrow and fly for serpentine;
 attack_ranged for two-armed plans), in one Blender run. Clips it cannot make are listed in
 manifest.anim.missing. An upright rig with fewer leg chains than feet (lich, medusa, hezrou)
-gets the standing set (no steps; manifest.anim.stand_fallback) instead of failing.
+gets the standing set (no steps; manifest.anim.stand_fallback) instead of failing; a horizontal
+one short of legs after rig_topology's rescue pass walks on the legs it has
+(manifest.anim.partial_legs, and a line in manifest.anim.warnings), or stands with none.
 
 Override `anim_source: "ual"` (bipeds, winged bipeds) also retargets the Quaternius UAL clips onto
 the rig after the procedural run (tools/retarget_ual.py, on this machine's Blender) into anims_ual/
@@ -104,6 +106,8 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
                                                      "tentacles") if k in rep}}
     if rep.get("stand_fallback"):  # fewer leg chains than feet: blender_clips.py's standing set
         man["anim"]["stand_fallback"] = rep["stand_fallback"]
+    if rep.get("partial_legs"):  # a horizontal body short of legs: it walks on the ones found
+        man["anim"]["partial_legs"] = rep["partial_legs"]
     if rep.get("warnings"):  # blender_clips.py's topology gate: parts dropped from the clips, odd legs
         man["anim"]["warnings"] = rep["warnings"]
     man.setdefault("timings", {})["anim"] = dt

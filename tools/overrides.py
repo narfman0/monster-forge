@@ -229,6 +229,9 @@ FIELDS = {
                        "centauroid roll has none or one under 4 bones (tools/blender_tail_chain.py); on by "
                        "default, false turns it off; \"fused\" inserts it even where the tail touches a hind leg "
                        "or the floor (the centaur's tail sheet), which the default refuses, and the clips keep it"),
+    "rig_fix_legs": (_choice("mirror"), "rig", "experimental. \"mirror\": a leg the roll left out (3 of 4 found) whose twin is there "
+                     "gets the twin's chain mirrored onto the unowned foot on the mesh, geometric weights "
+                     "(tools/blender_leg_mirror.py; `forge.py rig <id> --force`, CPU only)"),
     "rig_source": (_choice("skintokens", "ual"), "rig", "bipeds / winged bipeds: \"ual\" rigs the mesh straight onto "
                    "the Quaternius UAL skeleton (heat weights, no SkinTokens roll; tools/rig_ual.py) and writes its "
                    "clips into anims_ual/ for `forge.py promote` (docs/anim-reuse.md). Default skintokens"),
@@ -309,7 +312,7 @@ def defaults(mon: dict, style_name: str | None = None) -> dict:
         "lod_ratios": list(LOD_RATIOS), "rig_facing_check": True, "lod_screen_ratios": None, "notes": "",
         # on for rig.TAIL_ADDED's plans (rig.adds_tail; overrides cannot import rig)
         "anim_source": "procedural", "anim_ual_exclude": None, "rig_source": "skintokens", "rig_ual_fit": "auto",
-        "rig_tail_chain": plan in {"quadruped", "winged_quadruped", "centauroid"},
+        "rig_tail_chain": plan in {"quadruped", "winged_quadruped", "centauroid"}, "rig_fix_legs": None,
         # anim.idle_lift: a monster that cannot walk idles where its swim/fly clip holds it
         "idle_lift": "match_move" if "walk" not in (mon.get("animation_set") or [])
         and {"swim", "fly"} & set(mon.get("animation_set") or []) else False,

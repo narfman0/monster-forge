@@ -52,6 +52,7 @@ from mathutils.bvhtree import BVHTree
 from mathutils.kdtree import KDTree
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import blender_leg_mirror  # noqa: E402
 import blender_tail_chain  # noqa: E402
 import blender_wing_weights  # noqa: E402
 import rig_reweight  # noqa: E402
@@ -1113,6 +1114,12 @@ def fallback() -> dict:
     return rep
 
 
+legs_mirrored = None
+if job["mode"] in ("score", "finalize") and job.get("fix_legs") == "mirror":
+    # the rig_fix_legs override: legs the roll left out, mirrored from the other side (before the
+    # wing and tail chains, which look for the legs)
+    legs_mirrored = blender_leg_mirror.add_mirrored_legs(arm, me, rig_topology, rig_reweight,
+                                                         int(job.get("feet", 0)))
 wings_added = None
 if job["mode"] in ("score", "finalize") and job.get("add_wings"):
     # before stats(), so joints and empty bones count the inserted chains
@@ -1129,6 +1136,8 @@ elif job["mode"] == "fallback":
     report = fallback()
 else:
     report = stats()
+if legs_mirrored is not None:
+    report["legs_mirrored"] = legs_mirrored
 if wings_added is not None:
     report["wings_added"] = wings_added
 if tail_added is not None:

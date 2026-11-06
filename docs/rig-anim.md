@@ -1089,6 +1089,58 @@ Re-apply without the GPU: `forge.py rig <id> --force` (no `--rig-reroll`) rebuil
 and the tail chain from the kept `rig/chosen.glb` in Blender only (finalize); `anim <id> --force`
 then rebuilds the clips.
 
+### Missing legs (2026-11-06)
+
+The anim stage failed (`found N legs, need 4`) on 11 horizontal bodies, and the batch retried them:
+six dragon wyrmlings (blue, brass, bronze, gold, green, red), bulette, crocodile, giant frog, giant
+lizard, rust monster. The legs were mostly in the rig; `find_legs` missed them.
+
+- **Rescue pass** (`rig_topology.find_legs(..., rescue=True)`, `rescue_legs`): only when the strict
+  rules find fewer than `want` legs, so a rig that has its legs gets the same answer (controls below).
+  A foot that fans into toes from an ankle above `TOES` is the foot (`_toe_fans`; the lizard, the
+  crocodile, the rust monster and most wyrmlings: each toe was a one-bone "leg"); not legs: a tail on
+  the floor (backwards on the centre line, the crocodile's; or a non-fan foot lying out farther than
+  it drops or spanning more than `FOOT_SPAN` on the floor, the red and green wyrmlings' curled tails),
+  a wing finger resting on the floor (root `LEG_ROOT_SIDE` out and above half the height), 2-bone
+  chains (the frog's folded hind legs flip under IK), two chains on one foot (`SAME_FOOT`, the green
+  wyrmling's right hind); at most half per side first; then a raised twin: a chain off the same bone
+  as a leg taken, on the other side, level with it (`TWIN_Y`), dropping 0.1 x h below that bone (the
+  rearing red wyrmling's left fore paw, the brass wyrmling's lifted left fore leg). The anim stage
+  uses it on non-upright plans (`blender_clips`); roll scoring, the tail and wing insertion still use
+  the strict rules.
+- **Partial legs** (`blender_clips.PARTIAL`): a horizontal body still short of legs walks on the ones
+  found (the gait's odd-count phases; the missing leg rides the body), `manifest.anim.partial_legs`
+  and a line in `manifest.anim.warnings`; with none it gets the standing set. The stage no longer
+  fails on missing legs.
+- **`rig_fix_legs: "mirror"`** (experimental, `tools/blender_leg_mirror.py`, rig stage finalize and
+  chosen score, `forge.py rig <id> --force`, CPU): for a leg with no twin, the twin's chain is the
+  leg's chain and toes mirrored about the mesh's centre plane and moved onto the unowned foot piece on
+  the floor nearest the mirror image (`legm_<bone>`), weighted by `rig_reweight` (fit). Set on no
+  monster: none of the 11 has a free foot for it (the crocodile's mesh has no right hind leg, the
+  bulette's left side one foot, the bronze wyrmling no fore-leg chain on either side). Synthetic test
+  (the giant lizard's right hind chain cut out of a copy): the leg comes back and walks, but its thigh
+  tears (walk stretch 12.2 against 1.9 on the real rig).
+
+Per monster (all failed before; after: legs, audit score, flags):
+
+| monster | legs | score | flags / notes |
+|---|---|---|---|
+| giant-lizard | 4 (toe fans) | 0 | |
+| rust-monster | 4 (toe fan at 0.09 x h) | 0 | |
+| crocodile | 3 (tail was the "leg") | 0 | partial: the mesh has no right hind leg |
+| red-dragon-wyrmling | 4 (raised fore paws; curled tail dropped) | 0 | rearing pose, walks with the paws up |
+| green-dragon-wyrmling | 4 (duplicate hind chain, tail dropped) | 0 | tail gated (on the floor) |
+| blue-dragon-wyrmling | 4 | 2.2 | death/breath stretch (wing on the right hind leg's weights) |
+| brass-dragon-wyrmling | 4 (lifted fore leg) | 1.3 | fly stretch |
+| gold-dragon-wyrmling | 4 | 11.3 | wings tear in fly/swim/death (stretch 17-21), tail tip on the right hind leg: rig weights |
+| bronze-dragon-wyrmling | 2 (tail was a "leg") | 0 | partial: no fore-leg chains in the roll (needs a re-roll) |
+| bulette | 3 | 0 | partial: the roll's right side has 3 chains, the left 1 (needs a re-roll) |
+| giant-frog | 2 | 1.0 | partial: hind legs are 2-bone chains, ride the body; swim stretch 4.5 |
+
+Controls on ai, old and new code on copies (rig `--force` and anim `--force`): wolf, mastiff, hyena,
+boar, young-red-dragon, black- and copper-dragon-wyrmling, archmage, ape: `model_rigged*.glb` and
+every `anims/*.glb` byte-identical; the JSON reports differ only in `build_seconds` and timings.
+
 ## Body plans (2026-11-04)
 
 One pilot per plan the six pilots did not cover took the whole chain (`forge.py run`, paint
