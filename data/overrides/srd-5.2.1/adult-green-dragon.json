@@ -1,4 +1,5 @@
 {
   "ref_pick": 2,
-  "notes": "Tier-2 review 2026-11-05 (pass 4): green dragons 3 of 3; ref_0 has a pale mist wisp by the tail, meshed as a white sheet at the tail, and the mesh is SIDEWAYS (gate refused 115). ref_2 clean green side view, no wisp: re-pick 2, re-mesh next pass (no yaw)."
+  "notes": "Tier-2 review 2026-11-05 (pass 4): green dragons 3 of 3; ref_0 has a pale mist wisp by the tail, meshed as a white sheet at the tail, and the mesh is SIDEWAYS (gate refused 115). ref_2 clean green side view, no wisp: re-pick 2, re-mesh next pass (no yaw). Tier-2 review 2026-11-06 (pass 5): ref_2 meshed clean and faces front (head in the front tile, at the left of the -X tile); gate unverified (one cue): rig_facing_check false.",
+  "rig_facing_check": false
 }

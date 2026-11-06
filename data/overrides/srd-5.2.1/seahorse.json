@@ -1,0 +1,4 @@
+{
+  "yaw": -91.4,
+  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 meshed clean but BACKWARDS: dorsal ridge in the front tile, belly in the back tile, snout to -Y in both side tiles; gate unverified 77.0 (its 165.6 would turn it sideways). yaw -91.4 = QA 88.6 + 180."
+}

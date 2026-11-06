@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(one heavy four-legged reptile body with FIVE long snake-like necks rising from the shoulders, each neck ending in its own dragon-like head:1.5), side view",
+  "negative_extra": "(one head, single head, standing on hind legs, upright, several bodies, multiple animals:1.5)",
+  "notes": "Tier-3 review 2026-11-06 (pass 5): 3 of 3 single-headed crocodile-lizards (ref_2 upright); ref_0 meshed as a plain spiked quadruped. Re-roll with five necks (expect the chimera / ettin difficulty)."
+}

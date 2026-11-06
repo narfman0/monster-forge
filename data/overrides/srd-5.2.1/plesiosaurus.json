@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(plesiosaurus: a broad flat body with four large paddle-shaped flippers, a very long slender neck, a small head, a short tail, swimming horizontally:1.5), side view",
+  "negative_extra": "(legs, feet, claws, crocodile, alligator, upright, rearing, diagonal body, short neck, coiled:1.5)",
+  "notes": "Tier-3 review 2026-11-06 (pass 5): 3 of 3 short-necked crocodile-headed sea reptiles; ref_0 rears diagonally on clawed legs (meshed pitched up). Re-roll long-necked with flippers; ref_1 (horizontal, flippers, short neck) is the fallback pick."
+}

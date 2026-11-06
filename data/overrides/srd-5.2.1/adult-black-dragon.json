@@ -1,3 +1,4 @@
 {
-  "notes": "Tier-2 review 2026-11-05 (pass 4): off-colour: 3 of 3 green / teal dragons (orange wings in ref_1), no black; ref_0 stands on a grass mound, meshed as a green dragon on a ground slab (10.8 m); gate refused 79 (head end unknown). Re-roll black, no ground; no yaw pinned (the mesh goes). 2026-11-05 prompt table: prompt_extra, negative_extra removed, covered by data/prompt_tweaks.json rules dragon_colour and house_ground (and the winged_quadruped plan)."
+  "notes": "Tier-2 review 2026-11-05 (pass 4): off-colour: 3 of 3 green / teal dragons (orange wings in ref_1), no black; ref_0 stands on a grass mound, meshed as a green dragon on a ground slab (10.8 m); gate refused 79 (head end unknown). Re-roll black, no ground; no yaw pinned (the mesh goes). 2026-11-05 prompt table: prompt_extra, negative_extra removed, covered by data/prompt_tweaks.json rules dragon_colour and house_ground (and the winged_quadruped plan). Tier-2 review 2026-11-06 (pass 5): black now (colour rule worked, no slab), but ref_0 has TWO heads on the neck and meshed so. Re-pick 2 (single head, profile); re-mesh.",
+  "ref_pick": 2
 }

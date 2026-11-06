@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(aboleth: a huge prehistoric fish with a long finned body, a flat head with three eyes stacked in a row, and four long tentacles trailing from the head, swimming horizontally:1.5), side view",
+  "negative_extra": "(eel, snake, catfish, coiled, curled, ring, upright:1.5)",
+  "notes": "Tier-3 review 2026-11-06 (pass 5): 3 of 3 plain eels curled into a C or ring; ref_0 meshed as an eel standing on its tail. Re-roll as the tentacled fish."
+}

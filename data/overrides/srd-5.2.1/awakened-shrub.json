@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(a small walking shrub creature: a round leafy bush body with a bark face, two twig arms and two root legs standing on the ground:1.5)",
+  "negative_extra": "(bonsai, soil, dirt mound, flower pot, ground patch, rooted in the ground:1.5)",
+  "notes": "Tier-3 review 2026-11-06 (pass 5): 3 of 3 plain bonsai plants on soil mounds; ref_0 meshed as a flat leafy card on a soil slab, no face or legs. Re-roll as a shrub creature."
+}

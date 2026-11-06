@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(roper: whole body, a tall grey stalagmite-shaped rocky column standing on the ground, one big eye near the top, a wide toothy mouth below it, six long thin tendrils from the sides:1.5)",
+  "negative_extra": "(cropped, close-up, bust, head only, mushroom, upside-down cone, floating, stalactite:1.5)",
+  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 a cropped close-up head (meshed as a cone bust with a flat cut base, face to the back tile); ref_1 an upside-down cone, ref_2 a mushroom; no tendrils. Re-roll the whole column."
+}

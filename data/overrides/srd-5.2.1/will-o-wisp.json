@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(a floating ball of pale blue-white light with a soft glow and a faint wispy tail, nothing inside it:1.5)",
+  "negative_extra": "(skull, skeleton, child, person, figure, face, bubble, glass sphere, orb with a creature inside:1.5)",
+  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 a skull-faced child sitting in a glass bubble (meshed as a clean 0.3 m sphere with the child as a decal); refs 1-2 skeleton / skull in a sphere. Re-roll as a plain ball of light (the paint pass would paint the child)."
+}

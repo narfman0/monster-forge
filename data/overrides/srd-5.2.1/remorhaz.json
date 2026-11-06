@@ -1,0 +1,4 @@
+{
+  "yaw": -120.8,
+  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 meshed but BACKWARDS: head in the back tile; gate refused 178.5. yaw -120.8 = QA 59.2 + 180 (gate -119.3). The tail whip meshed as a wire loop to the floor: cut it if the rig trips."
+}

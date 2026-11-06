@@ -1,3 +1,4 @@
 {
-  "notes": "Tier-2 review 2026-11-05 (pass 4): ref_0 a SITTING winged lion with a lion's head (front view), meshed sitting (3.8 m, gate refused 53.5); refs 1-2 are head-only emblems. Re-roll standing, whole body, with the human head. 2026-11-05 prompt table: prompt_extra, negative_extra removed, covered by data/prompt_tweaks.json per-id prompt."
+  "notes": "Tier-2 review 2026-11-05 (pass 4): ref_0 a SITTING winged lion with a lion's head (front view), meshed sitting (3.8 m, gate refused 53.5); refs 1-2 are head-only emblems. Re-roll standing, whole body, with the human head. 2026-11-05 prompt table: prompt_extra, negative_extra removed, covered by data/prompt_tweaks.json per-id prompt. Tier-2 review 2026-11-06 (pass 5): round 2 drew front views: ref_0 sitting with a lion face (meshed sitting), ref_1 a winged man; ref_2 stands on four legs with a bearded half-human face, wings and headdress. Re-pick 2; re-mesh, check body depth and facing.",
+  "ref_pick": 2
 }

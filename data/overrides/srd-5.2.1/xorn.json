@@ -1,0 +1,6 @@
+{
+  "rig_facing_check": false,
+  "prompt_extra": "(xorn: a squat barrel-shaped stone body, a wide toothy mouth on the top, three long clawed arms spaced round the top, three short thick legs round the base, three eyes round the body, radially symmetric:1.5), front view",
+  "negative_extra": "(face, head, snout, tail, four legs, horns, quadruped, demon:1.5)",
+  "notes": "Tier-3 review 2026-11-06 (pass 5): 3 of 3 horned single-faced beasts with tails (not radial); ref_0 meshed as a four-legged beast facing front. Re-roll radial; rig_facing_check false (radial: the gate cannot name a head end by design). No clip builder for the plan."
+}

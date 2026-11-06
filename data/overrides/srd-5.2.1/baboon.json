@@ -1,0 +1,4 @@
+{
+ "rig_facing_check": false,
+ "notes": "Lead 2026-11-06 (review pass 5): thumb faces front; the gate is unverified or wrong on its axis, so rig_facing_check is off."
+}

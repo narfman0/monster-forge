@@ -1,3 +1,4 @@
 {
-  "notes": "Tier-2 review 2026-11-05 (pass 4): colour drift: dark blue-black body with red wings 3 of 3 (as red-dragon-wyrmling); ref_0's red flame splash on the floor meshed as red shards round the feet; ref_1 on a rock base. Faces front (gate ok 19.5), 12.6 m. Re-roll red, no ground fire. 2026-11-05 prompt table: prompt_extra, negative_extra removed, covered by data/prompt_tweaks.json rules dragon_colour and house_ground (and the winged_quadruped plan)."
+  "notes": "Tier-2 review 2026-11-05 (pass 4): colour drift: dark blue-black body with red wings 3 of 3 (as red-dragon-wyrmling); ref_0's red flame splash on the floor meshed as red shards round the feet; ref_1 on a rock base. Faces front (gate ok 19.5), 12.6 m. Re-roll red, no ground fire. 2026-11-05 prompt table: prompt_extra, negative_extra removed, covered by data/prompt_tweaks.json rules dragon_colour and house_ground (and the winged_quadruped plan). Tier-2 review 2026-11-06 (pass 5): refs 1-2 crimson (colour rule worked) but the auto pick ref_0 has a black body with red wings. Re-pick 2; re-mesh.",
+  "ref_pick": 2
 }

@@ -1152,6 +1152,21 @@ untested variants; off-model fork, heavy crossbow, mace props.
       quadruped "standing on all four, side view" append), ground / shadow slabs (4), the
       frost-giant registry prompt's quiver. The gate let 2 backwards quadrupeds through as
       one-cue `unverified` (elephant, mammoth).
+      Pass 5 (2026-11-06, `docs/review-tier2.md` "Pass 5"): all 113 reviewed: 86 ready for
+      paint (14 by `rig_facing_check` false), 9 re-picks wait for a mesh pass, 6 yaw pins for
+      a qa pass, 12 re-rolls written (hill-giant round 3; chimera and sphinx-of-lore round 2,
+      a template next). Still open from the table: multi-head / hybrid bodies, frozen
+      off-colour dragons, statue bases. New: top-down insectoids and head-on / breaching
+      aquatics (plan clauses wanted), shard-shell tiny mammals, QA insectoid auto-yaw wrong 8
+      of 9, unarmed auto-pick takes the first candidate under threshold, NSFW candidates on
+      female hybrids, `fleshy_undead` hits bone-devil. Tier-1 facing: 12 `rig_facing_check`
+      false lines and merrow `yaw` 76.0 for the lead to write between paint batches.
+- [ ] Tier-3 pass review (2026-11-06, `docs/review-tier3.md`): 33 reviewed: 8 ready for
+      paint, 4 re-picks and 4 yaw pins wait for a pass, 17 re-rolls written (unusual
+      creatures drawn as the nearest common animal; the avian plan grows wings on theropods
+      and forelegs on the wyvern). Code still needed whatever the reference: rug (cloth
+      chain), xorn (radial clips), flying sword (hover clip), upright-plan tail (tarrasque),
+      marilith's six hand sockets.
 - [x] (2026-11-05) Prompt-table fixes for the tier-2 findings (docs/references.md "Table rules
       and the frozen list"): `forge.ref_prompt` learnt `_rules` (match on plan / id regex /
       type / registry-prompt regex / unarmed, `insert` before the pose tail, a `by_group`

@@ -1,4 +1,5 @@
 {
-  "ref_pick": 1,
-  "notes": "Tier-2 review 2026-11-05 (pass 4): ref_0 stands upright on its hind legs like a meerkat; meshed upright (0.3 m) for a quadruped rig. ref_1 crouches on all four (head turned), ref_2 sits. Re-pick 1, re-mesh next pass."
+  "notes": "Tier-2 review 2026-11-05 (pass 4): ref_0 stands upright on its hind legs like a meerkat; meshed upright (0.3 m) for a quadruped rig. ref_1 crouches on all four (head turned), ref_2 sits. Re-pick 1, re-mesh next pass. Tier-2 review 2026-11-06 (pass 5): ref_1 (pass-4 re-pick) meshed as a hunched shard-furred lump, the tail a detached floating shard. Re-roll long and low with smooth fur; ref_pick removed.",
+  "prompt_extra": "(long slender low body on four short legs, smooth short fur, long tail on the ground:1.3), standing on all four legs, side view",
+  "negative_extra": "(hatching, long fur strands, whiskers, squirrel, hunched, sitting, standing upright:1.4)"
 }

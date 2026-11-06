@@ -1,0 +1,4 @@
+{
+  "rig_facing_check": false,
+  "notes": "Tier-2 review 2026-11-06 (pass 5): ref_0 meshed, faces front (face and beak in the front tile); gate unverified (cues too weak): rig_facing_check false."
+}

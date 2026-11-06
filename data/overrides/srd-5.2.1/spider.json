@@ -1,0 +1,4 @@
+{
+  "yaw": 179.4,
+  "notes": "Tier-2 review 2026-11-06 (pass 5): ref_0 meshed, 8 legs down, but SIDEWAYS: the face reads in the +X tile; gate refused 92.0. yaw 179.4 (the gate value, QA 87.4 + 92)."
+}

@@ -1,5 +1,6 @@
 {
-  "ref_pick": 1,
-  "notes": "Tier-1 review 2026-11-05: ref_0 (default) is a banking three-quarter shark from below; the mesh is rolled and pitched nose-down, resting on a pectoral fin and the tail tip (QA leveling has no feet for aquatic). ref_1: a clean flat side-view reef shark. Re-pick 1. Pass 3 (2026-11-05, ref_1 re-mesh): clean flat side-view shark, 2.0 m, level, but BACKWARDS: thumb_head lands on the tail fin, the front tile shows the tail end-on (the caudal fin as a vertical spike), the back tile the blunt snout; the gate passed it as unverified (one cue, high_centre_end 0.36). Pinned yaw -98.5 = QA 81.51 + 180 (-360); qa re-runs on the next pass, check thumb.png. Pass 4 (2026-11-05, qa with yaw -98.5): thumb.png faces front (snout to the front camera, tail fin to the back; thumb_head the snout with eye and mouth); gate UNVERIFIED (one cue), which passes. Pin worked.",
-  "yaw": -98.5
+ "ref_pick": 1,
+ "notes": "Tier-1 review 2026-11-05: ref_0 (default) is a banking three-quarter shark from below; the mesh is rolled and pitched nose-down, resting on a pectoral fin and the tail tip (QA leveling has no feet for aquatic). ref_1: a clean flat side-view reef shark. Re-pick 1. Pass 3 (2026-11-05, ref_1 re-mesh): clean flat side-view shark, 2.0 m, level, but BACKWARDS: thumb_head lands on the tail fin, the front tile shows the tail end-on (the caudal fin as a vertical spike), the back tile the blunt snout; the gate passed it as unverified (one cue, high_centre_end 0.36). Pinned yaw -98.5 = QA 81.51 + 180 (-360); qa re-runs on the next pass, check thumb.png. Pass 4 (2026-11-05, qa with yaw -98.5): thumb.png faces front (snout to the front camera, tail fin to the back; thumb_head the snout with eye and mouth); gate UNVERIFIED (one cue), which passes. Pin worked. Lead 2026-11-06 (review pass 5): thumb faces front; the gate is unverified or wrong on its axis, so rig_facing_check is off.",
+ "yaw": -98.5,
+ "rig_facing_check": false
 }

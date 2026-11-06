@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(side view at eye level, a low armoured lobster-like body on six legs, two big pincer claws forward, a cluster of short tentacles round the mouth:1.4)",
+  "negative_extra": "(top view, overhead view, view from above, flat splayed legs, crab seen from above:1.5)",
+  "notes": "Tier-2 review 2026-11-06 (pass 5): 3 of 3 TOP-DOWN crustaceans; ref_0 meshed standing on edge (4.0 m tall for 2.7 m long, a vertical slab). Re-roll in side view (as the phase-spider fix)."
+}

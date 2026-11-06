@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(pteranodon, a flying reptile: long pointed toothless beak, a long backward-pointing bony crest on the head, leathery skin wing membranes from the long finger to the ankle, no feathers, small body:1.4), side view",
+  "negative_extra": "(feathers, feathered wings, bird, phoenix, dragon, horns, tail feathers, fan tail:1.5)",
+  "notes": "Tier-2 review 2026-11-06 (pass 5): 3 of 3 feathered phoenix-dragon birds with horns and fan tails, no beak or crest; ref_0 meshed so. Re-roll as a pteranodon."
+}

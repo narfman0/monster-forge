@@ -1,4 +1,5 @@
 {
-  "ref_pick": 1,
-  "notes": "Tier-2 review 2026-11-05 (pass 4): metallic colour drift: ref_0 dark teal body with ORANGE wings, meshed so and sideways (gate refused 61). ref_1 silver-blue body with pale blue wings (closest to silver): re-pick 1, re-mesh next pass (no yaw)."
+  "notes": "Tier-2 review 2026-11-05 (pass 4): metallic colour drift: ref_0 dark teal body with ORANGE wings, meshed so and sideways (gate refused 61). ref_1 silver-blue body with pale blue wings (closest to silver): re-pick 1, re-mesh next pass (no yaw). Tier-2 review 2026-11-06 (pass 5): ref_1 (pass-4 re-pick) meshed REARING upright (20.8 m tall, 12 m long), teal not silver; all 3 stand in an S-curve. The id is in _frozen so the colour rule and the standing clause never reached it. Re-roll; ref_pick removed.",
+  "prompt_extra": "(gleaming metallic silver scales all over the body:1.3), (pale silver-white wing membranes:1.2), (long horizontal body, all four feet on the ground:1.3), side view",
+  "negative_extra": "(teal scales, blue scales, green scales, orange wings, rearing, upright, standing on hind legs:1.5)"
 }

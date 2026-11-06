@@ -1,0 +1,5 @@
+{
+  "prompt_extra": "(a walking tree creature: a thick trunk body with a bark face, two branch arms and two root legs standing apart, a leafy crown:1.5)",
+  "negative_extra": "(bonsai, soil, ground patch, mound, roots spread on the ground, ordinary tree:1.5)",
+  "notes": "Tier-3 review 2026-11-06 (pass 5): 3 of 3 ordinary gnarled trees on a ground patch; ref_0 meshed as a tree on a soil slab. Re-roll as a tree creature (the treant's look)."
+}
