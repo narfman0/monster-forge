@@ -1031,6 +1031,64 @@ visible (pop 0.03), black-pudding settling (death_hold 0.005). Not trusted: stri
 legs (insectoid skipped), gait spread on owlbear/black-bear, limb_in_torso on bipeds' cuts, socket
 drift, every biped flag (not looked at; bipeds go to UAL).
 
+### Tail, topology and smoothing fixes (2026-11-06)
+
+The audit's top fixes for the non-biped plans. Bipeds are untouched (archmage and ape: rig and
+every clip identical, checked against a same-machine run of the old code).
+
+- **find_tail** (`rig_topology`, clips and roll scoring): a chain whose first bone has a leg
+  under it is the pelvis; the tail starts below that branch (giant weasel: `bone_24` carried the
+  tail and the right hind leg, now `bone_34..40`). A chain with a joint `WING_REACH` x the height
+  out to the side above the ground band is a sprawled limb (giant toad: its right hind leg was the
+  tail and the right wing). A chain rooted in the ground band is a foot or toe piece.
+- **Tail insertion** (`blender_tail_chain.detect_tail`): the found tail must be isolated: every
+  band centroid at least `LEG_NEAR` 0.08 x h from every leg's joint path (clean tails: 0.13 or
+  more; boar 0.054, hippo 0.069, black bear 0.061, giant hyena 0.063, centaur 0.038) and at most
+  `LOW_MAX` 0.06 of the lobe within 0.1 x h of the floor (clean 0-0.04; badger 0.23). Otherwise
+  no chain (`tail_added.found` false, the reason in the log), as `rig_tail_chain: false` would.
+  Override `rig_tail_chain: "fused"` keeps the chain anyway (set on centaur-trooper: its tail
+  sheet is fused to a hind leg and the seam weights handle it; without the chain the sheet kicks
+  with the hoof and the death tears, edge stretch p99.9 4.2 -> 9.8).
+- **Topology gate** (`blender_clips.topology_gate`, before any clip): no chain used twice (a wing
+  that is a leg, a tail that is a wing or a leg), no leg under the tail's root, no hanging tail
+  with over 0.06 of its vertices within 0.1 x h of the floor (the audit's `tail_low_share`;
+  skipped with `rig_tail_chain: "fused"`). What fails is left out of the clips and listed in
+  `manifest.anim.warnings` (and the log). Wings are only searched on winged plans (avian,
+  winged_*) or when the record has `fly` (the toad's leg and the kobold's tail were "wings"),
+  and the ground tail fan is avian-only (on the badger it was a piece of a hind foot).
+- **Smoothed corrections** (`blender_clips.smooth_series`): after the floor passes settle, a
+  body-height or tail-lift series with a one-frame jump over `POP_TOL` 0.01 x h is closed (3-frame
+  max, then 3-frame mean; loops wrap): a lone frame becomes a 5-frame ramp and no frame ends lower
+  than its own correction asked. Series without such a jump are untouched. Not on upright plans.
+  The weasel's walk raised the body 0.08 / 0.03 / 0.12 m on consecutive frames.
+
+Audit (score = sum of flag severities; before = `out/` as audited, which a same-machine run of the
+old code reproduces exactly):
+
+| monster | score | flags gone | still |
+|---|---|---|---|
+| giant-toad | 16.8 -> 1.9 | attack/hit/idle sink, hit pop (no tail, no wing) | walk stride: the 4 legs found are the front feet and toes, the hind legs ride the body (needs a re-rig) |
+| boar | 10.3 -> 0 | all 6 (sinks, idle tail pop): no tail, the right hind leg walks as a leg | |
+| giant-weasel | 9.1 -> 6.5 | walk pop (the seam drop); walk sink 0.138 -> 0.077, tail no longer swings the hind leg | walk/attack sink (a hind leg pokes through: rig sides/legs), death stretch 3.2 -> 6.7 (the rump no longer turns with the tail) |
+| giant-badger | 9.6 -> 0 | all 7 | |
+| hippopotamus | 6.1 -> 0 | all 5 | |
+| black-bear | 6.3 -> 4.1 | death sink, swim stretch | walk/attack pops on a front leg, walk gait (as before) |
+| giant-hyena | 1.2 -> 0 | walk stretch 5.4 -> 1.5 | |
+| centaur-trooper | 9.8 -> 9.8 | (tail kept by override) | as before (the arm stick, the leg sheet) |
+
+Controls (wolf, mastiff, hyena, rhinoceros, hell-hound, dire-wolf, owlbear, blink-dog, brown-bear,
+giant-boar, polar-bear, young-red-dragon, giant-eagle, swarm-of-bats, harpy, giant-spider): rigs
+identical; clips identical except where smoothing ran (mastiff, hyena, blink-dog walk; dire-wolf
+attack/hit/walk; red dragon attack/hit; spider attack/hit/walk; centaur hit): pops 0.015-0.038 ->
+0.000-0.011 x h, sinks equal or smaller, no new flags (spider attack/hit feet up to 0.01 x h off
+the floor). Kobold-warrior's idle/hit change (its tail is no longer flapped as a left wing).
+copper-dragon-wyrmling loses its inserted tail (root 0.033 x h from a hind leg; the coiled tail is
+skinned to the right hind leg either way, the old chain only took its tip): score 1.06 -> 0.
+
+Re-apply without the GPU: `forge.py rig <id> --force` (no `--rig-reroll`) rebuilds the game files
+and the tail chain from the kept `rig/chosen.glb` in Blender only (finalize); `anim <id> --force`
+then rebuilds the clips.
+
 ## Body plans (2026-11-04)
 
 One pilot per plan the six pilots did not cover took the whole chain (`forge.py run`, paint

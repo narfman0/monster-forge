@@ -191,7 +191,16 @@ def find_tail(bones: list[dict], height: float, legs: list[dict], min_bones: int
     raising the whole body.
 
     A chain the rig stage inserted or adopted (`tail_00 ..`, blender_tail_chain.py) is the
-    tail by name, whatever its shape (the centaur's hangs straight down to the floor)."""
+    tail by name, whatever its shape (the centaur's hangs straight down to the floor).
+
+    Never a limb (clip audit 2026-11-06): a chain whose first bone has a leg under it starts
+    at the pelvis, not the tail (the giant weasel's bone_24 carries the tail and the right
+    hind leg, so the tail's sway swung the leg); the tail is the chain from that branch on.
+    A chain with a joint WING_REACH x the height out to the side above the ground band is a
+    sprawled limb (the giant toad's right hind leg, 0.53 x the height out at hip height,
+    also taken for a wing); a tail lying curled on the floor (the red dragon's, 0.42 out at
+    0.05 x the height) is still a tail. A tail leaves the body above the ground band (GROUND x
+    the height; the red dragon's lying tail roots at 0.23)."""
     by_name = {b["name"]: b for b in bones}
     kids = _children(bones)
     if TAIL_PREFIX + "00" in by_name:
@@ -199,7 +208,9 @@ def find_tail(bones: list[dict], height: float, legs: list[dict], min_bones: int
     leg_bones = {n for g in legs for n in g["chain"]}
     if not legs:
         return []
+    leg_roots = {g["chain"][0] for g in legs}
     hip_y = sum(by_name[g["chain"][0]]["head"][1] for g in legs) / len(legs)
+    cx = centre_x(bones, legs)
     best, sloped, reach = [], [], 0.0
     for b in bones:
         if b["name"] in leg_bones or not b["parent"] or len(kids[b["parent"]]) < 2:
@@ -207,6 +218,13 @@ def find_tail(bones: list[dict], height: float, legs: list[dict], min_bones: int
         chain = longest_chain(b["name"], kids)
         if len(chain) < 2 or any(n in leg_bones for n in chain):
             continue
+        if b["head"][2] <= GROUND * height:
+            continue  # rooted in the ground band: a foot or toe piece (the toad's bone_20 at 0.16 x h)
+        if leg_roots & set(_descendants(b["name"], kids)):
+            continue  # a leg hangs under it: the pelvis, the tail starts below the branch
+        if any(abs(p[0] - cx) >= WING_REACH * height and p[2] > GROUND * height
+               for n in chain for p in (by_name[n]["head"], by_name[n]["tail"])):
+            continue  # out to the side above the ground: a sprawled limb, not a tail
         h0, h1 = by_name[chain[0]]["head"], by_name[chain[-1]]["head"]
         if len(chain) >= min_bones and h1[1] < hip_y - 0.05 * height and h1[2] < h0[2] + 0.2 * height \
                 and len(chain) > len(best):

@@ -28,7 +28,14 @@ floor, and per band the rear cluster is the vertices within REAR of the band's r
   clusters' centroids, root to tip, resampled to equal arc lengths: 4-6 bones (one per
   BONE_LEN x the height), `tail_00 ..`, parented to the hip bone (rig_topology.find_spine's
   hip: the hind legs' common ancestor);
-- the lobe (for the weights) is the union of the tail bands' rear clusters.
+- the lobe (for the weights) is the union of the tail bands' rear clusters;
+- isolated (clip audit 2026-11-06): no band centroid within LEG_NEAR x the height of a leg's
+  joint path (a profile running down the back of a hind thigh: boar, hippo, black bear, giant
+  hyena, centaur) and at most LOW_MAX of the lobe within LOW x the height of the floor (a rump
+  standing on it: badger). Otherwise no chain is inserted (`found: false` and the reason,
+  as with `rig_tail_chain: false`): a chain there swung the leg or dragged the rump through
+  the floor. Clean hanging tails (wolf, dire wolf, owlbear, blink dog) stay 0.13 x h or more
+  from the legs with 0-0.04 of their lobe that low.
 
 **Adoption** (`adopt_candidate`): a SkinTokens chain (off a branch, not a leg, not the trunk or
 neck) with a joint within ADOPT_R of the tail line whose bones own ADOPT of the lobe's vertices
@@ -79,6 +86,9 @@ SEAM_CORE = 0.04  # x height: the leg / tail cores are the skin this close to th
 SEAM_HOLD = 0.03  # x height over the surface: this close to the leg core is the leg's
 SEAM_BAND = 0.04  # x height over the surface: the leg-tail seam blends over this on either side
 PREFIX = "tail_"  # inserted chains: tail_00 .. tail_05
+LEG_NEAR = 0.08   # x height: a tail band's centroid this close to a leg's joint path is on the leg
+LOW = 0.1         # x height above the floor: the lobe's vertices this low ...
+LOW_MAX = 0.06    # ... over this share of the lobe: it stands on the floor (rump, hind leg)
 
 
 def hips(bones: list[dict], legs: list[dict]) -> tuple[np.ndarray, list[dict]]:
@@ -133,11 +143,13 @@ def surface_samples(V: np.ndarray, F: np.ndarray, step: float) -> np.ndarray:
     return np.concatenate(pts)
 
 
-def detect_tail(V: np.ndarray, F: np.ndarray, bones: list[dict], height: float, legs: list[dict], cx: float) -> dict:
+def detect_tail(V: np.ndarray, F: np.ndarray, bones: list[dict], height: float, legs: list[dict], cx: float,
+                isolated: bool = True) -> dict:
     """The tail on the rest mesh V (n,3) with triangles F, facing +Y with +Z up (module doc).
     Returns a report: "found" and, when found, "joints" (root .. tip), "line" (the band
     centroids), the numbers (x height) and "_verts" (the lobe's vertex indices); otherwise
-    "reason". The profile runs on surface samples (SAMPLE x the height apart)."""
+    "reason". The profile runs on surface samples (SAMPLE x the height apart). `isolated` False
+    (override rig_tail_chain "fused") skips the leg and floor tests (they are still reported)."""
     h = height
     z0 = float(V[:, 2].min())
     hip, _ = hips(bones, legs)
@@ -198,6 +210,24 @@ def detect_tail(V: np.ndarray, F: np.ndarray, bones: list[dict], height: float, 
     if width > THIN * body_w:
         rep["reason"] = f"not thin: median width {width / h:.2f} x h vs body {body_w / h:.2f}"
         return rep
+    # isolated from the legs and off the floor (clip audit 2026-11-06): a rear profile that
+    # runs down the back of a hind thigh or the rump to the floor is no tail, and a chain on it
+    # swings the leg or drags the rump through the floor (boar, badger, hippo, black bear,
+    # giant hyena, centaur). Clean hanging tails stay 0.13 x h or more from every leg's joint
+    # path and have 0-0.04 of their lobe within LOW of the floor; those 0.07-0.44
+    near = _leg_near(np.array([b["c"] for b in tail]), bones, legs)
+    rep["leg_dist"] = round(float(near.min()) / h, 3)
+    if isolated and near.min() < LEG_NEAR * h:
+        k = int(np.argmax(near < LEG_NEAR * h))
+        rep["reason"] = (f"not isolated: band {k} of {len(tail)} ({(tail[k]['z'] - z0) / h:.2f} x h up) lies "
+                         f"{near[k] / h:.3f} x h from a leg (< {LEG_NEAR})")
+        return rep
+    lobe_v = np.unique(np.concatenate([b["idx"] for b in tail]))
+    low = float((V[lobe_v, 2] - z0 < LOW * h).mean()) if len(lobe_v) else 0.0
+    rep["low_share"] = round(low, 3)
+    if isolated and low > LOW_MAX:
+        rep["reason"] = f"on the floor: {low:.2f} of the lobe within {LOW} x h of it (> {LOW_MAX})"
+        return rep
     root = tail[0]["c"]
     last = tail[-1]["pts"]
     tip = last[np.argmax(np.linalg.norm(last - root, axis=1))]
@@ -214,6 +244,17 @@ def detect_tail(V: np.ndarray, F: np.ndarray, bones: list[dict], height: float, 
                 "root_behind": round((hip[1] - tail[0]["rear"]) / h, 3),
                 "tip_behind": round((hip[1] - tip[1]) / h, 3), "_verts": verts})
     return rep
+
+
+def _leg_near(P: np.ndarray, bones: list[dict], legs: list[dict]) -> np.ndarray:
+    """Per point of P, the distance to the nearest leg's joint path (hip -> ... -> the foot's tail)."""
+    by_name = {b["name"]: b for b in bones}
+    out = np.full(len(P), np.inf)
+    for g in legs:
+        path = [np.array(by_name[n]["head"]) for n in g["chain"]] + [np.array(by_name[g["chain"][-1]]["tail"])]
+        for a, b in zip(path, path[1:]):
+            out = np.minimum(out, _seg(P, a, b))
+    return out
 
 
 def adopt_candidate(bones: list[dict], dom: np.ndarray, lobe: np.ndarray, line: np.ndarray, height: float,
@@ -397,7 +438,7 @@ def _seg(V: np.ndarray, a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return np.linalg.norm(V - (a + t[:, None] * ab), axis=1)
 
 
-def add_missing_tail(arm, me, rig_topology, feet: int) -> dict | None:
+def add_missing_tail(arm, me, rig_topology, feet: int, isolated: bool = True) -> dict | None:
     """In Blender: when find_tail finds fewer than 4 bones, find the tail on the mesh, insert
     (or adopt and extend) a tail_00.. chain on the hip bone and weight it. Returns the report
     (None when the skeleton already has a tail of 4+ bones or has not the plan's legs)."""
@@ -422,7 +463,7 @@ def add_missing_tail(arm, me, rig_topology, feet: int) -> dict | None:
     me.data.calc_loop_triangles()
     F = np.empty(len(me.data.loop_triangles) * 3, dtype=np.int64)
     me.data.loop_triangles.foreach_get("vertices", F)
-    rep = detect_tail(V, F.reshape(-1, 3), bones, height, legs, cx)
+    rep = detect_tail(V, F.reshape(-1, 3), bones, height, legs, cx, isolated)
     rep = {"had": had, "height_m": round(height, 3), **rep}
     if not rep["found"]:
         return rep

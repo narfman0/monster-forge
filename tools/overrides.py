@@ -224,9 +224,11 @@ FIELDS = {
     "rig_reweight": (_reweight, "rig", "geometric re-weight of bone chains in the game files, before sockets: "
                      "[{bones: [root..tip], bias, reach (m), blend (m), strip, fit, hand_room (m), far (m)}] (tools/rig_reweight.py)"),
     "rig_facing_check": (_bool, "rig","refuse to roll a skeleton when model.glb looks misfaced (false = roll anyway)"),
-    "rig_tail_chain": (_bool, "rig", "insert a tail chain from the mesh when a quadruped / winged quadruped / "
+    "rig_tail_chain": (lambda v: None if v in (True, False, "fused") else "true, false or \"fused\"", "rig",
+                       "insert a tail chain from the mesh when a quadruped / winged quadruped / "
                        "centauroid roll has none or one under 4 bones (tools/blender_tail_chain.py); on by "
-                       "default, false turns it off"),
+                       "default, false turns it off; \"fused\" inserts it even where the tail touches a hind leg "
+                       "or the floor (the centaur's tail sheet), which the default refuses, and the clips keep it"),
     "rig_source": (_choice("skintokens", "ual"), "rig", "bipeds / winged bipeds: \"ual\" rigs the mesh straight onto "
                    "the Quaternius UAL skeleton (heat weights, no SkinTokens roll; tools/rig_ual.py) and writes its "
                    "clips into anims_ual/ for `forge.py promote` (docs/anim-reuse.md). Default skintokens"),

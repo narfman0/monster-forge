@@ -1609,6 +1609,7 @@ const FIELD_UI = {
   style: { type: 'text' }, seed_ref: { type: 'int' },
   yaw: { type: 'float', step: 1 }, forward: { type: 'choice', opts: ['-Z', '+Z'] },
   rig_facing_check: { type: 'choice', opts: [true, false] },
+  rig_tail_chain: { type: 'choice', opts: [true, false, 'fused'] },
   level: { type: 'choice', opts: [true, false] }, level_tilt: { type: 'float', step: 1 },
   lod_ratios: { type: 'list' }, lod_screen_ratios: { type: 'list' }, paint: { type: 'json', area: true }, notes: { type: 'text', area: true },
   ref_unarmed_check: { type: 'choice', opts: [true, false] },

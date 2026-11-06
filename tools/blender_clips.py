@@ -28,6 +28,11 @@ clip) on those parts:
   shorter steps.
 - One bake per clip (visual keying, constraints cleared), the Action named after the
   clip, exported with the armature only; then the pose is reset for the next clip.
+- Before any clip, a topology gate (topology_gate) leaves out a tail or wing chain that is
+  also a leg or the other part, a tail with a leg under its root, and a hanging tail standing
+  on the floor; those go to the report's `warnings` (manifest anim.warnings). Wings are only
+  searched on winged plans or when the record flies. Settled per-frame body-height and
+  tail-lift series with a one-frame jump are smoothed (smooth_series), not on upright plans.
 
 Looping clips use whole periods of t, so the first and last frames are the same pose.
 job: src, out_dir, report, clips, feet, sprawl, upright, plan, optional wings (chains).
@@ -150,8 +155,10 @@ head = rig_topology.find_head(bones, height, legs) if job["upright"] or (legless
     None if job["sprawl"] or legless else rig_topology.find_snout(bones, height, legs)
 tail = [] if job["upright"] or legless else rig_topology.find_tail(bones, height, legs)
 # else a short tail fan that slopes down onto the ground (a bird's): the floor clips turn it
-# up at its root (below) instead of raising the whole body off it
-fan = not tail and not job["upright"] and not legless
+# up at its root (below) instead of raising the whole body off it. Birds only: on a quadruped
+# such a chain is a foot or the rump on the floor (the giant badger's 2-bone bone_24..25, 0.40
+# of it within 0.1 x h of the floor, lifted a piece of its hind foot in the walk)
+fan = not tail and not job["upright"] and not legless and PLAN == "avian"
 if fan:
     tail = rig_topology.find_tail(bones, height, legs, ground=True)
 # A tail hangs when its root drops more to its tip than it reaches out (the wolf's, the
@@ -161,8 +168,12 @@ HANG = False
 if tail and not fan:
     _a, _b = by_name[tail[0]]["head"], by_name[tail[-1]]["tail"]
     HANG = (_a[2] - _b[2]) > math.hypot(_b[0] - _a[0], _b[1] - _a[1])
+# wings only where the plan has them or a clip flies: a wingless plan's "wing" is a limb or a
+# tail reaching out sideways (the giant toad's right hind leg, the kobold's tail)
+WING_PLANS = {"winged_quadruped", "winged_biped", "avian"}
+wing_search = PLAN in WING_PLANS or "fly" in job["clips"]
 wings = [{"side": w[0], "chain": w[1]} for w in job["wings"]] if job.get("wings") else [] if legless else \
-    rig_topology.find_wings(bones, height, legs, arms, exclude=(head,) if head else ())
+    rig_topology.find_wings(bones, height, legs, arms, exclude=(head,) if head else ()) if wing_search else []
 root = next(b["name"] for b in bones if b["parent"] is None)
 # a spider's chelicerae: short non-leg chains off the root that hang down
 fangs = [n for n in kids[root] if job["sprawl"] and n not in {x for g in legs for x in g["chain"]}
@@ -260,6 +271,57 @@ leg_of = leg_masks()
 rest_foot = [float(np.array(z_all)[m].min()) if m.any() else 0.0 for m in foot_of]
 is_tail = tail_mask()
 REST_V = np.array([(o.matrix_world @ v.co)[:] for o in meshes for v in o.data.vertices])
+
+
+# --- topology gate (clip audit 2026-11-06) ---------------------------------------------
+# Cheap checks on the parts found above, before any clip is built: what fails is dropped (the
+# clips are built without it) and logged in the report's `warnings` (manifest anim.warnings)
+# instead of clips that swing a leg as a tail or flap a leg as a wing.
+WARNINGS: list[str] = []
+TAIL_LOW = 0.1       # x height: a hanging tail's vertices this near the floor at rest ...
+TAIL_LOW_MAX = 0.06  # ... over this share of them: a hind leg or the rump (clean tails 0-0.04, those 0.07-0.44)
+
+
+def topology_gate() -> None:
+    """No chain used twice (wing = leg, tail = wing or leg), no leg under the tail's root, no
+    hanging tail standing on the floor (the audit's tail_low_share)."""
+    global tail, fan, HANG, wings, is_tail
+    leg_set = {n for g in legs for n in g["chain"]}
+    seen: dict[str, str] = {}
+    for w in list(wings):
+        dup = [n for n in w["chain"] if n in leg_set or n in seen]
+        if dup:
+            WARNINGS.append(f"wing {w['side']} shares {dup[:3]} with {'a leg' if dup[0] in leg_set else seen[dup[0]]}: "
+                            "no such wing in the clips")
+            wings.remove(w)
+            continue
+        seen.update({n: f"wing {w['side']}" for n in w["chain"]})
+    if not tail:
+        return
+    why = None
+    dup = [n for n in tail if n in leg_set or n in seen]
+    under = [g["chain"][0] for g in legs if g["chain"][0] in rig_topology._descendants(tail[0], kids)]
+    if dup:
+        why = f"shares {dup[:3]} with {'a leg' if dup[0] in leg_set else seen[dup[0]]}"
+    elif under:
+        why = f"has the leg(s) {under} under its root"
+    elif HANG and is_tail.any() and not job.get("tail_fused"):  # override rig_tail_chain "fused" keeps it
+        low = float((REST_V[is_tail, 2] - min(z_all) < TAIL_LOW * height).mean())
+        if low > TAIL_LOW_MAX:
+            why = f"hangs onto the floor: {low:.2f} of its vertices within {TAIL_LOW} x h of it (> {TAIL_LOW_MAX})"
+    if why:
+        WARNINGS.append(f"tail {tail[0]}..{tail[-1]} {why}: no tail in the clips")
+        tail, fan, HANG = [], False, False
+        is_tail = np.zeros(len(REST_V), bool)
+
+
+if not legless and legs:
+    _nw = len(wings)
+    topology_gate()
+    if len(wings) != _nw:
+        body_h = body_height()
+for _w in WARNINGS:
+    print("WARNING", _w)
 # Ground contacts: vertices lying on the floor at rest (z <= FLOOR_TOL) that no leg owns and
 # no tail turn lifts: the harpy's hip-feather tips, skinned to the pelvis. A floor clip may
 # lower the body for its standing feet only as far as these stay above -CONTACT_DIP; below
@@ -849,6 +911,41 @@ def key_start(clip: Clip) -> None:
     key_root(clip, [0.0] * (clip.frames + 1))
 
 
+# Per-frame corrections smoothed (clip audit 2026-11-06): the floor passes raise or lower the body
+# and lift the tail frame by frame, and neighbouring frames could settle 0.1 m apart (the giant
+# weasel's walk alternated 0.08 / 0.03 / 0.12 m raises: the body jumped every frame). A series
+# with a one-frame jump over POP_TOL x height (against its neighbours' mean) is smoothed by a
+# closing: a 3-frame max, then a 3-frame mean, so a lone frame becomes a 5-frame ramp and no
+# frame ends lower than its own correction asked (nothing sinks that did not; a lowering for a
+# standing foot is eased in over its edge frames, where the foot may fall a little short).
+# Loops wrap (the last frame is the first). A series without such a jump, every clean clip's,
+# is left as it is. Not on upright plans.
+POP_TOL = 0.01
+SMOOTH_CLIPS = not job["upright"] and job.get("smooth", True)
+
+
+def _jumpy(y: np.ndarray, loop: bool, tol: float) -> bool:
+    if len(y) < 3:
+        return False
+    nb = (np.roll(y, 1) + np.roll(y, -1)) / 2 if loop else np.r_[y[1], (y[:-2] + y[2:]) / 2, y[-2]]
+    return float(np.abs(y - nb).max()) > tol
+
+
+def _filt(y: np.ndarray, loop: bool, op) -> np.ndarray:
+    p = np.r_[y[-1], y, y[0]] if loop else np.r_[y[0], y, y[-1]]
+    return op(np.stack([p[:-2], p[1:-1], p[2:]]), axis=0)
+
+
+def smooth_series(x: list, loop: bool, tol: float) -> list:
+    """The closing above, when x (one value per frame) has a one-frame jump over tol."""
+    x = np.asarray(x, float)
+    y = x[:-1] if loop else x
+    if not _jumpy(y, loop, tol):
+        return list(x)
+    out = _filt(_filt(y, loop, np.max), loop, np.mean)
+    return list(np.r_[out, out[0]]) if loop else list(out)
+
+
 def build(clip: Clip) -> dict:
     """Key, ground, bake and export one clip; returns its report."""
     t0 = time.time()
@@ -919,6 +1016,18 @@ def build(clip: Clip) -> dict:
                     if not g["level"]:
                         fix[i][f] = max(0.0, fix[i][f] + sole[i] - clip.foot_low[f][i])
             key_feet(clip, fix)
+        if SMOOTH_CLIPS and clip.ground == "floor":  # once, on the settled series (see POP_TOL)
+            sm = smooth_series(corr, clip.loop, POP_TOL * height)
+            if sm != corr:
+                corr = sm
+                clip.info["smoothed"] = ["body"]
+                key_root(clip, corr)
+            if tail:  # in place: the tail's FK layer reads tail_up by frame
+                sm = smooth_series(tail_up, clip.loop, math.degrees(POP_TOL * height / TAIL_REACH))
+                if sm != list(tail_up):
+                    tail_up[:] = sm
+                    clip.info["smoothed"] = clip.info.get("smoothed", []) + ["tail"]
+                    key_fk(clip)
     sample(clip)
     reach, clip.targets = clip.reach, []  # the empties go with the bake
     bpy.ops.nla.bake(frame_start=1, frame_end=clip.frames + 1, step=1, only_selected=False, visual_keying=True,
@@ -998,6 +1107,9 @@ def build(clip: Clip) -> dict:
         rep["contact_min_z"] = round(min(clip.contact_low), 4)  # lowest ground contact (GROUND)
     if clip.loop:
         rep["loop_delta"] = round(float(np.linalg.norm(pos[0] - pos[-1], axis=1).max()), 5)
+    if job.get("debug"):  # per-frame body correction and tail lift (not in the stage's reports)
+        rep["corr"] = [round(float(x), 4) for x in corr]
+        rep["tail_up"] = [round(float(x), 2) for x in tail_up]
     bpy.ops.object.select_all(action="DESELECT")
     arm.select_set(True)
     out = Path(job["out_dir"])
@@ -3076,7 +3188,8 @@ report = {"height": round(height, 3), "drop": round(drop, 3), "size": round(SIZE
           "clips": {}, "skipped": [], **({"body": BODY["path"]} if BODY else {}),
           **({"stand_fallback": STAND} if STAND else {}),
           **({"tentacles": TENTS} if TENTS else {}), **({"body": STALK, "limbs": LIMBS} if STALK else {}),
-          **({"body": STACK} if STACK and not STALK else {}), **({"tail": FISHTAIL} if FISHTAIL else {})}
+          **({"body": STACK} if STACK and not STALK else {}), **({"tail": FISHTAIL} if FISHTAIL else {}),
+          **({"warnings": WARNINGS} if WARNINGS else {})}
 order = sorted(job["clips"], key=lambda n: n != "idle") if LIFTED else job["clips"]  # the idle sets IDLE_Z
 for name in order:
     if name not in makers:

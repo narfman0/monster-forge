@@ -87,7 +87,7 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
            "src": str(d / "model_rigged.glb"), "out_dir": str(adir), "report": str(report), "clips": want,
            "feet": overrides.FEET_BY_PLAN.get(plan, 0), "sprawl": plan in SPRAWLED, "upright": plan in UPRIGHT,
            "arms": plan in ARMED and bool(mon.get("hands")), "plan": plan, "weapon_r": wielded(mon),
-           "weapon_l": wielded(mon, "hand_l")}
+           "weapon_l": wielded(mon, "hand_l"), "tail_fused": rig.tail_fused(mon)}
     t0 = time.time()
     proc = subprocess.run([fg.BLENDER, "-b", "--factory-startup", "--python-exit-code", "1", "-P", str(BLENDER_CLIPS),
                            "--", json.dumps(job)], capture_output=True, text=True, timeout=1800)
@@ -104,6 +104,8 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
                                                      "tentacles") if k in rep}}
     if rep.get("stand_fallback"):  # fewer leg chains than feet: blender_clips.py's standing set
         man["anim"]["stand_fallback"] = rep["stand_fallback"]
+    if rep.get("warnings"):  # blender_clips.py's topology gate: parts dropped from the clips, odd legs
+        man["anim"]["warnings"] = rep["warnings"]
     man.setdefault("timings", {})["anim"] = dt
     rig.clear_stage_errors(man, "anim")
     fg.save_manifest(d, man)
@@ -111,6 +113,8 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
            + (f"; missing {man['anim']['missing']}" if man["anim"]["missing"] else "")
            + (f"; standing set ({rep['stand_fallback']['legs_found']} of {rep['stand_fallback']['need']} leg chains)"
               if rep.get("stand_fallback") else ""))
+    for w in rep.get("warnings") or []:
+        fg.log(f"{mon['id']}: WARNING anim topology: {w}")
     stage_ual(fg, mon, d, args)
 
 

@@ -1121,7 +1121,8 @@ if job["mode"] in ("score", "finalize") and job.get("add_wings"):
 tail_added = None
 if job["mode"] in ("score", "finalize") and job.get("add_tail"):
     # likewise a tail chain found on the mesh when find_tail has fewer than 4 bones
-    tail_added = blender_tail_chain.add_missing_tail(arm, me, rig_topology, int(job.get("feet", 0)))
+    tail_added = blender_tail_chain.add_missing_tail(arm, me, rig_topology, int(job.get("feet", 0)),
+                                                     isolated=not job.get("tail_fused"))
 if job["mode"] == "facing":
     report = facing()
 elif job["mode"] == "fallback":

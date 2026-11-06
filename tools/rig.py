@@ -380,13 +380,21 @@ def adds_tail(mon: dict) -> bool:
     return overrides.load(mon["source"], mon["id"]).get("rig_tail_chain") is not False
 
 
+def tail_fused(mon: dict) -> bool:
+    """Override `rig_tail_chain: "fused"`: the tail chain is inserted (and kept by the clips) even
+    where the tail is not isolated from a hind leg or the floor, which blender_tail_chain refuses by
+    default (the centaur's tail sheet is fused to a hind leg; its seam weights handle that, and
+    without the chain the sheet kicks with the hoof and tears in the death)."""
+    return adds_tail(mon) and overrides.load(mon["source"], mon["id"]).get("rig_tail_chain") == "fused"
+
+
 def tail_summary(t: dict) -> dict:
     """manifest rig.tail_added: the chain, adoption, the profile's numbers, the weights' counts."""
     return {"bones": t["chain"]["bones"], "parent": t["chain"]["parent"],
             **({"adopted": t["adopted"]} if t.get("adopted") else {}),
             "had": t.get("had") or [],
             **{k: t[k] for k in ("bands", "verts", "length", "width", "body_width", "root_z", "tip_z", "root_behind",
-                                 "tip_behind") if k in t},
+                                 "tip_behind", "leg_dist", "low_share") if k in t},
             "weights": t["weights"]}
 
 
@@ -441,12 +449,12 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
                        "sprawl": mon["body_plan"] in SPRAWLED, "hands": bool(mon.get("hands")),
                        "sockets": mon.get("sockets") or [], "feet": FEET.get(mon["body_plan"], 0),
                        "upright": mon["body_plan"] in UPRIGHT_BODY, "add_wings": adds_wings(mon),
-                       "add_tail": adds_tail(mon),
+                       "add_tail": adds_tail(mon), "tail_fused": tail_fused(mon),
                        "reweight": overrides.load(mon["source"], mon["id"]).get("rig_reweight") or []})
     # the kept skeleton's quality terms, also when it was not rolled now (a hand-fixed rig);
     # with the wing chains finalize inserted, so the score is that of the game skeleton
     q = scored(blender(fg, {**score_job(mon, chosen, d / "rig" / "chosen.json"), "add_wings": adds_wings(mon),
-                            "add_tail": adds_tail(mon), "feet": FEET.get(mon["body_plan"], 0)}), mon["body_plan"], bool(mon.get("hands")))
+                            "add_tail": adds_tail(mon), "tail_fused": tail_fused(mon), "feet": FEET.get(mon["body_plan"], 0)}), mon["body_plan"], bool(mon.get("hands")))
     (d / "rig" / "chosen.json").write_text(json.dumps(q, indent=1))
     man = fg.load_manifest(d)
     missing = [s for s in (mon.get("sockets") or []) if s not in rep["sockets"]]
