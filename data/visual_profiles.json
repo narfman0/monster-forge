@@ -164,7 +164,7 @@
   "scale_m": 1.8
  },
  "barbed-devil": {
-  "desc": "gaunt humanoid devil covered in sharp barbs and spines, long clawed fingers, whip-like tail, red-brown skin",
+  "desc": "gaunt humanoid devil covered in sharp barbs and spines, bare empty clawed hands with long fingers, whip-like tail, red-brown skin",
   "scale_m": 1.9
  },
  "basilisk": {
@@ -256,7 +256,7 @@
   "scale_m": 2.4
  },
  "chain-devil": {
-  "desc": "humanoid devil wrapped in barbed chains like a burial shroud, hooked chains trailing from its body",
+  "desc": "humanoid devil wrapped in barbed chains like a burial shroud, chains bound tight around its torso and limbs, bare empty clawed hands",
   "scale_m": 1.8
  },
  "chimera": {
@@ -1024,7 +1024,7 @@
   "scale_m": 2.7
  },
  "shield-guardian": {
-  "desc": "large construct of stone and iron in a vaguely knight-like shape with a shield arm and amulet socket",
+  "desc": "large construct of stone and iron in a vaguely knight-like shape, heavy armored forearms, glowing amulet socket in the chest, bare empty iron hands",
   "scale_m": 3
  },
  "shrieker-fungus": {
@@ -1096,7 +1096,7 @@
   "scale_m": 7.9
  },
  "succubus": {
-  "desc": "alluring humanoid fiend with bat wings, small horns and slender tail, elegant attire",
+  "desc": "alluring humanoid fiend with bat wings, small horns and slender tail, elegant attire, bare empty hands with slender fingers",
   "scale_m": 1.8
  },
  "swarm-of-bats": {

@@ -168,6 +168,18 @@
       "id_match": "(?:(?:young|adult|ancient)-)?(?:black|red)-dragon(?:-wyrmling)?",
       "negative_append": "two heads, second head",
       "note": "2026-11-06 (finding 1): adult-black-dragon ref_0 and ancient-red-dragon ref_0 grew a second head. A separate rule, not dragon_colour's negatives: dragon_colour is skip_frozen true, so editing it would change the accepted pass-5 dragons' prompts"
+    },
+    {
+      "name": "hands_free",
+      "skip_frozen": true,
+      "plans": [
+        "biped",
+        "winged_biped",
+        "merfolk_naga",
+        "centauroid"
+      ],
+      "negative_append": "(sword, axe, spear, bow, staff, shield, dagger, club, blade, chain, whip, held weapon, holding a weapon, wielding:1.3)",
+      "note": "2026-11-06 (docs/review-no-weapons.md): barbed-devil, chain-devil, succubus and shield-guardian drew weapons because only unarmed_reference records got a weapon negative; this covers every hand-bearing plan that is not frozen. The user wants no weapons on any monster (attached in the game)."
     }
   ],
   "_frozen": {
@@ -189,7 +201,6 @@
       "baboon",
       "bandit",
       "bandit-captain",
-      "barbed-devil",
       "bearded-devil",
       "berserker",
       "black-bear",
@@ -207,8 +218,6 @@
       "bulette",
       "camel",
       "cat",
-      "centaur-trooper",
-      "chain-devil",
       "clay-golem",
       "cloud-giant",
       "cockatrice",
@@ -391,7 +400,6 @@
       "deva",
       "erinyes",
       "incubus",
-      "succubus",
       "horned-devil",
       "nalfeshnee",
       "pit-fiend",
@@ -482,7 +490,7 @@
     "note": "the registry prompt gives a legged zombie or skeleton; floating needs the legless tapering-tail ghost the custom.ghost rig assumes"
   },
   "centaur-trooper": {
-    "prompt": "single creature, centered, (fantasy centaur, half man half horse:1.4), (human from the waist up, horse from the waist down, the man's waist joins the horse's chest:1.3), bearded warrior with a breastplate and an arrow quiver on the back, empty open hands, (four horse legs with all four hooves on the ground:1.2), horse tail. Large fey. full body, standing still, three-quarter view",
+    "prompt": "single creature, centered, (fantasy centaur, half man half horse:1.4), (human from the waist up, horse from the waist down, the man's waist joins the horse's chest:1.3), bearded warrior with a breastplate, empty open hands, (four horse legs with all four hooves on the ground:1.2), horse tail. Large fey. full body, standing still, three-quarter view",
     "negative_append": "(rider, riding, horseback, saddle, reins, bridle:1.5), (horse head, horse ears, horse mane:1.4), minotaur, horns, two creatures, rearing, galloping, bow, spear, weapon in hand, statue, sculpture, marble, figurine, greek vase, pottery, yellow background, human feet",
     "note": "the registry prompt draws a man riding a horse (2 of 3) or a minotaur; force the human torso in place of the horse's neck. The centaur_34 depth template (forge.REF_TEMPLATES, override strength 0.6 / end 0.6) poses the body: 3 rounds 2026-11-04 (docs/references.md); this is round 2, whose ref_2 is the pick",
     "tried_2026_11_05": {
@@ -527,7 +535,7 @@
   },
   "sphinx-of-lore": {
     "prompt": "single creature, centered, (a sphinx, one creature with the full body of a lion from head to tail, standing on all four legs, seen from the side:1.5), tawny fur, (large feathered wings on the back, partly spread:1.2), (a woman's human head with a calm wise face and an elaborate striped headdress sits on the lion's neck, no human chest or arms:1.4), lion tail. Large celestial. full body, side view, standing, whole lion in frame",
-    "negative_append": "(woman riding, rider, person sitting on the lion, standing woman, human body, human arms, human chest, breasts, topless, nude, dress, robe, bust, portrait, head and shoulders, close-up, cropped:1.6), lion head, lion mane",
+    "negative_append": "(woman riding, rider, person sitting on the lion, standing woman, human body, human arms, human chest, breasts, topless, nude, dress, robe, bust, portrait, head and shoulders, close-up, cropped:1.6), lion head, lion mane, (topless, bare breasts, nude, naked chest, nipples:1.5), (clothed human torso is not visible)",
     "note": "2026-11-06: round-3 re-roll prompt: the round-2 refs drew a topless bust or a woman beside a lioness; says full body, lion body head to tail, not a bust, human head on the lion's neck"
   },
   "sphinx-of-valor": {

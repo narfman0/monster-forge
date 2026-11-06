@@ -289,7 +289,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "lean hooded assassin in dark leather armor and face mask, scabbard and holster on a belt at the hip. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "lean hooded assassin in dark leather armor and face mask. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "awakened-shrub",
@@ -541,7 +541,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "scruffy outlaw in patched leather armor, bandana over face, scabbard at the hip and a bolt case on the belt. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "scruffy outlaw in patched leather armor, bandana over face. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "bandit-captain",
@@ -587,7 +587,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "swaggering bandit leader in studded leather and long coat, scabbard and holster at the hip. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "swaggering bandit leader in studded leather and long coat. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "barbed-devil",
@@ -628,7 +628,7 @@
     "hand_l"
    ],
    "unarmed_reference": false,
-   "reference_prompt": "gaunt humanoid devil covered in sharp barbs and spines, long clawed fingers, whip-like tail, red-brown skin. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "reference_prompt": "gaunt humanoid devil covered in sharp barbs and spines, bare empty clawed hands with long fingers, whip-like tail, red-brown skin. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "equipment_note": "Hurl Flame is a spell-like attack, nothing held"
   },
   {
@@ -1746,7 +1746,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "centaur with a human torso on a horse body, breastplate over the human torso, arrow quiver on the back. Large fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "reference_prompt": "centaur with a human torso on a horse body, breastplate over the human torso. Large fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_rule_guess": "biped"
   },
   {
@@ -1786,7 +1786,7 @@
     "hand_l"
    ],
    "unarmed_reference": false,
-   "reference_prompt": "humanoid devil wrapped in barbed chains like a burial shroud, hooked chains trailing from its body. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "reference_prompt": "humanoid devil wrapped in barbed chains like a burial shroud, chains bound tight around its torso and limbs, bare empty clawed hands. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "equipment_note": "its chains are wrapped around and grow from its body: baked into the mesh (plus rig chains), not props"
   },
   {
@@ -3662,7 +3662,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "hyena-headed humanoid with spotted fur and crude armor, arrow quiver on the back. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "reference_prompt": "hyena-headed humanoid with spotted fur and crude armor. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "wields_aka": {
     "longbow": "Bone Bow"
    }
@@ -3711,7 +3711,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "small green-skinned goblin with pointed ears and ragged leather, knife sheaths on the belt. Small fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "small green-skinned goblin with pointed ears and ragged leather. Small fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "goblin-warrior",
@@ -3759,7 +3759,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "small goblin in scrap leather armor, scabbard at the hip and an arrow quiver on the back. Small fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "small goblin in scrap leather armor. Small fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "goblin-boss",
@@ -3807,7 +3807,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "small goblin chieftain in mismatched chain armor and crude crown, scabbard at the hip and an arrow quiver on the back. Small fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "small goblin chieftain in mismatched chain armor and crude crown. Small fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "gold-dragon-wyrmling",
@@ -4502,7 +4502,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "seasoned guard captain in breastplate and cloak, scabbard at the hip. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "seasoned guard captain in breastplate and cloak. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "half-dragon",
@@ -4789,7 +4789,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "disciplined goblinoid soldier with orange-red skin, lamellar armor, scabbard at the hip and an arrow quiver on the back. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "disciplined goblinoid soldier with orange-red skin, lamellar armor. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "hobgoblin-captain",
@@ -4836,7 +4836,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "hobgoblin officer in polished plate-and-lamellar armor with banner sash and an arrow quiver on the back. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "hobgoblin officer in polished plate-and-lamellar armor with banner sash. Medium fey. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "homunculus",
@@ -5264,7 +5264,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "small reptilian humanoid with rust-red scales, dog-like snout, crude leather, knife sheaths on the belt. Small dragon. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "small reptilian humanoid with rust-red scales, dog-like snout, crude leather. Small dragon. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "kraken",
@@ -6281,7 +6281,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "well-dressed noble in fine doublet, breastplate and cape, scabbard at the hip. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "well-dressed noble in fine doublet, breastplate and cape. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "ochre-jelly",
@@ -6599,7 +6599,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "weathered pirate in loose shirt, sash and bandana, knife sheaths on the sash. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "weathered pirate in loose shirt, sash and bandana. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "pirate-captain",
@@ -6645,7 +6645,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "flamboyant pirate captain in long coat and tricorne hat, scabbard and holster at the hip. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "flamboyant pirate captain in long coat and tricorne hat. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "pit-fiend",
@@ -7482,7 +7482,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "ranger-like scout in leather armor and green cloak, scabbard at the hip and an arrow quiver on the back. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "ranger-like scout in leather armor and green cloak. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "sea-hag",
@@ -7633,7 +7633,7 @@
     "hand_l"
    ],
    "unarmed_reference": false,
-   "reference_prompt": "large construct of stone and iron in a vaguely knight-like shape with a shield arm and amulet socket. Large construct. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "reference_prompt": "large construct of stone and iron in a vaguely knight-like shape, heavy armored forearms, glowing amulet socket in the chest, bare empty iron hands. Large construct. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "equipment_note": "its shield-like arm is part of the construct, not a prop"
   },
   {
@@ -7837,7 +7837,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "humanoid skeleton in scraps of armor, scabbard at the hip and an arrow quiver on the back. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "humanoid skeleton in scraps of armor. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "warhorse-skeleton",
@@ -8255,7 +8255,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "nondescript agent in a dark hooded cloak and leather, scabbard and holster at the hip. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "nondescript agent in a dark hooded cloak and leather. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "stirge",
@@ -8470,7 +8470,7 @@
     "hand_l"
    ],
    "unarmed_reference": false,
-   "reference_prompt": "alluring humanoid fiend with bat wings, small horns and slender tail, elegant attire. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "reference_prompt": "alluring humanoid fiend with bat wings, small horns and slender tail, elegant attire, bare empty hands with slender fingers. Medium fiend. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "bat-winged humanoid (wings can be hidden in disguise)"
   },
   {
@@ -8558,7 +8558,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "burly thug in leather armor, bolt case on the belt. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "burly thug in leather armor. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "tough-boss",
@@ -8604,7 +8604,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "hulking gang boss in chain mail, bolt case on the belt. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "hulking gang boss in chain mail. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "treant",
@@ -8795,7 +8795,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "pale gaunt human servant in dark clothes, knife sheaths on the belt. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "reference_prompt": "pale gaunt human servant in dark clothes. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "wields_aka": {
     "dagger": "Umbral Dagger"
    }
@@ -9008,7 +9008,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "grizzled veteran soldier in splint armor, bolt case on the belt. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
+   "reference_prompt": "grizzled veteran soldier in splint armor. Medium humanoid. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting."
   },
   {
    "id": "water-elemental",
@@ -9192,7 +9192,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "hybrid rat-humanoid with gray fur, rat head and tail, tattered clothing, bolt case on the belt. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "reference_prompt": "hybrid rat-humanoid with gray fur, rat head and tail, tattered clothing. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset",
    "equipment_note": "hybrid form"
   },
@@ -9241,7 +9241,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "hybrid tiger-humanoid with striped orange fur and tiger head, tattered clothing, arrow quiver on the back. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "reference_prompt": "hybrid tiger-humanoid with striped orange fur and tiger head, tattered clothing. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset",
    "equipment_note": "hybrid form"
   },
@@ -9290,7 +9290,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "hybrid wolf-humanoid with gray fur, wolf head, clawed hands and tattered clothing, arrow quiver on the back. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "reference_prompt": "hybrid wolf-humanoid with gray fur, wolf head, clawed hands and tattered clothing. Medium monstrosity. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "body_plan_note": "modelled in hybrid (half-beast) form; animal form can reuse the matching beast asset",
    "equipment_note": "hybrid form"
   },
@@ -9509,7 +9509,7 @@
     "head"
    ],
    "unarmed_reference": true,
-   "reference_prompt": "undead warrior with dried gray skin, glowing eyes, corroded armor, scabbard at the hip and an arrow quiver on the back. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
+   "reference_prompt": "undead warrior with dried gray skin, glowing eyes, corroded armor. Medium undead. Low-poly game asset, full body, A-pose, front view, plain gray background, clean silhouette, flat even lighting.",
    "wields_aka": {
     "longsword": "Necrotic Sword",
     "longbow": "Necrotic Bow"
