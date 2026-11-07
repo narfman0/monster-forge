@@ -147,6 +147,13 @@ def _idle_lift(v):
     return _num(0, 20)(v)
 
 
+def _fallback(v):
+    """rig_fallback: {"bones": n} over the plan's generated skeleton (rig.RIG_STRATEGY)."""
+    if not isinstance(v, dict) or not v or set(v) - {"bones"}:
+        return 'must be {"bones": n}'
+    return _num(3, 32, True)(v["bones"])
+
+
 UAL_CLIPS = ("idle", "walk", "run", "attack_melee", "hit", "death", "cast")
 
 
@@ -246,6 +253,10 @@ FIELDS = {
     "rig_fix_legs": (_choice("mirror"), "rig", "experimental. \"mirror\": a leg the roll left out (3 of 4 found) whose twin is there "
                      "gets the twin's chain mirrored onto the unowned foot on the mesh, geometric weights "
                      "(tools/blender_leg_mirror.py; `forge.py rig <id> --force`, CPU only)"),
+    "rig_fallback": (_fallback, "rig", "plans with a generated skeleton (plant_object, amorphous, serpentine, tentacled): "
+                     "{\"bones\": n} replaces the plan's bone count (rig.RIG_STRATEGY); `forge.py rig <id> --force` "
+                     "rebuilds rig/fallback.glb when it was built with another count (CPU, no SkinTokens). The rug of "
+                     "smothering's 12-bone chain carries its cloth wave"),
     "rig_source": (_choice("skintokens", "ual"), "rig", "bipeds / winged bipeds: \"ual\" rigs the mesh straight onto "
                    "the Quaternius UAL skeleton (heat weights, no SkinTokens roll; tools/rig_ual.py) and writes its "
                    "clips into anims_ual/ for `forge.py promote` (docs/anim-reuse.md). Default skintokens"),

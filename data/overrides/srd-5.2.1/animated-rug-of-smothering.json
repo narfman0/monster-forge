@@ -1,5 +1,8 @@
 {
   "prompt_extra": "(a thick rectangular patterned carpet with tassels lying on the floor, one end lifted and curling up into the air like a wave, low three-quarter view:1.5)",
   "negative_extra": "(animal, creature, horse, dragon, phoenix, framed picture, painting, tapestry on a wall, top view, round rug:1.5)",
-  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 a framed tapestry picture of a winged qilin, meshed as an upright square frame with the beast in relief; ref_1 a round rug from above. Re-roll as a carpet with a lifted end. The rig needs its own path either way."
+  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 a framed tapestry picture of a winged qilin, meshed as an upright square frame with the beast in relief; ref_1 a round rug from above. Re-roll as a carpet with a lifted end. The rig needs its own path either way. (2026-11-07) The mesh is the rug standing up as a panel; rig_fallback 12 bones carries the cloth clips (blender_clips cloth_*: laid flat, wave along the chain).",
+  "rig_fallback": {
+    "bones": 12
+  }
 }

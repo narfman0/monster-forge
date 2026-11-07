@@ -996,7 +996,8 @@ framework (`plan_clips`), floating and serpentine now build them:
   `fly` as before. The 9 records: cloud-giant, efreeti, oni, storm-giant (biped),
   nightmare (quadruped), couatl and flying-snake (serpentine: `fly_serpent`, the slither
   held `HOVER` up), giant-wasp (insectoid: the wing beat if `find_wings` finds its wings,
-  else the levitation), animated-flying-sword (plant_object: still no builder).
+  else the levitation), animated-flying-sword (plant_object: its own hover set since 2026-11-07,
+  "Animated objects" below).
 
 Pilots tested in scratch jobs (`anims` in the scratchpad, the real record untouched): goblin
 (cast arms, swim, burrow, upright breath, levitate), wolf and owlbear (head cast, swim,
@@ -1232,6 +1233,54 @@ Controls (ai, old vs new code): wolf (rig `--force` too), mastiff, boar, hyena, 
 giant-spider, giant-lizard, young-red-dragon, giant-eagle, black- and blue-dragon-wyrmling, owlbear,
 centaur-trooper, brown-bear, harpy: every `anims/*.glb` byte-identical, reports equal but timings.
 merfolk-skirmisher and merrow: only the idle changes (no new flags; merrow idle stretch 1.45 -> 1.90).
+
+### Animated objects: rug and flying sword (2026-11-07)
+
+Both are `plant_object` and were built by the batch with the plant clips: the rug (`fallback:vertical`,
+5 bones) stood up as a 3 m wall swaying like a fungus stalk (its top-view reference meshes as an
+upright panel, thin in Y), the sword (5 bones) bent like rubber, stood on its tip on the floor, and
+had no `fly`. The anim job now carries the record's `rig_template` (`job["template"]`); two
+template-keyed sets in `blender_clips.py` take over, every other plant_object builds as before:
+
+- **Cloth** (`custom.cloth_grid`, `CLOTH`): every clip lays the panel flat (`CLOTH_Q` about its
+  centre: top end forward, the `CLOTH_FACE` +Y side, the pattern, up) and shapes the chain as a
+  profile `pitch(s, t)` (degrees each bone rises toward the front, s = 0 back .. 1 front) plus a
+  sideways bend `yaw(s, t)`: the back bone's angle is the body tilt, every other bone turns by the
+  difference to the one behind it. Ground `contact`. Rest of every one-shot = the idle's first frame
+  (`cloth_rest`: flat, front end curled up `CLOTH_CURL` 30 degrees, the ripple at its start).
+  `idle` a ripple running back to front, the curl breathing; `walk` a slither-glide (a 13 degree
+  wave running front to back, a sideways wave, the front nodding); `attack_melee` rears the front
+  half 70 degrees, lunges 0.2 x its length and folds the front over and down (a hood), holds,
+  lies back; `hit` front end snaps up and aside, a shudder; `death` rears and shudders, slaps flat
+  and lies with two shallow wrinkles and a kink. A wave needs bones: override
+  `rig_fallback {"bones": 12}` (new, any fallback plan) and `rig --force` rebuilds rig/fallback.glb
+  with that count on the CPU when `rig/fallback_build.json` was built with another (`rig.fallback_stale`);
+  without the override nothing changes.
+- **Rigid flying prop** (`custom.rigid_prop` and `fly` in the set, `BLADE`): nothing bends; each
+  clip is the root's rigid transform about the mesh centre, from the blade's own axes (PCA long
+  axis toward the tip = the end away from the widest slice, the guard; the thinnest axis is the
+  flat's normal), so the tip points forward (+Y) whatever the rest pose (this mesh rests tip down
+  and backward). The centre is placed from the lowest vertex of the rigid rest vertices: ground
+  `none`, no ground pass, and the record's `match_move` lift is not applied (`LIFTED ... and not
+  BLADE`). `idle` hovers with the lowest vertex `BLADE_HOVER` 0.5 x blade length up, tip 10 degrees
+  down, a two-bob loop, a 10 degree yaw sway; `fly` (and `walk`) glides tip first at 22 degrees,
+  banking and bobbing; `attack_melee` draws back and thrusts 0.55 x its length along its own line
+  with a twist; `hit` knocked back with the tip up, wobbles; `death` shudders, drops tip first,
+  the tip strikes the floor, the hilt slaps down as it rolls onto its flat, two small bounces, lies
+  still with its lowest vertex on the ground (z extent 0.088 m: on its flat).
+
+Scratch copies on ai (`rig --force` rug, `anim --force` both), before -> after: rug lowest vertex 0
+in every clip (before too, standing up), one-shots `from_idle_m` 0 (was 0.098), stretch p99.9
+idle/walk/attack/death 1.03/1.09/1.04/2.26 -> 1.22/1.27/1.26/1.35; sword clips 4 -> 5 (`fly` built),
+stretch 1.05-1.56 -> 1.00 (rigid), idle lowest vertex 0 -> 0.80 m, death last frame 0, one-shots
+`from_idle_m` 0. Clip audit: no flags before or after (the audit has no test for a wall-standing rug
+or a bending blade). Archmage, ape, wolf, boar, awakened-shrub, violet-fungus: every `anims/*.glb`
+byte-identical; archmage, wolf, awakened-shrub `rig --force` outputs identical.
+
+Still: the sword mesh is 1.58 m tip to pommel (`scale_m` 1.2 was taken on the bounding box of a
+diagonal blade), and both rest poses (an upright rug, a backward diagonal sword) show in anything
+that draws the model without a clip. The rug folds only along its length (one chain): a sideways
+wrap would need a grid (`cloth_grid` proper: 3 parallel chains) and new weights.
 
 ## Body plans (2026-11-04)
 

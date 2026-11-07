@@ -364,7 +364,7 @@ skeleton. Re-rolling is cheap; a stage needs N rolls, a scorer and retry on fail
       0.39, centaur 0.65): more than 12 degrees per joint tears the tail's base on these rigs
       (wolf `bone_27` rump stub, centaur sheet fused to the left hind leg). Needs the rig's tail
       weights (a softer base blend) before the drape can go further (`DRAPE_BEND`).
-- [ ] Clips still without a builder: `fly` for plant_object (flying sword), `attack_ranged`
+- [ ] Clips still without a builder: `attack_ranged`
       without two arms (djinni, manticore, spirit naga), the xorn (radial); avian `cast`
       (giant owl) builds but no avian rig was available to test it.
 - [ ] UniMate text-to-motion for attacks (own uv venv under tools/).
@@ -1174,6 +1174,10 @@ untested variants; off-model fork, heavy crossbow, mace props.
       creatures drawn as the nearest common animal; the avian plan grows wings on theropods
       and forelegs on the wyvern). Code still needed whatever the reference: rug (cloth
       chain), xorn (radial clips), flying sword (hover clip), marilith's six hand sockets.
+      Rug and flying sword done in code (2026-11-07, docs/rig-anim.md "Animated objects": cloth and
+      rigid-flying-prop clip sets keyed on `rig_template`, override `rig_fallback {"bones": 12}` on
+      the rug); apply after the queue with `forge.py rig animated-rug-of-smothering --force`, then
+      `anim animated-rug-of-smothering --force` and `anim animated-flying-sword --force`.
       Upright-plan tail done in code (2026-11-07, docs/rig-anim.md "Upright tails": override
       `rig_tail_chain {"adopt": "bone_41"}` + heavy-tail clip layers); apply after the queue with
       `forge.py rig tarrasque --force` then `anim tarrasque --force`. Its floor slabs still need a

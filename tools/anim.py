@@ -89,7 +89,8 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
            "src": str(d / "model_rigged.glb"), "out_dir": str(adir), "report": str(report), "clips": want,
            "feet": overrides.FEET_BY_PLAN.get(plan, 0), "sprawl": plan in SPRAWLED, "upright": plan in UPRIGHT,
            "arms": plan in ARMED and bool(mon.get("hands")), "plan": plan, "weapon_r": wielded(mon),
-           "weapon_l": wielded(mon, "hand_l"), "tail_fused": rig.tail_fused(mon)}
+           "weapon_l": wielded(mon, "hand_l"), "tail_fused": rig.tail_fused(mon),
+           "template": mon.get("rig_template")}
     t0 = time.time()
     proc = subprocess.run([fg.BLENDER, "-b", "--factory-startup", "--python-exit-code", "1", "-P", str(BLENDER_CLIPS),
                            "--", json.dumps(job)], capture_output=True, text=True, timeout=1800)

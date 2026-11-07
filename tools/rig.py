@@ -226,11 +226,28 @@ RIG_STRATEGY = {
 }
 
 
+def fallback_spec(mon: dict) -> dict:
+    """The plan's fallback skeleton (RIG_STRATEGY), with the override rig_fallback over it."""
+    return {**RIG_STRATEGY[mon["body_plan"]], **(overrides.load(mon["source"], mon["id"]).get("rig_fallback") or {})}
+
+
+def fallback_stale(mon: dict, d: Path) -> bool:
+    """The override rig_fallback asks for another skeleton than rig/fallback_build.json was built
+    with: `rig --force` builds it again (CPU). Without the override nothing changes."""
+    if mon["body_plan"] not in RIG_STRATEGY or not overrides.load(mon["source"], mon["id"]).get("rig_fallback"):
+        return False
+    built = d / "rig" / "fallback_build.json"
+    if not built.exists():
+        return True
+    rep, spec = json.loads(built.read_text()), fallback_spec(mon)
+    return rep.get("kind") != spec["kind"] or ("bones" in spec and rep.get("bones") != spec["bones"])
+
+
 def fallback_rig(fg, mon: dict, d: Path) -> dict:
     """Generate the plan's fallback skeleton into rig/fallback.glb and keep it as chosen.glb."""
     rdir = d / "rig"
     rdir.mkdir(exist_ok=True)
-    spec = RIG_STRATEGY[mon["body_plan"]]
+    spec = fallback_spec(mon)
     out = rdir / "fallback.glb"
     rep = blender(fg, {"mode": "fallback", "src": str(d / "model.glb"), "dst": str(out),
                        "report": str(rdir / "fallback_build.json"), "plan": mon["body_plan"], **spec})
@@ -437,7 +454,10 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
     t0 = time.time()
     chosen = d / "rig" / "chosen.glb"
     info = {}
-    rolling = args.rig_reroll or not chosen.exists()
+    stale = not args.rig_reroll and chosen.exists() and fallback_stale(mon, d)
+    if stale:
+        fg.log(f"{mon['id']}: rig_fallback {fallback_spec(mon)} differs from the kept skeleton: building it again")
+    rolling = args.rig_reroll or not chosen.exists() or stale
     facing = facing_check(fg, mon, d)
     check = overrides.load(mon["source"], mon["id"]).get("rig_facing_check")
     if rolling and not facing["ok"] and check is not False:

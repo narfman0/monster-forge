@@ -3013,6 +3013,265 @@ def death_plant() -> Clip:
     return c
 
 
+# Animated objects: plant_object records whose rig template (job "template", anim.py) names an
+# object rather than a plant get their own clips; every other plant_object builds as above.
+TEMPLATE = job.get("template") or ""
+
+# cloth (custom.cloth_grid: the animated rug of smothering). The mesh is the rug standing up
+# as a thin panel (its top-view reference meshes upright, thin in Y) on the vertical fallback
+# chain spine_00 (bottom) .. spine_<n-1> (top); the override rig_fallback {"bones": 12} gives
+# it enough bones for a wave. Every clip lays it flat (CLOTH_Q about the panel's centre: the
+# top end forward, the CLOTH_FACE side up) and shapes the chain as a profile: pitch(s, t), the
+# degrees each bone rises toward the front (s = its middle along the rug, 0 back .. 1 front),
+# and an optional sideways bend yaw(s, t). The back bone's pitch is the body tilt, every other
+# bone turns by the difference to the bone behind it, about the axis that is world X (Z)
+# once laid flat. Ground "contact": the lowest vertex on the ground every frame. Every
+# one-shot starts and ends on the idle's first frame (cloth_rest).
+CLOTH = PLAN == "plant_object" and TEMPLATE == "custom.cloth_grid" and len(STACK) >= 3
+CLOTH_FACE = "+Y"   # the rest panel's face that lies on top
+CLOTH_CURL = 30.0   # rest: the front end curls up to this (degrees, its last bone) ...
+CLOTH_CURL_S = 0.7  # ... from here along the rug
+CLOTH_RIP = 4.0     # idle: degrees of the ripple running along the rug (one wave over its length)
+if CLOTH:
+    CLOTH_Q = Quaternion(AXES["Z"], math.pi) @ Quaternion(AXES["X"], math.pi / 2) if CLOTH_FACE == "+Y" \
+        else Quaternion(AXES["X"], -math.pi / 2)
+    CLOTH_PITCH = CLOTH_Q.inverted() @ AXES["X"]  # rest-frame axes that are world X and Z once laid flat
+    CLOTH_YAW = CLOTH_Q.inverted() @ AXES["Z"]
+    CLOTH_C = Vector(((REST_V.min(0) + REST_V.max(0)) / 2).tolist())
+    CLOTH_LEN = height  # the panel's height is the rug's length
+    CLOTH_S = [(k + 0.5) / len(STACK) for k in range(len(STACK))]
+
+
+def cloth_rest(s: float) -> float:
+    """The idle's first frame: flat, the front end curled up, the ripple at its start."""
+    return CLOTH_CURL * smooth((s - CLOTH_CURL_S) / (1 - CLOTH_CURL_S)) + CLOTH_RIP * math.sin(2 * math.pi * s)
+
+
+def cloth_clip(name: str, seconds: float, loop: bool, pitch, yaw=None, lift=None) -> Clip:
+    c = Clip(name, seconds, loop)
+    c.ground = "contact"
+    c.pivot = CLOTH_C.copy()
+    yaw = yaw or (lambda s, t: 0.0)
+    S = CLOTH_S
+    c.tilt = lambda t: Quaternion(AXES["Z"], math.radians(yaw(S[0], t))) @ \
+        Quaternion(AXES["X"], math.radians(pitch(S[0], t))) @ CLOTH_Q
+    for k in range(1, len(STACK)):
+        c.rot.setdefault(STACK[k], []).append((CLOTH_PITCH, lambda t, k=k: pitch(S[k], t) - pitch(S[k - 1], t)))
+        c.rot[STACK[k]].append((CLOTH_YAW, lambda t, k=k: yaw(S[k], t) - yaw(S[k - 1], t)))
+    if lift:
+        c.lift = lift
+    c.info = {"object": "cloth", "bones": len(STACK)}
+    return c
+
+
+def cloth_front(s: float, a: float, b: float = 1.0) -> float:
+    """0 behind s = a, rising smoothly to 1 at s = b: the part of the rug toward its front."""
+    return smooth((s - a) / (b - a))
+
+
+def idle_cloth() -> Clip:
+    """Lies flat and ripples: one wave runs from the back to the curled front end, which
+    breathes up and down."""
+    return cloth_clip("idle", 3.0, True,
+                      lambda s, t: cloth_rest(s) - CLOTH_RIP * math.sin(2 * math.pi * s)
+                      + CLOTH_RIP * math.sin(2 * math.pi * (s - 2 * t))
+                      + 6.0 * math.sin(2 * math.pi * t) * cloth_front(s, 0.55),
+                      lambda s, t: 2.0 * math.sin(2 * math.pi * t) * math.sin(2 * math.pi * (s - t)))
+
+
+def walk_cloth() -> Clip:
+    """Slither-glide in place: a wave runs from the front end to the back (it pushes the rug
+    forward), a smaller sideways one with it, the raised front nodding into each push."""
+    return cloth_clip("walk", 1.2, True,
+                      lambda s, t: cloth_rest(s) - CLOTH_RIP * math.sin(2 * math.pi * s)
+                      + 13.0 * math.sin(2 * math.pi * (s + t)) * (0.5 + 0.5 * cloth_front(s, 0.0, 0.3))
+                      + 8.0 * math.sin(2 * math.pi * (t - 0.2)) * cloth_front(s, 0.6),
+                      lambda s, t: 4.0 * math.sin(2 * math.pi * (s + t)))
+
+
+CLOTH_T = (0, 0.3, 0.45, 0.65, 1.0)  # attack: rest, reared, pounced, held, rest
+
+
+def attack_cloth() -> Clip:
+    """Smothering pounce: the front half rears up and back, then the rug lunges forward and its
+    front folds over and down onto the target in front (a hood), holds, and lies back down."""
+    t0, t1, t2, t3, t4 = CLOTH_T
+    up = keys((t0, 0), (t1, 1), (t2, 0.85), (t3, 0.85), (t4, 0))
+    wrap = keys((t0, 0), (t1, 0), (t2, 1), (t3, 1), (t4, 0))
+    go = keys((t0, 0), (t1, -0.05), (t2, 0.2), (t3, 0.2), (t4, 0))
+    c = cloth_clip("attack_melee", 1.2, False,
+                   lambda s, t: cloth_rest(s) + 70.0 * up(t) * cloth_front(s, 0.3, 0.65) - 140.0 * wrap(t) * cloth_front(s, 0.62),
+                   lambda s, t: 3.0 * math.sin(math.pi * t) * math.sin(2 * math.pi * s),
+                   lambda t: Vector((0, go(t) * CLOTH_LEN, 0)))
+    return c
+
+
+def hit_cloth() -> Clip:
+    """Flinch: the front end snaps up and back and twists aside, a shudder runs through the rug."""
+    k = keys((0, 0), (0.15, 1), (0.5, -0.25), (1, 0))
+    return cloth_clip("hit", 0.5, False,
+                      lambda s, t: cloth_rest(s) + 40.0 * k(t) * cloth_front(s, 0.4)
+                      + 8.0 * math.sin(2 * math.pi * (3 * t - 1.5 * s)) * math.sin(math.pi * t),
+                      lambda s, t: 8.0 * k(t) * cloth_front(s, 0.3),
+                      lambda t: Vector((0, -0.05 * CLOTH_LEN * k(t), 0)))
+
+
+def death_cloth() -> Clip:
+    """The front rears and shudders, then the rug collapses flat with a slap (a little
+    overshoot) and lies crumpled: the curl gone, two shallow wrinkles, a slight kink; holds."""
+    rear = keys((0, 0), (0.2, 1), (0.35, 1.1), (0.6, 0), (1, 0))
+    shake = keys((0, 0), (0.1, 1), (0.4, 1), (0.55, 0), (1, 0))
+    flat = keys((0, 0), (0.45, 0), (0.72, 1), (1, 1))
+    crumple = keys((0, 0), (0.6, 0), (0.72, 1.3), (0.8, 0.8), (0.88, 1), (1, 1))
+    return cloth_clip("death", 2.0, False,
+                      lambda s, t: cloth_rest(s) * (1 - flat(t)) + 35.0 * rear(t) * cloth_front(s, 0.4)
+                      + 8.0 * math.sin(2 * math.pi * (6 * t - 2 * s)) * shake(t)
+                      + 10.0 * crumple(t) * math.sin(2 * math.pi * 2.5 * s) * cloth_front(s, 0.05, 0.25),
+                      lambda s, t: 5.0 * flat(t) * math.sin(2 * math.pi * 1.5 * s))
+
+
+# rigid flying prop (custom.rigid_prop whose record flies: the animated flying sword). The
+# vertical fallback chain is kept, but nothing bends: every clip is the root's rigid transform
+# about the mesh's centre (children ride along), from the blade's own axes: its long axis
+# (PCA) toward the tip (the end away from the widest slice, the guard) and its flat's normal
+# (the thinnest axis). Each pose is pitch (tip down), yaw, roll about the blade from the frame
+# where the tip points forward (+Y) and the flat faces sideways, whatever the mesh's rest; the
+# centre is placed from the lowest vertex, measured on the rigid rest vertices (no ground
+# pass: ground "none"). Idle hovers BLADE_HOVER x the blade's length up and the one-shots
+# start there; the death drops it, the tip strikes, it slaps flat and clatters to rest lying
+# on its flat with its lowest vertex on the ground.
+BLADE = PLAN == "plant_object" and TEMPLATE == "custom.rigid_prop" and "fly" in job["clips"]
+BLADE_PITCH = 10.0   # idle: tip down this many degrees
+BLADE_FLY = 22.0     # fly: leans further into the glide
+BLADE_HOVER = 0.5    # idle's first frame: lowest vertex this x the blade's length above the ground
+
+
+def blade_axes() -> tuple:
+    V = REST_V
+    c = (V.min(0) + V.max(0)) / 2
+    x = V - V.mean(0)
+    _, e = np.linalg.eigh(x.T @ x)  # ascending: thickness, width, length
+    a, n = e[:, 2], e[:, 0]
+    u = (V - c) @ a
+    edges = np.linspace(u.min(), u.max(), 21)
+    idx = np.clip(np.digitize(u, edges) - 1, 0, 19)
+    perp = np.linalg.norm(V - c - np.outer(u, a), axis=1)
+    width = [float(perp[idx == i].max()) if (idx == i).any() else 0.0 for i in range(20)]
+    if int(np.argmax(width)) > 9:  # the guard toward +a: the tip is the other end
+        a = -a
+    best = None
+    for sg in (1.0, -1.0):  # the flat's normal to +X or -X, whichever turns the mesh least
+        m0 = np.column_stack([a, n, np.cross(a, n)])
+        y, xn = np.array([0.0, 1.0, 0.0]), np.array([sg, 0.0, 0.0])
+        q = Matrix((np.column_stack([y, xn, np.cross(y, xn)]) @ m0.T).tolist()).to_quaternion()
+        if best is None or q.angle < best.angle:
+            best = q
+    return Vector(c.tolist()), best, float(u.max() - u.min())
+
+
+if BLADE:
+    BLADE_C, BLADE_Q0, BLADE_LEN = blade_axes()
+    _BV = REST_V - np.array(BLADE_C[:])
+
+
+def blade_q(pitch: float, yaw: float, roll: float) -> Quaternion:
+    return Quaternion(AXES["Z"], math.radians(yaw)) @ Quaternion(AXES["X"], math.radians(-pitch)) @ \
+        Quaternion(AXES["Y"], math.radians(roll)) @ BLADE_Q0
+
+
+def blade_low(q: Quaternion) -> float:
+    """Lowest vertex of the rigid mesh turned by q about its centre, relative to the centre."""
+    return float((_BV @ np.array(q.to_matrix()).T)[:, 2].min())
+
+
+def blade_dir(pitch: float) -> Vector:
+    return Vector((0, math.cos(math.radians(pitch)), -math.sin(math.radians(pitch))))
+
+
+if BLADE:  # the idle's first frame: the centre where the lowest vertex hovers BLADE_HOVER up
+    BLADE_BASE = Vector((BLADE_C.x, BLADE_C.y, BLADE_HOVER * BLADE_LEN - blade_low(blade_q(BLADE_PITCH, 0, 0))))
+
+
+def blade_clip(name: str, seconds: float, loop: bool, pitch, yaw, roll, pos, low=None) -> Clip:
+    """pitch, yaw, roll (t) in degrees; pos(t): the centre's offset from the idle's first frame
+    (metres); low(t), when given, places the centre so the lowest vertex is that high instead."""
+    c = Clip(name, seconds, loop)
+    c.ground = "none"
+    c.pivot = BLADE_C.copy()
+    c.tilt = lambda t: blade_q(pitch(t), yaw(t), roll(t))
+    if low is None:
+        c.lift = lambda t: BLADE_BASE + pos(t) - BLADE_C
+    else:
+        c.lift = lambda t: Vector((BLADE_BASE.x + pos(t).x, BLADE_BASE.y + pos(t).y,
+                                   low(t) - blade_low(c.tilt(t)))) - BLADE_C
+    c.info = {"object": "blade", "hover_m": round(BLADE_HOVER * BLADE_LEN, 4)}
+    return c
+
+
+def idle_blade() -> Clip:
+    """Hovers: a slow bob (two per loop), a slow yaw sway, the tip nodding a little."""
+    L = BLADE_LEN
+    c = blade_clip("idle", 3.0, True, lambda t: BLADE_PITCH + 2.0 * math.sin(2 * math.pi * t),
+                   lambda t: 10.0 * math.sin(2 * math.pi * t), lambda t: 3.0 * math.sin(4 * math.pi * t),
+                   lambda t: Vector((0, 0, 0.03 * L * math.sin(4 * math.pi * t))))
+    c.info["idle_lift_m"] = c.info["hover_m"]
+    return c
+
+
+def fly_blade(name: str = "fly") -> Clip:
+    """Glides tip first, leaning into the travel, banking from side to side, bobbing."""
+    L = BLADE_LEN
+    return blade_clip(name, 1.6, True, lambda t: BLADE_FLY + 2.0 * math.sin(2 * math.pi * t),
+                      lambda t: 3.0 * math.sin(2 * math.pi * (t - 0.25)), lambda t: 8.0 * math.sin(2 * math.pi * t),
+                      lambda t: Vector((0, 0, 0.04 * L * math.sin(2 * math.pi * (t - 0.1)))))
+
+
+def attack_blade() -> Clip:
+    """Thrust: draws back with the tip raised, lunges along its own line with a twist, holds,
+    recovers."""
+    L, P = BLADE_LEN, BLADE_PITCH
+    d = keys((0, 0), (0.3, -0.25), (0.45, 0.55), (0.6, 0.55), (1, 0))
+    up = keys((0, 0), (0.3, 0.06), (0.45, 0), (1, 0))
+    return blade_clip("attack_melee", 1.0, False, keys((0, P), (0.3, P - 10), (0.45, P), (1, P)),
+                      lambda t: 0.0, keys((0, 0), (0.3, -15), (0.45, 25), (0.6, 25), (1, 0)),
+                      lambda t: blade_dir(P) * (d(t) * L) + Vector((0, 0, up(t) * L)))
+
+
+def hit_blade() -> Clip:
+    """Recoil: knocked back and tip up, wobbles, settles back."""
+    L, P = BLADE_LEN, BLADE_PITCH
+    k = keys((0, 0), (0.15, 1), (1, 0))
+    wob = lambda t: math.sin(2 * math.pi * 3 * t) * (1 - t)
+    return blade_clip("hit", 0.5, False, lambda t: P - 25.0 * k(t), lambda t: 10.0 * wob(t), lambda t: 8.0 * wob(t),
+                      lambda t: blade_dir(P) * (-0.18 * L * k(t)) + Vector((0, 0, 0.05 * L * k(t))))
+
+
+def death_blade() -> Clip:
+    """Shudders, loses its hold on the air and drops tip first; the tip strikes the floor, the
+    hilt end slaps down as it rolls onto its flat, clatters (two small bounces) and lies still."""
+    L, P = BLADE_LEN, BLADE_PITCH
+    h0 = BLADE_HOVER * L
+    shake = keys((0, 0), (0.05, 1), (0.25, 1), (0.4, 0), (1, 0))
+    jit = lambda t: math.sin(2 * math.pi * 10 * t) * shake(t)
+    pitch = keys((0, P), (0.25, P + 5), (0.55, 55), (0.68, 0), (0.75, -3), (0.8, 0), (1, 0))
+    roll = keys((0, 0), (0.3, 0), (0.68, 90), (1, 90))
+    yaw = keys((0, 0), (0.3, 0), (0.75, 25), (1, 25))
+    lift = keys((0, 0), (0.25, 0.04 * L))
+    bounce = keys((0.68, 0), (0.73, 0.05 * L), (0.78, 0), (0.82, 0.015 * L), (0.86, 0), (1, 0))
+
+    def low(t):
+        if t <= 0.25:
+            return h0 + lift(t)
+        if t <= 0.55:
+            return (h0 + 0.04 * L) * (1 - ease_in((t - 0.25) / 0.3))
+        return bounce(t) if t > 0.68 else 0.0
+    fwd = keys((0, 0), (0.55, 0.15), (0.75, 0.2), (1, 0.2))
+    c = blade_clip("death", 2.0, False, lambda t: pitch(t) + 2.0 * jit(t), lambda t: yaw(t) + 5.0 * jit(t),
+                   lambda t: roll(t) + 4.0 * jit(t), lambda t: Vector((0, fwd(t) * L, 0)), low)
+    c.info["falls"] = "flat"
+    return c
+
+
 # tentacled (octopus, kraken, roper, otyugh): the tentacle-hub fallback skeleton, root +
 # body + tent_<j>_<k> chains. A tentacle turns about the horizontal axis across its own
 # direction (+ curls it up and out). Ground-bound clips keep the lowest vertex on the
@@ -3362,6 +3621,12 @@ def legless_clips() -> dict:
     elif PLAN == "amorphous" and STACK:
         sets = {"idle": lambda s: idle_blob(), "walk": lambda s: walk_blob(), "attack_melee": lambda s: attack_blob(),
                 "hit": lambda s: hit_blob(), "death": lambda s: death_blob()}
+    elif CLOTH:
+        sets = {"idle": lambda s: idle_cloth(), "walk": lambda s: walk_cloth(), "attack_melee": lambda s: attack_cloth(),
+                "hit": lambda s: hit_cloth(), "death": lambda s: death_cloth()}
+    elif BLADE:
+        sets = {"idle": lambda s: idle_blade(), "fly": lambda s: fly_blade(), "walk": lambda s: fly_blade("walk"),
+                "attack_melee": lambda s: attack_blade(), "hit": lambda s: hit_blade(), "death": lambda s: death_blade()}
     elif PLAN == "plant_object" and STALK:
         sets = {"idle": lambda s: idle_plant(), "walk": lambda s: walk_plant(), "attack_melee": lambda s: attack_plant(),
                 "attack_special": lambda s: attack_plant(),
@@ -3487,7 +3752,8 @@ def at_idle_height(base):
     return make
 
 
-LIFTED = job.get("idle_lift") not in (None, False, 0) and "idle" in makers and "idle" in job["clips"]
+# (the flying prop places every clip's height itself, from its lowest vertex: not lifted here)
+LIFTED = job.get("idle_lift") not in (None, False, 0) and "idle" in makers and "idle" in job["clips"] and not BLADE
 if LIFTED:
     makers["idle"] = lifted_idle(makers["idle"])
     for _n in list(makers):
