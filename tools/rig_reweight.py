@@ -202,3 +202,82 @@ def reweight(arm, me, spec: dict) -> dict:
                 "dominant": dom, **{x: sp[x] for x in ("bias", "reach", "blend", "strip", "fit", "hand_room", "far")},
                 **({"lobe_verts": len(sp["lobe"]), "lobe_bias": sp["lobe_bias"]} if sp.get("lobe") is not None else {})})
     return rep
+
+
+# --- leg seams (the `rig_leg_seams` override) ---------------------------------------------
+SEAM_ITERS = 20    # relaxation passes (each: half the vertex's own weights, half its neighbours' mean)
+SEAM_RING = 4      # edge hops around a seam that are smoothed
+SEAM_WELD = 1e-5   # metres: glTF splits vertices at UV seams; these are one surface point and get one weight
+
+
+def smooth_seams(arm, me, rt, feet: int, upright: bool, iters: int = SEAM_ITERS, ring: int = SEAM_RING) -> dict:
+    """Legs fused in the mesh (the polar bear's fore legs touch from the paws up: 149 edges cross
+    between them, the hind legs 63): no weight can keep the bridge from stretching when the legs
+    move apart, so the seam is spread instead of cut. Seam vertices are those on an edge whose ends
+    belong (strongest weight) to different legs (rig_topology.find_legs as the clips find them, each
+    leg its chain and the bones below its foot); with every vertex within `ring` edge hops of one
+    they are relaxed `iters` times toward their neighbours' mean over the welded surface (all bones),
+    weights under 1e-3 dropped, renormalised. Polar bear: swim edge stretch p99.9 15.1 -> 6.2, walk
+    9.1 -> 5.4, death 8.5 -> 4.7, idle 5.7 -> 3.7 (an exclusive split, each vertex to one leg, made
+    it worse: 32.6 swim, the whole shear on one row of faces). Only the game files change."""
+    m = arm.matrix_world
+    bones = [{"name": b.name, "parent": b.parent.name if b.parent else None,
+              "head": list((m @ b.head_local)[:]), "tail": list((m @ b.tail_local)[:])} for b in arm.data.bones]
+    kids = rt._children(bones)
+    V = _verts(me)
+    height = float(V[:, 2].max() - V[:, 2].min())
+    legs = rt.find_legs(bones, height, max(feet, 1), rescue=not upright)
+    rep = {"legs": [g["chain"] for g in legs], "iters": iters, "ring": ring}
+    if len(legs) < 2:
+        return {**rep, "seam_verts": 0}
+    names = [g.name for g in me.vertex_groups]
+    ng = len(names)
+    W = np.zeros((len(V), ng))
+    for v in me.data.vertices:
+        for g in v.groups:
+            W[v.index, g.group] = g.weight
+    leg_of = np.full(ng, -1)
+    for i, g in enumerate(legs):
+        for n in g["chain"] + rt._descendants(g["foot"], kids):
+            if n in names:
+                leg_of[names.index(n)] = i
+    # welded surface: one row per surface point, its weights the mean of its copies
+    _, wid = np.unique(np.round(V / SEAM_WELD).astype(np.int64), axis=0, return_inverse=True)
+    wid = wid.reshape(-1)
+    n = int(wid.max()) + 1
+    cnt = np.bincount(wid, minlength=n).astype(float)
+    P = np.zeros((n, ng))
+    np.add.at(P, wid, W)
+    P /= cnt[:, None]
+    E = np.empty(len(me.data.edges) * 2, dtype=np.int64)
+    me.data.edges.foreach_get("vertices", E)
+    E = wid[E.reshape(-1, 2)]
+    E = np.unique(np.sort(E[E[:, 0] != E[:, 1]], axis=1), axis=0)
+    dom = leg_of[P.argmax(axis=1)]
+    seam = np.zeros(n, bool)
+    cut = (dom[E[:, 0]] >= 0) & (dom[E[:, 1]] >= 0) & (dom[E[:, 0]] != dom[E[:, 1]])
+    seam[E[cut].ravel()] = True
+    rep["seam_edges"] = int(cut.sum())
+    for _ in range(ring):
+        grow = seam.copy()
+        grow[E[seam[E[:, 0]], 1]] = True
+        grow[E[seam[E[:, 1]], 0]] = True
+        seam = grow
+    deg = np.maximum(np.bincount(E.ravel(), minlength=n), 1).astype(float)
+    for _ in range(iters):
+        S = np.zeros_like(P)
+        np.add.at(S, E[:, 0], P[E[:, 1]])
+        np.add.at(S, E[:, 1], P[E[:, 0]])
+        P[seam] = 0.5 * P[seam] + 0.5 * (S[seam] / deg[seam, None])
+    P[P < 1e-3] = 0.0
+    P /= np.maximum(P.sum(axis=1), 1e-9)[:, None]
+    idx = np.nonzero(seam[wid])[0]
+    for i in idx:
+        i = int(i)
+        for g in list(me.data.vertices[i].groups):
+            me.vertex_groups[g.group].remove([i])
+        row = P[wid[i]]
+        for j in np.nonzero(row)[0]:
+            me.vertex_groups[int(j)].add([i], float(row[j]), "REPLACE")
+    rep["seam_verts"] = int(len(idx))
+    return rep

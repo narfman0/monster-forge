@@ -42,7 +42,8 @@ def _dist(a, b) -> float:
     return sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
 
 
-def find_legs(bones: list[dict], height: float, want: int, sprawl: bool = False, rescue: bool = False) -> list[dict]:
+def find_legs(bones: list[dict], height: float, want: int, sprawl: bool = False, rescue: bool = False,
+              sprawl_drop: bool = False) -> list[dict]:
     """Up to `want` legs, best first: {"chain": [hip ... foot], "foot", "shin", "level",
     "length"}. The foot is the bone that carries any toes, so toes move with it. With a
     real foot on the ground, IK drives `shin` and the foot is kept level; a spider leg's
@@ -51,8 +52,15 @@ def find_legs(bones: list[dict], height: float, want: int, sprawl: bool = False,
 
     `rescue` (the anim stage, the mirror-leg fix): when this finds fewer than `want` legs,
     rescue_legs() looks again with looser rules and its answer is taken when it has as many
-    legs or more. A rig that already has its legs gets exactly the same answer."""
-    legs = _find_legs(bones, height, want, sprawl)
+    legs or more. A rig that already has its legs gets exactly the same answer.
+
+    `sprawl_drop` (the anim stage; clip audit 2026-11-06): a sprawled chain whose end is higher
+    than its root is not a leg. Ranked by length, a scorpion's tail curled over its back and its
+    claw (giant scorpion: 2 of its 8 "legs", whose IK targets up in the air pulled the body
+    0.3-0.4 x the height into the floor in the attack and the hit) and a spider's legs held up
+    in the air (phase spider: 2 of 8) won over the real legs. A raised front leg that still
+    ends below its hip (the giant spider's) stays a leg."""
+    legs = _find_legs(bones, height, want, sprawl, sprawl_drop)
     if rescue and not sprawl and len(legs) < want:
         more = rescue_legs(bones, height, want)
         if len(more) >= len(legs):  # as many and none of them a tail on the floor (bronze wyrmling)
@@ -232,7 +240,8 @@ def rescue_legs(bones: list[dict], height: float, want: int) -> list[dict]:
     return picked
 
 
-def _find_legs(bones: list[dict], height: float, want: int, sprawl: bool = False) -> list[dict]:
+def _find_legs(bones: list[dict], height: float, want: int, sprawl: bool = False,
+               sprawl_drop: bool = False) -> list[dict]:
     by_name = {b["name"]: b for b in bones}
     kids = _children(bones)
     low = height * GROUND
@@ -269,6 +278,8 @@ def _find_legs(bones: list[dict], height: float, want: int, sprawl: bool = False
         drop = pts[0][2] - pts[-1][2]
         if length <= 0 or (not sprawl and drop / length < MIN_DROP):
             continue
+        if sprawl and sprawl_drop and drop < 0:
+            continue  # ends above its root: a tail over the back, a claw, a leg held up (find_legs)
         legs.append({"chain": chain, "foot": foot, "shin": foot if tip_only else chain[-2], "level": not tip_only,
                      "length": length, "drop": drop})
     legs.sort(key=lambda g: g["length"] if sprawl else g["drop"] / g["length"], reverse=True)
@@ -421,6 +432,72 @@ def find_tail(bones: list[dict], height: float, legs: list[dict], min_bones: int
                 and hip_y - end[1] > reach:
             sloped, reach = chain, hip_y - end[1]
     return best or sloped
+
+
+STING_TOP = 0.5     # find_sting: a scorpion's tail rises over its back to this x the height or more
+STING_MID = 0.15    # ... from a root this close (x height) to the centre line, behind the legs' hips,
+STING_TIP = 0.3     # ... and ends this close to it (a leg reaches out to the side)
+CLAW_FRONT = 0.1    # find_claws: a claw ends this far (x height) or more in front of the front-most foot
+
+
+def find_sting(bones: list[dict], height: float, legs: list[dict]) -> list[str]:
+    """A sprawled body's tail raised over its back (a scorpion's, with the sting at its end):
+    the longest chain of 4+ bones off a branch, not a leg, rooted behind the legs' mean hip
+    and within STING_MID x the height of the centre line, that rises to STING_TOP x the height
+    and ends within STING_TIP x the height of the centre line (the giant wolf spider's hind leg,
+    whose bones zigzag up over the body, ends 1.2 x the height out to the side). find_tail
+    wants a tail that stays low; the anim stage strikes with this one."""
+    if not legs:
+        return []
+    by_name = {b["name"]: b for b in bones}
+    kids = _children(bones)
+    leg_bones = {n for g in legs for n in g["chain"]}
+    hip_y = sum(by_name[g["chain"][0]]["head"][1] for g in legs) / len(legs)
+    cx = centre_x(bones, legs)
+    best = []
+    for b in bones:
+        if b["name"] in leg_bones or not b["parent"] or len(kids[b["parent"]]) < 2:
+            continue
+        chain = longest_chain(b["name"], kids)
+        if len(chain) < 4 or any(n in leg_bones for n in chain):
+            continue
+        if b["head"][1] >= hip_y or abs(b["head"][0] - cx) > STING_MID * height:
+            continue
+        if max(by_name[n]["tail"][2] for n in chain) < STING_TOP * height \
+                or abs(by_name[chain[-1]]["tail"][0] - cx) > STING_TIP * height:
+            continue
+        if len(chain) > len(best):
+            best = chain
+    return best
+
+
+def find_claws(bones: list[dict], height: float, legs: list[dict], skip: set = frozenset()) -> list[list[str]]:
+    """A sprawled body's claws (a scorpion's pincers, its mouth parts): chains of 3+ bones off a
+    branch, not legs nor in `skip`, that reach CLAW_FRONT x the height or more in front of the
+    front feet (their mean, the feet in front of all the feet's mean). None on the spiders (their
+    palps are 2 bones or behind the front feet)."""
+    if not legs:
+        return []
+    by_name = {b["name"]: b for b in bones}
+    kids = _children(bones)
+    leg_bones = {n for g in legs for n in g["chain"]}
+    ys = [by_name[g["foot"]]["head"][1] for g in legs]
+    fy = [y for y in ys if y >= sum(ys) / len(ys)]
+    front = sum(fy) / len(fy)
+    out = []
+    for b in bones:
+        n = b["name"]
+        if n in leg_bones or n in skip or not b["parent"] or len(kids[b["parent"]]) < 2 \
+                or b["parent"] in leg_bones:
+            continue
+        chain = longest_chain(n, kids)
+        if len(chain) < 3 or any(x in leg_bones or x in skip for x in chain):
+            continue
+        if any(n in o for o in out):
+            continue
+        if max(by_name[x]["tail"][1] for x in chain) >= front + CLAW_FRONT * height:
+            out.append(chain)
+    return [c for c in out if not any(c[0] in o[1:] for o in out)]
 
 
 def find_wings(bones: list[dict], height: float, legs: list[dict], arms: list[dict] = (),

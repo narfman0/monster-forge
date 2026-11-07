@@ -1141,6 +1141,60 @@ Controls on ai, old and new code on copies (rig `--force` and anim `--force`): w
 boar, young-red-dragon, black- and copper-dragon-wyrmling, archmage, ape: `model_rigged*.glb` and
 every `anims/*.glb` byte-identical; the JSON reports differ only in `build_seconds` and timings.
 
+### Insectoids, nagas, fused legs, wing chains (2026-11-06)
+
+The audit's next worst non-bipeds. Clip code changes touch only the insectoid and merfolk_naga plans;
+the rest are opt-in overrides applied by `forge.py rig <id> --force` (CPU, no re-roll).
+
+- **Sprawled legs** (`rig_topology.find_legs(..., sprawl_drop=True)`, anim stage only; roll scoring
+  unchanged): a sprawled chain whose end is higher than its root is not a leg. Ranked by length, the
+  giant scorpion's tail and a claw were 2 of its 8 "legs" (their IK targets in the air pulled the body
+  0.3-0.4 x h into the floor in the attack and hit), and the phase spider's two legs held up in the air
+  were legs too (attack sink 0.39, walk 0.22). The giant spider's raised front legs end below their hips
+  and stay (its legs and clips are byte-identical).
+- **Sting and claws** (`find_sting`: 4+ bones rooted behind the hips near the centre line, rising to
+  0.5 x h and ending within 0.3 x h of it; `find_claws`: 3+ bone non-leg chains reaching 0.1 x h past the
+  front feet): `attack_scorpion` keeps the legs planted, raises and opens the claws and snaps them shut
+  as the sting arcs forward over the back (`STING_STRIKE` -40 degrees over the chain); idle sway, walk
+  sway, hit flinch, death slump. None on the three spiders. Report and `manifest.anim.parts`: `sting`,
+  `claws` (only when found).
+- **Long sprawled legs**: the IK chain of a tip-only leg grows past 3 bones until it spans `IK_SPAN`
+  0.5 of the leg (the scorpion's 7-8 bone legs; their last 3 bones are 0.3 of it, and the body was
+  lowered 0.35 m for them in the lunge), and the death fold per joint is scaled by 3 / (bones - 1)
+  (spiders' 3-4 bone legs unchanged).
+- **Naga idle** (`idle_naga`): every layer is 0 on the first frame (`from_zero`), so the one-shots start
+  where it does (from_idle 0.16 x h -> 0 on the salamander, 0.033 / 0.021 -> 0 on the merfolk and
+  merrow); `tail_kick` gives a tail of n > `KICK_BONES` 7 bones (7 / n)^1.5 of the turn per bone (the
+  salamander's coiled 15-bone tail swung its far coil 1.5 m in the idle; merfolk and merrow unchanged).
+- **`rig_leg_seams: true`** (`rig_reweight.smooth_seams`, finalize after `rig_reweight`): the polar
+  bear's legs are fused in the mesh (149 edges bridge the fore legs from the paws up, 63 the hind), so
+  no weight split removes the web: an exclusive split (each vertex to one leg) made it worse (swim 32.6).
+  Instead the weights within 4 edge hops of a leg-leg seam (legs as the clips find them) are relaxed 20
+  times toward their neighbours over the welded surface.
+- **`rig_add_wings: false`**: no inserted wing chains; the roll's own are used. The gold dragon
+  wyrmling's wing fingers rest on the floor, the rig stage's strict leg rule took them for legs, so
+  finalize inserted `wing_*` chains beside SkinTokens' wings, which kept most of the membrane (fly/swim/
+  death stretch 17-21). The clips' rescue legs leave the fingers alone and `find_wings` takes bone_31 /
+  bone_43.
+- Salamander: `rig_reweight` on its left "arm" (bone_14..16, a finger chain `find_arms` takes; bone_16
+  owned 729 vertices of the tail's far coil, which the throw tore).
+
+Audit on ai copies (score, old code -> new; the old code reproduces the audit's `out/` numbers):
+
+| monster | score | fixed | still |
+|---|---|---|---|
+| giant-scorpion | 18.6 -> 8.5 | tail and claw no longer legs: attack/hit sink 0.30/0.42 -> 0.05/0.04, hit stretch 16.4 -> 6.8, attack 13.3 -> 5.6, death 14.6 -> 8.4 | rig weights: bone_26 (front right leg) and bone_33/bone_80 share a second right leg the roll has no chain for (walk stretch 7.1); needs a re-roll |
+| phase-spider | 13.4 -> 1.6 | attack/walk/idle sinks | death stretch 9.7 (10.4) |
+| giant-wolf-spider | 3.2 -> 3.2 | (two hind chains whose bones zigzag over the body ride it now) | attack sink 0.056, death stretch 7.8 |
+| salamander | 12.2 -> 0 | from_idle, idle wander, throw stretch (3.1 with the clip changes alone) | the "head" chain is its right arm, the attack moves fingers |
+| polar-bear | 11.3 -> 2.9 | swim 15.1 -> 5.6, walk 9.1 -> 4.2, attack 9.0 -> 4.6, death 8.5 -> 3.6 | fused legs (thin webs in the swim); death from_idle 0.20, as before (not looked into; its first frame stands 0.057 m higher than the idle's) |
+| gold-dragon-wyrmling | 11.3 -> 1.2 | wings flap with their membrane | swim stretch 5.5 |
+
+Controls (ai, old vs new code): wolf (rig `--force` too), mastiff, boar, hyena, archmage, ape,
+giant-spider, giant-lizard, young-red-dragon, giant-eagle, black- and blue-dragon-wyrmling, owlbear,
+centaur-trooper, brown-bear, harpy: every `anims/*.glb` byte-identical, reports equal but timings.
+merfolk-skirmisher and merrow: only the idle changes (no new flags; merrow idle stretch 1.45 -> 1.90).
+
 ## Body plans (2026-11-04)
 
 One pilot per plan the six pilots did not cover took the whole chain (`forge.py run`, paint

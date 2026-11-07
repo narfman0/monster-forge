@@ -1148,6 +1148,9 @@ if job["mode"] == "finalize":
     out = Path(job["out_dir"])
     if job.get("reweight"):  # the rig_reweight override (tools/rig_reweight.py), before the sockets
         report["reweight"] = [rig_reweight.reweight(arm, me, spec) for spec in job["reweight"]]
+    if job.get("leg_seams"):  # the rig_leg_seams override: weights relaxed where fused legs meet
+        report["leg_seams"] = rig_reweight.smooth_seams(arm, me, rig_topology, int(job.get("feet", 0)),
+                                                        bool(job.get("upright")))
     report["sockets"] = add_sockets()
     set_albedo(job["base_color"])
     clamp_metallic(me.data.materials)  # same rule as blender_qa.py, for rigs built from older model.glb files

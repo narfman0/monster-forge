@@ -358,8 +358,10 @@ def wings_changed(rep: dict) -> bool:
 def adds_wings(mon: dict) -> bool:
     """Plans whose rig gets wing chains found on the mesh when the skeleton has fewer than
     two (blender_wing_weights.py): the winged plans and avians but the theropods, the
-    plans score_terms counts wings for."""
+    plans score_terms counts wings for; the override `rig_add_wings: false` turns it off."""
     plan = mon["body_plan"]
+    if overrides.load(mon["source"], mon["id"]).get("rig_add_wings") is False:
+        return False  # the roll's own wing chains (the gold dragon wyrmling: docs/rig-anim.md)
     return plan in WINGED or (plan == "avian" and mon.get("rig_template") != "custom.theropod")
 
 
@@ -458,7 +460,8 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
                        "sockets": mon.get("sockets") or [], "feet": FEET.get(mon["body_plan"], 0),
                        "upright": mon["body_plan"] in UPRIGHT_BODY, "add_wings": adds_wings(mon),
                        "add_tail": adds_tail(mon), "tail_fused": tail_fused(mon), "fix_legs": fix_legs(mon),
-                       "reweight": overrides.load(mon["source"], mon["id"]).get("rig_reweight") or []})
+                       "reweight": overrides.load(mon["source"], mon["id"]).get("rig_reweight") or [],
+                       "leg_seams": overrides.load(mon["source"], mon["id"]).get("rig_leg_seams") is True})
     # the kept skeleton's quality terms, also when it was not rolled now (a hand-fixed rig);
     # with the wing chains finalize inserted, so the score is that of the game skeleton
     q = scored(blender(fg, {**score_job(mon, chosen, d / "rig" / "chosen.json"), "add_wings": adds_wings(mon),

@@ -229,6 +229,15 @@ FIELDS = {
                        "centauroid roll has none or one under 4 bones (tools/blender_tail_chain.py); on by "
                        "default, false turns it off; \"fused\" inserts it even where the tail touches a hind leg "
                        "or the floor (the centaur's tail sheet), which the default refuses, and the clips keep it"),
+    "rig_leg_seams": (_bool, "rig", "true: where legs are fused in the mesh (the polar bear's touch from the paws up), "
+                      "the weights around the seams between them are relaxed over the surface so the bridge stretches "
+                      "evenly instead of tearing into a web (tools/rig_reweight.smooth_seams; `forge.py rig <id> "
+                      "--force`, CPU only). Off by default"),
+    "rig_add_wings": (_bool, "rig", "insert wing chains found on the mesh when a winged roll has fewer than 2 "
+                      "(tools/blender_wing_weights.py); on by default for the winged plans and avians, false keeps the "
+                      "roll's own wing chains (the gold dragon wyrmling's: its wing fingers rest on the floor and the rig "
+                      "stage's strict leg rule took them for legs, so wings were inserted beside them; `forge.py rig <id> "
+                      "--force`, CPU only)"),
     "rig_fix_legs": (_choice("mirror"), "rig", "experimental. \"mirror\": a leg the roll left out (3 of 4 found) whose twin is there "
                      "gets the twin's chain mirrored onto the unowned foot on the mesh, geometric weights "
                      "(tools/blender_leg_mirror.py; `forge.py rig <id> --force`, CPU only)"),
@@ -313,6 +322,10 @@ def defaults(mon: dict, style_name: str | None = None) -> dict:
         # on for rig.TAIL_ADDED's plans (rig.adds_tail; overrides cannot import rig)
         "anim_source": "procedural", "anim_ual_exclude": None, "rig_source": "skintokens", "rig_ual_fit": "auto",
         "rig_tail_chain": plan in {"quadruped", "winged_quadruped", "centauroid"}, "rig_fix_legs": None,
+        "rig_leg_seams": False,
+        # on for rig.adds_wings' plans (overrides cannot import rig)
+        "rig_add_wings": plan in {"winged_quadruped", "winged_biped"} or (plan == "avian" and
+                                                                          mon.get("rig_template") != "custom.theropod"),
         # anim.idle_lift: a monster that cannot walk idles where its swim/fly clip holds it
         "idle_lift": "match_move" if "walk" not in (mon.get("animation_set") or [])
         and {"swim", "fly"} & set(mon.get("animation_set") or []) else False,

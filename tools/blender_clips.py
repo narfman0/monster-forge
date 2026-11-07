@@ -126,7 +126,7 @@ if legless:
     legs = []
 else:
     legs = rig_topology.find_legs(bones, height, 8 if job["sprawl"] else job["feet"], job["sprawl"],
-                                  rescue=not job["upright"])
+                                  rescue=not job["upright"], sprawl_drop=job["sprawl"])
     if len(legs) < job["feet"] and not job["upright"] and legs:
         PARTIAL = {"legs_found": len(legs), "need": job["feet"]}
         print(f"found {len(legs)} legs, need {job['feet']}: walking on the legs found")
@@ -184,8 +184,16 @@ wing_search = PLAN in WING_PLANS or "fly" in job["clips"]
 wings = [{"side": w[0], "chain": w[1]} for w in job["wings"]] if job.get("wings") else [] if legless else \
     rig_topology.find_wings(bones, height, legs, arms, exclude=(head,) if head else ()) if wing_search else []
 root = next(b["name"] for b in bones if b["parent"] is None)
+# A sprawled body's raised tail (a scorpion's sting) and its claws (pincers, mouth parts): the
+# attack strikes with them instead of rearing the front legs; find_legs' sprawl_drop keeps them
+# out of the legs (clip audit 2026-11-06: the giant scorpion walked on its tail and a claw).
+sting = rig_topology.find_sting(bones, height, legs) if job["sprawl"] else []
+claws = rig_topology.find_claws(bones, height, legs, set(sting)) if job["sprawl"] else []
+if sting:
+    tail = []
+_sc = set(sting) | {n for ch in claws for n in ch}
 # a spider's chelicerae: short non-leg chains off the root that hang down
-fangs = [n for n in kids[root] if job["sprawl"] and n not in {x for g in legs for x in g["chain"]}
+fangs = [n for n in kids[root] if job["sprawl"] and n not in {x for g in legs for x in g["chain"]} and n not in _sc
          and by_name[rig_topology.longest_chain(n, kids)[-1]]["tail"][2] < by_name[n]["head"][2] - 0.05 * height]
 
 
@@ -657,6 +665,22 @@ def key_root(clip: Clip, corr: list[float]) -> None:
         pb.keyframe_insert("rotation_quaternion", frame=f)
 
 
+IK_SPAN = 0.5  # a sprawled leg's IK bends at least this share of the leg's length
+
+
+def ik_count(g: dict, above: int) -> int:
+    """IK chain length of a tip-only leg: 3 bones; a sprawled leg of many short bones gets as
+    many more as it takes to span IK_SPAN of its length (the giant scorpion's 7-8 bone legs:
+    their last 3 bones are 0.3 of the leg, which could not follow the lunge, so the body was
+    lowered 0.35 m for them)."""
+    n = min(3, above + 1)
+    if job["sprawl"]:
+        bl = lambda i: (Vector(by_name[g["chain"][i]]["tail"]) - Vector(by_name[g["chain"][i]]["head"])).length
+        while n < above + 1 and sum(bl(above - j) for j in range(n)) < IK_SPAN * g["length"]:
+            n += 1
+    return n
+
+
 def setup_ik(clip: Clip) -> list:
     """IK targets on every leg (and on the wrists the clip drives); returns the empties."""
     made = []
@@ -675,7 +699,7 @@ def setup_ik(clip: Clip) -> list:
             tgt.rotation_quaternion = (world @ arm.data.bones[g["ik_bone"]].matrix_local).to_quaternion()
             ik.chain_count = min(3, above) + 1  # the foot and up to 3 bones above it
         else:
-            ik.chain_count = min(3, above + 1)
+            ik.chain_count = ik_count(g, above)
         clip.targets.append((g, tgt, effector(g, rest=True)))
         for f in range(1, clip.frames + 2):
             ik.influence = clip.ik(g, (f - 1) / clip.frames)
@@ -1202,6 +1226,7 @@ def walk(scale: float = 1.0, phase: float | None = None) -> Clip:
     k = lambda t: c.sway_k[round(t * c.frames)] if c.sway_k else 1.0
     for i, n in enumerate(tail):
         tail_sway(c, n, lambda t, i=i: k(t) * TAIL_SWAY * math.sin(2 * math.pi * (t + phase - 0.09 * i)))
+    c.turn_chain(sting, "Z", lambda t: 4.0 * math.sin(2 * math.pi * (t + phase)))
     c.info = {"stride_scale": scale, "legs": len(legs), "feet": [g["foot"] for g in legs],
               "phases": [g["phase"] for g in legs],
               "arms": [a["upper"] for a in arms], "tail": tail}
@@ -1234,6 +1259,9 @@ def idle() -> Clip:
         tail_sway(c, n, wave(a, 1))
     for w in wings:
         c.turn(w["chain"][0], "Y", lambda t, s=w["side"]: sym(s, -3.0 * math.sin(2 * math.pi * t)))
+    c.turn_chain(sting, "Z", wave(4.0, 1))  # the raised tail sways and bobs, the claws flex
+    c.turn_chain(sting, "X", lambda t: 3.0 * (1 - math.cos(2 * math.pi * t)) / 2)
+    claw_turn(c, lambda t: 3.0 * (1 - math.cos(2 * math.pi * t)) / 2, wave(4.0, 2))
     return c
 
 
@@ -1335,6 +1363,40 @@ def attack_spider() -> Clip:
     return c
 
 
+def claw_side(ch: list[str]) -> str:
+    return "r" if by_name[ch[-1]]["tail"][0] >= cx else "l"
+
+
+def claw_turn(c: Clip, up, pinch=None) -> None:
+    """Claws (find_claws): `up` degrees about X on the first bone (+ raises a claw that points
+    forward), `pinch` degrees inward about Z (- opens)."""
+    for ch in claws:
+        c.turn(ch[0], "X", up)
+        if pinch:
+            c.turn(ch[0], "Z", lambda t, s=claw_side(ch): sym(s, pinch(t)))  # +Z turns the right one left: in
+
+
+STING_STRIKE = -40.0  # attack: degrees the raised tail turns forward over the body (spread over its bones)
+
+
+def attack_scorpion() -> Clip:
+    """A sprawled body with a raised tail or claws (find_sting, find_claws): the legs stay planted,
+    the claws rise and open, then snap shut forward as the sting arcs over the back and strikes
+    down in front; the body rocks back and lunges a little. The spider attack (attack_spider)
+    rears the front legs instead."""
+    c = Clip("attack_melee", 1.0, False)
+    c.tilt = lambda t: Quaternion(AXES["X"], math.radians(keys((0, 0), (0.32, 3), (0.5, -3), (0.7, -3), (1, 0))(t)))
+    c.lift = lambda t: Vector((0, 0.03 * body_len * keys((0, 0), (0.32, -0.3), (0.5, 1), (0.7, 1), (1, 0))(t), 0))
+    c.pivot = Vector((cx, leg_y - 0.3 * body_len, 0))
+    c.turn_chain(sting, "X", keys((0, 0), (0.32, 12), (0.5, STING_STRIKE), (0.7, STING_STRIKE), (1, 0)))
+    claw_turn(c, keys((0, 0), (0.32, 18), (0.5, 4), (0.7, 4), (1, 0)),
+              keys((0, 0), (0.32, -14), (0.5, 10), (0.7, 10), (1, 0)))
+    for n in fangs:
+        c.turn(n, "X", keys((0, 0), (0.32, -25), (0.5, -30), (0.6, 30), (0.75, 30), (1, 0)))
+    c.info = {"sting": sting, "claws": [ch[0] for ch in claws]}
+    return c
+
+
 def hit() -> Clip:
     """Knocked back from the front: the body snaps back and up, the head jerks, recover."""
     c = Clip("hit", 0.5, False)
@@ -1354,6 +1416,8 @@ def hit() -> Clip:
         c.turn(w["chain"][0], "Y", lambda t, s=w["side"]: sym(s, -12 * k(t)))
     for n in tail:
         tail_curl(c, n, lambda t: 4 * k(t))
+    c.turn_chain(sting, "X", lambda t: 10 * k(t))  # thrown back, the claws fly open
+    claw_turn(c, lambda t: 8 * k(t), lambda t: -10 * k(t))
     return c
 
 
@@ -1372,10 +1436,16 @@ def death() -> Clip:
             ax = Vector((fx, fy, 0)).normalized().cross(AXES["Z"])  # + lifts the leg, - folds it down and in
             # every joint folds the leg up and out, so the tips clear the ground and the belly lands
             c.rot.setdefault(g["chain"][0], []).append((ax, keys((0, 0), (0.25, 5), (0.75, 22), (0.85, 18), (1, 18))))
+            # the spiders' legs have 2-3 joints below the hip; a longer chain (the giant scorpion's
+            # 6-7) folds no further in all than they do, or it curls up through itself
+            k = min(1.0, 3 / max(1, len(g["chain"]) - 1))
             for n in g["chain"][1:]:
-                c.rot.setdefault(n, []).append((ax, keys((0, 0), (0.2, 5), (0.75, 16), (0.85, 13), (1, 13))))
+                c.rot.setdefault(n, []).append((ax, keys((0, 0), (0.2, 5 * k), (0.75, 16 * k), (0.85, 13 * k),
+                                                         (1, 13 * k))))
         for n in fangs:  # tucked forward, so the body rests on its belly, not on them
             c.turn(n, "X", keys((0, 0), (0.6, 75), (1, 75)))
+        c.turn_chain(sting, "X", keys((0, 0), (0.25, -8), (0.75, 30), (0.85, 26), (1, 26)))  # slumps back
+        claw_turn(c, keys((0, 0), (0.6, 10), (1, 10)), keys((0, 0), (0.6, 12), (1, 12)))
         c.lift = lambda t: Vector((0, 0, -drop * keys((0, 0), (0.25, 0.3), (0.7, 1.2), (1, 1.2))(t)))
         c.rest_from = 0.7
         return c
@@ -1976,7 +2046,7 @@ def plan_clips() -> dict:
     if arms:
         sets["attack_melee"] = lambda s: attack_melee_armed()
     elif job["sprawl"]:
-        sets["attack_melee"] = lambda s: attack_spider()
+        sets["attack_melee"] = (lambda s: attack_scorpion()) if sting or claws else lambda s: attack_spider()
     elif neck:
         big = height > 3
         # a bird's neck rises between its wings: rearing it the full 25-30 degrees drew the
@@ -2908,23 +2978,42 @@ def naga_clip(name: str, seconds: float, loop: bool, ground: str = "contact") ->
     return c
 
 
+KICK_BONES = 7  # tail_kick: the merfolk's and merrow's tails; a longer chain gets less turn per bone
+
+
 def tail_kick(c: Clip, amp, axis: str = "X", cycles: float = 0.8, speed: int = 1) -> None:
+    """A travelling wave down the tail. The turns add up along the chain and so does the lever,
+    so a tail of n > KICK_BONES bones gets (KICK_BONES / n)^1.5 of the turn per bone (clip audit
+    2026-11-06: the salamander's 15-bone tail lies in coils on the ground, and its idle swung the
+    far coil 1.5 m)."""
     a = amp if callable(amp) else (lambda t, v=amp: v)
     n = max(1, len(FISHTAIL))
+    k = min(1.0, KICK_BONES / n) ** 1.5  # the far end's lever grows with the chain too
     for i, nm in enumerate(FISHTAIL):
         sv = i / n
-        c.turn(nm, axis, lambda t, sv=sv: a(t) * (0.4 + 0.6 * sv) * math.sin(2 * math.pi * (speed * t - cycles * sv)))
+        c.turn(nm, axis, lambda t, sv=sv: k * a(t) * (0.4 + 0.6 * sv) * math.sin(2 * math.pi * (speed * t - cycles * sv)))
+
+
+def from_zero(fn):
+    """fn(t) - fn(0): a looping layer that is 0 on the first frame (and still loops)."""
+    return lambda t: fn(t) - fn(0.0)
 
 
 def idle_naga() -> Clip:
+    """Every layer is 0 on the first frame (from_zero), so the idle starts on the rest pose like
+    the one-shots (hit, death) and the swim: the travelling tail wave and the phase-shifted
+    neck and arm waves started up to 0.74 m off it on the salamander (from_idle 0.16 x h)."""
     c = naga_clip("idle", 3.0, True)
-    tail_kick(c, 4.0, "Z", 0.6)
+    kick = Clip("idle", 3.0, True)
+    tail_kick(kick, 4.0, "Z", 0.6)
+    for nm, layers in kick.rot.items():
+        c.rot.setdefault(nm, []).extend((ax, from_zero(fn)) for ax, fn in layers)
     c.turn_chain(torso, "X", wave(2.0, 1, 0.0))
-    c.turn_chain(neck, "Z", wave(6.0, 1, 0.1))
+    c.turn_chain(neck, "Z", from_zero(wave(6.0, 1, 0.1)))
     relax_arms(c)
     for a in arms:
-        c.turn(a["upper"], "X", wave(4.0, 1, 0.3))
-        c.turn(a["forearm"], "X", lambda t: 5 + 4 * math.sin(2 * math.pi * (t - 0.4)))
+        c.turn(a["upper"], "X", from_zero(wave(4.0, 1, 0.3)))
+        c.turn(a["forearm"], "X", from_zero(lambda t: 5 + 4 * math.sin(2 * math.pi * (t - 0.4))))
     return c
 
 
@@ -3201,7 +3290,8 @@ report = {"height": round(height, 3), "drop": round(drop, 3), "size": round(SIZE
           **({"stand_fallback": STAND} if STAND else {}), **({"partial_legs": PARTIAL} if PARTIAL else {}),
           **({"tentacles": TENTS} if TENTS else {}), **({"body": STALK, "limbs": LIMBS} if STALK else {}),
           **({"body": STACK} if STACK and not STALK else {}), **({"tail": FISHTAIL} if FISHTAIL else {}),
-          **({"warnings": WARNINGS} if WARNINGS else {})}
+          **({"warnings": WARNINGS} if WARNINGS else {}), **({"sting": sting} if sting else {}),
+          **({"claws": claws} if claws else {})}
 order = sorted(job["clips"], key=lambda n: n != "idle") if LIFTED else job["clips"]  # the idle sets IDLE_Z
 for name in order:
     if name not in makers:

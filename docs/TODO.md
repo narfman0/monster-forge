@@ -1202,3 +1202,26 @@ untested variants; off-model fork, heavy crossbow, mace props.
       old-code gates in tiers 1-3 (`facing --stale --dry-run` lists them).
 - [ ] First batch run: `batch.py run --tier 1 --stages ref,mesh,qa` (~4.4 h), review the strips,
       then the paint pass once the ComfyUI memory limit is decided; `report` after the first 20.
+
+## Apply after the paint queue (2026-11-06 night)
+
+The committed tail/leg/insectoid/smoothing code is already used by every new rig and anim the batch
+makes. Monsters rigged or animated BEFORE it keep old clips until re-run (CPU only, no GPU, one at a
+time, never while the batch writes the same id):
+
+```sh
+# 1. rigs with overrides (rewrites model_rigged*.glb; no --rig-reroll)
+python3 -I tools/forge.py rig polar-bear gold-dragon-wyrmling salamander --force
+# 2. quadruped/winged/avian/insectoid/centauroid clips + kobold-warrior (smoothing, tail, topology gate)
+python3 -I tools/forge.py anim <ids of those plans with anim clips> kobold-warrior --force
+# 3. the 11 short-legged ones: blue/brass/bronze/gold/green/red wyrmling, bulette, crocodile, giant-frog, giant-lizard, rust-monster
+python3 -I tools/forge.py anim blue-dragon-wyrmling brass-dragon-wyrmling bronze-dragon-wyrmling gold-dragon-wyrmling green-dragon-wyrmling red-dragon-wyrmling bulette crocodile giant-frog giant-lizard rust-monster --force
+# 4. insectoids/nagas
+python3 -I tools/forge.py anim giant-scorpion phase-spider giant-wolf-spider merfolk-skirmisher merrow --force
+# 5. re-audit
+python3 -I tools/clip_audit.py --all --jobs 8 --force
+```
+
+Still needs GPU or a re-mesh: bronze-dragon-wyrmling and bulette (rig has no fore legs / 3+1 legs),
+crocodile (no right hind leg in the mesh), giant-toad (legs are front feet), giant-scorpion (one mesh
+leg has no chain), polar-bear (fused legs, thin webs in swim), salamander (head chain is an arm).

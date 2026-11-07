@@ -103,7 +103,7 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
     man["anim"] = {"clips": clips, "missing": [c for c in want if c not in clips], "seconds": dt,
                    **{c: rep["clips"][c] for c in clips},
                    "parts": {k: rep[k] for k in ("root", "head", "neck", "spine", "tail", "arms", "wings", "legs", "body",
-                                                     "tentacles") if k in rep}}
+                                                     "tentacles", "sting", "claws") if k in rep}}
     if rep.get("stand_fallback"):  # fewer leg chains than feet: blender_clips.py's standing set
         man["anim"]["stand_fallback"] = rep["stand_fallback"]
     if rep.get("partial_legs"):  # a horizontal body short of legs: it walks on the ones found
