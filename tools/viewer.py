@@ -8,7 +8,8 @@ job queue (POST /api/run/<id>, GET /api/jobs) that runs tools/forge.py one job a
 
     python3 -I tools/viewer.py [--port 8787] [--source srd-5.2.1] [--no-open]
 
-Binds 127.0.0.1 only. POSTs must be JSON from a same-origin page.
+Binds 127.0.0.1 by default (--host 0.0.0.0 to share the read-only view on the LAN: overrides and
+re-run jobs stay loopback-only). POSTs must be JSON from a same-origin page.
 
 The stage-status convention is documented in viewer/README.md and implemented in
 stage_status() below; keep the two in sync.
@@ -392,6 +393,7 @@ def override_view(source: str, mid: str) -> dict:
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     source = "srd-5.2.1"
+    lan_read = False  # True with --host 0.0.0.0: non-loopback clients get GET/HEAD only
     extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map,
                       ".js": "text/javascript", ".mjs": "text/javascript",
                       ".glb": "model/gltf-binary", ".json": "application/json"}
@@ -428,6 +430,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         """Loopback client, and for POSTs a same-origin JSON request (blocks other sites
         from driving the job queue through the browser)."""
         if self.client_address[0] not in ("127.0.0.1", "::1"):
+            if self.command in ("GET", "HEAD") and Handler.lan_read:  # --host 0.0.0.0: read-only view
+                return True
             self.send_json({"error": "loopback only"}, 403)
             return False
         if self.command == "POST":
@@ -531,6 +535,7 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=8787)
+    ap.add_argument("--host", default="127.0.0.1", help="address to bind (0.0.0.0 shares the viewer on the LAN, read-only for non-loopback clients)")
     ap.add_argument("--source", default="srd-5.2.1")
     ap.add_argument("--no-open", action="store_true", help="do not open a browser")
     ap.add_argument("--quiet", action="store_true", help="no request log")
@@ -545,9 +550,10 @@ def main() -> int:
         print(f"no registry for source {args.source!r}: {e}", file=sys.stderr)
         return 2
     Handler.source = args.source
+    Handler.lan_read = args.host not in ("127.0.0.1", "::1", "localhost")
     JOBS.source = args.source
-    srv = Server(("127.0.0.1", args.port), functools.partial(Handler, directory=str(VIEWER)))
-    url = f"http://127.0.0.1:{args.port}/"
+    srv = Server((args.host, args.port), functools.partial(Handler, directory=str(VIEWER)))
+    url = f"http://{'127.0.0.1' if args.host in ('0.0.0.0', '') else args.host}:{args.port}/"
     print(f"monster-forge viewer: {url}  (source {args.source}, Ctrl-C to stop)", flush=True)
     if not args.no_open:
         threading.Timer(0.5, webbrowser.open, (url,)).start()
