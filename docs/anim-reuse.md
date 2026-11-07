@@ -244,3 +244,62 @@ death x2, side and front).
   Tried only on a scratch copy on ai (ape auto, goblin-warrior skintokens; anim + promote ran). Not run on out/.
 - Unverified: nothing loaded in the viewer or Godot; judged from workbench sheets at tile size (hands,
   faces, the procedural clips on the UAL skeleton not looked at). Verdicts are not wired into anything.
+
+## Verdicts and the second batch (tools/rig_ual_verdict.py, 2026-11-07)
+`python3 -I tools/rig_ual_verdict.py <id>... | --all [--compare] [--no-calls]` writes `rig_ual/verdict.json`
+(schema above, plus `rules`: what the rules alone said and their signals) from `rig_ual/skintokens_heat/metrics.json`,
+the UAL glb's weights, the SkinTokens rig/bonemap, the registry prompt and the sight calls in
+`data/rig_ual_calls.json` ({id: {status?, procedural_clips?, reason, judged}}). Plain Python + numpy, 0.3 s for all.
+Rules (module docstring): winged_biped, prompt wings/tentacles/extra arms/chains, a prompt tail with mesh behind
+the hips, a SkinTokens chain off the trunk >= 0.4 h (or off the pelvis >= 0.15 h with mesh behind it) ->
+needs_skintokens; two heads, missing sockets, idle/walk under the floor, idle stretch >= 6, no metrics ->
+needs_review; else use_ual with run+attack_melee (+death > 7) procedural for long garments (robe, vestments, cloak,
+cape, coat, dress, tabard, wrappings) and any clip over the 7/10 ceiling. `anim_ual_exclude` is not folded in
+(rig_ual.stage applies it to ual.json).
+- Against the 71 hand-written verdicts of the first batch (13 of the 84 were deleted with the quiver re-rolls):
+  rules alone 65/71 status (92%), 55/71 status + clip list; with the calls 70/71. Rules miss tails heat hangs
+  on a thigh without much mesh behind the hips (dretch, rakshasa, sahuagin-warrior: the last two read as
+  needs_review from their idle tear), ettercap's extra limbs, troll's rag strip, and the robe/cape clip lists
+  beyond run+attack; those are calls. The one difference: lich, needs_review on disk -> use_ual (walk, run,
+  attack_melee procedural, like mage): it was review only for having no procedural clips, which it has now.
+  Its file is not rewritten; `rig_ual_verdict.py lich` flips it.
+- Second batch: the 39 ok/partial bipeds/winged bipeds without a verdict (bonemap re-run on them first: the
+  re-rolled meshes have new rigs), `--fit skintokens --weights heat` on ai, 38 rigs in 79 s at `--jobs 8` (CPU);
+  imp fails (1-bone spine, no spine_01 for the fit). Sheets `~/.cache/monster-forge-scratch/rigual/batch2_00..12.png`.
+  Not rigged: bonemap fail (deva, solar, goblin-minion, incubus: legs; earth-elemental, shambling-mound, treant,
+  tarrasque: no hands), medusa (excluded).
+
+All 110 verdicts (on disk; lich counted as needs_review): **use_ual 74** (44 with every clip, 30 keep some
+procedural), **needs_skintokens 31**, **needs_review 5**.
+- needs_skintokens: wings (winged bipeds) balor, bone-devil, dust/ice/magma/steam-mephit, erinyes, gargoyle,
+  homunculus, horned-devil, imp (also: rig failed), nalfeshnee, pit-fiend, planetar, sprite, succubus, vrock,
+  harpy; tails barbed-devil, bearded-devil, dretch, half-dragon, kobold-warrior, quasit, rakshasa, sahuagin-warrior
+  (+ fins), wererat, weretiger, werewolf (re-roll: a big tail/coat flap on the right thigh); extra limbs ettercap,
+  glabrezu (four arms).
+- needs_review: cloud-giant (floor-length robe, idle stretch 6.2, every clip but idle/hit smears), ettin (two
+  heads), night-hag (robe, idle 6.6), troll (rag strip joins the feet), lich (see above: use_ual by the tool).
+- New use_ual: chain-devil (the re-rolled chains are fused spikes, max p99.9 5.1), fire-giant, giant-ape,
+  gnoll-warrior, goblin-boss, hobgoblin-warrior, shadow, shield-guardian, skeleton, stone-giant (all clips);
+  frost-giant (cloak: walk, run, attack, death procedural), hill-giant (hide cloak: attack), hobgoblin-captain and
+  storm-giant (capes: walk, run, attack), scout (cloak: run, attack; the old cape-takes-the-arm call no longer
+  holds), wight (rags: attack).
+
+Promote the use_ual set (not run): override per monster, then rig/anim/promote on a machine with Blender (ai):
+```
+python3 -I - <<'PY'   # rig_source ual, the SkinTokens joints, the verdict's procedural clips as anim_ual_exclude
+import json, sys; from pathlib import Path; sys.path.insert(0, "tools"); import overrides
+for f in sorted(Path("out/srd-5.2.1").glob("*/rig_ual/verdict.json")):
+    v, mid = json.loads(f.read_text()), f.parts[-3]
+    if v["status"] == "use_ual":
+        o = overrides.load("srd-5.2.1", mid)
+        o.update(rig_source="ual", rig_ual_fit="skintokens", anim_ual_exclude=v["procedural_clips"] or None)
+        overrides.save("srd-5.2.1", mid, o)
+PY
+for id in $(python3 -I -c 'import json,glob; print(" ".join(sorted(f.split("/")[2] for f in glob.glob("out/srd-5.2.1/*/rig_ual/verdict.json") if json.load(open(f))["status"] == "use_ual")))'); do
+  python3 -I tools/forge.py rig $id --force && python3 -I tools/forge.py anim $id --force && python3 -I tools/forge.py promote $id
+done
+```
+`rig --force` reruns the direct rig (~15 s) and replaces model_rigged*.glb, anims/, manifest.anim (the SkinTokens
+rig is kept as rig/skintokens_rigged.glb); `retarget_ual.py --unpromote` undoes only the promote step.
+- Unverified: as before, sheets at tile size only (no viewer, no Godot); the rules' thresholds were tuned on the
+  same 71 verdicts they are compared with; the new calls are one look per sheet.

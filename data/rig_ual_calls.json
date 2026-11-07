@@ -1,0 +1,209 @@
+{
+ "animated-armor": {
+  "status": "use_ual",
+  "procedural_clips": [
+   "walk"
+  ],
+  "reason": "tassets fan behind the legs on the walk: walk stay procedural",
+  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "assassin": {
+  "status": "use_ual",
+  "procedural_clips": [
+   "attack_melee"
+  ],
+  "reason": "long coat smears in the lunge: attack_melee stay procedural",
+  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "barbed-devil": {
+  "status": "needs_skintokens",
+  "reason": "thin whip tail: heat puts it on the right thigh (orange in the front view) and it swings with that leg on walk/run; the rules miss it (too few vertices behind the hips)",
+  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+ },
+ "chain-devil": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "the re-rolled mesh's chains are spiky growths fused to the shoulders and arms, nothing hangs free: they ride the arms with low stretch (p99.9 <= 5.1 on every clip). The prompt rule (chains) does not apply",
+  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+ },
+ "cloud-giant": {
+  "reason": "floor-length robe: walk/run/attack/cast/death all smear (the lunge kneels into the robe); only idle and hit read clean",
+  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+ },
+ "cultist-fanatic": {
+  "status": "use_ual",
+  "procedural_clips": [
+   "walk",
+   "run",
+   "attack_melee",
+   "death"
+  ],
+  "reason": "robe and cape: walk, run, attack_melee, death stay procedural",
+  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "dretch": {
+  "status": "needs_skintokens",
+  "reason": "curled tail on the right thigh",
+  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "druid": {
+  "status": "use_ual",
+  "procedural_clips": [
+   "run"
+  ],
+  "reason": "robe/rags smear on the run: run stay procedural",
+  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "ettercap": {
+  "status": "needs_skintokens",
+  "reason": "extra arm-like limbs on the back ride the arms/spine",
+  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "frost-giant": {
+  "procedural_clips": [
+   "walk",
+   "run",
+   "attack_melee",
+   "death"
+  ],
+  "reason": "long cloak splits onto the thighs on the walk too (walk 6.2), run/attack/death tear",
+  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+ },
+ "gargoyle": {
+  "reason": "wings and tail ride the arms/thighs; also a floor slab under one foot rides that foot",
+  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+ },
+ "green-hag": {
+  "status": "use_ual",
+  "procedural_clips": [
+   "run"
+  ],
+  "reason": "rags smear on the run: run stay procedural",
+  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "guard-captain": {
+  "status": "use_ual",
+  "procedural_clips": [
+   "walk",
+   "run",
+   "attack_melee"
+  ],
+  "reason": "long coat/cape: walk, run, attack_melee stay procedural",
+  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "hill-giant": {
+  "procedural_clips": [
+   "attack_melee"
+  ],
+  "reason": "hide cloak over the shoulders sweeps out into a sheet in the lunge; walk/run/death read fine",
+  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+ },
+ "hobgoblin-captain": {
+  "procedural_clips": [
+   "walk",
+   "run",
+   "attack_melee"
+  ],
+  "reason": "cape streams out behind on walk/run and flaps in the lunge (stretch stays low: the gate cannot see it)",
+  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+ },
+ "imp": {
+  "reason": "direct rig failed: the SkinTokens skeleton has a 1-bone spine (bonemap has no spine_01), so the skintokens fit cannot place UAL's spine; winged with a tail anyway",
+  "judged": "2026-11-07 from the rig log (~/.cache/monster-forge-scratch/rigual/imp_skintokens_heat.log on ai: KeyError spine_01); no sheet"
+ },
+ "lich": {
+  "status": "use_ual",
+  "procedural_clips": [
+   "walk",
+   "run",
+   "attack_melee"
+  ],
+  "reason": "robe smears on walk/run/attack like mage and mummy-lord (2026-11-06 sheet batch_14); was needs_review only because lich had no procedural clips, which it has now (and rig_source ual remakes them on the UAL skeleton)",
+  "judged": "2026-11-07 re-read of the 2026-11-06 sheet batch_14.png"
+ },
+ "mummy-lord": {
+  "status": "use_ual",
+  "procedural_clips": [
+   "walk",
+   "run",
+   "attack_melee"
+  ],
+  "reason": "robe: walk, run, attack_melee stay procedural",
+  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "priest": {
+  "status": "use_ual",
+  "procedural_clips": [
+   "walk",
+   "run",
+   "attack_melee",
+   "death"
+  ],
+  "reason": "robe: walk, run, attack_melee, death stay procedural",
+  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "rakshasa": {
+  "status": "needs_skintokens",
+  "reason": "tail on the floor rides a thigh; coat tears too (p99.9 7-26)",
+  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "sahuagin-warrior": {
+  "status": "needs_skintokens",
+  "reason": "tail and fins; tears (p99.9 7.5-45)",
+  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "scout": {
+  "reason": "cloak streams out in the lunge (procedural by the cloak rule); walk, hit and death read fine. The old mesh's cape took the right arm; the re-rolled one does not",
+  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+ },
+ "spy": {
+  "status": "use_ual",
+  "procedural_clips": [
+   "run",
+   "attack_melee",
+   "death"
+  ],
+  "reason": "cloak: run, attack_melee, death stay procedural",
+  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "storm-giant": {
+  "procedural_clips": [
+   "walk",
+   "run",
+   "attack_melee"
+  ],
+  "reason": "long ragged cape rides the left thigh and arm: trails on the walk, streams sideways on run and the lunge (stretch low)",
+  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+ },
+ "troll": {
+  "status": "needs_review",
+  "reason": "a rag strip joins the feet and stretches into a sheet on walk/run (run p99.9 14.7); attack/death high too",
+  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "vampire": {
+  "status": "use_ual",
+  "procedural_clips": [
+   "walk",
+   "run",
+   "attack_melee"
+  ],
+  "reason": "long cape takes the arm on the attack: walk, run, attack_melee stay procedural",
+  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "weretiger": {
+  "status": "needs_skintokens",
+  "reason": "long looped tail rides the right thigh (orange) and swings with it on walk/run/attack; the rules miss it (thin tail, few vertices)",
+  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+ },
+ "werewolf": {
+  "reason": "re-rolled mesh: a big furry tail/coat flap behind rides the right thigh and stands up in the death",
+  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+ },
+ "wight": {
+  "procedural_clips": [
+   "attack_melee"
+  ],
+  "reason": "tattered rags spread into a sheet between the legs in the lunge",
+  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+ }
+}
