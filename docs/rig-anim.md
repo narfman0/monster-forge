@@ -1282,6 +1282,65 @@ diagonal blade), and both rest poses (an upright rug, a backward diagonal sword)
 that draws the model without a clip. The rug folds only along its length (one chain): a sideways
 wrap would need a grid (`cloth_grid` proper: 3 parallel chains) and new weights.
 
+### Winged quadrupeds: fused feet (2026-11-07)
+
+The audit of 2026-11-07 flagged 22 of 45 winged quadrupeds (fly stretch 10, death 9, swim 8). The
+torn edges of each flagged clip's worst frame, sorted by the parts their vertices' weights mix:
+on 13 of them most sit within 0.1 x h of the floor and mix two legs (front and hind foot on one side,
+or the two fore paws): the dragons sit with their feet close together and SkinTokens blends the
+soles' weights, so fly (front legs +20, hind -25 degrees, IK off), swim (diagonal paddle) and death
+shear the bridge. No wing finger was taken for a leg on those (the rig stage's inserted wings sit on
+sides the roll has no wing chain: `rig_add_wings: false` would leave those wings unanimated). The
+fix is the polar bear's `rig_leg_seams: true` (weights relaxed over the leg-leg seams), set on 14
+monsters where it lowered the stretch with no new flag. Tried and dropped (audit worse or flat):
+a strict-leg rule taking a chain lying out 1.25 x its drop for a tail or wing finger on winged plans
+(adult gold 1.05 -> 1.46, adult silver 2.63 -> 3.79: the rescued legs tore more), and leg seams on
+young gold (1.25 -> 1.38), adult gold, adult silver, adult red, hippogriff, adult bronze, young
+silver, pegasus, pseudodragon, ancient silver (flat).
+
+Audit on ai copies (`rig --force` + `anim --force` from the kept `rig/chosen.glb`; before = the same
+run of the old tree, which reproduces the audit's 135 scores exactly):
+
+| monster | score | stretch p99.9 before -> after |
+|---|---|---|
+| adult-white-dragon | 7.89 -> 0 | breath 2.5 -> 1.7, hit 2.4 -> 1.4; the death pop and the breath/hit floats go |
+| ancient-green-dragon | 5.93 -> 2.87 | swim 8.9 -> 5.8, fly 6.1 -> 4.5, death 6.9 -> 5.0, attack 5.7 -> 3.9 |
+| ancient-bronze-dragon | 5.18 -> 2.54 | swim 9.9 -> 5.5, fly 7.5 -> 3.7, death 5.5 -> 3.3 |
+| ancient-white-dragon | 3.09 -> 2.63 | swim 7.6 -> 6.1, death 8.3 -> 7.7 |
+| ancient-gold-dragon | 2.93 -> 2.22 | swim 7.0 -> 5.2, fly 6.2 -> 4.8 |
+| ancient-black-dragon | 2.63 -> 1.22 | fly 5.5 -> 4.2, swim 6.3 -> 5.5 |
+| silver-dragon-wyrmling | 2.29 -> 0 | fly 5.4 -> 2.6, death 6.6 -> 3.6 |
+| ancient-brass-dragon | 2.26 -> 0 | fly 4.0 -> 2.7 |
+| blue-dragon-wyrmling | 2.23 -> 0 | breath 6.4 -> 3.7, death 7.0 -> 5.5, attack 5.6 -> 3.9 |
+| sphinx-of-valor | 1.46 -> 1.26 | fly 6.6 -> 5.7 |
+| brass-dragon-wyrmling | 1.27 -> 1.07 | fly 5.7 -> 4.8 |
+| gold-dragon-wyrmling | 1.22 -> 0 | swim 5.5 -> 4.4 |
+| young-blue-dragon, young-brass-dragon | 0 -> 0 | fly 4.0 -> 3.8 / 2.7 |
+
+Plan: 22 -> 17 flagged (fly stretch 10 -> 6). Every other monster of the 135 copied (all quadrupeds,
+winged quadrupeds, insectoids and avians, archmage, ape, harpy, centaur): `model_rigged*.glb` and
+every `anims/*.glb` byte-identical (no code changed). Still, and why:
+
+- Swim still tears on the fused feet (5.2-6.1): the paddle moves front and hind of a side in
+  antiphase; relaxed weights spread the bridge but cannot follow two feet half a body apart.
+- Rolls to redo (GPU `--rig-reroll`): ancient-silver (15.2: rearing, the left wing hangs off the neck
+  chain and the head bones own part of it, so every head move tears it; 3 legs), adult-red (2 legs;
+  the right wing's finger bones own the right fore foot's sole), young-silver and pseudodragon (2
+  legs), hippogriff, adult-bronze, brass wyrmling (the inserted wing owns only the lower half of
+  its wing: the upper half stays and the two halves part in fly and death).
+- 31 of 45 winged quadrupeds fly with one wing (20) or none (11): find_wings and the rig stage's
+  lobe search miss a raised wing (it reaches less than WING_REACH sideways). The audit has no flag
+  for an unanimated wing.
+- remorhaz (58.8): its roll has ~18 one-bone legs and three 4-bone legs, all on the left; the
+  longest "leg" is the tail curled over the back (bone_40.., 0.46 of the vertices), and bone_26..29's
+  vertices lie on the floor 0.22 x h below the bone (the idle/walk sinks). Dropping the tail from the
+  legs (tried) left 60.1. Needs a re-roll, likely a re-mesh first (the tail whip meshed as a wire loop).
+- rat (13.7): its "front legs" are two snout chains owning 0-1 vertices, the real fore legs ride the
+  body; the tail is the roll's own chain lying on the floor (no inserted chain, so neither the tail
+  gate nor `rig_tail_chain: false` applies). The sinks are 6-16 mm on a 0.15 m rat (the audit's
+  0.03 x h is 4.6 mm; the stage's size-scaled DIP_MAX is 7.9 mm). Needs a re-roll. No other
+  quadruped has a flagged tail at the floor.
+
 ## Body plans (2026-11-04)
 
 One pilot per plan the six pilots did not cover took the whole chain (`forge.py run`, paint

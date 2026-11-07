@@ -1,4 +1,5 @@
 {
   "rig_facing_check": false,
-  "notes": "Tier-2 review 2026-11-06 (pass 5): ref_0 meshed clean, faces front (open jaws to the front camera); gate refused 84.5 on the wings (suggested 166.1 would turn it backwards): rig_facing_check false."
+  "notes": "Tier-2 review 2026-11-06 (pass 5): ref_0 meshed clean, faces front (open jaws to the front camera); gate refused 84.5 on the wings (suggested 166.1 would turn it backwards): rig_facing_check false.",
+  "rig_leg_seams": true
 }

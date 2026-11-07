@@ -2,5 +2,6 @@
   "ref_pick": 1,
   "notes": "Tier-1 review 2026-11-05: ref_0 (default) has a teal-blue body with gold wings (not gold); mesh otherwise clean, faces front. ref_1: all-gold wyrmling, side view, 4 feet down (tail curled). Re-pick 1 for the colour. Pass 3 (2026-11-05, ref_1 re-mesh): gold wyrmling (gold wings and belly, olive-green back), 2.6 m, 4 feet down, but turned SIDEWAYS: thumb.png front tile is the left profile; the gate refused 104 deg with the head end known (toes and high_centre_end agree at 1.0), suggested yaw -104.0. Pinned -104.0 (the gate value, as for red-dragon-wyrmling, which then passed); qa re-runs on the next pass, check thumb.png. Pass 4 (2026-11-05, qa with the pinned yaw): thumb.png faces front, gate ok 0.0. Pin worked.",
   "yaw": -104.0,
-  "rig_add_wings": false
+  "rig_add_wings": false,
+  "rig_leg_seams": true
 }

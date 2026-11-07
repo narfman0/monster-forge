@@ -1,4 +1,5 @@
 {
   "rig_facing_check": false,
-  "notes": "Tier-2 review 2026-11-06 (pass 5): ref_0 meshed clean, faces front (head in the front tile and at the left of the -X tile); gate refused 78.0 on the wing axis (suggested -39.5 would turn it sideways): rig_facing_check false."
+  "notes": "Tier-2 review 2026-11-06 (pass 5): ref_0 meshed clean, faces front (head in the front tile and at the left of the -X tile); gate refused 78.0 on the wing axis (suggested -39.5 would turn it sideways): rig_facing_check false.",
+  "rig_leg_seams": true
 }

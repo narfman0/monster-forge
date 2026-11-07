@@ -1,4 +1,5 @@
 {
   "ref_pick": 2,
-  "notes": "Tier-1 review 2026-11-05: refs 0 (default) and 1 are teal-green scaled dragons (not silver); the ref_0 mesh faces front-ish (gate ok 23.0) and is 2.6 m wide for 2.5 m long. ref_2: a silver-white wyrmling, side view, tail coiled behind, 4 feet down. Re-pick 2 for the colour."
+  "notes": "Tier-1 review 2026-11-05: refs 0 (default) and 1 are teal-green scaled dragons (not silver); the ref_0 mesh faces front-ish (gate ok 23.0) and is 2.6 m wide for 2.5 m long. ref_2: a silver-white wyrmling, side view, tail coiled behind, 4 feet down. Re-pick 2 for the colour.",
+  "rig_leg_seams": true
 }

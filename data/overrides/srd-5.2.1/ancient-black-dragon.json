@@ -1,4 +1,5 @@
 {
   "yaw": -141.7,
-  "notes": "Tier-2 review 2026-11-05 (pass 4): black-bodied dragon with ORANGE wings (refs 1-2 green / teal); ref_0's grass patch did not mesh as a slab; 18.0 m, 24996 tris, 4 feet down, turned ~58 deg (gate refused 58.0, conf 0.89). yaw -141.7 pinned (the gate value); qa re-runs next pass. Orange wings: a colour re-roll is optional (lead). Facing pass: auto yaw is -110.7, 31 deg from the -141.7 pin; rendered in scratch both read front (the pin has the more even wings, auto the cleaner profile). Pin kept."
+  "notes": "Tier-2 review 2026-11-05 (pass 4): black-bodied dragon with ORANGE wings (refs 1-2 green / teal); ref_0's grass patch did not mesh as a slab; 18.0 m, 24996 tris, 4 feet down, turned ~58 deg (gate refused 58.0, conf 0.89). yaw -141.7 pinned (the gate value); qa re-runs next pass. Orange wings: a colour re-roll is optional (lead). Facing pass: auto yaw is -110.7, 31 deg from the -141.7 pin; rendered in scratch both read front (the pin has the more even wings, auto the cleaner profile). Pin kept.",
+  "rig_leg_seams": true
 }
