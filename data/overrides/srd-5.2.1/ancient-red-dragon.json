@@ -1,4 +1,5 @@
 {
   "ref_pick": 2,
-  "notes": "Tier-2 review 2026-11-06 (pass 5): crimson (colour rule worked) but ref_0 has a second horned head on the wing's leading edge, meshed so; the real head a blurred lump. Re-pick 2; re-mesh."
+  "notes": "Tier-2 review 2026-11-06 (pass 5): crimson (colour rule worked) but ref_0 has a second horned head on the wing's leading edge, meshed so; the real head a blurred lump. Re-pick 2; re-mesh. Facing review 2026-11-07: ref_2 meshed clean, one head; faces front (chest and head in the front tile, head at the left of the -X tile; top view head at +Y, spine within ~10 deg); gate unverified 20.0 (one cue; the spread wings). rig_facing_check false.",
+  "rig_facing_check": false
 }

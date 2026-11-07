@@ -1,4 +1,5 @@
 {
-  "yaw": 161.0,
-  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 (front view) meshed clean but BACKWARDS: abdomen and sting in the front tile, face in the back tile; gate unverified (cues too weak). yaw 161.0 = QA -19.0 + 180."
+  "yaw": 180.0,
+  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 (front view) meshed clean but BACKWARDS: abdomen and sting in the front tile, face in the back tile; gate unverified (cues too weak). yaw 161.0 = QA -19.0 + 180. Facing review 2026-11-07: yaw 161.0 left the body ~10-19 deg off in the top view (head to the right of the sting); yaw 180.0 (the gate's suggestion, = the 2026-11-06 insectoid rule's 179.5). Faces front (face in the front tile, at the left of the -X tile). After qa at 180.0: straight and front (symmetric face in the front tile, sting in the back tile); gate still unverified 0.0 (head-end cues too weak), so rig_facing_check false.",
+  "rig_facing_check": false
 }

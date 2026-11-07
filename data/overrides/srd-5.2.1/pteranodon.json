@@ -1,5 +1,6 @@
 {
   "prompt_extra": "(pteranodon, a flying reptile: long pointed toothless beak, a long backward-pointing bony crest on the head, leathery skin wing membranes from the long finger to the ankle, no feathers, small body:1.4), side view",
   "negative_extra": "(feathers, feathered wings, bird, phoenix, dragon, horns, tail feathers, fan tail:1.5)",
-  "notes": "Tier-2 review 2026-11-06 (pass 5): 3 of 3 feathered phoenix-dragon birds with horns and fan tails, no beak or crest; ref_0 meshed so. Re-roll as a pteranodon."
+  "notes": "Tier-2 review 2026-11-06 (pass 5): 3 of 3 feathered phoenix-dragon birds with horns and fan tails, no beak or crest; ref_0 meshed so. Re-roll as a pteranodon. Facing review 2026-11-07: the re-roll's ref_0 meshed as a leathery-winged pterosaur with a beak, no feathers, but a long whip tail and back spikes and no crest (flag: ref_3 is the closer pteranodon, crested, short tail, if a re-mesh is wanted). Faces front (beak in the front tile, at the left of the -X tile; top view head at +Y); gate refused 122.0 (the raised wing). rig_facing_check false.",
+  "rig_facing_check": false
 }

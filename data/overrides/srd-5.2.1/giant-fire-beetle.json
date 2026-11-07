@@ -1,4 +1,5 @@
 {
   "yaw": -130.6,
-  "notes": "Tier-2 review 2026-11-06 (pass 5): ref_0 meshed clean but BACKWARDS: head and glands in the back tile, at the right of the -X tile; gate unverified (one cue). yaw -130.6 = QA 49.4 + 180."
+  "notes": "Tier-2 review 2026-11-06 (pass 5): ref_0 meshed clean but BACKWARDS: head and glands in the back tile, at the right of the -X tile; gate unverified (one cue). yaw -130.6 = QA 49.4 + 180. Facing review 2026-11-07: after yaw -130.6 faces front (head in the front tile, at the left of the -X tile; top view head at +Y); gate unverified 10.5 (one cue). rig_facing_check false.",
+  "rig_facing_check": false
 }

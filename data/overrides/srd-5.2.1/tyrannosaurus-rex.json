@@ -1,4 +1,5 @@
 {
   "ref_pick": 2,
-  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 a red upright T. rex meshed with a dark floor plate, 10.8 m tall for 12 m; ref_1 grew wings. Re-pick 2 (classic, tail behind); re-mesh, check for a plate."
+  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 a red upright T. rex meshed with a dark floor plate, 10.8 m tall for 12 m; ref_1 grew wings. Re-pick 2 (classic, tail behind); re-mesh, check for a plate. Facing review 2026-11-07: ref_2 meshed clean (blue-green, tail behind, no floor plate); faces front (open jaws in the front tile, head at the left of the -X tile; top view head at +Y); gate unverified 0.0 (one cue). rig_facing_check false.",
+  "rig_facing_check": false
 }

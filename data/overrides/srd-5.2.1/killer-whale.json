@@ -1,5 +1,6 @@
 {
   "prompt_extra": "(an orca swimming horizontally, full side profile, the whole body level from head to tail flukes, no water:1.4), plain white background",
   "negative_extra": "(breaching, jumping, leaping, vertical body, water splash, waves, droplets, sea surface:1.5)",
-  "notes": "Tier-2 review 2026-11-06 (pass 5): 3 of 3 breaching out of splashes; ref_0 meshed upright standing on its flukes (8.7 m tall); ref_2 horizontal but in a splash ring. Re-roll horizontal, no water."
+  "notes": "Tier-2 review 2026-11-06 (pass 5): 3 of 3 breaching out of splashes; ref_0 meshed upright standing on its flukes (8.7 m tall); ref_2 horizontal but in a splash ring. Re-roll horizontal, no water. Facing review 2026-11-07: the re-roll's ref_0 meshed as a horizontal orca, no water (flukes droop toward the floor); faces front (head in the front tile, at the left of the -X tile; top view head at +Y); gate unverified 0.5 (one cue). rig_facing_check false.",
+  "rig_facing_check": false
 }

@@ -1,4 +1,5 @@
 {
   "yaw": -179.7,
-  "notes": "Tier-2 review 2026-11-06 (pass 5): ref_0 meshed clean but SIDEWAYS: eyes and claws face the +X tile; gate refused 88.0. yaw -179.7 (the gate value, QA 92.3 + 90 within 2 deg); check thumb.png after qa."
+  "notes": "Tier-2 review 2026-11-06 (pass 5): ref_0 meshed clean but SIDEWAYS: eyes and claws face the +X tile; gate refused 88.0. yaw -179.7 (the gate value, QA 92.3 + 90 within 2 deg); check thumb.png after qa. Facing review 2026-11-07: after yaw -179.7 faces front (eyes and mouth in the front tile, the abdomen's underside in the back tile); gate unverified 0.0 (cues disagree: a crab is wider than long). rig_facing_check false.",
+  "rig_facing_check": false
 }

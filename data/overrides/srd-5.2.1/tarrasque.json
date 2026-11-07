@@ -1,7 +1,4 @@
 {
   "ref_pick": 2,
-  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 front view with a red sash, the tail curled to one side and a dark plate under the feet. Re-pick 2 (three-quarter side, tail on the ground behind); re-mesh. Rig: upright plans have no tail chain. Rig (2026-11-07): the tail curls off the rump out to the right side and up to the shoulder; the rear-profile detector cannot read it, and upright plans get no tail chain. SkinTokens' 7-bone chain bone_41..bone_47 follows it, so rig_tail_chain adopt bone_41 renames it tail_00..06 (its own weights) and the clips drive it (blender_clips.py upright tail). Apply: forge.py rig tarrasque --force, then anim tarrasque --force.",
-  "rig_tail_chain": {
-    "adopt": "bone_41"
-  }
+  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 front view with a red sash, the tail curled to one side and a dark plate under the feet. Re-pick 2 (three-quarter side, tail on the ground behind); re-mesh. Rig: upright plans have no tail chain. Rig (2026-11-07): the tail curls off the rump out to the right side and up to the shoulder; the rear-profile detector cannot read it, and upright plans get no tail chain. SkinTokens' 7-bone chain bone_41..bone_47 follows it, so rig_tail_chain adopt bone_41 renames it tail_00..06 (its own weights) and the clips drive it (blender_clips.py upright tail). Apply: forge.py rig tarrasque --force, then anim tarrasque --force. 2026-11-07 decision: re-mesh from ref_2 (the ref_0 mesh has floor slabs); the adopt override (bone_41) was specific to the old rig's bone numbering and is removed; redo the tail adoption on the new rig (see docs/rig-anim.md 'Upright tails')."
 }

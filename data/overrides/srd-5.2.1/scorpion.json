@@ -1,5 +1,5 @@
 {
   "prompt_extra": "(side view at eye level, a scorpion with two big pincers held forward, eight legs on the ground, and a segmented tail arched up over the back ending in a curved stinger:1.4)",
   "negative_extra": "(top view, overhead view, view from above, shrimp, prawn, centipede, antennae, tail curled under:1.5)",
-  "notes": "Tier-2 review 2026-11-06 (pass 5): refs 1-2 top-down; ref_0 a shrimp-centipede with antennae, no pincers, tail curled under, meshed so. Re-roll (giant-scorpion's tier-1 fix was the same clause)."
+  "notes": "Tier-2 review 2026-11-06 (pass 5): refs 1-2 top-down; ref_0 a shrimp-centipede with antennae, no pincers, tail curled under, meshed so. Re-roll (giant-scorpion's tier-1 fix was the same clause). Facing review 2026-11-07: no pin (the mesh goes). The re-roll drew photo-real wasps / ants: ref_0 meshed as a yellow-black wasp with long antennae, no pincers, no tail (faces front at QA's yaw; gate unverified 1.5); ref_3 has a stinger tail but no pincers on an ant body. Needs a re-roll (ink style, pincers, arched tail); the unverified gate holds paint meanwhile."
 }

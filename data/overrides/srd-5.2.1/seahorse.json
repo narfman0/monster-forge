@@ -1,4 +1,5 @@
 {
   "yaw": -91.4,
-  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 meshed clean but BACKWARDS: dorsal ridge in the front tile, belly in the back tile, snout to -Y in both side tiles; gate unverified 77.0 (its 165.6 would turn it sideways). yaw -91.4 = QA 88.6 + 180."
+  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 meshed clean but BACKWARDS: dorsal ridge in the front tile, belly in the back tile, snout to -Y in both side tiles; gate unverified 77.0 (its 165.6 would turn it sideways). yaw -91.4 = QA 88.6 + 180. Facing review 2026-11-07: after yaw -91.4 faces front (belly in the front tile, snout at the left of the -X tile and the right of the +X tile); gate unverified 77.0 at 0.58 (an upright curled body has no reliable footprint axis). rig_facing_check false.",
+  "rig_facing_check": false
 }

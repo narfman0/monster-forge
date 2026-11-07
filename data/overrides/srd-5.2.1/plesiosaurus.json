@@ -1,5 +1,5 @@
 {
   "prompt_extra": "(plesiosaurus: a broad flat body with four large paddle-shaped flippers, a very long slender neck, a small head, a short tail, swimming horizontally:1.5), side view",
   "negative_extra": "(legs, feet, claws, crocodile, alligator, upright, rearing, diagonal body, short neck, coiled:1.5)",
-  "notes": "Tier-3 review 2026-11-06 (pass 5): 3 of 3 short-necked crocodile-headed sea reptiles; ref_0 rears diagonally on clawed legs (meshed pitched up). Re-roll long-necked with flippers; ref_1 (horizontal, flippers, short neck) is the fallback pick."
+  "notes": "Tier-3 review 2026-11-06 (pass 5): 3 of 3 short-necked crocodile-headed sea reptiles; ref_0 rears diagonally on clawed legs (meshed pitched up). Re-roll long-necked with flippers; ref_1 (horizontal, flippers, short neck) is the fallback pick. Facing review 2026-11-07: no pin (the mesh goes). The re-roll drew sauropods: ref_0 meshed as a long-necked dinosaur standing on two legs with small forelimbs and a long tail, no flippers (faces front at QA's yaw; gate unverified 0.0); refs 1-2 sauropods on legs, ref_3 a neck rising from water. Needs a re-roll (four paddle flippers, short tail, no legs); the unverified gate holds paint meanwhile."
 }

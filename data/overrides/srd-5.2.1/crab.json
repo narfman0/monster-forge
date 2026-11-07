@@ -1,4 +1,5 @@
 {
   "yaw": -179.6,
-  "notes": "Tier-2 review 2026-11-06 (pass 5): ref_0 meshed clean but SIDEWAYS: the eyes face the -X tile; gate refused 89.0. yaw -179.6 (the gate value, QA -90.6 - 90 within 1 deg)."
+  "notes": "Tier-2 review 2026-11-06 (pass 5): ref_0 meshed clean but SIDEWAYS: the eyes face the -X tile; gate refused 89.0. yaw -179.6 (the gate value, QA -90.6 - 90 within 1 deg). Facing review 2026-11-07: after yaw -179.6 faces front (eyes in the front tile, the shell's rear in the back tile); gate unverified 0.0 (cues disagree: wider than long). rig_facing_check false.",
+  "rig_facing_check": false
 }

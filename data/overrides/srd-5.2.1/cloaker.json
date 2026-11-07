@@ -1,4 +1,5 @@
 {
   "ref_pick": 1,
-  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 a banking manta-dragon meshed twisted, head ~30-45 deg off front (gate refused 32.0, no safe pin); ref_2 a winged knight; ref_1 the closest cloaker (manta body, spread red-lined cloak membrane, whip tail). Re-pick 1; re-mesh, check the gate."
+  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 a banking manta-dragon meshed twisted, head ~30-45 deg off front (gate refused 32.0, no safe pin); ref_2 a winged knight; ref_1 the closest cloaker (manta body, spread red-lined cloak membrane, whip tail). Re-pick 1; re-mesh, check the gate. Facing review 2026-11-07: ref_1 meshed (manta body, red-lined membrane, whip tail), front_view yaw 180; the head sits toward +X of front (at the left of the front tile, at the right of the +X tile); gate refused 33.5, suggested -146.5 = 180 + 33.5 (a turn, not a flip): pinned. After qa: symmetric front tile (face and both wings), head at the left of the -X tile; gate ok 0.0.",
+  "yaw": -146.5
 }

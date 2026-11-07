@@ -1,5 +1,5 @@
 {
   "prompt_extra": "(one heavy four-legged reptile body with FIVE long snake-like necks rising from the shoulders, each neck ending in its own dragon-like head:1.5), side view",
   "negative_extra": "(one head, single head, standing on hind legs, upright, several bodies, multiple animals:1.5)",
-  "notes": "Tier-3 review 2026-11-06 (pass 5): 3 of 3 single-headed crocodile-lizards (ref_2 upright); ref_0 meshed as a plain spiked quadruped. Re-roll with five necks (expect the chimera / ettin difficulty)."
+  "notes": "Tier-3 review 2026-11-06 (pass 5): 3 of 3 single-headed crocodile-lizards (ref_2 upright); ref_0 meshed as a plain spiked quadruped. Re-roll with five necks (expect the chimera / ettin difficulty). Facing review 2026-11-07: no pin (the mesh goes). The per-id prompt drew ref_0 one head, cropped at the right edge: meshed as a single-headed dragon whose body is a closed blob with a flat cut base (the crop), gate refused 166.5. ref_1 has three or four heads but a loose serpent coil floating beside it; ref_2 one head with tangled necks; ref_3 one head. Needs a re-roll (depth template / per-id prompt); ref_1 is the only multi-headed candidate (a human call)."
 }

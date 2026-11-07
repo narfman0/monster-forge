@@ -1,5 +1,6 @@
 {
   "ref_pick": 2,
-  "notes": "Tier-2 review 2026-11-05 (pass 4): ref_0 (front view, wings up) is an eagle standing on two bird legs with no lion body; meshed so (3.0 m; gate unverified 71.5 at 0.66). ref_2 is a proper griffon (eagle head and wings, lion hindquarters, four legs, side view): re-pick 2, re-mesh next pass. Tier-2 review 2026-11-06 (pass 5): ref_2 meshed on-model (eagle front, lion hindquarters) but BACKWARDS: the tail fills the front tile, the head is at the right of the -X tile (chest twisted toward -X); gate unverified 87.5 on the wing axis. yaw 91.1 = QA -88.9 + 180; check thumb.png after qa.",
-  "yaw": 91.1
+  "notes": "Tier-2 review 2026-11-05 (pass 4): ref_0 (front view, wings up) is an eagle standing on two bird legs with no lion body; meshed so (3.0 m; gate unverified 71.5 at 0.66). ref_2 is a proper griffon (eagle head and wings, lion hindquarters, four legs, side view): re-pick 2, re-mesh next pass. Tier-2 review 2026-11-06 (pass 5): ref_2 meshed on-model (eagle front, lion hindquarters) but BACKWARDS: the tail fills the front tile, the head is at the right of the -X tile (chest twisted toward -X); gate unverified 87.5 on the wing axis. yaw 91.1 = QA -88.9 + 180; check thumb.png after qa. Facing review 2026-11-07: after yaw 91.1 the thumb faces front (eagle head and chest in the front tile, head at the left of the -X tile, feathered tail in the back tile; top view head at +Y); gate unverified 92.5 at 0.74 (the one raised wing pulls the mirror axis). rig_facing_check false.",
+  "yaw": 91.1,
+  "rig_facing_check": false
 }

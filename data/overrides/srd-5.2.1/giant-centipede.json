@@ -1,4 +1,5 @@
 {
   "yaw": 118.2,
-  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 meshed but BACKWARDS: head and antennae in the back tile, at the right of the -X tile; gate unverified (cues disagree). yaw 118.2 = QA -61.8 + 180. ~20 legs (beyond LEG_RANGE)."
+  "notes": "Tier-3 review 2026-11-06 (pass 5): ref_0 meshed but BACKWARDS: head and antennae in the back tile, at the right of the -X tile; gate unverified (cues disagree). yaw 118.2 = QA -61.8 + 180. ~20 legs (beyond LEG_RANGE). Facing review 2026-11-07: after yaw 118.2 faces front (red head and antennae in the front tile, at the left of the -X tile; top view head at +Y); gate unverified 3.0 (cues disagree). rig_facing_check false.",
+  "rig_facing_check": false
 }
