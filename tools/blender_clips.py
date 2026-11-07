@@ -186,7 +186,8 @@ if tail and not fan:
 WING_PLANS = {"winged_quadruped", "winged_biped", "avian"}
 wing_search = PLAN in WING_PLANS or "fly" in job["clips"]
 wings = [{"side": w[0], "chain": w[1]} for w in job["wings"]] if job.get("wings") else [] if legless else \
-    rig_topology.find_wings(bones, height, legs, arms, exclude=(head,) if head else ()) if wing_search else []
+    rig_topology.find_wings(bones, height, legs, arms, exclude=(head,) if head else (),
+                            raised=PLAN in WING_PLANS) if wing_search else []
 root = next(b["name"] for b in bones if b["parent"] is None)
 # A sprawled body's raised tail (a scorpion's sting) and its claws (pincers, mouth parts): the
 # attack strikes with them instead of rearing the front legs; find_legs' sprawl_drop keeps them

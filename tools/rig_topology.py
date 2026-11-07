@@ -500,8 +500,12 @@ def find_claws(bones: list[dict], height: float, legs: list[dict], skip: set = f
     return [c for c in out if not any(c[0] in o[1:] for o in out)]
 
 
+RAISED_SIDE = 0.25  # find_wings(raised=True): a raised wing's tip is this far out (x height) at least ...
+RAISED_TOP = 0.5    # ... and above this share of the height
+
+
 def find_wings(bones: list[dict], height: float, legs: list[dict], arms: list[dict] = (),
-               exclude: tuple = ()) -> list[dict]:
+               exclude: tuple = (), raised: bool = False) -> list[dict]:
     """Per side the chain that leaves the upper body near the centre line and reaches
     farthest sideways, at least 0.4 x the height (and is not a leg, an arm or an
     `exclude`d bone such as the head, which rules out a neck that bends sideways):
@@ -512,7 +516,13 @@ def find_wings(bones: list[dict], height: float, legs: list[dict], arms: list[di
     Chains the rig stage inserted (`wing_<side>_00..`, blender_wing_weights.py) are wings
     by name and win their side, wherever they reach. A chain that branches off an arm
     bone (SkinTokens sometimes hangs the wing on the shoulder or upper arm) may start
-    farther than 0.2 x the height from the centre line; the arm itself stays the arm."""
+    farther than 0.2 x the height from the centre line; the arm itself stays the arm.
+
+    `raised` (the clips on winged plans): a side with no such chain takes the chain whose tip
+    is held up over the back: RAISED_SIDE x the height out, above RAISED_TOP of it, and
+    WING_REACH from the chain's root out and up (the ancient red dragon's wings reach 0.38 x
+    the height sideways and rise 0.65 above their roots). Sides found the strict way keep
+    their chain."""
     by_name = {b["name"]: b for b in bones}
     kids = _children(bones)
     arm_bones = {n for a in arms for n in a["chain"]}
@@ -537,11 +547,20 @@ def find_wings(bones: list[dict], height: float, legs: list[dict], arms: list[di
         if len(chain) < 3 or any(n in skip for n in chain):
             continue
         if reach < WING_REACH * height:
+            if raised and reach >= RAISED_SIDE * height:
+                z0 = min(min(x["head"][2], x["tail"][2]) for x in bones)
+                top = max((by_name[n]["tail"] for n in chain), key=lambda p: p[2])
+                rise = top[2] - b["head"][2]
+                if top[2] - z0 >= RAISED_TOP * height and math.hypot(reach, max(rise, 0.0)) >= WING_REACH * height:
+                    cands.append({"side": "r" if tip[0] > cx else "l", "chain": chain, "reach": reach, "raised": True})
             continue
         cands.append({"side": "r" if tip[0] > cx else "l", "chain": chain, "reach": reach})
     wings = []
     for side in ("r", "l"):
         mine = [c for c in cands if c["side"] == side]
+        strict = [c for c in mine if not c.get("raised")]
+        mine = strict if strict or any(c.get("inserted") for c in mine) else \
+            [{k: v for k, v in c.items() if k != "raised"} for c in mine]
         ins = [c for c in mine if c.get("inserted")]
         if ins:
             wings.append({k: v for k, v in ins[0].items() if k != "inserted"})

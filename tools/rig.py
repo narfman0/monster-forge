@@ -382,6 +382,15 @@ def adds_wings(mon: dict) -> bool:
     return plan in WINGED or (plan == "avian" and mon.get("rig_template") != "custom.theropod")
 
 
+def wing_seam(mon: dict) -> bool:
+    """Winged quadrupeds: an inserted wing chain takes the membrane over the surface up to the
+    body (blender_wing_weights.body_seam, as the winged bipeds' after their arm seam), not only
+    the lobe the mesh search cut off MARGIN x the height from the centre line (the hippogriff's,
+    adult bronze dragon's and brass wyrmling's inner wing stayed on the neck and tail bones and
+    parted from the flapping outer half)."""
+    return mon["body_plan"] == "winged_quadruped"
+
+
 # Plans whose clips sway a tail (blender_clips: find_tail on every legged plan but the upright
 # ones, whose tail test matches an arm) and whose rig gets a tail chain found on the mesh when
 # find_tail has fewer than 4 bones (blender_tail_chain.py). Avians are left out: a bird's tail
@@ -487,7 +496,7 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
                        "lods": lod_paths, "out_dir": str(d), "report": str(d / "rig.json"),
                        "sprawl": mon["body_plan"] in SPRAWLED, "hands": bool(mon.get("hands")),
                        "sockets": mon.get("sockets") or [], "feet": FEET.get(mon["body_plan"], 0),
-                       "upright": mon["body_plan"] in UPRIGHT_BODY, "add_wings": adds_wings(mon),
+                       "upright": mon["body_plan"] in UPRIGHT_BODY, "add_wings": adds_wings(mon), "wing_seam": wing_seam(mon),
                        "add_tail": adds_tail(mon), "tail_fused": tail_fused(mon), "fix_legs": fix_legs(mon),
                        **({"tail_adopt": tail_adopt(mon)} if tail_adopt(mon) else {}),
                        "reweight": overrides.load(mon["source"], mon["id"]).get("rig_reweight") or [],
@@ -495,6 +504,7 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
     # the kept skeleton's quality terms, also when it was not rolled now (a hand-fixed rig);
     # with the wing chains finalize inserted, so the score is that of the game skeleton
     q = scored(blender(fg, {**score_job(mon, chosen, d / "rig" / "chosen.json"), "add_wings": adds_wings(mon),
+                            "wing_seam": wing_seam(mon),
                             "add_tail": adds_tail(mon), "tail_fused": tail_fused(mon), "fix_legs": fix_legs(mon),
                             **({"tail_adopt": tail_adopt(mon)} if tail_adopt(mon) else {}),
                             "feet": FEET.get(mon["body_plan"], 0)}), mon["body_plan"], bool(mon.get("hands")))

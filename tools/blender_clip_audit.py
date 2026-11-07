@@ -164,7 +164,8 @@ for s, ch in arms.items():
 
 # wing probe (winged plans), from the mesh, not the rig: per side the vertices that stick out
 # farthest up and out (s + z over the side's vertices past PROBE_SIDE x the height from the centre
-# line and above PROBE_LOW x it), the wing's tip whether or not the rig has a wing chain for it.
+# line and above PROBE_LOW x it, not on the head, neck, legs or tail), the wing's tip whether or
+# not the rig has a wing chain for it.
 # Their travel in the body's frame (a rigid fit to the spine's own vertices on every frame, so the
 # hover bob and the tilt do not count) tells a beating wing from one riding the back
 # (clip_audit flag wing_frozen:<side>).
@@ -176,9 +177,13 @@ if job.get("plan") in WING_PLANS:
     BODY_V = np.nonzero(np.isin(dom, list(_spine - limb_bones)))[0]
     # the centre line: the spine's own skin (the feet can all be on one side: a 2-leg rig)
     _cx = float(np.median(REST[BODY_V, 0])) if len(BODY_V) >= 30 else float(np.median(REST[:, 0]))
+    # not a wing tip: the head, neck, legs and tail's skin (a raised head beside a hanging wing,
+    # the young silver dragon's, stood higher and farther out than the wing tip)
+    _not_wing = np.isin(dom, [n for n, lab in PART.items() if lab.split(":")[0] in ("head", "neck", "tail")
+                              or lab.startswith("leg")])
     for _s, _sg in (("r", 1.0), ("l", -1.0)):
         _side = (REST[:, 0] - _cx) * _sg
-        _sel = np.nonzero((_side > PROBE_SIDE * HEIGHT) & (REST[:, 2] - GROUND > PROBE_LOW * HEIGHT))[0]
+        _sel = np.nonzero((_side > PROBE_SIDE * HEIGHT) & (REST[:, 2] - GROUND > PROBE_LOW * HEIGHT) & ~_not_wing)[0]
         if len(_sel) < 20:
             continue
         _e = _side[_sel] + REST[_sel, 2] - GROUND

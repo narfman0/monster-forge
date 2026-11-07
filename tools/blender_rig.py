@@ -1127,7 +1127,8 @@ wings_added = None
 if job["mode"] in ("score", "finalize") and job.get("add_wings"):
     # before stats(), so joints and empty bones count the inserted chains
     wings_added = blender_wing_weights.add_missing_wings(arm, me, rig_topology, rig_reweight,
-                                                         int(job.get("feet", 0)), bool(job.get("upright")))
+                                                         int(job.get("feet", 0)), bool(job.get("upright")),
+                                                         seam=bool(job.get("wing_seam")))
 tail_added = None
 if job["mode"] in ("score", "finalize") and job.get("tail_adopt"):
     # the override rig_tail_chain {"adopt": bone}: that SkinTokens chain is the tail (tail_00..)

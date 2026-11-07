@@ -1341,6 +1341,65 @@ every `anims/*.glb` byte-identical (no code changed). Still, and why:
   0.03 x h is 4.6 mm; the stage's size-scaled DIP_MAX is 7.9 mm). Needs a re-roll. No other
   quadruped has a flagged tail at the floor.
 
+### Raised wings (2026-11-07)
+
+The audit's `wing_frozen:<side>` flag (`blender_clip_audit.py` wing probe, `clip_audit.T`): per side the
+2% of the vertices farthest up and out (s + z, past 0.15 x h from the spine skin's centre line, above
+0.35 x h), tracked in the body's frame (Kabsch on the spine skin each frame); `fly` (and a lifted idle):
+a side under `wing_frozen` 0.12 x h of travel is frozen; a standing idle compares the two sides. The
+probe now leaves out the head, neck, leg and tail skin: on the young silver dragon it sat on the raised
+head beside a hanging wing (a false alarm). Measured gap: frozen sides 0-0.056, beating 0.19-1.07 (the
+threshold stays). Idle flags only where fly is frozen too (no wing that only folds in the idle).
+Known blind spot: a "wing" chain that is really the body (chimera: its left wing chain starts on spine
+bone_2 and the right probe sits on the goat head) reads as moving.
+
+Before (all 48 rigged winged quadrupeds): 13 fly with no wing, 19 with one, 16 with two. Cause: a
+wing held up over the back reaches less than `WING_REACH` 0.4 x h sideways, so neither `find_wings`
+nor `detect_wings` (the rig stage's lobe search) saw it. Fixes:
+
+- **Raised lobes** (`blender_wing_weights.detect_wings(raised=True)`, `add_missing_wings`): a side the
+  sideways rule found no lobe on is searched again with the reach measured out and up from the
+  shoulders, hypot(side, height over the shoulder girdle) >= 0.4 x h, and at least `RAISED_SIDE` 0.25
+  x h sideways. The lobe then goes through the existing machinery: adopted when a roll chain owns half
+  of it (most cases: the roll had the chain, it just reached up), else a `wing_<side>_*` chain is
+  inserted and weighted. A raised lobe that a wing chain of the other side already skins (half or
+  more) is dropped (`wings_added.raised_dropped`): the young black dragon's roll hangs both
+  membranes on one chain and a second chain tore it (death stretch 2.6 -> 8.1, swim 3.5 -> 13).
+- **Raised chains in the clips** (`rig_topology.find_wings(raised=True)`, `blender_clips` on winged
+  plans and avians): a side with no strict candidate takes a chain (same root rules, 3+ bones) whose
+  tip is `RAISED_SIDE` out, above `RAISED_TOP` 0.5 x h, and 0.4 x h from its root out and up. Sides
+  found the strict way keep their chain, so rigs with two wings are untouched. (The ancient red
+  dragon: its wings reach 0.41 x h on the roll's skeleton but 0.38 after the feet are grounded, so
+  the rig stage saw two wings and the clips none.) Roll scoring and `add_missing_wings`' own check
+  still use the strict rule.
+- **Whole membrane** (`rig.wing_seam`, winged quadrupeds): an inserted chain gets `body_seam` (wing
+  vs body over the welded surface, as the winged bipeds after their arm seam), so the inner membrane
+  the lobe search cut off at `MARGIN` from a leg-biased centre line no longer stays on the neck and
+  tail bones while the outer half flaps. Adoption tests the candidate's root bone by its tail (the
+  hippogriff's bone_25 started 0.05 x h across that centre line, so its whole left wing chain was
+  passed over and a chain inserted on the outer half): the hippogriff's left wing is now the roll's
+  bone_25 chain (fly stretch 5.4 -> 2.8, death 6.5 -> 2.3).
+
+After (rig `--force` + anim `--force` from the kept `rig/chosen.glb`, CPU only): 5 / 7 / 36
+(none / one / two moving wings). Winged bipeds unchanged: 2 / 2 / 17 (ice-mephit, succubus none;
+incubus, sprite one: their rigs come from SkinTokens and go to UAL review). Byte-identical (scratch
+copies, old code vs new, `model_rigged*.glb` and every `anims/*.glb`): every winged biped, every avian,
+archmage, ape, wolf, boar, owlbear, young-red-dragon, giant-eagle, swarm-of-bats, harpy and every
+winged quadruped that already flew with two wings except hippogriff, adult-bronze-dragon (both: the
+membrane seam on their inserted chain; adult bronze's anims are identical, fly stretch 4.1 -> 4.0) and
+ancient-silver-dragon (seam: fly 10.3 -> 11.1, death 13.1 -> 13.8; not re-rigged in `out/`, it waits
+for its GPU re-roll; a `rig --force` would apply it). Blender sometimes segfaults on exit (rc -11)
+with 12+ instances running; a rerun succeeds.
+
+Still frozen, and why: adult-silver, blue/copper wyrmlings, young gold, pseudodragon (no wing chain in
+the roll and no separable lobe: re-roll); pegasus left (held vertically within 0.25 x h of the centre
+line), young brass left (the wing and the head are one blob in the mesh), young black right (one chain
+skins both membranes), young silver left (no left wing in the mesh), sphinx of wonder right (the
+inserted chain owns only the feather tips: 0.024 of the mesh), green wyrmling, young bronze (one side
+each). Partial: brass wyrmling and young green beat only the upper strip of their raised wing (the
+rest is on a chain rescue took for a leg / on body bones). Swim folds the raised wings across the back
+(black wyrmling swim stretch 3.5 -> 6.5, adult black 10 -> 20: that rig is already flagged everywhere).
+
 ## Body plans (2026-11-04)
 
 One pilot per plan the six pilots did not cover took the whole chain (`forge.py run`, paint

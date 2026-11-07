@@ -69,6 +69,11 @@ ATTACH = 0.08     # x height: a loose piece this close to the lobe is part of it
 ADOPT = 0.5        # an existing chain owning this share of a lobe's vertices is that wing
 OUTER = 0.75       # the tip is the geodesic far end of the lobe's part past this share of its reach
 N_BONES = 4        # bones per inserted chain, root to tip
+# raised wings (detect_wings(raised=True), a side the sideways rule found nothing on): a wing held
+# up over the back reaches less than WING_REACH sideways; its reach is then measured from the
+# centre line at the shoulders, out and up (hypot(side, height over the shoulders)), and it still
+# has to stand RAISED_SIDE x the height out to the side (a neck or a crest on the centre line does not)
+RAISED_SIDE = 0.25
 PREFIX = "wing_"   # inserted chains: wing_r_00 .. wing_r_03, wing_l_00 ..
 # rig_reweight entry for an inserted chain (x height for reach and blend; bias plain)
 WEIGHTS = {"reach": 0.3, "bias": 1.0, "blend": 0.1, "far": 0.15, "strip": True, "lobe_bias": 0.5}
@@ -136,14 +141,18 @@ def _geodesic(keys: np.ndarray, centres: np.ndarray, seeds: list) -> tuple[np.nd
 
 
 def detect_wings(V: np.ndarray, cx: float, height: float, sides=("r", "l"), shoulder_z: float | None = None,
-                 n_bones: int = N_BONES) -> list[dict]:
+                 n_bones: int = N_BONES, raised: bool = False) -> list[dict]:
     """Wing lobes on the rest mesh V (n,3), facing +Y with +Z up, the right side +X.
     Per side found: {"side", "joints" [root .. tip] (n_bones + 1 points), "reach" (x
     height), "verts" (lobe size), "share", "root", "tip"}; sides without a lobe are left
     out. `cx` is the skeleton's centre line (rig_topology.centre_x), `shoulder_z` the
     height of the shoulder girdle (shoulder_height): below it, the band within BAND x the
     height of the centre line (arms, hips, thighs, a tail fan's root) is not wing, so the
-    lobe does not run down an arm or a thigh into a tail fan."""
+    lobe does not run down an arm or a thigh into a tail fan.
+
+    `raised`: the reach is hypot(side, height over the shoulder girdle) (RAISED_SIDE x the height
+    sideways at least), for a wing held up over the back (the ancient green dragon's left wing:
+    0.26 x the height out, 0.7 up); the lobe's "raised" is True."""
     z0 = float(V[:, 2].min())
     zc = (shoulder_z if shoulder_z is not None else z0 + 0.5 * height) - SHOULDER_DROP * height
     vox = VOXEL * height
@@ -154,6 +163,8 @@ def detect_wings(V: np.ndarray, cx: float, height: float, sides=("r", "l"), shou
         sel = np.nonzero((s > MARGIN * height) & ~((s < BAND * height) & (V[:, 2] < zc)))[0]
         if len(sel) < MIN_SHARE * len(V):
             continue
+        # the reach measure: sideways, or out and up from the shoulders for a raised wing
+        r_all = np.hypot(s, np.maximum(V[:, 2] - zc - SHOULDER_DROP * height, 0.0)) if raised else s
         P = V[sel]
         key = np.floor(P / vox).astype(np.int64)
         keys, inv = np.unique(key, axis=0, return_inverse=True)
@@ -163,9 +174,11 @@ def detect_wings(V: np.ndarray, cx: float, height: float, sides=("r", "l"), shou
         best = None
         for lab in np.unique(label):
             m = vlabel == lab
-            reach = float(s[sel][m].max()) / height
+            reach = float(r_all[sel][m].max()) / height
             rim = m & (s[sel] < (MARGIN + RIM) * height)
             if reach < WING_REACH or m.sum() < MIN_SHARE * len(V) or rim.sum() < 5:
+                continue
+            if raised and float(s[sel][m].max()) < RAISED_SIDE * height:
                 continue
             if best is None or reach > best[1]:
                 best = (lab, reach, m, rim)
@@ -184,7 +197,7 @@ def detect_wings(V: np.ndarray, cx: float, height: float, sides=("r", "l"), shou
             dmin = min(float(np.sqrt(((L - p) ** 2).sum(axis=1)).min()) for p in Po[:: max(1, len(Po) // 200)])
             if dmin < ATTACH * height:
                 extra |= om
-        Q, sq = P[m], s[sel][m]
+        Q, sq = P[m], r_all[sel][m]
         # root: the inner rim above the shoulder girdle (its upper quarter without one),
         # where the lobe meets the back
         R = P[rim]
@@ -233,7 +246,8 @@ def detect_wings(V: np.ndarray, cx: float, height: float, sides=("r", "l"), shou
                     "reach": round(reach, 3), "verts": int(m.sum()), "share": round(float(m.sum()) / len(V), 3),
                     "geodesic_m": round(gmax, 3), "root": [round(float(c), 4) for c in root],
                     "tip": [round(float(c), 4) for c in tip],
-                    "root_z": round(float(root[2] - z0) / height, 3), "tip_z": round(float(tip[2] - z0) / height, 3)})
+                    "root_z": round(float(root[2] - z0) / height, 3), "tip_z": round(float(tip[2] - z0) / height, 3),
+                    **({"raised": True} if raised else {})})
     return out
 
 
@@ -288,7 +302,10 @@ def _adopt(arm, me, bones: list[dict], lobes: list[dict], legs, arms, head, rig_
             if sub & limbs or len(rig_topology.longest_chain(n, kids)) < 2:
                 continue
             # one-sided: the trunk above both wings (its subtree crosses the centre line) is not a wing
-            if any((by_name[c]["head"][0] + by_name[c]["tail"][0] - 2 * cx) * sg < -0.05 * height for c in sub):
+            # (the root bone by its tail: it may start across a centre line the legs put off the
+            # body's, the hippogriff's bone_25)
+            if any(((2 * by_name[c]["tail"][0] if c == n else by_name[c]["head"][0] + by_name[c]["tail"][0])
+                    - 2 * cx) * sg < -0.05 * height for c in sub):
                 continue
             share = float(np.isin(own, list(sub)).mean())
             if share >= ADOPT and (best is None or (share, -len(sub)) > (best[1], -best[2])):
@@ -591,7 +608,7 @@ def _desc(n: str, kids: dict) -> list[str]:
     return out
 
 
-def add_missing_wings(arm, me, rig_topology, rig_reweight, feet: int, upright: bool) -> dict | None:
+def add_missing_wings(arm, me, rig_topology, rig_reweight, feet: int, upright: bool, seam: bool = False) -> dict | None:
     """In Blender: when the skeleton has fewer than 2 wing chains (find_wings, with the
     plan's foot count as the clips find legs), detect the missing sides' lobes on the mesh,
     insert wing_<side>_00.. chains on the nearest spine bone and weight them. Returns the
@@ -617,9 +634,26 @@ def add_missing_wings(arm, me, rig_topology, rig_reweight, feet: int, upright: b
     missing = [s for s in ("r", "l") if s not in {w["side"] for w in have}]
     zs = shoulder_height(bones, head)
     lobes = detect_wings(V, cx, height, missing, zs)
+    # a side with no lobe out to the side may hold its wing up over the back
+    rest = [s for s in missing if s not in {lb["side"] for lb in lobes}]
+    dropped = []
+    if rest:
+        # a raised lobe the other side's wing chain already skins (the young black dragon's roll
+        # hangs both wings' membranes on one chain) is left to that chain: a second chain tears it
+        names = {g.index: g.name for g in me.vertex_groups}
+        kids = rig_topology._children(bones)
+        for lobe in detect_wings(V, cx, height, rest, zs, raised=True):
+            other = {n for w in have for n in [w["chain"][0], *rig_topology._descendants(w["chain"][0], kids)]}
+            own = [names[max(me.data.vertices[int(i)].groups, key=lambda g: g.weight).group]
+                   if len(me.data.vertices[int(i)].groups) else "" for i in lobe["_verts"]]
+            share = float(np.isin(own, list(other)).mean()) if other else 0.0
+            if share >= ADOPT:
+                dropped.append({"side": lobe["side"], "reach": lobe["reach"], "owned_by_wing": round(share, 3)})
+            else:
+                lobes.append(lobe)
     rep = {"had": {w["side"]: w["chain"] for w in have}, "missing": missing, "centre_x": round(cx, 4),
            "shoulder_z": None if zs is None else round(zs, 3), "height_m": round(height, 3), "lobes": lobes,
-           "chains": {}, "weights": []}
+           "chains": {}, "weights": [], **({"raised_dropped": dropped} if dropped else {})}
     if not lobes:
         return rep
     rep["lobes"] = lobes  # the "_verts" index arrays are popped once the weights are done
@@ -678,6 +712,8 @@ def add_missing_wings(arm, me, rig_topology, rig_reweight, feet: int, upright: b
         rep["seam"] = seam_blend(arm, me, arms, rep["chains"], height, rig_topology)
         # then wing vs body and arm vs body over the surface (hip feathers, the back, the waist)
         rep["body_seam"] = body_seam(arm, me, arms, legs, rep["chains"], sides, cx, height, W0)
+    elif seam and rep["chains"]:  # winged quadrupeds: wing vs body over the surface (no arms)
+        rep["body_seam"] = body_seam(arm, me, [], legs, rep["chains"], sides, cx, height, W0)
     return rep
 
 
