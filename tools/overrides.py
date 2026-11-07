@@ -224,11 +224,16 @@ FIELDS = {
     "rig_reweight": (_reweight, "rig", "geometric re-weight of bone chains in the game files, before sockets: "
                      "[{bones: [root..tip], bias, reach (m), blend (m), strip, fit, hand_room (m), far (m)}] (tools/rig_reweight.py)"),
     "rig_facing_check": (_bool, "rig","refuse to roll a skeleton when model.glb looks misfaced (false = roll anyway)"),
-    "rig_tail_chain": (lambda v: None if v in (True, False, "fused") else "true, false or \"fused\"", "rig",
+    "rig_tail_chain": (lambda v: None if v in (True, False, "fused") or (
+                           isinstance(v, dict) and set(v) == {"adopt"} and isinstance(v["adopt"], str))
+                       else "true, false, \"fused\" or {\"adopt\": \"<bone>\"}", "rig",
                        "insert a tail chain from the mesh when a quadruped / winged quadruped / "
                        "centauroid roll has none or one under 4 bones (tools/blender_tail_chain.py); on by "
                        "default, false turns it off; \"fused\" inserts it even where the tail touches a hind leg "
-                       "or the floor (the centaur's tail sheet), which the default refuses, and the clips keep it"),
+                       "or the floor (the centaur's tail sheet), which the default refuses, and the clips keep it; "
+                       "{\"adopt\": \"bone_41\"} (any plan) renames the SkinTokens chain from that bone tail_00.. "
+                       "with its own weights, and the clips drive it, upright plans too (the tarrasque; "
+                       "`forge.py rig <id> --force` then `anim <id> --force`, CPU only)"),
     "rig_leg_seams": (_bool, "rig", "true: where legs are fused in the mesh (the polar bear's touch from the paws up), "
                       "the weights around the seams between them are relaxed over the surface so the bridge stretches "
                       "evenly instead of tearing into a web (tools/rig_reweight.smooth_seams; `forge.py rig <id> "

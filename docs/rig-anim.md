@@ -641,6 +641,44 @@ lunge runs at full size, was 0.8). Since the rig stage stands the eagle on its f
 its fan rests 8 cm above the ground and the floor clips barely turn it (0-6 degrees); idle,
 lunge, hit and death stay within 1.8 cm of the ground, fly hovers at 0.32 m as before.
 
+**Upright tails** (2026-11-07, the tarrasque). Upright plans have no tail test (it matches an
+arm) and `rig.TAIL_ADDED` leaves them out, so the tarrasque (biped, a 15 m kaiju) stood with a
+rigid tail: SkinTokens' 7-bone chain `bone_41..47` follows it (rump, back and out to the right,
+up the right side, the last bone's skin welded to the right shoulder and upper arm by 43 edges),
+but nothing drove it, and the backward-falling death lay 7 m up on it and on the floor slabs
+(below). The rear-profile detector cannot read a tail that curls sideways, so:
+
+- Rig: override `rig_tail_chain: {"adopt": "bone_41"}` (any plan; `blender_tail_chain.adopt_named`)
+  renames the longest chain from that bone `tail_00..` and keeps its weights (the vertex groups
+  are renamed with the bones); reported as `tail_added` (`adopted.named`). It replaces the
+  mesh detector for that monster. `ground_feet`'s turn of the chain is kept (`tail_00` 36 deg).
+- Clips: an upright rig with a `tail_00` chain (`UPRIGHT_TAIL`) gets the heavy-tail layers;
+  every other upright rig keeps `tail = []` and builds byte-for-byte as before. When the tail's
+  last two bones share `PIN_EDGES` (10) or more mesh edges with the core skin (`tail_pin`), the
+  last `len // 2 + 1` bones are held by an IK pin riding on the nearest torso bone (`bone_1`),
+  and only the free bones (`tail_00..02`) are turned, sized by the far end's travel x body
+  length (`HEAVY_TIP`, at most `HEAVY_MOST` 8 deg a bone, a `HEAVY_LAG` wave down the chain):
+  idle a slow drift and a lift with the breath; walk a counterweight swing per stride plus a dip
+  on each footfall; attack a wind-up against the torso's turn and a late lash across; hit a flick
+  up and aside. Death: the free bones turn flat with the topple (`collapse_turns`: a grid over
+  root X / Z and a per-bone X, on the skin, for the lying heights nearest the ground line) and
+  the lying body rests on its core (`core_mask`: root, spine, neck, head, legs, arms), so what
+  still reaches below the ground goes into it instead of raising the body.
+- Tarrasque, scratch copy (`rig --force` + `anim --force`): tail joints travel 0.45 / 1.6 / 1.2 /
+  0.95 m (idle / walk / attack / hit; 0 before); edges past 4x touching the tail's skin 0 / 0 /
+  29 / 0 / 3 (idle / walk / attack / hit / death; before 0 / 0 / 31 / 0 / 1; the attack's are the
+  right arm pulling the welded tail end, as before). Death: body raise 6.96 -> 4.28 m (the fall's
+  own pivot), lying on the back with the chest on the ground (was 2.7 m up on the slabs). Turning
+  the loose chain `bone_48..51` too tore it off the tail's base (69 edges past 4x), so it is not.
+  The audit now flags death `sink` / `death_floor` (the slabs, 2.7 m under; tail base 1.3 m) where
+  it flagged `death_top` (floating). Archmage, ape, wolf, boar, owlbear, adult red dragon: clips
+  byte-identical; wolf and archmage `rig --force` outputs identical.
+- Still broken (mesh): two floor slabs (shadow plates meshed with the tail, skinned to `bone_51`)
+  hang tilted behind the feet at rest since `ground_feet` turned `bone_48` 46 deg, and the
+  -X stub `bone_48..50` and the slabs never move with the tail; the right forearm is welded to
+  the thigh and tail end, so the overhead cut tears there (pre-existing). A re-mesh without the
+  slabs is the fix.
+
 **Idle height** (`anim.idle_lift`, override `idle_lift`). The game moves a monster with
 `walk`, else `swim`, else `fly` (godot-dnd `Monster.move_clip()`). A monster whose
 `animation_set` has no `walk` only swims or flies, so its idle is held where that clip holds

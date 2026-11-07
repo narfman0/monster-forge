@@ -21,6 +21,9 @@ lods {k: path}, out_dir, report, hands, sockets, reweight):
   finds fewer than 4 bones, the tail is found on the mesh and a tail_00.. chain inserted on
   the hip bone (or a shorter SkinTokens chain that owns it adopted and extended) and weighted
   (blender_tail_chain.add_missing_tail; report key tail_added). Mode "score" does the same.
+- tail_adopt (the override `rig_tail_chain: {"adopt": bone}`, any plan): the chain from that
+  bone is renamed tail_00.. and keeps its weights (blender_tail_chain.adopt_named), instead
+  of add_tail; same report key.
 - reweight (optional, the `rig_reweight` override): chains re-weighted geometrically and
   optionally fitted into the limb (tools/rig_reweight.py) before anything else but the
   wings. Only the game files see it; rig/chosen.glb and its quality score keep SkinTokens'
@@ -1126,7 +1129,10 @@ if job["mode"] in ("score", "finalize") and job.get("add_wings"):
     wings_added = blender_wing_weights.add_missing_wings(arm, me, rig_topology, rig_reweight,
                                                          int(job.get("feet", 0)), bool(job.get("upright")))
 tail_added = None
-if job["mode"] in ("score", "finalize") and job.get("add_tail"):
+if job["mode"] in ("score", "finalize") and job.get("tail_adopt"):
+    # the override rig_tail_chain {"adopt": bone}: that SkinTokens chain is the tail (tail_00..)
+    tail_added = blender_tail_chain.adopt_named(arm, job["tail_adopt"])
+elif job["mode"] in ("score", "finalize") and job.get("add_tail"):
     # likewise a tail chain found on the mesh when find_tail has fewer than 4 bones
     tail_added = blender_tail_chain.add_missing_tail(arm, me, rig_topology, int(job.get("feet", 0)),
                                                      isolated=not job.get("tail_fused"))

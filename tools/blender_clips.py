@@ -162,7 +162,11 @@ arm_by_side = {a["side"]: a for a in arms}
 # upright: the highest bone on the centre line; horizontal: the one reaching farthest forward
 head = rig_topology.find_head(bones, height, legs) if job["upright"] or (legless and arms) or PLAN == "centauroid" else \
     None if job["sprawl"] or legless else rig_topology.find_snout(bones, height, legs)
-tail = [] if job["upright"] or legless else rig_topology.find_tail(bones, height, legs)
+# An upright body has no tail test (it matches an arm), but a chain the rig stage adopted as the
+# tail by name (override rig_tail_chain {"adopt": bone}: the tarrasque's) is driven: the "upright
+# tail" layers below (heavy_tail_*), every other upright clip as before.
+UPRIGHT_TAIL = job["upright"] and not legless and rig_topology.TAIL_PREFIX + "00" in by_name
+tail = [] if (job["upright"] and not UPRIGHT_TAIL) or legless else rig_topology.find_tail(bones, height, legs)
 # else a short tail fan that slopes down onto the ground (a bird's): the floor clips turn it
 # up at its root (below) instead of raising the whole body off it. Birds only: on a quadruped
 # such a chain is a foot or the rump on the floor (the giant badger's 2-bone bone_24..25, 0.40
@@ -423,6 +427,193 @@ def tail_curl(c, n: str, fn) -> None:
         c.turn(n, "X", fn)
 
 
+# --- upright tail (UPRIGHT_TAIL) ---------------------------------------------------------
+# A heavy tail on an upright body (the tarrasque's 7-bone chain, adopted by the rig stage): it
+# sways slowly in the idle, swings against the stride in the walk (a counterweight, with a bounce
+# on each footfall), lashes against the torso's turn in the attack, whips in the hit and is laid
+# down in the fall. Turns in phase add up along a long curled chain (5 degrees a bone swung the
+# dragon's tip 1.66 m), so each layer is sized by its far end's travel, x body length
+# (tail_idle_amps' bound), not by degrees per bone; a travelling lag along the chain makes the
+# heavy end follow the root.
+HEAVY_TIP = {"idle": 0.05, "walk": 0.15, "lash": 0.35, "hit": 0.12}
+HEAVY_MOST = 8.0     # degrees: most any tail bone turns in one layer
+HEAVY_LAG = 0.05     # t of lag per bone down the chain (walk, lash, hit)
+PIN_EDGES = 10       # mesh edges between the tail's last two bones' skin and the core: the end is fused
+
+
+def chain_amps(chain: list[str], tip: float, most: float) -> list[float]:
+    """tail_idle_amps' bound for a part of the tail (the free bones when the end is pinned), with
+    its own far-end travel (x body length) and per-bone cap."""
+    if not chain:
+        return []
+    n = len(chain)
+    w = [(i + 1) / n for i in range(n)]
+    k = 3 if HANG else 2
+    pts = [Vector(by_name[b]["tail"][:k]) for b in chain]
+    lever = [max((p - Vector(by_name[b]["head"][:k])).length for p in pts[i:]) for i, b in enumerate(chain)]
+    reach = sum(wi * li for wi, li in zip(w, lever))
+    amp = min(most, math.degrees(tip * body_len / reach)) if reach > 1e-6 else most
+    return [amp * wi for wi in w]
+
+
+def tail_pin() -> dict | None:
+    """An upright tail whose end is fused to the body (the tarrasque's curls up its right side
+    and its last bone's skin is welded to the shoulder and upper arm: 43 edges): the end is held
+    there by IK riding on the nearest torso bone (setup_ik, `pins`), over the last half of the
+    chain, so the free bones swing the loop without tearing the end off. None: a free end."""
+    if not UPRIGHT_TAIL or len(tail) < 4:
+        return None
+    dom = dominant()
+    core, end = np.isin(dom, sorted(core_names())), np.isin(dom, tail[-2:])
+    cross = int(((end[EDGES[:, 0]] & core[EDGES[:, 1]]) | (end[EDGES[:, 1]] & core[EDGES[:, 0]])).sum())
+    if cross < PIN_EDGES:
+        return None
+    tip = np.array(by_name[tail[-1]]["tail"])
+    follow = min(torso or spine, key=lambda n: seg_dist(tip, tip, np.array(by_name[n]["head"]),
+                                                       np.array(by_name[n]["tail"])))
+    return {"bone": tail[-1], "count": len(tail) // 2 + 1, "follow": follow, "at": Vector(tip.tolist()),
+            "edges": cross}
+
+
+def heavy_free(c) -> list[str]:
+    """The tail bones the heavy layers turn: all, or those above the pinned end (c.pins set)."""
+    pin = HEAVY_PIN
+    if not pin:
+        return list(tail)
+    c.pins = [pin]
+    c.info = {**c.info, "tail_pin": {k: pin[k] for k in ("bone", "count", "follow", "edges")}}
+    return list(tail[:len(tail) - pin["count"]])
+
+
+def heavy_amps(free: list[str], kind: str) -> list[float]:
+    return chain_amps(free, HEAVY_TIP[kind], HEAVY_MOST)
+
+
+def heavy_tail_idle(c) -> None:
+    """A slow side-to-side drift (one per loop, in phase so the first frame is the rest) and a
+    lift with the breath."""
+    free = heavy_free(c)
+    for n, a in zip(free, heavy_amps(free, "idle")):
+        tail_sway(c, n, wave(a, 1))
+        tail_curl(c, n, lambda t, a=a: -0.4 * a * (1 - math.cos(2 * math.pi * t)) / 2)
+
+
+def heavy_tail_walk(c, phase: float) -> None:
+    """Counterweight: one swing per stride, against the stepping side, the far end lagging
+    (a wave down the chain), and a dip on each footfall (twice per cycle, after the body's bob)."""
+    free = heavy_free(c)
+    for i, (n, a) in enumerate(zip(free, heavy_amps(free, "walk"))):
+        tail_sway(c, n, lambda t, i=i, a=a: -a * math.sin(2 * math.pi * (t + phase - HEAVY_LAG * i)))
+        tail_curl(c, n, lambda t, i=i, a=a: 0.35 * a * math.cos(4 * math.pi * (t + phase - 0.08 - HEAVY_LAG * i)))
+
+
+def heavy_tail_lash(c, sx: int) -> None:
+    """The attack: the tail winds against the torso's turn, then lashes across behind the
+    strike (late, down the chain) and settles."""
+    free = heavy_free(c)
+    lash = keys((0, 0), (0.3, 0.6), (0.45, 0.7), (0.62, -1.0), (0.8, -0.35), (1, 0))
+    for i, (n, a) in enumerate(zip(free, heavy_amps(free, "lash"))):
+        tail_sway(c, n, lambda t, i=i, a=a: sx * a * lash(min(1.0, max(0.0, t - HEAVY_LAG * i * 0.6))))
+        tail_curl(c, n, lambda t, i=i, a=a: -0.3 * a * keys((0, 0), (0.45, 1), (0.75, 0.2), (1, 0))(t))
+
+
+def heavy_tail_hit(c, k) -> None:
+    """The hit: the tail flicks up and to the side behind the knock-back, the end late."""
+    free = heavy_free(c)
+    whip = keys((0, 0), (0.2, 1), (0.45, -0.4), (0.75, 0.1), (1, 0))
+    for i, (n, a) in enumerate(zip(free, heavy_amps(free, "hit"))):
+        tail_sway(c, n, lambda t, i=i, a=a: a * whip(min(1.0, max(0.0, t - HEAVY_LAG * i))))
+        tail_curl(c, n, lambda t, a=a: -0.6 * a * k(t))
+
+
+def dominant() -> np.ndarray:
+    """Per vertex (sample() order): the name of its strongest bone ("" for none)."""
+    out = []
+    for o in meshes:
+        names = [g.name for g in o.vertex_groups]
+        for v in o.data.vertices:
+            g = max(v.groups, key=lambda g: g.weight, default=None)
+            out.append(names[g.group] if g is not None else "")
+    return np.array(out)
+
+
+TAIL_LIE = 0.02  # x height: where a collapsed chain's skin lies above the ground line
+
+
+def collapse_turns(chain: list[str], dom: np.ndarray, y0: float) -> tuple[float, float, float, float]:
+    """(root X, root Z, per-bone X) degrees, and the depth left (m), that lay a chain flat in the
+    upright death, which topples backwards onto the heels: a body point's height lying is its rest
+    y less the body's rearmost y0, so a tail curled back behind the rump goes into the ground and
+    raised the body on it (the tarrasque's lay 7 m up). Searched over the chain's own skin, each
+    vertex riding its strongest bone (FK about the bones' heads, as key_fk turns them), for the
+    turns that keep it nearest the ground line (TAIL_LIE x height), below it costing 4 x as much."""
+    heads = [np.array(by_name[n]["head"]) for n in chain]
+    pts = []
+    for n in chain:
+        idx = np.nonzero(dom == n)[0]
+        pts.append(REST_V[idx[:: max(1, len(idx) // 60)]] if len(idx) else np.zeros((0, 3)))
+    lie = TAIL_LIE * height
+
+    def R(ax: int, deg: float) -> np.ndarray:
+        a = math.radians(deg)
+        cs, sn = math.cos(a), math.sin(a)
+        if ax == 0:
+            return np.array([[1, 0, 0], [0, cs, -sn], [0, sn, cs]])
+        return np.array([[cs, -sn, 0], [sn, cs, 0], [0, 0, 1]])
+    best = None
+    for rx in range(-90, 91, 10):
+        for rz in range(-90, 91, 15):
+            for b in range(-20, 21, 5):
+                M, t = np.eye(3), np.zeros(3)  # the parent's turn so far: x -> M x + t
+                cost, deep = 0.0, 0.0
+                for i, (hd, P) in enumerate(zip(heads, pts)):
+                    Ri = R(2, rz) @ R(0, rx) if i == 0 else R(0, b)
+                    # this bone: x -> parent(hd + Ri (x - hd))
+                    t = M @ (hd - Ri @ hd) + t
+                    M = M @ Ri
+                    if len(P):
+                        h = (P @ M.T + t)[:, 1] - y0 - lie
+                        cost += float(np.sum(np.where(h > 0, h * h, 4 * h * h)))
+                        deep = max(deep, float(-(h + lie).min()))
+                if best is None or cost < best[0]:
+                    best = (cost, rx, rz, b, deep)
+    return float(best[1]), float(best[2]), float(best[3]), round(best[4], 3)
+
+
+def core_mask() -> np.ndarray:
+    """Vertices whose strongest bone is the root, the spine, neck and head, a leg or an arm (or
+    below them): the body that lies on the ground in the upright-tail death."""
+    return np.isin(dominant(), sorted(core_names()))
+
+
+def heavy_tail_death(c, w) -> None:
+    """The fall: the tail's free bones turn flat (collapse_turns) with the topple, w(t) their
+    share, its fused end held on the torso (tail_pin), and the lying body rests on its core
+    (core_mask): what still reaches below the ground line (the tarrasque's tail base, and the
+    floor slabs SkinTokens put on a loose chain bone_48..51 welded to it) goes into the ground
+    instead of propping the body up 7 m. Loose chains are not turned: the slabs' chain is welded
+    to the tail's base and tore off it (69 edges past 4x)."""
+    dom, core = dominant(), core_mask()
+    y0 = float(REST_V[core, 1].min())
+    free = heavy_free(c)
+    rx, rz, b, deep = collapse_turns(free, dom, y0)
+    c.turn(free[0], "X", lambda t: rx * w(t))
+    c.turn(free[0], "Z", lambda t: rz * w(t))
+    for n in free[1:]:
+        c.turn(n, "X", lambda t: b * w(t))
+    c.core = core
+    c.info = {**c.info, "tail_collapse": [rx, rz, b, deep]}
+
+
+def core_names() -> set:
+    keep = {root, *spine, *neck, *([head] if head else [])}
+    for ch in [g["chain"] for g in legs] + [a["chain"] for a in arms]:
+        keep |= set(ch) | set(rig_topology._descendants(ch[-1], kids))
+    if head:
+        keep |= set(rig_topology._descendants(head, kids))
+    return keep - set(tail)
+
+
 # A hanging tail in a fall goes limp (death_drape): as the body rolls onto its side each tail
 # bone eases toward the ground, root first, and what reaches the floor lies along it. Rolled
 # with the body it stuck out level beside the rump (centaur: 0.87-1.47 m up with the body top
@@ -570,6 +761,7 @@ def tail_clearance(c) -> None:
 
 
 TAIL_REST_CLEAR = tail_leg_dist(False) if HANG and hind else 0.0
+HEAVY_PIN = tail_pin() if UPRIGHT_TAIL else None  # an upright tail's fused end, held by IK (tail_pin)
 
 
 # --- curves ---------------------------------------------------------------------------
@@ -637,6 +829,8 @@ class Clip:
         self.start_lift = 0.0                       # rest: body raise at t=0, eased out (a lifted death)
         self.drape = False                          # rest: a hanging tail goes limp onto the ground (drape_solve)
         self.sway_k = None                          # per frame: share of a hanging tail's sway (tail_clearance)
+        self.core = None                            # rest: vertex mask the lying body rests on (heavy_tail_death)
+        self.pins: list = []                        # IK holding a fused tail end on the torso (tail_pin)
 
     def turn(self, bone, axis: str, fn) -> None:
         if bone:
@@ -713,6 +907,14 @@ def setup_ik(clip: Clip) -> list:
             tgt.keyframe_insert("location", frame=f)
             ik.influence = k((f - 1) / clip.frames)
             ik.keyframe_insert("influence", frame=f)
+    for pin in clip.pins:  # a fused tail end held where it rests on the torso (tail_pin)
+        tgt = chest_child(f"pin_{pin['bone']}", pin["follow"], pin["at"])
+        made.append(tgt)
+        ik = arm.pose.bones[pin["bone"]].constraints.new("IK")
+        ik.name = "tail_pin"
+        ik.target = tgt
+        ik.use_tail = True
+        ik.chain_count = pin["count"]
     key_feet(clip, [[0.0] * (clip.frames + 1) for _ in legs])
     return made
 
@@ -801,7 +1003,7 @@ def sample(clip: Clip) -> tuple[np.ndarray, np.ndarray, list[np.ndarray]]:
     """Per frame: lowest vertex, lowest non-foot vertex, and all vertex positions."""
     lows, loose, pos = [], [], []
     clip.foot_low, clip.tail_low, clip.reach, clip.leg_low, clip.contact_low = [], [], [], [], []
-    clip.notail_low = []
+    clip.notail_low, clip.core_low = [], []
     for f in range(1, clip.frames + 2):
         scene.frame_set(f)
         dg = bpy.context.evaluated_depsgraph_get()
@@ -822,6 +1024,8 @@ def sample(clip: Clip) -> tuple[np.ndarray, np.ndarray, list[np.ndarray]]:
         clip.notail_low.append(float(co[~is_tail, 2].min()) if is_tail.any() else float(co[:, 2].min()))
         clip.tail_low.append(float(co[is_tail, 2].min()) if is_tail.any() else 1.0)
         clip.contact_low.append(float(co[GROUND, 2].min()) if GROUND.any() else 1.0)
+        if clip.core is not None:
+            clip.core_low.append(float(co[clip.core, 2].min()))
         clip.foot_low.append([float(co[m, 2].min()) if m.any() else 0.0 for m in foot_of])
         clip.leg_low.append([float(co[m, 2].min()) if m.any() else 1.0 for m in leg_of])
         # how far each IK end falls short of its target (0 when the leg reaches)
@@ -861,6 +1065,8 @@ def correction(clip: Clip, lows: np.ndarray, loose: np.ndarray) -> list[float]:
         return [-float(z) for z in lows]
     if clip.ground == "rest":
         out = []
+        if clip.core is not None:  # the upright-tail death lies on its core (heavy_tail_death)
+            lows = np.array(clip.core_low)
         stand = [max(0.0, -z - FLOOR_TOL) for z in lows]
         if clip.drape:  # a limp tail is laid on the ground by drape_solve: lying, the body does not
             # lift for it; standing, it may dip TAIL_DIP like the floor clips' (the idle's frame 0)
@@ -1224,7 +1430,7 @@ def walk(scale: float = 1.0, phase: float | None = None) -> Clip:
     if HANG and hind and TAIL_REST_CLEAR > TAIL_FUSED * height:  # kept clear of the hind legs (tail_clearance)
         c.sway_k = [1.0] * (c.frames + 1)
     k = lambda t: c.sway_k[round(t * c.frames)] if c.sway_k else 1.0
-    for i, n in enumerate(tail):
+    for i, n in enumerate([] if UPRIGHT_TAIL else tail):
         tail_sway(c, n, lambda t, i=i: k(t) * TAIL_SWAY * math.sin(2 * math.pi * (t + phase - 0.09 * i)))
     c.turn_chain(sting, "Z", lambda t: 4.0 * math.sin(2 * math.pi * (t + phase)))
     c.info = {"stride_scale": scale, "legs": len(legs), "feet": [g["foot"] for g in legs],
@@ -1232,6 +1438,8 @@ def walk(scale: float = 1.0, phase: float | None = None) -> Clip:
               "arms": [a["upper"] for a in arms], "tail": tail}
     if HANG:
         c.info["tail_hangs"] = True
+    if UPRIGHT_TAIL:
+        heavy_tail_walk(c, phase)
     return c
 
 
@@ -1255,8 +1463,10 @@ def idle() -> Clip:
     for a in arms:
         c.turn(a["upper"], "X", wave(3.0, 1, 0.5))
         c.turn(a["forearm"], "X", lambda t: 3.5 * (1 - math.cos(2 * math.pi * t)))
-    for n, a in zip(tail, tail_idle_amps()):
+    for n, a in zip([] if UPRIGHT_TAIL else tail, tail_idle_amps()):
         tail_sway(c, n, wave(a, 1))
+    if UPRIGHT_TAIL:
+        heavy_tail_idle(c)
     for w in wings:
         c.turn(w["chain"][0], "Y", lambda t, s=w["side"]: sym(s, -3.0 * math.sin(2 * math.pi * t)))
     c.turn_chain(sting, "Z", wave(4.0, 1))  # the raised tail sways and bobs, the claws flex
@@ -1323,6 +1533,8 @@ def attack_biped() -> Clip:
     c.turn_chain(torso, "X", keys((0, 0), (0.3, 6), (0.57, -12), (0.68, -14), (1.0, 0)))
     c.lift = lambda t: Vector((0, 0.04 * height * keys((0, 0), (0.3, -0.5), (0.57, 1), (1.0, 0))(t),
                                -drop * keys((0, 0.02), (0.3, 0.04), (0.57, 0.08), (1.0, 0.02))(t)))
+    if UPRIGHT_TAIL:
+        heavy_tail_lash(c, sx)
     c.info = {**c.info, "arm": a["chain"], "weapon_socket": "hand_r"}
     return c
 
@@ -1414,8 +1626,10 @@ def hit() -> Clip:
     c.turn(skull, "X", keys((0, 0), (0.22, 12), (1, 0)))
     for w in wings:
         c.turn(w["chain"][0], "Y", lambda t, s=w["side"]: sym(s, -12 * k(t)))
-    for n in tail:
+    for n in [] if UPRIGHT_TAIL else tail:
         tail_curl(c, n, lambda t: 4 * k(t))
+    if UPRIGHT_TAIL:
+        heavy_tail_hit(c, k)
     c.turn_chain(sting, "X", lambda t: 10 * k(t))  # thrown back, the claws fly open
     claw_turn(c, lambda t: 8 * k(t), lambda t: -10 * k(t))
     return c
@@ -1463,6 +1677,8 @@ def death() -> Clip:
             c.turn(a["upper"], "Y", lambda t, s=a["side"]: sym(s, keys((0, 0), (0.3, -10), (0.75, -70), (1, -70))(t)))
             c.turn(a["upper"], "X", keys((0, 0), (0.3, 20), (0.75, 40), (1, 40)))
             c.turn(a["forearm"], "X", keys((0, 0), (0.3, 30), (0.8, 15), (1, 15)))
+        if UPRIGHT_TAIL:
+            heavy_tail_death(c, lambda t: smooth((t - 0.28) / 0.5))
         return c
     if PLAN == "avian":
         # a bird stands with its legs under it and its wings out: rolling onto the side

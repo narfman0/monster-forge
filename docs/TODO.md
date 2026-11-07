@@ -1173,8 +1173,11 @@ untested variants; off-model fork, heavy crossbow, mace props.
       paint, 4 re-picks and 4 yaw pins wait for a pass, 17 re-rolls written (unusual
       creatures drawn as the nearest common animal; the avian plan grows wings on theropods
       and forelegs on the wyvern). Code still needed whatever the reference: rug (cloth
-      chain), xorn (radial clips), flying sword (hover clip), upright-plan tail (tarrasque),
-      marilith's six hand sockets.
+      chain), xorn (radial clips), flying sword (hover clip), marilith's six hand sockets.
+      Upright-plan tail done in code (2026-11-07, docs/rig-anim.md "Upright tails": override
+      `rig_tail_chain {"adopt": "bone_41"}` + heavy-tail clip layers); apply after the queue with
+      `forge.py rig tarrasque --force` then `anim tarrasque --force`. Its floor slabs still need a
+      re-mesh.
 - [x] (2026-11-05) Prompt-table fixes for the tier-2 findings (docs/references.md "Table rules
       and the frozen list"): `forge.ref_prompt` learnt `_rules` (match on plan / id regex /
       type / registry-prompt regex / unarmed, `insert` before the pose tail, a `by_group`
@@ -1225,3 +1228,8 @@ python3 -I tools/clip_audit.py --all --jobs 8 --force
 Still needs GPU or a re-mesh: bronze-dragon-wyrmling and bulette (rig has no fore legs / 3+1 legs),
 crocodile (no right hind leg in the mesh), giant-toad (legs are front feet), giant-scorpion (one mesh
 leg has no chain), polar-bear (fused legs, thin webs in swim), salamander (head chain is an arm).
+
+Tarrasque (2026-11-07): tail clips work once `rig tarrasque --force` + `anim tarrasque --force` are re-run
+(override `rig_tail_chain: {"adopt": "bone_41"}`), but the mesh carries two floor shadow slabs skinned to a
+stray chain (bone_48..51); a re-mesh/re-roll without the slabs is the real fix (add the house_ground negatives
+and re-pick). The right forearm is welded to the thigh and tail end in the mesh.

@@ -553,3 +553,30 @@ def add_missing_tail(arm, me, rig_topology, feet: int, isolated: bool = True) ->
         rep["adopted"] = {"was": adopted["chain"], "share": adopted["share"], "bones": names_new[:k],
                           "inserted": names_new[k:], **({"left": adopted["left"]} if adopted["left"] else {})}
     return rep
+
+
+def adopt_named(arm, root: str) -> dict:
+    """In Blender: the override `rig_tail_chain: {"adopt": "<bone>"}` names a SkinTokens chain the
+    tail: the longest chain from that bone is renamed tail_00.. (rig_topology.find_tail then
+    takes it by name, on any plan) and keeps its own weights (Blender renames the vertex groups
+    with the bones). For a tail the mesh profile cannot find: the tarrasque's curls off the rump
+    out to its right side and up to the shoulder, an upright plan's (docs/rig-anim.md "Upright
+    tails")."""
+    import bpy
+    names = [b.name for b in arm.data.bones]
+    if root not in names:
+        return {"found": False, "reason": f"no bone {root}", "had": []}
+    kids = {b.name: [c.name for c in b.children] for b in arm.data.bones}
+    chain = [root]
+    while len(kids[chain[-1]]) == 1:
+        chain.append(kids[chain[-1]][0])
+    new = [f"{PREFIX}{i:02d}" for i in range(len(chain))]
+    parent = arm.data.bones[root].parent.name if arm.data.bones[root].parent else None
+    bpy.context.view_layer.objects.active = arm
+    arm.select_set(True)
+    bpy.ops.object.mode_set(mode="EDIT")
+    for old, nn in zip(chain, new):
+        arm.data.edit_bones[old].name = nn
+    bpy.ops.object.mode_set(mode="OBJECT")
+    return {"found": True, "had": [], "chain": {"bones": new, "parent": parent},
+            "adopted": {"was": chain, "bones": new, "inserted": [], "named": root}, "weights": {"kept": "skintokens"}}

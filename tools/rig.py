@@ -377,9 +377,18 @@ def adds_tail(mon: dict) -> bool:
     tail roots where it leaves the rump and the legs keep their side of the seam, so the owlbear,
     wolf and centaur pass, docs/rig-anim.md "Tail chains from the mesh"); the override
     `rig_tail_chain: false` turns it off for one monster."""
-    if mon["body_plan"] not in TAIL_ADDED:
+    if mon["body_plan"] not in TAIL_ADDED or tail_adopt(mon):
         return False
     return overrides.load(mon["source"], mon["id"]).get("rig_tail_chain") is not False
+
+
+def tail_adopt(mon: dict) -> str | None:
+    """Override `rig_tail_chain: {"adopt": "<bone>"}` (any plan): the SkinTokens chain from that
+    bone is the tail, renamed tail_00.. with its own weights (blender_tail_chain.adopt_named),
+    instead of a chain found on the mesh. For a tail the rear-profile detector cannot read, and
+    for upright plans, whose clips then drive it (blender_clips.py "upright tail": the tarrasque)."""
+    v = overrides.load(mon["source"], mon["id"]).get("rig_tail_chain")
+    return v.get("adopt") if isinstance(v, dict) else None
 
 
 def tail_fused(mon: dict) -> bool:
@@ -460,12 +469,14 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
                        "sockets": mon.get("sockets") or [], "feet": FEET.get(mon["body_plan"], 0),
                        "upright": mon["body_plan"] in UPRIGHT_BODY, "add_wings": adds_wings(mon),
                        "add_tail": adds_tail(mon), "tail_fused": tail_fused(mon), "fix_legs": fix_legs(mon),
+                       **({"tail_adopt": tail_adopt(mon)} if tail_adopt(mon) else {}),
                        "reweight": overrides.load(mon["source"], mon["id"]).get("rig_reweight") or [],
                        "leg_seams": overrides.load(mon["source"], mon["id"]).get("rig_leg_seams") is True})
     # the kept skeleton's quality terms, also when it was not rolled now (a hand-fixed rig);
     # with the wing chains finalize inserted, so the score is that of the game skeleton
     q = scored(blender(fg, {**score_job(mon, chosen, d / "rig" / "chosen.json"), "add_wings": adds_wings(mon),
                             "add_tail": adds_tail(mon), "tail_fused": tail_fused(mon), "fix_legs": fix_legs(mon),
+                            **({"tail_adopt": tail_adopt(mon)} if tail_adopt(mon) else {}),
                             "feet": FEET.get(mon["body_plan"], 0)}), mon["body_plan"], bool(mon.get("hands")))
     (d / "rig" / "chosen.json").write_text(json.dumps(q, indent=1))
     man = fg.load_manifest(d)
@@ -502,7 +513,8 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
         fg.log(f"{mon['id']}: WARNING rig_fix_legs mirror skipped {lm['skipped']}")
     if tail_changed(rep):
         ta = man["rig"]["tail_added"]
-        fg.log(f"{mon['id']}: rig added tail chain {ta['bones']} on {ta['parent']} (found on the mesh)"
+        fg.log(f"{mon['id']}: rig added tail chain {ta['bones']} on {ta['parent']} "
+               + ("(rig_tail_chain adopt)" if (ta.get("adopted") or {}).get("named") else "(found on the mesh)")
                + (f", adopted {ta['adopted']['was']}" if ta.get("adopted") else ""))
     elif rep.get("tail_added"):
         fg.log(f"{mon['id']}: WARNING rig has a {len(rep['tail_added'].get('had') or [])}-bone tail and found no tail "
