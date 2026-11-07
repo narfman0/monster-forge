@@ -1,3 +1,5 @@
+> **Start here: [HANDOFF-2026-11-07.md](HANDOFF-2026-11-07.md)** (state after the overnight run, how to resume with 64 GB, what is left).
+
 # TODO (checkpoint 2026-11-05, paused: SRD generation and rigging are proven, paint is blocked)
 
 Goal: SRD 5.2.1 content first and great. Non-SRD content lives in the separate local repo

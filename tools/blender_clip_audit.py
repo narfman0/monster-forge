@@ -162,6 +162,64 @@ for s, ch in arms.items():
         distal[f"arm_{s}"] = np.nonzero(np.isin(dom, list(desc(ch[len(ch) // 2]))))[0]
 
 
+# wing probe (winged plans), from the mesh, not the rig: per side the vertices that stick out
+# farthest up and out (s + z over the side's vertices past PROBE_SIDE x the height from the centre
+# line and above PROBE_LOW x it), the wing's tip whether or not the rig has a wing chain for it.
+# Their travel in the body's frame (a rigid fit to the spine's own vertices on every frame, so the
+# hover bob and the tilt do not count) tells a beating wing from one riding the back
+# (clip_audit flag wing_frozen:<side>).
+PROBE_SIDE, PROBE_LOW, PROBE_TOP = 0.15, 0.35, 0.02
+WING_PLANS = {"winged_quadruped", "winged_biped", "avian"}
+PROBE, PROBE_CX = {}, None
+if job.get("plan") in WING_PLANS:
+    _spine = set(parts.get("spine") or []) | ({parts["root"]} if isinstance(parts.get("root"), str) else set())
+    BODY_V = np.nonzero(np.isin(dom, list(_spine - limb_bones)))[0]
+    # the centre line: the spine's own skin (the feet can all be on one side: a 2-leg rig)
+    _cx = float(np.median(REST[BODY_V, 0])) if len(BODY_V) >= 30 else float(np.median(REST[:, 0]))
+    for _s, _sg in (("r", 1.0), ("l", -1.0)):
+        _side = (REST[:, 0] - _cx) * _sg
+        _sel = np.nonzero((_side > PROBE_SIDE * HEIGHT) & (REST[:, 2] - GROUND > PROBE_LOW * HEIGHT))[0]
+        if len(_sel) < 20:
+            continue
+        _e = _side[_sel] + REST[_sel, 2] - GROUND
+        _tip = _sel[np.argsort(-_e)[:max(20, int(PROBE_TOP * len(_sel)))]]
+        _own = {}
+        for _n in dom[_tip]:
+            _own[_n] = _own.get(_n, 0) + 1
+        PROBE[_s] = {"v": _tip, "own": dict(sorted(_own.items(), key=lambda kv: -kv[1])[:3]),
+                     "out_frac": round(float(_side[_tip].mean()) / HEIGHT, 3),
+                     "up_frac": round(float((REST[_tip, 2] - GROUND).mean()) / HEIGHT, 3)}
+    PROBE_CX = round(_cx, 4)
+
+
+def rigid_to_rest(co, idx):
+    """Rotation and translation that map the frame's idx vertices onto their rest positions (Kabsch)."""
+    a, b = co[idx], REST[idx]
+    ca, cb = a.mean(axis=0), b.mean(axis=0)
+    u, _, vt = np.linalg.svd((a - ca).T @ (b - cb))
+    d = np.sign(np.linalg.det(u @ vt))
+    r = u @ np.diag([1, 1, d]) @ vt
+    return r, cb - ca @ r
+
+
+def wing_probe(P):
+    """Per side: the probe tips' travel in the body frame (p90 over the tips, max over the frames), x height."""
+    out = {}
+    for s, pr in PROBE.items():
+        v = pr["v"]
+        rel = []
+        for co in P:
+            if len(BODY_V) >= 30:
+                r, t = rigid_to_rest(co, BODY_V)
+                rel.append(co[v] @ r + t)
+            else:
+                rel.append(co[v])
+        rel = np.array(rel)
+        trav = np.linalg.norm(rel - rel[0], axis=2)  # (frames, tips)
+        out[s] = r4(float(np.percentile(trav.max(axis=0), 90)) / HEIGHT)
+    return out
+
+
 def torso_frame(co):
     """Torso proxy: an ellipsoid fitted to the torso vertices (PCA, 1.0 x the std per axis x 1.6)."""
     if len(torso_v) < 30:
@@ -335,6 +393,8 @@ def evaluate(name, act, tiles=None):
             rep["hand_r_travel_frac"] = r4(np.linalg.norm(tr - tr[0], axis=1).max() / HEIGHT)
     if pen:
         rep["limb_in_torso"] = {k: round(max(v) - v[0], 3) for k, v in pen.items()}
+    if PROBE and name in ("fly", "idle", "breath", "death"):
+        rep["wing_probe_travel_frac"] = wing_probe(P)
     if tiles is not None:
         render_clip(name, n, f0, loop, P, tiles, pop_f if popv.max() > 0.015 * HEIGHT else None)
     arm.animation_data.action = None
@@ -452,7 +512,9 @@ if TILES:
     CAM = setup_render()
 out = {"id": job["id"], "height": r4(HEIGHT), "length": r4(LENGTH), "size": r4(SIZE), "verts": int(len(REST)),
        "edges": int(ok_e.sum()), "ground_rest": r4(GROUND), "legs": len(legs), "arms": sorted(arms),
-       "wings": sorted(wings), "tail_bones": len(tail), **TAIL_INFO, "sockets": SOCKETS, "torso_verts": int(len(torso_v)),
+       "wings": sorted(wings),
+       "wing_probe": {s: {k: v for k, v in pr.items() if k != "v"} for s, pr in PROBE.items()},
+       "wing_probe_cx": PROBE_CX, "tail_bones": len(tail), **TAIL_INFO, "sockets": SOCKETS, "torso_verts": int(len(torso_v)),
        "clips": {}}
 adir = Path(job["anims"])
 order = sorted(job["clips"], key=lambda c: (c != "idle", c))  # idle first: from_idle

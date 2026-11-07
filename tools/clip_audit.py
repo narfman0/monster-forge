@@ -54,6 +54,11 @@ T = {
     "gait_cv": 0.5,        # walk: spread of the stance feet's backward speeds (std / mean): feet slide
     "socket": 0.03,        # socket drifts off the mesh around it, x height
     "wing": 0.15,          # fly: wing tip travel / wing length, under this = wings not beating
+    "wing_frozen": 0.12,   # fly (and a hovering idle): a wing side's tip travel in the body frame, x height (the
+                           # mesh probe: the side's vertices farthest up and out), under this = that wing rides the
+                           # back (beating wings 0.17-1.07, unanimated 0-0.08)
+    "wing_frozen_rel": 0.2,  # standing idle (wings drift 3 degrees): under this x the other side's travel ...
+    "wing_idle": 0.03,     # ... when the other side travels at least this x height
     "tail": 0.02,          # walk/idle: tail tip travel / tail length, under this = tail frozen
     "death_floor": 0.03,   # death last frame: lowest vertex off the ground, x height
     "death_top": 0.65,     # death last frame: top of an upright body, x standing height
@@ -95,7 +100,7 @@ def measure(t: dict, out: Path, tiles: Path | None = None, force: bool = False) 
     if dst.exists() and not force and tiles is None:
         return f"{t['id']}: exists"
     job = {"id": t["id"], "src": str(t["dir"] / "model_rigged.glb"), "anims": str(t["dir"] / "anims"),
-           "clips": t["clips"], "parts": t["parts"], "out": str(dst),
+           "clips": t["clips"], "parts": t["parts"], "plan": t["plan"], "out": str(dst),
            "tiles": str(tiles) if tiles else None, "tile_px": 180, "tile_frames": 5}
     t0 = time.time()
     p = subprocess.run([BLENDER, "-b", "--factory-startup", "--python-exit-code", "1", "-P", str(SCRIPT), "--",
@@ -177,6 +182,15 @@ def flags_for(t: dict, m: dict) -> list[dict]:
             w = min(r["wing_tip_travel_frac"].values())
             if w < T["wing"]:
                 add(c, "wing", w, T["wing"], invert=True)
+        wp = r.get("wing_probe_travel_frac") or {}
+        if c in ("fly", "idle") and wp:
+            hi = max(wp.values())
+            for side, v in sorted(wp.items()):
+                if c == "fly" or lifted:  # beating: each side on its own
+                    if v < T["wing_frozen"]:
+                        add(c, f"wing_frozen:{side}", v, T["wing_frozen"], invert=True)
+                elif hi > T["wing_idle"] and v < T["wing_frozen_rel"] * hi:  # standing idle: against the other side
+                    add(c, f"wing_frozen:{side}", v, T["wing_frozen_rel"] * hi, invert=True)
         if c in ("walk",) and "tail_tip_travel_frac" in r and r["tail_tip_travel_frac"] < T["tail"]:
             add(c, "tail", r["tail_tip_travel_frac"], T["tail"], invert=True)
         if c == "death":
