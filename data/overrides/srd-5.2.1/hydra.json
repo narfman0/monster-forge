@@ -1,5 +1,9 @@
 {
-  "prompt_extra": "(one heavy four-legged reptile body with FIVE long snake-like necks rising from the shoulders, each neck ending in its own dragon-like head:1.5), side view",
-  "negative_extra": "(one head, single head, standing on hind legs, upright, several bodies, multiple animals:1.5)",
-  "notes": "Tier-3 review 2026-11-06 (pass 5): 3 of 3 single-headed crocodile-lizards (ref_2 upright); ref_0 meshed as a plain spiked quadruped. Re-roll with five necks (expect the chimera / ettin difficulty). Facing review 2026-11-07: no pin (the mesh goes). The per-id prompt drew ref_0 one head, cropped at the right edge: meshed as a single-headed dragon whose body is a closed blob with a flat cut base (the crop), gate refused 166.5. ref_1 has three or four heads but a loose serpent coil floating beside it; ref_2 one head with tangled necks; ref_3 one head. Needs a re-roll (depth template / per-id prompt); ref_1 is the only multi-headed candidate (a human call)."
+  "notes": "History: tier-3 pass 5 and the 2026-11-07 facing review: prompt-only rounds drew single-headed crocodile-lizards, a cropped one-head dragon (gate refused 166.5) or ref_1 with 3-4 heads and a floating coil (old outputs in ~/.cache/monster-forge-scratch/old-rerolls/hydra). Re-roll 2026-11-07 with the hydra_34 depth template (per-id prompt in prompt_tweaks.json). Round 1 (0.75 / 0.7): 4 of 4 one body with five fanned heads but photos of a green toy on dark backgrounds. Round 2 (0.6 / 0.5, white-background and photo/toy negatives): 4 of 4 one crocodile-like body, four legs, a tail and five heads on five necks from the shoulders, white backgrounds (refs 0, 2, 3 a smooth rendered look, ref_1 watercolour with a blue ground shadow): pick 2 (cleanest, every head and leg apart).",
+  "ref_template": {
+    "name": "hydra_34",
+    "strength": 0.6,
+    "end": 0.5
+  },
+  "ref_pick": 2
 }

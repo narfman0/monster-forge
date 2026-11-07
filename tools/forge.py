@@ -519,11 +519,21 @@ def apply_style(wf: dict, style: dict, prompt: str, mon: dict, ov: dict | None =
 # plans the text prompt cannot pose. Depth maps drawn by tools/blender_ref_templates.py from proxy
 # bodies, fed to the style's controlnet-union model in depth mode. "apose" is the style's own
 # OpenPose A-pose (data/style.json "controlnet", biped/winged_biped). Override `ref_template`:
-# false (no template), a name below, or an object merged over the plan's template.
+# false (no template), a name below, or an object merged over the plan's template (or over the
+# template it names: {"name": "hydra_34", "strength": 0.6, "end": 0.5}).
 REF_TEMPLATES = {
     "serpentine_side": {"image": "workflows/pose/serpentine_side_depth.png", "type": "depth",
                         "strength": 0.75, "start": 0.0, "end": 0.7},
     "centaur_34": {"image": "workflows/pose/centaur_34_depth.png", "type": "depth",
+                   "strength": 0.75, "start": 0.0, "end": 0.7},
+    # one-body multi-head and hybrid quadrupeds (chosen per id by the override `ref_template`)
+    "hydra_34": {"image": "workflows/pose/hydra_34_depth.png", "type": "depth",
+                 "strength": 0.75, "start": 0.0, "end": 0.7},
+    "twohead_dog_34": {"image": "workflows/pose/twohead_dog_34_depth.png", "type": "depth",
+                       "strength": 0.75, "start": 0.0, "end": 0.7},
+    "sphinx_side": {"image": "workflows/pose/sphinx_side_depth.png", "type": "depth",
+                    "strength": 0.75, "start": 0.0, "end": 0.7},
+    "chimera_34": {"image": "workflows/pose/chimera_34_depth.png", "type": "depth",
                    "strength": 0.75, "start": 0.0, "end": 0.7},
 }
 REF_TEMPLATE_BY_PLAN = {"serpentine": "serpentine_side", "centauroid": "centaur_34"}
@@ -538,7 +548,12 @@ def ref_template(mon: dict, style: dict, ov: dict | None = None) -> dict | None:
     if want is False or want == "none":
         return None
     plan = mon.get("body_plan")
-    name = want if isinstance(want, str) else REF_TEMPLATE_BY_PLAN.get(plan)
+    if isinstance(want, str):
+        name = want
+    elif isinstance(want, dict) and want.get("name") in REF_TEMPLATES:  # {name, strength, ...}: a named template, tuned
+        name = want["name"]
+    else:
+        name = REF_TEMPLATE_BY_PLAN.get(plan)
     if name is None and plan in cn.get("body_plans", []):
         name = "apose"
     if name == "apose":

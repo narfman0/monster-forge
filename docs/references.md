@@ -107,6 +107,44 @@ The kept config reproduces the picked candidates bit for bit (`ref --force` gave
 four files). The template wins over the style: the depth map's grey body pulls the
 colouring toward photo and paper looks; a style-preserving recipe for centaurs is open.
 
+### One-body multi-head and hybrid templates (2026-11-07)
+
+Prompts alone drew two whole dogs for the death dog, three stacked animals for the chimera,
+single-headed lizards for the hydra and a woman riding (or standing beside) a lion for the
+sphinx, over 3-5 rounds each. A depth template with ONE body silhouette and the necks where
+they belong fixed the body count on the first round, 4 of 4 every time. They are drawn by
+`quadruped(body, necks, wings, tail, head_scale, wing_y)` in `tools/blender_ref_templates.py`
+(one barrel / chest / rump in lion, dog or reptile proportions, four legs down, Bezier necks
+from the top of the chest, each ending in a `head(kind)`: reptile, dog, lion, goat, human,
+woman; raised `feathered` or `membrane` wings). A new multi-head monster is a new function
+calling it and a `REF_TEMPLATES` entry. They are not tied to a plan: the override picks one.
+
+| template | proxy | used by |
+|---|---|---|
+| `hydra_34` | low reptile body, short tail, five necks fanned from forward-low to up-and-back; side view 20 deg from the front | hydra |
+| `twohead_dog_34` | lean dog, two necks splayed left/right from one chest (far head higher); three-quarter front | death-dog |
+| `sphinx_side` | lion body, raised feathered wings, upright neck, `woman` head (no side flaps); side view | sphinx-of-lore |
+| `chimera_34` | lion body, three-lobed membrane wings mid-back, goat neck up on the far side, lion head in front, dragon on a long forward neck; side view | chimera |
+
+Override `ref_template` takes a name or `{"name": ..., "strength": ..., "end": ...}` (an
+object naming a `REF_TEMPLATES` entry is merged over that entry, 2026-11-07).
+
+Findings: at the default 0.75 / 0.7 the grey proxy pulls the picture to photo / toy /
+statue looks (hydra: a green toy on a dark studio background; sphinx: gold-and-blue statues);
+**0.6 / 0.5** plus a weighted "(full color manga ink illustration, isolated on a plain white
+background:1.3)" and a photo / toy / statue / dark-background negative kept the body and won
+the white background back. Parts of the proxy that the prompt does not name are drawn
+literally: wing-bone sticks became rods, flat wing slabs became egg shapes, headdress flaps
+became floppy dog ears. Per-round prompts and results are in `data/prompt_tweaks.json`
+(`tried_2026_11_06`, `tried_2026_11_07_r1`, ...) and the overrides' notes.
+
+| monster | rounds | kept settings | pick | mesh + rig |
+|---|---|---|---|---|
+| death-dog | 1 | `twohead_dog_34` 0.75 / 0.7 | ref_3: one black hound, two heads, four legs, tail | one body, two heads; facing 3 deg; SkinTokens best roll 3 legs (score -3.4) but the walk drives 4 feet, audit clean |
+| hydra | 2 | `hydra_34` 0.6 / 0.5 + white-background weight | ref_2: one crocodile-like body, five heads on five necks (smooth rendered look) | five necks fanned in 3D, feet down; facing 2 deg; walk on 4 legs (small stride), necks unanimated (`custom.hydra`) |
+| sphinx-of-lore | 3 | `sphinx_side` 0.6 / 0.5, `woman` head | ref_2: a calm woman's face, cloth bib over neck and chest, tawny lion body, raised feathered wings | facing 0.5 deg; fly clip has frozen wings (the raised-wing defect, docs/rig-anim.md "Raised wings") |
+| chimera | 4 | `chimera_34` 0.75 / 0.7 (0.6 / 0.5 put whole goats on its back) | ref_3: one lion body, maned head in front, goat head, red dragon head; white coat, feathered wings, studio-photo look | three heads apart, wings, feet down; facing 2.5 deg; rig 4 legs + 2 wings, no problems (-1.40); fly flaps both wings; painted cream-white, the front head reads as a lamb |
+
 ## Unarmed check subject (name with a weapon word)
 
 `forge.py` passes the display name ("a kuo-toa whip") to `tools/unarmed_check.py` for the

@@ -67,7 +67,8 @@ REF_TEMPLATE_KEYS = {"name": _text(60), "image": _style, "model": _style, "type"
 
 def _ref_template(v):
     """ref_template: false, a template name (forge.REF_TEMPLATES or "apose"), or an object
-    {name, image, model, type, strength 0-2, start/end 0-1} merged over the plan's template."""
+    {name, image, model, type, strength 0-2, start/end 0-1} merged over the plan's template, or
+    over the forge.REF_TEMPLATES entry its `name` names."""
     if v is False or (isinstance(v, str) and _NAME.match(v)):
         return None
     if not isinstance(v, dict):

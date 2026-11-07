@@ -534,9 +534,24 @@
     "note": "2026-11-05: living white horses with bony legs and a saddle, a lance with a pennant, a skeletal rider"
   },
   "sphinx-of-lore": {
-    "prompt": "single creature, centered, (a sphinx, one creature with the full body of a lion from head to tail, standing on all four legs, seen from the side:1.5), tawny fur, (large feathered wings on the back, partly spread:1.2), (a woman's human head with a calm wise face and an elaborate striped headdress sits on the lion's neck, no human chest or arms:1.4), lion tail. Large celestial. full body, side view, standing, whole lion in frame",
-    "negative_append": "(woman riding, rider, person sitting on the lion, standing woman, human body, human arms, human chest, breasts, topless, nude, dress, robe, bust, portrait, head and shoulders, close-up, cropped:1.6), lion head, lion mane, (topless, bare breasts, nude, naked chest, nipples:1.5), (clothed human torso is not visible)",
-    "note": "2026-11-06: round-3 re-roll prompt: the round-2 refs drew a topless bust or a woman beside a lioness; says full body, lion body head to tail, not a bust, human head on the lion's neck"
+    "prompt": "single creature, centered, (a gynosphinx with the head and face of a beautiful calm wise woman:1.6), (human woman's face with human eyes, nose and lips:1.5), (a striped cloth headdress covering her hair, a high cloth collar covering her neck:1.3), (the body of a tawny lion standing on all four legs:1.4), (large feathered wings raised from the shoulders:1.2), lion paws, lion tail with a tuft. Large celestial. full body, side view, whole creature in frame, (full color manga ink illustration, isolated on a plain white background:1.3)",
+    "negative_append": "(woman riding, rider, person sitting on the lion, standing woman, woman beside a lion, human body, human arms, human chest, breasts, topless, nude, bust, portrait, head and shoulders, close-up, cropped:1.6), (topless, bare breasts, nude, naked chest, nipples:1.5), (lion face, lion muzzle, cat face, animal face, lion mane:1.4), (floating ornaments, feather pendant, separate objects, second figure, bird:1.4), dress, robe, multiple views, character sheet, (photo, photograph, toy, figurine, plastic model, statue, sculpture, gold statue, metal, studio photo, dark background, black background, grey background, colored background:1.4), (striped body, striped fur, blue body:1.3), (dog, dog face, floppy ears, animal ears, snout, muzzle, whiskers:1.5)",
+    "note": "2026-11-07 round 3: sphinx_side redrawn with the `woman` head (no side flaps), 0.6 / 0.5; the woman's face first in the prompt, dog/snout negatives. Result: ref_2 picked (a woman's face, cloth bib over the neck and chest, lion body, raised wings)",
+    "tried_2026_11_06": {
+      "prompt": "single creature, centered, (a sphinx, one creature with the full body of a lion from head to tail, standing on all four legs, seen from the side:1.5), tawny fur, (large feathered wings on the back, partly spread:1.2), (a woman's human head with a calm wise face and an elaborate striped headdress sits on the lion's neck, no human chest or arms:1.4), lion tail. Large celestial. full body, side view, standing, whole lion in frame",
+      "negative_append": "(woman riding, rider, person sitting on the lion, standing woman, human body, human arms, human chest, breasts, topless, nude, dress, robe, bust, portrait, head and shoulders, close-up, cropped:1.6), lion head, lion mane, (topless, bare breasts, nude, naked chest, nipples:1.5), (clothed human torso is not visible)",
+      "note": "2026-11-06: round-3 re-roll prompt: the round-2 refs drew a topless bust or a woman beside a lioness; says full body, lion body head to tail, not a bust, human head on the lion's neck"
+    },
+    "tried_2026_11_07_r1": {
+      "prompt": "single creature, centered, (a sphinx: the body of a lion standing on all four legs, with the head of a woman:1.5), tawny fur, (large feathered wings raised from the shoulders:1.2), (a calm wise woman's face under a striped blue and gold royal headdress whose cloth flaps cover the neck and the top of the chest:1.4), lion legs and paws, lion tail with a tuft. Large celestial. full body, side view, whole creature in frame",
+      "negative_append": "(woman riding, rider, person sitting on the lion, standing woman, woman beside a lion, human body, human arms, human chest, breasts, topless, nude, bust, portrait, head and shoulders, close-up, cropped:1.6), (topless, bare breasts, nude, naked chest, nipples:1.5), (lion face, lion muzzle, cat face, animal face, lion mane:1.4), (floating ornaments, feather pendant, separate objects, second figure, bird:1.4), dress, robe, multiple views, character sheet",
+      "result": "sphinx_side at 0.75 / 0.7: 4 of 4 one lion body standing on four legs with raised wings, but gold-and-blue striped statues on blue/grey backgrounds (the headdress colours spread over the body), the faces cat-like"
+    },
+    "tried_2026_11_07_r2": {
+      "prompt": "single creature, centered, (a sphinx: the body of a lion standing on all four legs, with the head of a woman:1.5), tawny fur, (large feathered wings raised from the shoulders:1.2), (a calm wise woman's human face with a human nose and lips:1.5), (a striped cloth headdress whose flaps fall over the neck and the top of the chest:1.3), lion legs and paws, lion tail with a tuft. Large celestial. full body, side view, whole creature in frame, (full color manga ink illustration, isolated on a plain white background:1.3)",
+      "negative_append": "(woman riding, rider, person sitting on the lion, standing woman, woman beside a lion, human body, human arms, human chest, breasts, topless, nude, bust, portrait, head and shoulders, close-up, cropped:1.6), (topless, bare breasts, nude, naked chest, nipples:1.5), (lion face, lion muzzle, cat face, animal face, lion mane:1.4), (floating ornaments, feather pendant, separate objects, second figure, bird:1.4), dress, robe, multiple views, character sheet, (photo, photograph, toy, figurine, plastic model, statue, sculpture, gold statue, metal, studio photo, dark background, black background, grey background, colored background:1.4), (striped body, striped fur, blue body:1.3)",
+      "result": "sphinx_side (headdress flaps) at 0.6 / 0.5: style back (ink on cream/white), one lion body on four legs, raised feathered wings, but the faces are lion / dog faces and the headdress flaps became floppy dog ears"
+    }
   },
   "sphinx-of-valor": {
     "prompt": "single creature, centered, (a sphinx, one creature with the body of a lion standing on all four legs:1.4), golden fur, (large feathered wings on the back, partly spread:1.2), (a stern bearded man's human head in a striped pharaoh headdress on the lion's neck:1.4), lion tail. Large celestial. full body, side view",
@@ -544,9 +559,33 @@
     "note": "2026-11-05: a sitting winged lion with a lion's head; head-only emblems"
   },
   "chimera": {
-    "prompt": "single creature, centered, (a chimera: ONE single lion body standing on all four legs, one pair of shoulders, one tail:1.5), tawny fur, (three heads growing from the same shoulders on three separate necks: a maned lion head in the middle, a horned goat head on the left neck, a red dragon head on the right neck:1.5), (three heads on one body:1.4), (leathery red dragon wings partly spread:1.2), a long serpent-tipped tail. Large monstrosity. full body, side view",
-    "negative_append": "(three animals, several bodies, stacked animals, animal standing on another animal, separate goat, two lions, herd, group, one head, single head, dragon body, dragon legs, scales on the body:1.6), rider, sitting",
-    "note": "2026-11-06: strengthened for the round-3 re-roll (the round-2 prompt drew three whole animals 3 of 3 / a lion with a second dragon head and no goat): one body and three necks said before the heads; the prompt_extra of the override still adds. Probably needs a depth template"
+    "prompt": "single creature, centered, (a chimera: ONE tawny golden lion body standing on all four legs with THREE heads on separate necks from the same shoulders:1.5), (a maned golden lion head in front, a white goat head with long curved ram horns on the neck behind it, a red scaly dragon head on the long neck reaching forward:1.5), (golden lion fur on the whole body:1.3), (red leathery bat-like dragon wings with finger bones, raised from the back:1.2), a long tail. Large monstrosity. full body, side view, (full color manga ink illustration, isolated on a plain white background:1.2)",
+    "negative_append": "(three animals, several bodies, stacked animals, animal standing on another animal, separate goat, two lions, herd, group, one head, single head, dragon body, dragon legs, scales on the body:1.6), rider, sitting, multiple views, character sheet, (rods, sticks, spikes on the back, horns on the wings:1.3), (photo, photograph, toy, figurine, plastic model, statue, sculpture, gold statue, metal, studio photo, dark background, black background, grey background, colored background:1.4), (llama, alpaca, white body, red body, two-tone body:1.3), (egg, oval, balloon:1.3), (goat body, goat standing on the back, animal on the back, extra animal, second dragon head, two dragon heads:1.5)",
+    "note": "2026-11-07 round 4: back to 0.75 / 0.7 (round 3's 0.6 / 0.5 let whole goats stand on the back), round-3 prompt and lobed-wing template, extra-animal negatives. Result: 4 of 4 one body; ref_3 picked (lion, goat, dragon heads apart; white coat, feathered wings, photo look)",
+    "tried_2026_11_06": {
+      "prompt": "single creature, centered, (a chimera: ONE single lion body standing on all four legs, one pair of shoulders, one tail:1.5), tawny fur, (three heads growing from the same shoulders on three separate necks: a maned lion head in the middle, a horned goat head on the left neck, a red dragon head on the right neck:1.5), (three heads on one body:1.4), (leathery red dragon wings partly spread:1.2), a long serpent-tipped tail. Large monstrosity. full body, side view",
+      "negative_append": "(three animals, several bodies, stacked animals, animal standing on another animal, separate goat, two lions, herd, group, one head, single head, dragon body, dragon legs, scales on the body:1.6), rider, sitting",
+      "note": "2026-11-06: strengthened for the round-3 re-roll (the round-2 prompt drew three whole animals 3 of 3 / a lion with a second dragon head and no goat): one body and three necks said before the heads; the prompt_extra of the override still adds. Probably needs a depth template"
+    },
+    "tried_2026_11_07_r1": {
+      "prompt": "single creature, centered, (a chimera: ONE lion body standing on all four legs with THREE heads on separate necks from the same shoulders:1.5), (a horned goat head on the far neck, a maned lion head in the middle, a red dragon head on a long scaly neck:1.5), tawny fur, (red leathery dragon wings raised from the shoulders:1.2), a long tail. Large monstrosity. full body, three-quarter view",
+      "negative_append": "(three animals, several bodies, stacked animals, animal standing on another animal, separate goat, two lions, herd, group, one head, single head, dragon body, dragon legs, scales on the body:1.6), rider, sitting, multiple views, character sheet",
+      "result": "chimera_34 (three-quarter, heads fanned left-right) at 0.75 / 0.7: 4 of 4 one lion body with raised red wings; the goat and dragon heads stacked on one another (ref_2: dragon snout on top of a goat head, lion head below), the wing-bone sticks drawn as rods; brown paper backgrounds"
+    },
+    "tried_2026_11_07_r2": {
+      "prompt": "single creature, centered, (a chimera: ONE lion body standing on all four legs with THREE heads on separate necks from the same shoulders:1.5), (a horned goat head on the far neck, a maned lion head in the middle, a red dragon head on a long scaly neck:1.5), tawny fur, (red leathery dragon wings raised from the shoulders:1.2), a long tail. Large monstrosity. full body, three-quarter view",
+      "negative_append": "(three animals, several bodies, stacked animals, animal standing on another animal, separate goat, two lions, herd, group, one head, single head, dragon body, dragon legs, scales on the body:1.6), rider, sitting, multiple views, character sheet, (rods, sticks, spikes on the back, horns on the wings:1.3), (photo, photograph, toy, figurine, plastic model, statue, sculpture, gold statue, metal, studio photo, dark background, black background, grey background, colored background:1.4)",
+      "result": "chimera_34 side-on at 0.75 / 0.7: one body, the three necks apart (lion head low in front, two necks up), but the goat head rarely a goat (llama / dragon), white or half-red bodies, and the wings drawn as smooth egg shapes (the template's slabs)"
+    },
+    "tried_2026_11_07_r3": {
+      "prompt": "single creature, centered, (a chimera: ONE tawny golden lion body standing on all four legs with THREE heads on separate necks from the same shoulders:1.5), (a maned golden lion head in front, a white goat head with long curved ram horns on the neck behind it, a red scaly dragon head on the long neck reaching forward:1.5), (golden lion fur on the whole body:1.3), (red leathery bat-like dragon wings with finger bones, raised from the back:1.2), a long tail. Large monstrosity. full body, side view, (full color manga ink illustration, isolated on a plain white background:1.2)",
+      "negative_append": "(three animals, several bodies, stacked animals, animal standing on another animal, separate goat, two lions, herd, group, one head, single head, dragon body, dragon legs, scales on the body:1.6), rider, sitting, multiple views, character sheet, (rods, sticks, spikes on the back, horns on the wings:1.3), (photo, photograph, toy, figurine, plastic model, statue, sculpture, gold statue, metal, studio photo, dark background, black background, grey background, colored background:1.4), (llama, alpaca, white body, red body, two-tone body:1.3), (egg, oval, balloon:1.3)",
+      "ref_template": {
+        "strength": 0.6,
+        "end": 0.5
+      },
+      "result": "lobed wings, 0.6 / 0.5: white backgrounds, but whole goats standing on the back (refs 1, 3), two dragon heads and a goat-headed lion (ref_0), white / two-tone bodies: the lower strength gave up the one-body silhouette"
+    }
   },
   "griffon": {
     "skip_frozen": true,
@@ -592,9 +631,14 @@
     "note": "2026-11-05: three prompt_extra rounds at 1.4-1.5 drew one head (and once two whole ogres); a whole per-id subject with the head count up front"
   },
   "death-dog": {
-    "prompt": "single creature, centered, (a two-headed dog:1.5), one gaunt black hound with (one body, exactly four legs and one tail:1.4), (two heads on two short necks side by side from the same shoulders:1.5), (two heads:1.4), mangy black fur, red eyes, snarling jaws, (standing on all four legs:1.2). Medium monstrosity. full body, side view",
-    "negative_append": "(two dogs, second dog, pair of dogs, overlapping dogs, eight legs, extra legs, two bodies, several dogs:1.6), (one head, single head:1.4), multiple views, character sheet",
-    "note": "2026-11-05: three prompt_extra rounds drew two whole dogs overlapping; a whole per-id subject"
+    "prompt": "single creature, centered, (a two-headed dog:1.5), one gaunt black hound with ONE body, four legs and one tail, (two heads side by side on two necks growing from the same chest:1.5), mangy black fur, red eyes, snarling jaws, standing on all four legs. Medium monstrosity. full body, three-quarter view",
+    "negative_append": "(two dogs, second dog, pair of dogs, overlapping dogs, eight legs, extra legs, two bodies, several dogs:1.6), (one head, single head, three heads:1.4), multiple views, character sheet",
+    "note": "2026-11-07 round 1 with the twohead_dog_34 depth template (override ref_template; tools/blender_ref_templates.py): one body, the necks/heads placed by the template; the override's prompt_extra / negative_extra were folded in here and removed. Result: 4 of 4 one body with two heads, ref_3 picked",
+    "tried_2026_11_06": {
+      "prompt": "single creature, centered, (a two-headed dog:1.5), one gaunt black hound with (one body, exactly four legs and one tail:1.4), (two heads on two short necks side by side from the same shoulders:1.5), (two heads:1.4), mangy black fur, red eyes, snarling jaws, (standing on all four legs:1.2). Medium monstrosity. full body, side view",
+      "negative_append": "(two dogs, second dog, pair of dogs, overlapping dogs, eight legs, extra legs, two bodies, several dogs:1.6), (one head, single head:1.4), multiple views, character sheet",
+      "note": "2026-11-05: three prompt_extra rounds drew two whole dogs overlapping; a whole per-id subject"
+    }
   },
   "swarm-of-crawling-claws": {
     "replace": {
@@ -603,8 +647,18 @@
     "note": "2026-11-05 (fleshy_undead): 'undead' draws bones; the hand keeps its withered skin (the rule adds flesh)"
   },
   "hydra": {
-    "prompt": "single creature, centered, (a hydra, one heavy four-legged reptile body:1.4), dark green scales, (FIVE long snake-like necks rising from the same shoulders, each neck ending in its own dragon-like head:1.5), (five heads:1.5), the heads fan out above the body, one body with four legs and one tail. Huge monstrosity. full body, side view",
-    "negative_append": "(one head, single head, two heads, three heads, standing on hind legs, upright, several bodies, multiple animals, five hydras, snakes only, no body:1.5), multiple views, character sheet",
-    "note": "2026-11-06 (docs/review-tier3.md): hydra drew one head 3 of 3 with the registry prompt + prompt_extra; a whole per-id subject with the head count up front, as death-dog / ettin. Probably still needs a depth template"
+    "prompt": "single creature, centered, (a hydra: one heavy dark green four-legged reptile body with FIVE long serpentine necks fanning out from its shoulders, each neck ending in its own dragon-like head:1.5), (five heads on one body:1.4), a crocodile-like body on four short sturdy legs, a short thick tail. Huge monstrosity. full body, side view, (full color manga ink illustration, isolated on a plain white background:1.3)",
+    "negative_append": "(one head, single head, two heads, three heads:1.4), (several bodies, multiple animals, separate snakes, floating snake, loose coil, detached tail, knot:1.5), standing on hind legs, upright, wings, multiple views, character sheet, (photo, photograph, toy, figurine, plastic model, statue, sculpture, gold statue, metal, studio photo, dark background, black background, grey background, colored background:1.4)",
+    "note": "2026-11-07 round 2: hydra_34 depth template at 0.6 / 0.5 (override ref_template) and a weighted white-background illustration + photo/toy negatives to win the house style back; round 1 (0.75 / 0.7) had the right body but photo looks. Result: ref_2 picked (one body, five heads)",
+    "tried_2026_11_06": {
+      "prompt": "single creature, centered, (a hydra, one heavy four-legged reptile body:1.4), dark green scales, (FIVE long snake-like necks rising from the same shoulders, each neck ending in its own dragon-like head:1.5), (five heads:1.5), the heads fan out above the body, one body with four legs and one tail. Huge monstrosity. full body, side view",
+      "negative_append": "(one head, single head, two heads, three heads, standing on hind legs, upright, several bodies, multiple animals, five hydras, snakes only, no body:1.5), multiple views, character sheet",
+      "note": "2026-11-06 (docs/review-tier3.md): hydra drew one head 3 of 3 with the registry prompt + prompt_extra; a whole per-id subject with the head count up front, as death-dog / ettin. Probably still needs a depth template"
+    },
+    "tried_2026_11_07_r1": {
+      "prompt": "single creature, centered, (a hydra: one heavy dark green four-legged reptile body with FIVE long serpentine necks fanning out from its shoulders, each neck ending in its own dragon-like head:1.5), (five heads on one body:1.4), a crocodile-like body on four short sturdy legs, a short thick tail. Huge monstrosity. full body, side view",
+      "negative_append": "(one head, single head, two heads, three heads:1.4), (several bodies, multiple animals, separate snakes, floating snake, loose coil, detached tail, knot:1.5), standing on hind legs, upright, wings, multiple views, character sheet",
+      "result": "hydra_34 at 0.75 / 0.7: 4 of 4 ONE body with five heads on five necks fanned from the shoulders (the template's layout), but every candidate a photo of a green toy on a dark studio background (house style lost)"
+    }
   }
 }
