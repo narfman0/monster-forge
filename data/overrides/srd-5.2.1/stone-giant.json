@@ -1,4 +1,6 @@
 {
   "ref_pick": 1,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
   "notes": "Tier-2 review 2026-11-05 (pass 4): bald lean A-pose figures 4 of 4, hands empty; auto pick 0 is an uncoloured line-drawn mannequin and meshed white with two long purple blade-like slabs out of the hands (6.2 m wide; hallucinated by the mesh stage). ref_1: grey-skinned bald muscular giant (closest to stone skin), a small cast shadow to the left: re-pick 1, re-mesh next pass, check for a shadow slab."
 }

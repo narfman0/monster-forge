@@ -1,4 +1,6 @@
 {
   "ref_pick": 2,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
   "notes": "Tier-1 review 2026-11-05: ref_0 (auto, -0.47) has two long red blades hanging beside the thighs from the hips and an arrow over the shoulder: the blades mesh as plates fused to the legs. ref_1 has two quivers floating beside the hips. ref_2 (0.73, empty bony hands, checked full size): armoured skeleton with pauldrons, bracers, belt pouches, arrows behind the shoulders, legs clear. Re-pick 2."
 }
