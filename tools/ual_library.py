@@ -20,8 +20,8 @@ only in
 - per-monster floor lift (deaths, some walks: the body raised out of the floor, vertical, on top of c);
 - extra chains / sockets (bones UAL has no clip data for).
 A library clip is UAL's clip resampled exactly as sample_clip() does (30 fps; Blender imports UAL at the
-scene's 30 fps and the bake reads it as 24, so baked clips run 1.25x UAL's length; replicated here, see
-docs) on UAL's own skeleton (UAL1 rest pose), with rotation channels for the 64 non-root bones and the
+scene's 30 fps and the bake reads it at that rate, so clips keep UAL's own length; before library
+version 2 the bake read 24 fps and clips ran 1.25x long) on UAL's own skeleton (UAL1 rest pose), with rotation channels for the 64 non-root bones and the
 pelvis translation, nothing else. A player rebuilds a monster's clip as: rotations as is, pelvis
 translation s * u + c, every other bone at its own rest. A clip is shared only when that rebuild matches
 the monster's baked clip (rotations <= ROT_TOL_DEG, pelvis <= max(PELVIS_TOL_M, PELVIS_TOL_FRAC x
@@ -55,10 +55,10 @@ ROOT = Path(__file__).resolve().parent.parent
 SOURCE = "srd-5.2.1"
 OUT = ROOT / "out" / SOURCE
 LIB_REL = "_shared/ual"
-VERSION = 1
+VERSION = 2
 FPS = 30          # blender_rig_ual.FPS: output frames per second
 IMPORT_FPS = 30   # the scene fps Blender's glTF importer converts UAL's seconds to frames with
-UAL_FPS = 24      # blender_rig_ual.UAL_FPS: what sample_clip() takes those frames to be
+UAL_FPS = IMPORT_FPS  # blender_rig_ual.UAL_FPS: what sample_clip() takes those frames to be (was 24 before v2)
 LOOP_CLIPS = {"idle", "walk", "run"}
 ROT_TOL_DEG = 0.1
 POS_TOL_M = 2e-4          # non-pelvis translation channels vs the bone's rest

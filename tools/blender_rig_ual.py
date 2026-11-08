@@ -47,7 +47,7 @@ from mathutils.kdtree import KDTree
 
 job = json.loads(sys.argv[sys.argv.index("--") + 1])
 FPS = 30
-UAL_FPS = 24
+UAL_FPS = FPS  # the glTF importer keys UAL at the scene fps (set below, before the import); 24 made clips 1.25x long
 SIDES = "lr"
 R180 = Matrix.Rotation(math.pi, 4, "Z")
 T0 = time.time()
