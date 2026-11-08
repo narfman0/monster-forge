@@ -136,36 +136,54 @@ def skin_chains(mid: str) -> list:
 
 
 def rules(mid: str, mon: dict, m: dict | None, variant: str) -> dict:
-    """What the rules alone say: {status, reasons, procedural_clips, signals}."""
+    """What the rules alone say: {status, reasons, procedural_clips, signals}. A variant with extra
+    chains (rig_ual_extras: metrics rig.extras) answers the appendage flags it covers: wings (a wing
+    chain), tails (a tail chain), the prompt's tentacles/extra arms/chains (a limb or strip chain), a
+    SkinTokens chain it adopted, a second head (head chains); what is left decides as before."""
     prompt = (mon.get("reference_prompt") or "").split(". Low-poly")[0]
     sig, sk_why, rev_why = {}, [], []
+    ex = (m or {}).get("rig", {}).get("extras") or []
+    kinds = {e["kind"] for e in ex}
+    adopted = {b for e in ex for b in e.get("sk_bones") or [e["root"]]}
+    covered = []
+
+    def flag(why, ok, lst=sk_why):
+        (covered if ok else lst).append(why)
+    if ex:
+        sig["extras"] = {e["prefix"]: f"{e['kind']} on {e['parent']} ({len(e['bones'])} bones, from {e['root']})" for e in ex}
     if mon.get("body_plan") == "winged_biped":
-        sk_why.append("winged biped: the wings get no UAL bone")
+        flag("winged biped: the wings get no UAL bone", "wing" in kinds)
     w = APPENDAGE_WORDS.search(prompt)
     if w:
-        sk_why.append(f"prompt names '{w.group(0)}': no UAL bone for it")
+        need = "wing" if w.group(0).lower().startswith("wing") else None
+        flag(f"prompt names '{w.group(0)}': no UAL bone for it", need in kinds if need else bool(kinds & {"limb", "strip"}))
     chains = skin_chains(mid)
     sig["skintokens_chains"] = chains
     long_chains = [c for c in chains if c[3] >= CHAIN_REACH or c[0].startswith(("wing_", "tail_"))]
     hip_chains = [c for c in chains if c[1] == "pelvis" and c[3] >= HIP_CHAIN_REACH]
     if long_chains:
-        sk_why.append("SkinTokens rig has a chain off the trunk UAL lacks: "
-                      + ", ".join(f"{c[0]} on {c[1]} ({c[2]} joints, {c[3]} h)" for c in long_chains))
+        flag("SkinTokens rig has a chain off the trunk UAL lacks: "
+             + ", ".join(f"{c[0]} on {c[1]} ({c[2]} joints, {c[3]} h)" for c in long_chains),
+             all(c[0] in adopted for c in long_chains))
     glb = OUT / mid / "rig_ual" / variant / "model_rigged.glb"
     if glb.exists():
         tb = tail_behind(glb)
         sig.update(tb)
         if TAIL_WORDS.search(prompt) and tb["behind_015"] >= TAIL_BEHIND:
-            sk_why.append(f"tail (prompt) behind the hips ({tb['behind_015']:.1%} of the vertices > 0.15 h back) rides the hips/thighs")
+            flag(f"tail (prompt) behind the hips ({tb['behind_015']:.1%} of the vertices > 0.15 h back) rides the hips/thighs",
+                 "tail" in kinds)
         elif tb["behind_02"] >= TAIL_BEHIND_STRONG:
-            sk_why.append(f"{tb['behind_02']:.0%} of the vertices > 0.2 h behind the pelvis (a tail) ride the hips/thighs")
+            flag(f"{tb['behind_02']:.0%} of the vertices > 0.2 h behind the pelvis (a tail) ride the hips/thighs", "tail" in kinds)
         elif hip_chains and not long_chains and tb["behind_02"] >= TAIL_BEHIND_HIP:
-            sk_why.append(f"SkinTokens chain off the pelvis ({hip_chains[0][0]}, {hip_chains[0][3]} h) with "
-                          f"{tb['behind_02']:.1%} of the vertices > 0.2 h behind it: a tail on the hips/thighs")
+            flag(f"SkinTokens chain off the pelvis ({hip_chains[0][0]}, {hip_chains[0][3]} h) with "
+                 f"{tb['behind_02']:.1%} of the vertices > 0.2 h behind it: a tail on the hips/thighs",
+                 bool(kinds & {"tail", "strip"}))
     proc, why = [], []
     hw = HEADS_WORDS.search(prompt)
     if hw:
-        rev_why.append(f"prompt says '{hw.group(0)}': UAL has one head bone, the other head rides a shoulder")
+        flag(f"prompt says '{hw.group(0)}': UAL has one head bone, the other head rides a shoulder", "head" in kinds, rev_why)
+    if covered:
+        sig["covered_by_extras"] = covered
     if m is None:
         rev_why.append(f"no rig_ual/{variant}/metrics.json: the direct rig failed (see its log)")
     else:
@@ -200,11 +218,21 @@ def rules(mid: str, mon: dict, m: dict | None, variant: str) -> dict:
     if rev_why:
         return {"status": "needs_review", "reasons": rev_why, "procedural_clips": [], "signals": sig}
     proc = [c for c in CLIP_ORDER if c in proc]
-    return {"status": "use_ual", "reasons": why or ["no appendage, garment or stretch flag"],
+    xwhy = [f"extra chains ({', '.join(sorted(sig['extras']))}) cover: " + "; ".join(covered)] if covered else []
+    return {"status": "use_ual", "reasons": xwhy + (why or ["no appendage, garment or stretch flag"]),
             "procedural_clips": proc, "signals": sig}
 
 
+def variant_of(mid: str, variant: str = VARIANT) -> str:
+    """The overrides' variant (rig_ual.variant_for: extra chains, SkinTokens weights) when it has been
+    rigged, else `variant`."""
+    import rig_ual
+    v = rig_ual.variant_for(mid)
+    return v if v != variant and (OUT / mid / "rig_ual" / v / "metrics.json").exists() else variant
+
+
 def verdict(mid: str, mon: dict, variant: str = VARIANT, calls: dict | None = None) -> dict:
+    variant = variant_of(mid, variant)
     mp = OUT / mid / "rig_ual" / variant / "metrics.json"
     m = json.loads(mp.read_text()) if mp.exists() else None
     r = rules(mid, mon, m, variant)

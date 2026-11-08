@@ -316,7 +316,11 @@ def find_arms(bones: list[dict], height: float, legs: list[dict]) -> list[dict]:
     chain takes a raised one (the merfolk's sword arm) when it reaches less than
     WING_REACH x the height sideways: anything farther is what find_wings calls a wing, so
     a winged biped's raised wings never stand in for arms, and a side with a hanging arm
-    never looks at raised chains at all."""
+    never looks at raised chains at all. A UAL rig: clavicle, upperarm, lowerarm, hand by name."""
+    if ual_rig(bones):
+        return [{"side": s, "root": f"clavicle_{s}", "upper": f"upperarm_{s}", "forearm": f"lowerarm_{s}",
+                 "hand": f"hand_{s}", "chain": [f"clavicle_{s}", f"upperarm_{s}", f"lowerarm_{s}", f"hand_{s}"]}
+                for s in ("r", "l")]
     by_name = {b["name"]: b for b in bones}
     kids = _children(bones)
     leg_bones = {n for g in legs for n in g["chain"]}
@@ -353,9 +357,24 @@ def find_arms(bones: list[dict], height: float, legs: list[dict]) -> list[dict]:
     return arms
 
 
+UAL_NAMES = ("pelvis", "spine_03", "Head", "clavicle_l", "upperarm_l", "lowerarm_l", "hand_l", "clavicle_r",
+             "upperarm_r", "lowerarm_r", "hand_r")
+
+
+def ual_rig(bones: list[dict]) -> bool:
+    """A direct UAL rig (tools/blender_rig_ual.py): the head and arms are known by name. Found
+    structurally, the head was neck_01 (or an inserted wing root rising past it) and the arms a
+    pinky or thumb chain (the longest chain off a branch), so procedural clips on UAL rigs moved
+    non-deforming finger bones and left the arms still."""
+    names = {b["name"] for b in bones}
+    return all(n in names for n in UAL_NAMES)
+
+
 def find_head(bones: list[dict], height: float, legs: list[dict]) -> str | None:
     """The highest bone on the centre line (ears and horns sit off it); a short one gives
-    way to its parent, so a hair tuft does not win over the skull."""
+    way to its parent, so a hair tuft does not win over the skull. A UAL rig: `Head`."""
+    if ual_rig(bones):
+        return "Head"
     cx = centre_x(bones, legs)
     by_name = {b["name"]: b for b in bones}
     central = [b for b in bones if abs(b["head"][0] - cx) < 0.08 * height]

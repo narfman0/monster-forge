@@ -513,7 +513,8 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
     missing = [s for s in (mon.get("sockets") or []) if s not in rep["sockets"]]
     if missing:
         fg.log(f"{mon['id']}: rig could not place sockets {missing}")
-    tool = info.get("tool") or (man.get("rig") or {}).get("tool") or \
+    prev = (man.get("rig") or {}).get("tool")  # a UAL rig replaced by this one (rig_source back to skintokens)
+    tool = info.get("tool") or (prev if prev != "ual" else None) or \
         (f"fallback:{RIG_STRATEGY[mon['body_plan']]['kind']}" if mon["body_plan"] in RIG_STRATEGY else "skintokens")
     man["rig"] = {"tool": tool, "joints": rep["joints"], "legs": rep["legs"], "symmetry": rep["symmetry"],
                   "sockets": rep["sockets"], "sockets_missing": missing,

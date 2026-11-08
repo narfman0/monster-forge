@@ -15,10 +15,24 @@
   "reason": "long coat smears in the lunge: attack_melee stay procedural",
   "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
  },
+ "balor": {
+  "reason": "extras tried: legs/hand tear (idle 3.4-6.5 vs 1.2), attack/death 9-21",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
  "barbed-devil": {
   "status": "needs_skintokens",
-  "reason": "thin whip tail: heat puts it on the right thigh (orange in the front view) and it swings with that leg on walk/run; the rules miss it (too few vertices behind the hips)",
-  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+  "reason": "tail inserted; walk/run/attack/death over its SkinTokens baseline",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "bearded-devil": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "beard/tail strips adopted with heat weights",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "bone-devil": {
+  "reason": "extras tried: pelvis/foot tears at idle 6.5-8",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "chain-devil": {
   "status": "use_ual",
@@ -27,8 +41,8 @@
   "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
  },
  "cloud-giant": {
-  "reason": "floor-length robe: walk/run/attack/cast/death all smear (the lunge kneels into the robe); only idle and hit read clean",
-  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+  "reason": "robe: idle 5.4-6.2 under every weighting",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "cultist-fanatic": {
   "status": "use_ual",
@@ -41,10 +55,14 @@
   "reason": "robe and cape: walk, run, attack_melee, death stay procedural",
   "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
  },
+ "deva": {
+  "reason": "fit auto + wing chains by hand: robe idle 5.5, attack 9.7",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
  "dretch": {
   "status": "needs_skintokens",
-  "reason": "curled tail on the right thigh",
-  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+  "reason": "tail inserted; tail seam tears (walk 6.4-6.7)",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "druid": {
   "status": "use_ual",
@@ -54,10 +72,35 @@
   "reason": "robe/rags smear on the run: run stay procedural",
   "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
  },
+ "dust-mephit": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "wings adopted as extra chains; cleaner than its SkinTokens clips (sink/pop flags gone)",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "earth-elemental": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "bonemap fails (no hand sockets); fit auto works and gives it hand/grip sockets",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "erinyes": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "wings adopted; its SkinTokens walk/attack tore (9.3), UAL 1.8-3.0",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
  "ettercap": {
-  "status": "needs_skintokens",
-  "reason": "extra arm-like limbs on the back ride the arms/spine",
-  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "the back limbs have no SkinTokens chain either (finger bones off the hands); UAL as good, all clips",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "ettin": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "second head: two synthetic head chains from the mesh (auto head, heat), each head on its own chain",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "frost-giant": {
   "procedural_clips": [
@@ -70,8 +113,20 @@
   "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
  },
  "gargoyle": {
-  "reason": "wings and tail ride the arms/thighs; also a floor slab under one foot rides that foot",
-  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+  "reason": "extras tried (wings, tail): the tail is welded to the calves, UAL leg motion tears it even at idle (5-7 vs 1.3)",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "glabrezu": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "plain UAL (its pincer arms have no SkinTokens chain; the neck stub chain made it worse)",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "goblin-minion": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "bonemap fails (one leg); fit auto works, all clips clean",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "green-hag": {
   "status": "use_ual",
@@ -91,6 +146,16 @@
   "reason": "long coat/cape: walk, run, attack_melee stay procedural",
   "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
  },
+ "half-dragon": {
+  "reason": "extras tried: with SkinTokens weights idle/walk 2.6/3.8 but every other clip over its SkinTokens baseline",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "harpy": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "wings on their own SkinTokens chains (wing_l/r_), UAL heat elsewhere: wings ride the back on every clip, fly beats as before",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
  "hill-giant": {
   "procedural_clips": [
    "attack_melee"
@@ -107,9 +172,35 @@
   "reason": "cape streams out behind on walk/run and flaps in the lunge (stretch stays low: the gate cannot see it)",
   "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
  },
+ "homunculus": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "wings + tail adopted",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "horned-devil": {
+  "reason": "extras tried: leg/pelvis tears at idle (5.3-8.3 vs 1.9)",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "ice-mephit": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "wings + three short tail/strip chains adopted",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
  "imp": {
-  "reason": "direct rig failed: the SkinTokens skeleton has a 1-bone spine (bonemap has no spine_01), so the skintokens fit cannot place UAL's spine; winged with a tail anyway",
-  "judged": "2026-11-07 from the rig log (~/.cache/monster-forge-scratch/rigual/imp_skintokens_heat.log on ai: KeyError spine_01); no sheet"
+  "reason": "extras tried: the arm/wing chains overlap (wings hang off the upper arms, a neck chain looks like the arms); idle 7-10",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "incubus": {
+  "reason": "fit auto + wing chains: the right wing chain (bone_32) carries body skin, idle 35",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "kobold-warrior": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "tail chains adopted, sway on the UAL clips",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "lich": {
   "status": "use_ual",
@@ -121,6 +212,16 @@
   "reason": "robe smears on walk/run/attack like mage and mummy-lord (2026-11-06 sheet batch_14); was needs_review only because lich had no procedural clips, which it has now (and rig_source ual remakes them on the UAL skeleton)",
   "judged": "2026-11-07 re-read of the 2026-11-06 sheet batch_14.png"
  },
+ "magma-mephit": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "wings adopted as extra chains; every UAL clip clean",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "medusa": {
+  "reason": "fit auto: snake body (grey) rides the pelvis and tears on run/death",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
  "mummy-lord": {
   "status": "use_ual",
   "procedural_clips": [
@@ -130,6 +231,31 @@
   ],
   "reason": "robe: walk, run, attack_melee stay procedural",
   "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+ },
+ "nalfeshnee": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "three wing chains adopted",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "night-hag": {
+  "reason": "robe: idle/walk 5.4-8.2 under every weighting",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "pit-fiend": {
+  "status": "use_ual",
+  "procedural_clips": [
+   "attack_melee",
+   "death"
+  ],
+  "reason": "wings adopted (heat); attack and death stretch above its clean SkinTokens clips",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "planetar": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "wings adopted; robe follows the thighs like the robed use_ual bipeds, stretch under 4.1",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "priest": {
   "status": "use_ual",
@@ -142,19 +268,40 @@
   "reason": "robe: walk, run, attack_melee, death stay procedural",
   "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
  },
+ "quasit": {
+  "status": "use_ual",
+  "procedural_clips": [
+   "run"
+  ],
+  "reason": "tail inserted from the mesh (blender_tail_chain) and adopted; run tears",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
  "rakshasa": {
   "status": "needs_skintokens",
-  "reason": "tail on the floor rides a thigh; coat tears too (p99.9 7-26)",
-  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+  "reason": "tail inserted from the mesh; coat tears (idle 3.2-7, attack/death 9-26)",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "sahuagin-warrior": {
   "status": "needs_skintokens",
-  "reason": "tail and fins; tears (p99.9 7.5-45)",
-  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+  "reason": "tail inserted; attack 10.6, death 9",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "scout": {
   "reason": "cloak streams out in the lunge (procedural by the cloak rule); walk, hit and death read fine. The old mesh's cape took the right arm; the re-rolled one does not",
   "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+ },
+ "shambling-mound": {
+  "status": "needs_review",
+  "reason": "fit auto rigs it (bonemap has no hand sockets), but walk 4.6 vs 1.6 and the procedural attack on the UAL skeleton 14 vs 5.9: promoted, judged worse, reverted to its SkinTokens rig (rig --force from rig/chosen.glb)",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "solar": {
+  "reason": "fit auto + wing chains by hand: robe smears on walk/run (4.9/7.8), worse than its SkinTokens clips",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "sprite": {
+  "reason": "extras tried: one wing chain only, attack/death 12-16",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "spy": {
   "status": "use_ual",
@@ -166,6 +313,10 @@
   "reason": "cloak: run, attack_melee, death stay procedural",
   "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
  },
+ "steam-mephit": {
+  "reason": "extras tried: hand/calf tears 7-60",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
  "storm-giant": {
   "procedural_clips": [
    "walk",
@@ -175,10 +326,21 @@
   "reason": "long ragged cape rides the left thigh and arm: trails on the walk, streams sideways on run and the lunge (stretch low)",
   "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
  },
+ "succubus": {
+  "reason": "extras tried: feet off the floor 0.25 h and idle 5.4+ (hair/arm chains off the neck)",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "treant": {
+  "reason": "fit auto: floats 0.2 m at idle, branches smear",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
  "troll": {
-  "status": "needs_review",
-  "reason": "a rag strip joins the feet and stretches into a sheet on walk/run (run p99.9 14.7); attack/death high too",
-  "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
+  "status": "use_ual",
+  "procedural_clips": [
+   "run"
+  ],
+  "reason": "rag strips adopted (strip1-4) with SkinTokens weights for the body too: the strip no longer joins the feet; run tears (7.9)",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "vampire": {
   "status": "use_ual",
@@ -190,14 +352,24 @@
   "reason": "long cape takes the arm on the attack: walk, run, attack_melee stay procedural",
   "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
  },
+ "vrock": {
+  "status": "use_ual",
+  "procedural_clips": [],
+  "reason": "wings + two loin strips adopted",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
+ "wererat": {
+  "reason": "tail inserted; walk 5.8+, attack/death 9-15",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+ },
  "weretiger": {
   "status": "needs_skintokens",
-  "reason": "long looped tail rides the right thigh (orange) and swings with it on walk/run/attack; the rules miss it (thin tail, few vertices)",
-  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+  "reason": "the inserted tail covers only the looped tail's end; the rest rides the right thigh and the end smears on walk/run",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "werewolf": {
-  "reason": "re-rolled mesh: a big furry tail/coat flap behind rides the right thigh and stands up in the death",
-  "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
+  "reason": "tail/coat flap inserted; seam on the right thigh tears (walk 6.4-18)",
+  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "wight": {
   "procedural_clips": [

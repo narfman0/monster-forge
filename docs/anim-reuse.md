@@ -304,6 +304,52 @@ rig is kept as rig/skintokens_rigged.glb); `retarget_ual.py --unpromote` undoes 
 - Unverified: as before, sheets at tile size only (no viewer, no Godot); the rules' thresholds were tuned on the
   same 71 verdicts they are compared with; the new calls are one look per sheet.
 
+## Extra chains: wings, tails, strips, second heads (2026-11-08)
+The 31 needs_skintokens / 5 needs_review bipeds and the 8 bonemap failures, tried on the UAL rig with the parts UAL
+has no bone for added as extra chains. Scratch runs under `~/.cache/monster-forge-scratch/ualx/<id>/<variant>/`
+(sheets `<id>_<variant>.png`, compact rows `m_*.png`; `_root_<variant>/` = a simulated rig + anim + promote, with
+`clip_audit.py --root` sheets in `_audit_<variant>/sheets/`).
+- **Extra chains** (`blender_rig_ual.py` job `extras`, override `rig_ual_extras`): a SkinTokens chain's whole subtree
+  is copied onto the UAL armature (SkinTokens joints and rolls), parented to the UAL bone its nearest mapped ancestor
+  maps to (else the nearest trunk/clavicle/upper-arm bone), named so rig_topology finds it: `wing_<side>_00..`,
+  `tail_00..` (more: `tail2_..`), `limb_<side><k>_..`, `strip<k>_..`, `head<k>_..`. `"auto"` (`rig_ual.auto_extras`):
+  unmapped chains off pelvis/spine/neck/clavicle/upper arm reaching >= 0.12 h; kind from the rig stage's names, else
+  shape (out to the side on a winged plan = wing, behind the hips = tail, hanging off the pelvis = strip, else limb).
+  `{auto: "head", side}`: a 2-bone chain over the mesh's head on that side (ettin; no SkinTokens chain exists).
+  `rig_ual_add_tail`: blender_tail_chain inserts a tail SkinTokens has no chain for, then it is adopted.
+- **Weights** (`rig_ual_extra_weights`): `skintokens` (default) = per vertex the SkinTokens weight s on the adopted
+  bones stays on them, the UAL heat weights (computed without the extras) take 1 - s; `heat` = bone heat with the
+  extras deforming (needed for auto heads); `zone` = SkinTokens weights around the chains too (worse on every test:
+  SkinTokens' thigh seams do not match UAL's hips). `rig_ual_weights: "skintokens"` merges SkinTokens weights for the
+  whole body (troll, half-dragon, balor did better with it).
+- **Motion.** UAL clips key the 65 bones; extras get a layer (`EXTRA_AMP`): tails/limbs sway (a hanging one swings as a
+  pendulum), strips swing fore-aft, wings lift a few degrees, heads look about; loops close, one-shots start/end at
+  rest, none on death. The anim stage's procedural clips (fly, breath, attack_ranged, the gate's fallbacks) find the
+  `wing_`/`tail_` chains by name: fly beats as on SkinTokens (wing-tip travel equal on every winged one moved).
+- **Fixes on the way.** rig_topology: a UAL rig's head is `Head` and its arms clavicle..hand by name (structurally the
+  head was neck_01 or a wing root and the "arms" a pinky/thumb chain: procedural clips on all UAL rigs, incl. the 75
+  promoted, moved non-deforming finger bones and left the arms still; those need `anim --force` + promote to pick it
+  up). blender_clips: a tail the topology gate drops also drops the upright-tail layers (crashed the death). fit
+  skintokens on a 1-bone spine (imp) interpolates spine_01/02; fit auto no longer needs UAL's own neck. Metrics carry
+  `stretch_where` (the worst frame's torn edges by dominant bone).
+- Judged against the SkinTokens procedural clips (out/_audit metrics as the gate's baseline: p99.9 <= max(1.6 x, +3)),
+  then the sheets. Moved (rig_source ual, rigged/animated/promoted in out/): harpy, magma-, dust-, ice-mephit,
+  homunculus, vrock, nalfeshnee, erinyes, planetar, kobold-warrior (auto extras); ettin (two auto heads, heat);
+  troll (strips, SkinTokens weights; run procedural); bearded-devil, pit-fiend (heat extras; pit-fiend attack/death
+  procedural); quasit (inserted tail; run); ettercap, glabrezu (plain: their extra limbs have no SkinTokens chain
+  either); goblin-minion, earth-elemental (fit auto, bonemap failures). shambling-mound (fit auto) was promoted, then
+  judged worse on the audit of the result (walk 4.6 vs 1.6, the procedural attack on the UAL skeleton 14 vs 5.9) and
+  reverted (`rig --force` from rig/chosen.glb). The stage now keeps rig/skintokens_rigged.glb for every fit (fit auto
+  overwrote the SkinTokens game rig), and the rig stage no longer carries `tool: "ual"` over to a SkinTokens rig.
+  `rig_ual_verdict.py` reads the overrides' variant (`rig_ual.variant_for`: `<fit>_<weights>[_x]`) and counts an
+  appendage flag as answered when an extra chain covers it. Calls with reasons in `data/rig_ual_calls.json`.
+- Not moved (reasons in the calls): wings/legs tear at idle (gargoyle: tail welded to the calves; balor, horned-devil,
+  bone-devil, steam-mephit, imp, succubus, sprite), inserted tails whose seam tears or that cover only part of the tail
+  (barbed-devil, dretch, rakshasa, sahuagin-warrior, wererat, werewolf, weretiger, half-dragon), robes (cloud-giant,
+  night-hag, deva, solar), fit auto failures (treant floats, medusa's snake body, incubus' right wing chain),
+  shambling-mound (above).
+- Unverified: tile-size sheets only, not loaded in the viewer or Godot.
+
 ## Shared UAL library (tools/ual_library.py, 2026-11-08)
 UAL bipeds (rig_source "ual") no longer carry their own copy of each UAL clip: `forge.py share <id>...` (or
 `python3 -I tools/ual_library.py share --all`, after `promote`) keeps one GLB per UAL clip in

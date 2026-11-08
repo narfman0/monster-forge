@@ -310,7 +310,7 @@ TAIL_LOW_MAX = 0.06  # ... over this share of them: a hind leg or the rump (clea
 def topology_gate() -> None:
     """No chain used twice (wing = leg, tail = wing or leg), no leg under the tail's root, no
     hanging tail standing on the floor (the audit's tail_low_share)."""
-    global tail, fan, HANG, wings, is_tail
+    global tail, fan, HANG, wings, is_tail, UPRIGHT_TAIL
     leg_set = {n for g in legs for n in g["chain"]}
     seen: dict[str, str] = {}
     for w in list(wings):
@@ -337,6 +337,7 @@ def topology_gate() -> None:
     if why:
         WARNINGS.append(f"tail {tail[0]}..{tail[-1]} {why}: no tail in the clips")
         tail, fan, HANG = [], False, False
+        UPRIGHT_TAIL = False  # the upright-tail layers drive `tail` (an adopted tail_00.. dropped here)
         is_tail = np.zeros(len(REST_V), bool)
 
 

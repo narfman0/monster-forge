@@ -1,4 +1,7 @@
 {
   "upsample": 1024,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
+  "rig_ual_extras": "auto",
   "notes": "Face texture stays soft at 2K with the 512 pipeline: the voxel colour is the limit, so pin the 1024 cascade (also the default since the LOD chain). Rig 2026-11-04: rig/chosen.glb is SkinTokens roll_1 (copied from rig/roll_1.glb), not the hand-built wing skeleton any more: finalize inserts wing_r/wing_l chains found on the mesh and re-splits the arm-wing seam over the surface (blender_wing_weights.seam_blend), which beats the hand-built rig on fly (96 vs 217 edges past 4x), the sword cut (48 vs 85), idle/walk (1/5 vs 0/5) and score (-0.84 vs -3.47), sockets within 0.8 cm of the skin. The hand-built rig's rig_reweight entries (bone_18/bone_19, bone_8/bone_9 arm fits) are dropped: on roll_1 those names are the right leg and the left forearm, and roll_1's grips need no fit (docs/rig-anim.md 'Wing chains from the mesh'). Hand-built rig backed up outside out/."
 }

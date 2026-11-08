@@ -1,0 +1,10 @@
+{
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
+  "rig_ual_extras": "auto",
+  "rig_ual_extra_weights": "heat",
+  "anim_ual_exclude": [
+    "attack_melee",
+    "death"
+  ]
+}

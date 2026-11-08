@@ -164,6 +164,32 @@ def _ual_clips(v):
     return None
 
 
+UAL_EXTRA_KINDS = ("wing", "tail", "limb", "strip", "head")
+UAL_EXTRA_KEYS = {"root", "kind", "side", "parent", "auto"}
+
+
+def _ual_extras(v):
+    """rig_ual_extras: "auto" or a list of {root (SkinTokens bone), kind, side?, parent? (UAL bone)} or
+    {auto: "head", side, kind: "head"} (tools/blender_rig_ual.py add_extras)."""
+    if v == "auto":
+        return None
+    if not (isinstance(v, list) and 1 <= len(v) <= 12):
+        return "must be \"auto\" or a list of 1-12 chain objects"
+    for i, c in enumerate(v):
+        if not isinstance(c, dict):
+            return f"[{i}] must be an object"
+        bad = [k for k in c if k not in UAL_EXTRA_KEYS]
+        if bad:
+            return f"[{i}] unknown keys {bad} (allowed: {sorted(UAL_EXTRA_KEYS)})"
+        if c.get("kind") not in UAL_EXTRA_KINDS:
+            return f"[{i}].kind must be one of {list(UAL_EXTRA_KINDS)}"
+        if c.get("auto") not in (None, "head") or (c.get("auto") is None and not (isinstance(c.get("root"), str) and _NAME.match(c["root"]))):
+            return f"[{i}] needs a root bone name (or auto: \"head\")"
+        if c.get("side") not in (None, "l", "r"):
+            return f"[{i}].side must be l or r"
+    return None
+
+
 def _paint(v):
     if not isinstance(v, dict):
         return "must be an object"
@@ -266,6 +292,20 @@ FIELDS = {
                    "clips into anims_ual/ for `forge.py promote` (docs/anim-reuse.md). Default skintokens"),
     "rig_ual_fit": (_choice("auto", "skintokens"), "rig", "rig_source ual: joints found on the mesh (auto, default) "
                     "or taken from the existing SkinTokens rig (skintokens; kept as rig/skintokens_rigged.glb)"),
+    "rig_ual_extras": (_ual_extras, "rig", "rig_source ual: SkinTokens chains UAL has no bone for (wings, tails, "
+                       "extra limbs, rag strips) copied onto the UAL skeleton, parented to the nearest UAL bone, keeping "
+                       "their SkinTokens weights (UAL heat elsewhere): \"auto\" (rig_ual.auto_extras) or a list of "
+                       "{root, kind wing|tail|limb|strip|head, side?, parent?}; {auto: \"head\", side, kind: \"head\"} "
+                       "adds a second head's chain from the mesh (ettin). UAL clips get a procedural sway on them; the "
+                       "anim stage's clips find wing_/tail_ chains by name (docs/anim-reuse.md \"Extra chains\")"),
+    "rig_ual_extra_weights": (_choice("skintokens", "heat", "zone"), "rig", "rig_ual_extras' weights: SkinTokens' on "
+                              "the chains, UAL heat elsewhere (skintokens, default); bone heat with the chains (heat: "
+                              "needed for auto heads); zone: SkinTokens' weights around the chains too"),
+    "rig_ual_weights": (_choice("heat", "skintokens"), "rig", "rig_source ual: the UAL bones' weights: bone heat on a "
+                        "remeshed proxy (heat, default) or the SkinTokens weights merged by the bonemap (skintokens; "
+                        "needs rig_ual_fit skintokens)"),
+    "rig_ual_add_tail": (_bool, "rig", "rig_source ual: find a tail SkinTokens has no chain for on the mesh first "
+                         "(blender_tail_chain, as the rig stage does for quadrupeds) and adopt it as an extra chain"),
     "idle_lift": (_idle_lift, "anim", "idle height: metres of lift, \"match_move\" (where the swim/fly clip "
                   "holds the body) or false (floor); unset: match_move when the animation_set has no walk"),
     "anim_source": (_choice("procedural", "ual"), "anim", "bipeds: \"ual\" also retargets the Quaternius UAL clips "
@@ -341,6 +381,7 @@ def defaults(mon: dict, style_name: str | None = None) -> dict:
         "lod_ratios": list(LOD_RATIOS), "rig_facing_check": True, "lod_screen_ratios": None, "notes": "",
         # on for rig.TAIL_ADDED's plans (rig.adds_tail; overrides cannot import rig)
         "anim_source": "procedural", "anim_ual_exclude": None, "rig_source": "skintokens", "rig_ual_fit": "auto",
+        "rig_ual_extras": None, "rig_ual_extra_weights": None, "rig_ual_weights": None, "rig_ual_add_tail": None,
         "rig_tail_chain": plan in {"quadruped", "winged_quadruped", "centauroid"}, "rig_fix_legs": None,
         "rig_leg_seams": False,
         # on for rig.adds_wings' plans (overrides cannot import rig)

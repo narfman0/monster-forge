@@ -77,9 +77,31 @@ for o in list(bpy.data.objects):
 BM = json.loads(Path(job["bonemap"]).read_text()) if job.get("bonemap") and Path(job["bonemap"]).exists() else {"map": {}, "chains": {}}
 if SK is None and (job.get("fit", "auto") != "auto" or job.get("weights", "skintokens") == "skintokens"):
     raise SystemExit("src has no skeleton: use fit auto and weights heat or transfer")
+if SK is None and job.get("extras"):
+    raise SystemExit("extras need the SkinTokens rig as src (its chains are adopted)")
+# extras (docs/anim-reuse.md "Extra chains"): a tail the SkinTokens rig has no chain for is found
+# on the mesh and inserted on the SkinTokens skeleton first (blender_tail_chain, the rig stage's
+# tail insertion), then adopted like any other chain
+if SK and job.get("add_tail"):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import blender_tail_chain  # noqa: E402
+    import rig_topology  # noqa: E402
+    REPORT["tail_added"] = blender_tail_chain.add_missing_tail(SK, ME, rig_topology, 2, isolated=False)
+    print("tail_added", json.dumps(REPORT["tail_added"], default=str)[:400], flush=True)
+    if (REPORT["tail_added"] or {}).get("found") and not any(e["root"] == "tail_00" for e in job.get("extras") or []):
+        job["extras"] = list(job.get("extras") or []) + [{"root": "tail_00", "kind": "tail"}]
 SK_POS = {b.name: (SK.matrix_world @ b.head_local).copy() for b in SK.data.bones} if SK else {}
 SK_TAIL = {b.name: (SK.matrix_world @ b.tail_local).copy() for b in SK.data.bones} if SK else {}
 SK_PARENT = {b.name: b.parent.name if b.parent else None for b in SK.data.bones} if SK else {}
+SK_KIDS = {b.name: [c.name for c in b.children] for b in SK.data.bones} if SK else {}
+SK_Z = {b.name: (SK.matrix_world.to_3x3() @ b.matrix_local.to_3x3() @ Vector((0, 0, 1))).normalized()
+        for b in SK.data.bones} if SK else {}
+SKW = {}  # the SkinTokens weights per bone (extras keep theirs)
+if SK and job.get("extras"):
+    _gn = {vg.index: vg.name for vg in ME.vertex_groups}
+    for v in ME.data.vertices:
+        for g in v.groups:
+            SKW.setdefault(_gn[g.group], np.zeros(len(ME.data.vertices)))[v.index] += g.weight
 for m in list(ME.modifiers):  # the SkinTokens armature goes; its weights stay as vertex groups
     ME.modifiers.remove(m)
 _mw = ME.matrix_world.copy()
@@ -541,13 +563,13 @@ def fit_auto():
     sp = LO["spine_path"]
     top_o, top_u = LO["head_top"][2], LU["head_top"][2]
     mid_o, mid_u = LO["arm_mid"][2], LU["arm_mid"][2]
-    if LO["neck"] is not None:
+    if LO["neck"] is not None and LU["neck"] is not None:  # (UAL's own neck can go unfound at some arm droops)
         k_up = (LO["neck"][2] - J["pelvis"].z) / (LU["neck"][2] - up["pelvis"].z)
         head_z = LO["neck"][2] + (up["Head"].z - LU["neck"][2]) * k_up
     else:
         head_z = mid_o + (up["Head"].z - mid_u) / (top_u - mid_u) * (top_o - mid_o)
         k_up = (head_z - J["pelvis"].z) / (up["Head"].z - up["pelvis"].z)
-    REPORT["neck_found"] = LO["neck"] is not None
+    REPORT["neck_found"] = LO["neck"] is not None and LU["neck"] is not None
     REPORT["k_torso"] = round(k_up, 4)
     for n in ("spine_01", "spine_02", "spine_03", "neck_01", "Head"):
         z = J["pelvis"].z + (up[n].z - up["pelvis"].z) / (up["Head"].z - up["pelvis"].z) * (head_z - J["pelvis"].z)
@@ -595,6 +617,10 @@ def fit_skintokens():
     for u in CORE:
         if u in inv:
             J[u] = SK_POS[inv[u]].copy()
+    if "spine_01" not in J:  # a 1-bone spine (imp): spine_01 a third of the way pelvis -> spine_03
+        J["spine_01"] = J["pelvis"] + (J["spine_03"] - J["pelvis"]) / 3
+        if "spine_02" not in J:
+            J["spine_02"] = J["pelvis"] + (J["spine_03"] - J["pelvis"]) * 2 / 3
     if "spine_02" not in J:
         J["spine_02"] = (J["spine_01"] + J["spine_03"]) / 2
     if "neck_01" not in J:
@@ -692,6 +718,124 @@ def build():
 
 
 RIG, P, RW = build()
+
+
+# --- extra chains: SkinTokens chains for parts UAL has no bone for ----------------------------
+# job extras: [{root (SkinTokens bone), kind (wing | tail | limb | strip | head), side?, parent?
+# (UAL bone; default the UAL bone mapped from the root's nearest mapped ancestor, else the nearest
+# trunk bone)}]. The root's whole subtree is copied into our armature (SkinTokens' joints and bone
+# rolls), parented to that UAL bone, and renamed so rig_topology (the anim stage's procedural
+# clips) finds it by name: wing_<side>_00.., tail_00.. (the first tail; more are tail<k>_00..),
+# limb_<side><k>_00.., strip<k>_00.., head<k>_00... UAL clips key only the 65 UAL bones; the
+# extras get a procedural layer per clip (extra_layer below) or follow their parent.
+EXTRA_PREFIX = {"wing": "wing_{side}_", "tail": "tail_", "limb": "limb_{side}{k}_", "strip": "strip{k}_",
+                "head": "head{k}_"}
+TRUNK_UAL = ["pelvis", "spine_01", "spine_02", "spine_03", "neck_01", "Head", "clavicle_l", "clavicle_r",
+             "upperarm_l", "upperarm_r"]
+EXTRAS = []      # [{kind, side, prefix, root, parent, bones: [new names, parents first]}]
+EXTRA_OF = {}    # our extra bone -> SkinTokens bone
+
+
+def _seg_dist(p, a, b):
+    ab = b - a
+    t = max(0.0, min(1.0, (p - a).dot(ab) / max(ab.length_squared, 1e-12)))
+    return (a + ab * t - p).length
+
+
+def auto_head(side):
+    """A two-bone neck+head chain for the head on one side of a multi-headed mesh: the vertices above
+    the neck joint on that side of the centre line; base at the neck joint's height under their
+    centroid, through 40% of their height, to their top. Registered as synthetic SkinTokens bones
+    (@head_<side>_0/1) so add_extras copies them like any chain (no SkinTokens weights: use
+    extra_weights "heat"). Returns the root's name, or None when that side has no head."""
+    cx = J["pelvis"].x
+    z0 = J["neck_01"].z
+    sgn = -1 if side == "l" else 1
+    sel = VERTS[(VERTS[:, 2] > z0) & (sgn * (VERTS[:, 0] - cx) > 0.03 * HEIGHT)]
+    if len(sel) < 50:
+        return None
+    top = float(sel[:, 2].max())
+    hi = sel[sel[:, 2] > z0 + 0.5 * (top - z0)]  # the head itself, not the shoulder under it
+    c = (hi if len(hi) >= 10 else sel).mean(0)
+    pts = [Vector((c[0], c[1], z0)), Vector((c[0], c[1], z0 + 0.4 * (top - z0))), Vector((c[0], c[1], top))]
+    names = [f"@head_{side}_0", f"@head_{side}_1"]
+    for i, n in enumerate(names):
+        SK_POS[n], SK_TAIL[n] = pts[i], pts[i + 1]
+        SK_PARENT[n] = names[i - 1] if i else None
+        SK_KIDS[n] = [names[i + 1]] if i + 1 < len(names) else []
+        SK_Z[n] = Vector((0, 1, 0))
+    return names[0]
+
+
+def add_extras(rig, specs):
+    if not specs:
+        return
+    hw = rig.matrix_world
+    Winv = hw.inverted()
+    pos = {b.name: (hw @ b.head_local, hw @ b.tail_local) for b in rig.data.bones}
+    count = {}
+    for sp in specs:
+        if sp.get("auto") == "head":  # a second head (ettin) SkinTokens has no chain for: from the mesh
+            sp = dict(sp, root=auto_head(sp["side"]), parent=sp.get("parent") or "spine_03")
+        r = sp.get("root")
+        if r not in SK_POS:
+            REPORT.setdefault("extras_missing", []).append(r)
+            continue
+        kind = sp["kind"]
+        k = count.get(kind, 0)
+        count[kind] = k + 1
+        side = sp.get("side") or ("l" if SK_TAIL[r].x < J["pelvis"].x else "r")
+        prefix = sp.get("prefix") or EXTRA_PREFIX[kind].format(side=side, k=k + 1)
+        if kind == "tail" and k:
+            prefix = f"tail{k + 1}_"
+        if kind == "wing" and any(e["prefix"] == prefix for e in EXTRAS):
+            prefix = f"wing_{side}{k + 1}_"
+        parent = sp.get("parent")
+        if not parent:
+            a = SK_PARENT.get(r)
+            while a and a not in BM["map"]:
+                a = SK_PARENT.get(a)
+            parent = BM["map"].get(a) if a else None
+            if parent and parent not in TRUNK_UAL:  # a finger/hand/leg mapping: the arm or the hips
+                parent = None
+        if not parent:  # no bonemap (fit auto on a failed map): the nearest bone of the kind's usual set
+            h0 = SK_POS[r]
+            near = {"wing": ["spine_02", "spine_03", "neck_01"], "tail": ["pelvis", "spine_01"],
+                    "strip": ["pelvis", "spine_01"], "head": ["spine_03", "neck_01"]}.get(kind, TRUNK_UAL)
+            parent = min(near, key=lambda n: _seg_dist(h0, *pos[n]))
+        # subtree, the longest branch first (so the main chain is numbered 00, 01, ...)
+        def depth(n):
+            return 1 + max((depth(c) for c in SK_KIDS[n]), default=0)
+
+        order, stack = [], [r]
+        while stack:
+            n = stack.pop()
+            order.append(n)
+            stack.extend(sorted(SK_KIDS[n], key=depth))
+        names = {sk: f"{prefix}{i:02d}" for i, sk in enumerate(order)}
+        EXTRAS.append({"kind": kind, "side": side, "prefix": prefix, "root": r, "parent": parent,
+                       "bones": [names[s] for s in order], "sk": order})
+        EXTRA_OF.update({v: k_ for k_, v in names.items()})
+    select(rig)
+    bpy.ops.object.mode_set(mode="EDIT")
+    eb = rig.data.edit_bones
+    for ex in EXTRAS:
+        for new, sk in zip(ex["bones"], ex["sk"]):
+            b = eb.new(new)
+            hd, tl = SK_POS[sk], SK_TAIL[sk]
+            if (tl - hd).length < 0.005 * HEIGHT:
+                tl = hd + (tl - hd).normalized() * 0.01 * HEIGHT if (tl - hd).length > 1e-9 else hd + Vector((0, 0, 0.01 * HEIGHT))
+            b.head, b.tail = Winv @ hd, Winv @ tl
+            b.align_roll(Winv.to_3x3() @ SK_Z[sk])
+            b.use_deform = True
+        for new, sk in zip(ex["bones"], ex["sk"]):
+            p = SK_PARENT.get(sk)
+            eb[new].parent = eb[ex["prefix"] + f"{ex['sk'].index(p):02d}"] if p in ex["sk"] else eb[ex["parent"]]
+    bpy.ops.object.mode_set(mode="OBJECT")
+    REPORT["extras"] = [{k_: v for k_, v in ex.items() if k_ != "sk"} | {"sk_bones": ex["sk"]} for ex in EXTRAS]
+
+
+add_extras(RIG, job.get("extras") or [])
 REST = {b.name: b.matrix_local.copy() for b in RIG.data.bones}
 
 
@@ -793,7 +937,7 @@ def get_groups(obj):
 def fold(W):
     out = {}
     for g, w in W.items():
-        t = deform_target(g) if g in UPAR else None
+        t = g if g in EXTRA_OF else deform_target(g) if g in UPAR else None
         if t is None:
             continue
         out[t] = out.get(t, 0) + w
@@ -958,8 +1102,72 @@ def weights_transfer():
 
 t = time.time()
 WM = job.get("weights", "skintokens")
+EW = job.get("extra_weights", "skintokens")
+for _n in EXTRA_OF:  # "skintokens": the UAL bones' weights come without the extras, as on a plain rig
+    RIG.data.bones[_n].use_deform = EW == "heat"
 W = {"skintokens": weights_skintokens, "heat": weights_heat, "transfer": weights_transfer}[WM]()
+for _n in EXTRA_OF:
+    RIG.data.bones[_n].use_deform = True
 W = fold(W)
+def sk_mapped(skw, skip):
+    """SkinTokens weights (skw, minus the bones in skip) merged onto the UAL bones by the bonemap,
+    like weights_skintokens: a bone's weight goes to its nearest mapped ancestor's UAL bone."""
+    mp = BM["map"]
+    out = {}
+    for g, w in skw.items():
+        if g in skip:
+            continue
+        n = g
+        while n and n not in mp:
+            n = SK_PARENT.get(n)
+        t = deform_target(mp[n]) if n else "pelvis"
+        out[t] = out.get(t, 0) + w
+    return out
+
+
+def ring_fade(core, rings):
+    """1 on core vertices, falling by 1 / (rings + 1) per edge ring outward, 0 beyond."""
+    e = np.empty(len(ME.data.edges) * 2, dtype=np.int64)
+    ME.data.edges.foreach_get("vertices", e)
+    e = e.reshape(-1, 2)
+    z = core.astype(float)
+    cur = core.copy()
+    for k in range(1, rings + 1):
+        nb = np.zeros(len(core), bool)
+        nb[e[cur[e[:, 0]], 1]] = True
+        nb[e[cur[e[:, 1]], 0]] = True
+        nb &= z == 0
+        z[nb] = 1.0 - k / (rings + 1)
+        cur = cur | nb
+    return z
+
+
+if EXTRA_OF and EW in ("skintokens", "zone"):
+    # "skintokens": each vertex's SkinTokens weight on the adopted chains (s) goes to those chains as
+    # painted; the rest (1 - s) is the UAL heat weights scaled down. "zone": the same, but where the
+    # chains have any weight (and a few edge rings around) the rest comes from SkinTokens' own weights
+    # (mapped onto UAL bones), so the seam between a tail and a thigh is SkinTokens' (or the rig
+    # stage's tail/wing seam), not heat's; heat elsewhere
+    _nv = len(VERTS)
+    S = {n: SKW.get(sk, np.zeros(_nv)).copy() for n, sk in EXTRA_OF.items()}
+    s = np.clip(sum(S.values()), 0.0, 1.0)
+    base = {g: w for g, w in W.items() if g not in EXTRA_OF}
+    bt = sum(base.values()) if base else np.zeros(_nv)
+    base = {g: w / np.maximum(bt, 1e-9) for g, w in base.items()}
+    if EW == "zone":
+        skb = sk_mapped(SKW, set(EXTRA_OF.values()))
+        st = sum(skb.values())
+        skb = {g: w / np.maximum(st, 1e-9) for g, w in skb.items()}
+        z = ring_fade(s > 0.02, int(job.get("zone_rings", 4)))
+        REPORT["zone_verts"] = int((z > 0).sum())
+        base = {g: base.get(g, 0) * (1 - z) + skb.get(g, 0) * z for g in set(base) | set(skb)}
+    W = {g: w * (1.0 - s) for g, w in base.items()}
+    W.update(S)
+    REPORT["extra_share"] = {"verts_over_half": round(float(np.mean(s > 0.5)), 4), "mean": round(float(s.mean()), 4)}
+    for ex in EXTRAS:
+        ex_s = sum(S[n] for n in ex["bones"])
+        ex["verts_over_half"] = int((ex_s > 0.5).sum())
+    REPORT["extras"] = [{k_: v for k_, v in ex.items() if k_ != "sk"} | {"sk_bones": ex["sk"]} for ex in EXTRAS]
 # limit 4, normalise, and fill unweighted vertices from the nearest weighted one
 names = sorted(W)
 if not names:
@@ -1098,6 +1306,94 @@ def sample_clip(ual_clip):
     return frames, n, round(total, 3), round(max_loc, 4), round(math.degrees(max_root), 2)
 
 
+# Extra chains' layer on the UAL clips: degrees at the chain's end (the root turns least), cycles per
+# loop (one-shots: cycles over the clip under a sin(pi u) envelope, so they start and end at rest
+# like the idle's first frame). Tails and limbs sway side to side (a hanging one swings like a
+# pendulum), strips (rags, loincloths) swing fore and aft, wings lift and drop a little at the
+# root, a second head looks about. Death: none (the chains ride the fall). Clip-length loops.
+EXTRA_AMP = {"tail": {"idle": 6, "walk": 12, "run": 16, "attack_melee": 12, "hit": 10, "cast": 6},
+             "limb": {"idle": 5, "walk": 8, "run": 10, "attack_melee": 10, "hit": 8, "cast": 6},
+             "strip": {"idle": 3, "walk": 8, "run": 12, "attack_melee": 6, "hit": 6, "cast": 3},
+             "wing": {"idle": 3, "walk": 5, "run": 8, "attack_melee": 10, "hit": 8, "cast": 6},
+             "head": {"idle": 6, "walk": 5, "run": 5, "attack_melee": 6, "hit": 8, "cast": 5}}
+EXTRA_CYC = {"idle": 1, "walk": 1, "run": 1}
+
+
+def extra_axes():
+    """Per extra bone: (sway axis, lift axis) in the bone's local rest frame and its share of the
+    chain's angle (root small, growing toward the end, summing to 1 along the main chain)."""
+    out = {}
+    if not EXTRAS:
+        return out
+    hw = RIG.matrix_world.to_3x3()
+    for ex in EXTRAS:
+        main = [ex["bones"][0]]
+        while True:
+            kids = [c.name for c in RIG.data.bones[main[-1]].children if c.name in ex["bones"]]
+            if not kids:
+                break
+            main.append(kids[0])
+        nmain = len(main)
+        tot = nmain * (nmain + 1) / 2
+        for nm in ex["bones"]:
+            b = RIG.data.bones[nm]
+            d = (hw @ (b.tail_local - b.head_local)).normalized()
+            if ex["kind"] == "wing":
+                sway = Vector((0, 1, 0))           # about the forward axis: the wing rises and drops
+                lift = d.cross(Vector((0, 0, 1)))
+            elif ex["kind"] == "strip":
+                sway = Vector((1, 0, 0))           # about the side axis: fore and aft
+                lift = Vector((0, 1, 0))
+            elif ex["kind"] == "head":
+                sway, lift = Vector((0, 0, 1)), Vector((1, 0, 0))
+            else:                                  # tail, limb: side to side; hanging: a pendulum
+                sway = Vector((0, 0, 1)) if abs(d.z) < 0.7 else Vector((0, 1, 0))
+                lift = d.cross(sway)
+            sway = sway - d * sway.dot(d)
+            lift = lift - d * lift.dot(d)
+            tolocal = (hw @ b.matrix_local.to_3x3()).inverted()
+            k = main.index(nm) if nm in main else nmain - 1
+            share = (k + 1) / tot if ex["kind"] != "wing" else (0.7 if k == 0 else 0.3 / max(nmain - 1, 1))
+            sgn = -1.0 if (ex["kind"] == "wing" and ex["side"] == "r") else 1.0  # both wings rise together
+            out[nm] = (ex["kind"], (tolocal @ sway).normalized() * sgn if sway.length > 1e-6 else Vector((1, 0, 0)),
+                       (tolocal @ lift).normalized() if lift.length > 1e-6 else Vector((0, 0, 1)), share, k)
+    return out
+
+
+EXTRA_AXES = None
+
+
+def extra_layer(clip, i, n):
+    """{extra bone: basis quaternion} on frame i of n."""
+    global EXTRA_AXES
+    if EXTRA_AXES is None:
+        EXTRA_AXES = extra_axes()
+    out = {}
+    if not EXTRA_AXES:
+        return out
+    u = i / max(n, 1)
+    T = n / FPS
+    loop = clip in LOOPS
+    for nm, (kind, sway, lift, share, k) in EXTRA_AXES.items():
+        amp = math.radians((EXTRA_AMP.get(kind) or {}).get(clip, 0.0)) * float(job.get("extra_amp", 1.0))
+        if not amp:
+            out[nm] = Quaternion()
+            continue
+        if loop:
+            cyc = max(1, round(T / 2.5)) if clip == "idle" else EXTRA_CYC.get(clip, 1)
+            env = 1.0
+        else:
+            cyc = max(1, round(T / 0.9))
+            env = math.sin(math.pi * u)
+        ph = 2 * math.pi * cyc * u - 0.5 * k
+        a = amp * share * env * math.sin(ph)
+        b = amp * share * env * 0.35 * math.sin(2 * ph)
+        if kind == "wing":  # the wing lifts (one side mirrored by the axis sign), no flutter
+            a, b = amp * share * env * 0.5 * (1 - math.cos(ph)), 0.0
+        out[nm] = Quaternion(sway, a) @ Quaternion(lift, b)
+    return out
+
+
 def key_frames(name, frames, lift=None):
     act_out = bpy.data.actions.new(name)
     RIG.animation_data_create()
@@ -1105,7 +1401,7 @@ def key_frames(name, frames, lift=None):
     prev = {}
     rinv = PEL_REST_ARM.to_quaternion().inverted()
     for i, fr in enumerate(frames):
-        for nm, q in fr["rot"].items():
+        for nm, q in list(fr["rot"].items()) + list(extra_layer(name, i, len(frames) - 1).items()):
             if nm in prev and prev[nm].dot(q) < 0:
                 q = -q
             prev[nm] = q
@@ -1129,8 +1425,11 @@ ME.data.edges.foreach_get("vertices", _e)
 EDGES = _e.reshape(-1, 2)
 REST_LEN = np.linalg.norm(REST_CO[EDGES[:, 0]] - REST_CO[EDGES[:, 1]], axis=1)
 OK_E = REST_LEN > 1e-3 * HEIGHT
+OK_IDX = np.nonzero(OK_E)[0]
+STRETCH_WHERE = [{}]
 _names = {vg.index: vg.name for vg in ME.vertex_groups}
 FOOT = {f"foot_{s}" for s in SIDES} | {f"ball_{s}" for s in SIDES}
+DOM = np.array([_names[max(v.groups, key=lambda g: g.weight).group] if len(v.groups) else "" for v in ME.data.vertices])
 FOOT_MASK = np.array([sum(g.weight for g in v.groups if _names.get(g.group) in FOOT) >= 0.5 for v in ME.data.vertices])
 LOOPS = {"idle", "walk", "run"}
 
@@ -1182,10 +1481,12 @@ def colour(obj, rgb_of_vertex):
 
 
 def lr_colour(v):
-    w = {"l": 0.0, "r": 0.0, None: 0.0}
+    w = {"l": 0.0, "r": 0.0, None: 0.0, "x": 0.0}
     for g in v.groups:
         nm = _names[g.group]
-        w[nm[-1] if nm[-2:] in ("_l", "_r") else None] += g.weight
+        w["x" if nm in EXTRA_OF else nm[-1] if nm[-2:] in ("_l", "_r") else None] += g.weight
+    if w["x"] > 0.5:  # extra chains (wings, tails, ...): magenta
+        return (0.85, 0.25, 0.8)
     return (0.25, 0.45, 0.95) if w["l"] > max(w["r"], 0.3) else (0.95, 0.55, 0.15) if w["r"] > max(w["l"], 0.3) \
         else (0.78, 0.78, 0.75)
 
@@ -1277,6 +1578,7 @@ if TILES:
 metrics = {"id": job.get("id"), "height": round(HEIGHT, 3), "hip_scale": round(HIP, 4), "clips": {}}
 def evaluate_mesh(n):
     lows, foot_lows, stretch, pos = [], [], [], []
+    STRETCH_WHERE[0] = {}
     for i in range(n + 1):
         scene.frame_set(i + 1)
         co, _ = mesh_world(ME, evaluated=True, tris=False)
@@ -1285,7 +1587,12 @@ def evaluate_mesh(n):
         foot_lows.append(float(co[FOOT_MASK, 2].min()) if FOOT_MASK.any() else lows[-1])
         el = np.linalg.norm(co[EDGES[:, 0]] - co[EDGES[:, 1]], axis=1)
         ratio = el[OK_E] / REST_LEN[OK_E]
-        stretch.append((float(ratio.max()), float(np.percentile(ratio, 99.9)), int((ratio > 2).sum())))
+        p999 = float(np.percentile(ratio, 99.9))
+        stretch.append((float(ratio.max()), p999, int((ratio > 2).sum())))
+        if p999 >= max(x[1] for x in stretch):  # where the worst frame tears: the torn edges' dominant groups
+            torn = OK_IDX[ratio >= p999]
+            g, c = np.unique(DOM[EDGES[torn, 0]], return_counts=True)
+            STRETCH_WHERE[0] = {str(a): int(b) for a, b in sorted(zip(g, c), key=lambda x: -x[1])[:5]}
     return lows, foot_lows, stretch, pos
 
 
@@ -1329,7 +1636,7 @@ for clip, uc in job["clips"].items():
            "foot_low_max_frac": round((max(foot_lows) - GROUND) / HEIGHT, 4),
            "edge_stretch_max": round(max(x[0] for x in stretch), 3),
            "edge_stretch_p999": round(max(x[1] for x in stretch), 3),
-           "edges_over_2x": max(x[2] for x in stretch), "ual_bone_loc_dropped_max": max_loc,
+           "edges_over_2x": max(x[2] for x in stretch), "stretch_where": STRETCH_WHERE[0], "ual_bone_loc_dropped_max": max_loc,
            "ual_root_rot_max_deg": max_root, "dir_err_deg": round(dir_err, 2), "min_z_raw": round(raw_min, 4),
            "floor_lift_max": round(max(lift), 4) if lift else 0.0}
     if clip in LOOPS:

@@ -1,3 +1,18 @@
 {
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
+  "rig_ual_extras": [
+    {
+      "auto": "head",
+      "side": "l",
+      "kind": "head"
+    },
+    {
+      "auto": "head",
+      "side": "r",
+      "kind": "head"
+    }
+  ],
+  "rig_ual_extra_weights": "heat",
   "notes": "Tier-1 review 2026-11-05: 4 of 4 registry-prompt candidates drew a one-headed green ogre (robe / loincloth), empty hands (all <= -1.40); the ref_0 mesh is a clean 4 m ogre but the ettin is two-headed. Needs a re-roll: forge.py ref ettin --force --n 4 (a prompt change does not make the batch re-roll). SDXL may refuse two heads at any weight; if it does, consider a per-id prompt_tweaks entry or accept one head. Pass 3 (2026-11-05): the (two heads:1.4) re-roll still drew 4 of 4 ONE-headed green ogres (loincloths / robes), hands empty; ref_0 meshed clean (4.0 m, faces front) but has one head. Sharpened to 'two-headed giant ... two complete heads ... four eyes' at 1.5 and 'one face' in the negative. If a third round still draws one head, replace the prompt per id in prompt_tweaks.json (SDXL ignores the count in an appended clause). Pass 4 (2026-11-05, third re-roll): still one head in 3 of 4; ref_3 two whole ogres side by side. ref_1 meshed as a clean one-headed 4.0 m ogre. The prompt_extra route is exhausted (3 rounds at 1.4-1.5): a per-id prompt in prompt_tweaks.json, a two-headed pose template, or accept one head (lead). ref_0 scored 2.69 'armed' with empty hands (unarmed-check false positive). 2026-11-05 prompt table: prompt_extra, negative_extra removed, covered by data/prompt_tweaks.json per-id prompt."
 }

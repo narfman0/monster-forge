@@ -23,6 +23,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import numpy as np
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import retarget_ual  # noqa: E402
 
@@ -39,14 +41,17 @@ def ual1() -> str:
 
 
 def run(mid: str, fit: str, weights: str, sheets: bool = True, tile_px: int = 160, src: Path | None = None,
-        extra: dict | None = None, blender: str = BLENDER, mon: dict | None = None) -> dict:
-    """One rig into out/<source>/<id>/rig_ual/<fit>_<weights>/. src: the mesh (default model_rigged.glb,
-    the SkinTokens rig; model.glb for fit auto without SkinTokens); extra: more job keys."""
+        extra: dict | None = None, blender: str = BLENDER, mon: dict | None = None, out_root: Path | None = None,
+        tag: str | None = None) -> dict:
+    """One rig into out/<source>/<id>/rig_ual/<fit>_<weights>/ (out_root: <out_root>/<id>/<tag>/, sheets
+    and logs there too). src: the mesh (default model_rigged.glb, the SkinTokens rig; model.glb for fit
+    auto without SkinTokens); extra: more job keys (extras, extra_weights, add_tail: see blender_rig_ual)."""
     d = ROOT / "out" / SOURCE / mid
     mon = mon or retarget_ual.registry()[mid]
-    tag = f"{fit}_{weights}"
-    out = d / "rig_ual" / tag
-    tiles = SCRATCH / f"{mid}_{tag}_tiles"
+    tag = tag or f"{fit}_{weights}"
+    out = (Path(out_root) / mid if out_root else d / "rig_ual") / tag
+    scratch = Path(out_root) / mid if out_root else SCRATCH
+    tiles = scratch / f"{mid}_{tag}_tiles"
     lods = json.loads((d / "lods.json").read_text())["lods"] if (d / "lods.json").exists() else {}
     job = {"id": mid, "src": str(src or d / "model_rigged.glb"), "bonemap": str(d / "bonemap.json"), "ual": ual1(),
            "ual_extra": [p for p in retarget_ual.packs() if p != ual1()],
@@ -57,8 +62,8 @@ def run(mid: str, fit: str, weights: str, sheets: bool = True, tile_px: int = 16
     t0 = time.time()
     proc = subprocess.run([blender, "-b", "--factory-startup", "--python-exit-code", "1", "-P", str(SCRIPT), "--",
                            json.dumps(job)], capture_output=True, text=True, timeout=3600)
-    SCRATCH.mkdir(parents=True, exist_ok=True)
-    log = SCRATCH / f"{mid}_{tag}.log"
+    scratch.mkdir(parents=True, exist_ok=True)
+    log = scratch / f"{mid}_{tag}.log"
     log.write_text(proc.stdout + proc.stderr)
     if proc.returncode != 0:
         sys.stderr.write(proc.stdout[-3000:] + proc.stderr[-3000:])
@@ -67,12 +72,96 @@ def run(mid: str, fit: str, weights: str, sheets: bool = True, tile_px: int = 16
     m["wall_seconds"] = round(time.time() - t0, 1)
     (out / "metrics.json").write_text(json.dumps(m, indent=1))
     if sheets:
-        sheet(tiles, [c for c in CLIP_ORDER if c in m["clips"]], SCRATCH / f"{mid}_{tag}.png", f"{mid} {tag}", m)
+        sheet(tiles, [c for c in CLIP_ORDER if c in m["clips"]], scratch / f"{mid}_{tag}.png", f"{mid} {tag}", m)
     return m
+
+
+# --- extra chains (docs/anim-reuse.md "Extra chains") -----------------------------------------------
+EXTRA_PARENTS = {"pelvis", "spine_01", "spine_02", "spine_03", "neck_01", "clavicle_l", "clavicle_r",
+                 "upperarm_l", "upperarm_r"}
+SOCKET_NAMES = {"hand_l", "hand_r", "grip_l", "grip_r", "head", "back", "hip_l", "hip_r"}
+EXTRA_REACH = 0.12  # x height: shorter unmapped chains (ears, horns, toe stubs, finger stubs) follow their parent
+
+
+def skintokens_src(mid: str) -> Path:
+    """The SkinTokens rig: rig/skintokens_rigged.glb once the game files are a UAL rig, else model_rigged.glb."""
+    d = ROOT / "out" / SOURCE / mid
+    keep = d / "rig" / "skintokens_rigged.glb"
+    return keep if keep.exists() else d / "model_rigged.glb"
+
+
+def auto_extras(mid: str, mon: dict, src: Path | None = None, reach: float = EXTRA_REACH) -> list[dict]:
+    """The SkinTokens chains UAL has no bone for, as blender_rig_ual job extras: unmapped bones (not
+    sockets, not bonemap's skipped extras) whose nearest mapped ancestor is a trunk, clavicle or
+    upper-arm bone, reaching >= reach x height from it. Kind: the rig stage's wing_/tail_ names, else
+    by shape (glTF: +Y up, the mesh faces -Z, left on -X): out to the side and not hanging on a winged
+    plan = wing; behind the hips off pelvis/spine_01 = tail; hanging off the pelvis = strip; else limb."""
+    import bonemap
+    d = ROOT / "out" / SOURCE / mid
+    bm = json.loads((d / "bonemap.json").read_text())
+    sk = bonemap.load_skeleton(src or skintokens_src(mid))
+    j, h = sk["joints"], sk["height"] or 1.0
+    mp, skipped = bm.get("map") or {}, set(bm.get("extra") or {})
+    inv = {v: k for k, v in mp.items()}
+    cx = j[inv["pelvis"]]["pos"][0] if "pelvis" in inv else 0.0
+    winged = mon.get("body_plan") == "winged_biped"
+    out = []
+    for r, x in j.items():
+        par = x["parent"]
+        if r in mp or r in skipped or r in SOCKET_NAMES or par is None or not (par in mp or par in skipped):
+            continue
+        a = par
+        while a and a not in mp:
+            a = j[a]["parent"]
+        u = mp.get(a)
+        if u not in EXTRA_PARENTS:
+            continue
+        base = np.array(j[par]["pos"])
+        sub, stack = [], [r]
+        while stack:
+            y = stack.pop()
+            sub.append(np.array(j[y]["pos"]))
+            stack += j[y]["children"]
+        dv = np.array(sub) - base
+        k = int(np.argmax(np.linalg.norm(dv, axis=1)))
+        rr = float(np.linalg.norm(dv[k])) / h
+        if rr < reach and not r.startswith(("wing_", "tail_")):
+            continue
+        t = dv[k] / h
+        side = "l" if base[0] + dv[k][0] < cx else "r"
+        if r.startswith("wing_"):
+            kind, side = "wing", r[5]
+        elif r.startswith("tail_"):
+            kind = "tail"
+        elif winged and abs(t[0]) >= 0.15 and t[1] > -0.25 and u != "pelvis":
+            kind = "wing"
+        elif t[2] >= 0.12 and u in ("pelvis", "spine_01"):
+            kind = "tail"
+        elif u == "pelvis" and t[1] < 0:
+            kind = "strip"
+        else:
+            kind = "limb"
+        out.append({"root": r, "kind": kind, "side": side, "ual_parent": u, "joints": len(sub), "reach": round(rr, 2),
+                    "dir": [round(float(v), 2) for v in t]})
+    order = {"wing": 0, "tail": 1, "limb": 2, "strip": 3, "head": 4}
+    return sorted(out, key=lambda e: (order[e["kind"]], -e["reach"]))
 
 
 # --- pipeline: forge.py rig with rig_source "ual" ------------------------------------------------
 UPRIGHT = {"biped", "winged_biped"}
+
+
+def variant(fit: str, weights: str, extras: bool) -> str:
+    """rig_ual/<variant>/ the stage writes: <fit>_<weights>, + "_x" with extra chains."""
+    return f"{fit}_{weights}" + ("_x" if extras else "")
+
+
+def variant_for(mid: str, source: str = SOURCE) -> str:
+    """The variant the overrides make the stage write (rig_ual_verdict reads that one)."""
+    import overrides
+    ov = overrides.load(source, mid)
+    return variant(ov.get("rig_ual_fit") or "auto", ov.get("rig_ual_weights") or "heat",
+                   bool(ov.get("rig_ual_extras") or ov.get("rig_ual_add_tail")))
 
 
 def rig_source(mon: dict, args=None) -> str:
@@ -87,7 +176,10 @@ def stage(fg, mon: dict, d: Path, args) -> None:
     skeleton with heat weights, no SkinTokens roll. Fit: override rig_ual_fit, "auto" (default, from
     model.glb alone; failed on goblin-warrior's big head) or "skintokens" (the joints of an existing
     SkinTokens rig: model_rigged.glb is kept once as rig/skintokens_rigged.glb and bonemap.json made
-    from it). Writes rig_ual/<fit>_heat/ (metrics, clips), copies its model_rigged*.glb over the game
+    from it). Overrides rig_ual_weights (heat | skintokens), rig_ual_extras ("auto" or a list: SkinTokens
+    chains for wings, tails, extra limbs, strips, or a second head from the mesh, copied onto the UAL
+    skeleton with their own weights), rig_ual_extra_weights and rig_ual_add_tail also read the SkinTokens
+    rig (docs/anim-reuse.md "Extra chains"). Writes rig_ual/<variant()>/ (metrics, clips), copies its model_rigged*.glb over the game
     files and its clips into anims_ual/ with ual.json (retarget_ual.verdict: stretch ceilings, floor,
     anim_ual_exclude; no procedural baseline), so `forge.py promote <id>` works unchanged. The old
     skeleton's clips (anims/, anims_proc/, manifest.anim) are dropped: they name bone_N joints."""
@@ -109,8 +201,14 @@ def stage(fg, mon: dict, d: Path, args) -> None:
         return
     ov = overrides.load(mon["source"], mid)
     fit = ov.get("rig_ual_fit") or "auto"
+    weights = ov.get("rig_ual_weights") or "heat"
+    xspec, add_tail = ov.get("rig_ual_extras"), bool(ov.get("rig_ual_add_tail"))
     src = d / "model.glb"
-    if fit == "skintokens":
+    keep0 = d / "rig" / "skintokens_rigged.glb"
+    if not keep0.exists() and (d / "model_rigged.glb").exists() and (man.get("rig") or {}).get("tool") != "ual":
+        keep0.parent.mkdir(exist_ok=True)  # every fit: the SkinTokens game rig stays, for a later compare or revert
+        shutil.copy2(d / "model_rigged.glb", keep0)
+    if fit == "skintokens" or xspec or add_tail or weights == "skintokens":  # these read the SkinTokens rig
         keep = d / "rig" / "skintokens_rigged.glb"
         if not keep.exists():
             if not (d / "model_rigged.glb").exists() or (man.get("rig") or {}).get("tool") == "ual":
@@ -120,15 +218,20 @@ def stage(fg, mon: dict, d: Path, args) -> None:
                 bonemap.run(mid)
             keep.parent.mkdir(exist_ok=True)
             shutil.copy2(d / "model_rigged.glb", keep)
-        if json.loads((d / "bonemap.json").read_text()).get("status") not in ("ok", "partial"):
+        if fit == "skintokens" and json.loads((d / "bonemap.json").read_text()).get("status") not in ("ok", "partial"):
             raise RuntimeError(f"{mid}: bonemap.json status is not ok/partial")
         src = keep
     tex = d / "textures"
     albedo = next((p for p in (tex / "base_color_painted.png", tex / "base_color.png") if p.exists()), None)
+    extras = auto_extras(mid, mon, src) if xspec == "auto" else list(xspec or [])
+    extra = {"base_color": str(albedo) if albedo else None}
+    if extras or add_tail:
+        extra.update(extras=[{k: e[k] for k in ("root", "kind", "side", "parent", "auto") if k in e} for e in extras],
+                     extra_weights=ov.get("rig_ual_extra_weights") or "skintokens", add_tail=add_tail)
     t0 = time.time()
-    m = run(mid, fit, "heat", sheets=False, src=src, blender=fg.BLENDER, mon=mon,
-            extra={"base_color": str(albedo) if albedo else None})
-    out = d / "rig_ual" / f"{fit}_heat"
+    tag = variant(fit, weights, bool(extras or add_tail))
+    m = run(mid, fit, weights, sheets=False, src=src, blender=fg.BLENDER, mon=mon, extra=extra, tag=tag)
+    out = d / "rig_ual" / tag
     rig.clear_rig_outputs(d)
     for f in out.glob("model_rigged*.glb"):
         shutil.copy2(f, d / f.name)
@@ -142,7 +245,10 @@ def stage(fg, mon: dict, d: Path, args) -> None:
     man = fg.load_manifest(d)
     man.pop("anim", None)
     r = m["rig"]
-    man["rig"] = {"tool": "ual", "fit": fit, "weights": "heat", "joints": 65 + len([x for x in r.get("sockets") or [] if x not in ("hand_l", "hand_r")]),
+    nx = sum(len(e["bones"]) for e in r.get("extras") or [])
+    man["rig"] = {"tool": "ual", "fit": fit, "weights": weights, "joints": 65 + nx + len([x for x in r.get("sockets") or [] if x not in ("hand_l", "hand_r")]),
+                  **({"extras": {e["prefix"]: {"kind": e["kind"], "parent": e["parent"], "bones": len(e["bones"]), "from": e["root"]}
+                                 for e in r["extras"]}} if r.get("extras") else {}),
                   "deform_groups": r.get("groups"), "legs": 2,
                   "sockets": r.get("sockets"), "sockets_missing": [s for s in (mon.get("sockets") or []) if s not in (r.get("sockets") or [])],
                   "seconds": round(time.time() - t0, 1), "hip_scale": m.get("hip_scale"),
@@ -150,7 +256,7 @@ def stage(fg, mon: dict, d: Path, args) -> None:
     man.setdefault("timings", {})["rig"] = man["rig"]["seconds"]
     rig.clear_stage_errors(man, "rig")
     fg.save_manifest(d, man)
-    fg.log(f"{mid}: UAL rig ({fit} fit, heat weights) in {man['rig']['seconds']}s; clips in anims_ual/: "
+    fg.log(f"{mid}: UAL rig ({fit} fit, {weights} weights{f', {nx} extra bones' if nx else ''}) in {man['rig']['seconds']}s; clips in anims_ual/: "
            + ", ".join(f"{c}={x['use']}" for c, x in v.items()) + f"; promote with `forge.py promote {mid}`")
 
 
