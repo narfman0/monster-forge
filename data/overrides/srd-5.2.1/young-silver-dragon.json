@@ -1,6 +1,7 @@
 {
- "prompt_extra": "(gleaming metallic silver and white scales, pale silver wing membranes:1.3), single dragon",
- "negative_extra": "(blue scales, dark scales, orange wings, two dragons:1.4)",
- "notes": "Tier-1 review 2026-11-05: 3 of 3 registry-prompt candidates are dark blue-grey dragons with orange or blue wings (not silver; ref_1 looks like two overlapping dragons). The ref_0 mesh is turned (facing gate refused 60.5 deg). Needs a re-roll: forge.py ref young-silver-dragon --force --n 3 (the silver wyrmling had the same problem: its ref_2 was the only silver one). Facing (2026-11-05, fixed check): refusal right (60.5 deg, thumb.png front tile shows the profile); no yaw pinned: the re-roll replaces the mesh. Lead 2026-11-06 (review pass 5): thumb faces front; the gate is unverified or wrong on its axis, so rig_facing_check is off.",
- "rig_facing_check": false
+  "prompt_extra": "(gleaming metallic silver and white scales, pale silver wing membranes:1.3), single dragon",
+  "negative_extra": "(blue scales, dark scales, orange wings, two dragons:1.4)",
+  "notes": "Tier-1 review 2026-11-05: 3 of 3 registry-prompt candidates are dark blue-grey dragons with orange or blue wings (not silver; ref_1 looks like two overlapping dragons). The ref_0 mesh is turned (facing gate refused 60.5 deg). Needs a re-roll: forge.py ref young-silver-dragon --force --n 3 (the silver wyrmling had the same problem: its ref_2 was the only silver one). Facing (2026-11-05, fixed check): refusal right (60.5 deg, thumb.png front tile shows the profile); no yaw pinned: the re-roll replaces the mesh. Lead 2026-11-06 (review pass 5): thumb faces front; the gate is unverified or wrong on its axis, so rig_facing_check is off. Rig-friendly quadruped pose 2026-11-08 (docs/references.md \"Rig-friendly quadrupeds\"): re-rolled with plan default, ref_3 picked; canon partial (1 of 2 wings: the left wing chain not found, fly freezes it as before; was fail: sat with no fore-leg chain on the floor, 3 legs); walk on 4 feet (was 3); clip audit 6.7 -> 5.0; silver, wings raised; the old mesh was turned (facing check off), this one faces +Y. Old dir backed up in ~/.cache/monster-forge-scratch/quadpose/backup/young-silver-dragon/.",
+  "rig_facing_check": false,
+  "ref_pick": 3
 }

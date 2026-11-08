@@ -1,0 +1,4 @@
+{
+  "ref_pick": 1,
+  "notes": "Rig-friendly quadruped pose 2026-11-08 (docs/references.md \"Rig-friendly quadrupeds\"): re-rolled with plan default, ref_1 picked; canon ok (was fail: reared with the fore paws up, 2 legs); walk on 4 feet (was 2); clip audit 2.72 -> 0; silver-white with ink-line scales, wings raised and spread; some dark unpainted patches on the inner legs. Old dir backed up in ~/.cache/monster-forge-scratch/quadpose/backup/ancient-silver-dragon/."
+}

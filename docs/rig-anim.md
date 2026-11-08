@@ -1577,6 +1577,25 @@ legs not two pairs (adult silver dragon, silver wyrmling: the fore-leg chains ru
 giant toad: its fore-leg "chains" are toes), head through a wing chain (adult brass dragon, griffon: the
 neck is in the inserted wing chain). Re-rolls with the rig-friendly reference poses (02d50d3) or re-rigs.
 
+**Rig-friendly quadruped re-rolls (2026-11-08): 104 of 110 canonical.** 15 of the 21 were re-drawn with the
+quadruped pose templates (docs/references.md "Rig-friendly quadrupeds": all four feet planted, legs apart, tail out
+behind, wings raised, a three-quarter side view), re-meshed, re-painted and re-rigged in a scratch copy of the repo,
+and replaced in out/ (old dirs in `~/.cache/monster-forge-scratch/quadpose/backup/<id>/`): ok 13 (adult blue / red /
+silver, ancient silver, blue / bronze / silver wyrmlings, young blue / green, crocodile, rat, weasel, pseudodragon),
+partial 2 (young silver: 1 of 2 wings; giant crocodile: no neck bone). Every one walks on 4 feet (was 1-3 on 12 of
+them); clip audit over the 15: 33.7 -> 11.0. green-dragon-wyrmling (already renamed, partial) was re-rolled too:
+ok, audit 5.0 -> 1.2. Still bone_N (6): bulette (re-rolled, rigs, held for its look), frog, giant frog, giant toad
+(folded or toe-chain legs), adult brass dragon and griffon (head through a wing chain).
+
+**Straight legs and the level foot IK** (`blender_clips.level_ik_bends`). A leg modelled dead straight with its
+foot bone pointing down can lock the level foot IK (position plus the foot's rest orientation): the solver keeps the
+orientation and lets the position go, the floor pass lowers the body for the gap, and the gap grows (young blue
+dragon's re-roll: idle sank 0.49 m with a 0.77 m gap on one fore leg, audit 40.6). Before any key, each level leg's
+target is raised 0.05 x height (as if the body were lowered that much); a leg that then falls short by more than a
+quarter of that drops `use_rotation` (clip report `ik_unlevel`, its foot follows the shin). Young blue dragon: idle
++0.003 m, audit 4.3. None of the 110 existing quadruped rigs triggers it (the idle clip on every one), and lion,
+wolf, draft horse, pegasus, adult green dragon and black dragon wyrmling (44 clips) rebuild byte-identical.
+
 ## Body plans (2026-11-04)
 
 One pilot per plan the six pilots did not cover took the whole chain (`forge.py run`, paint

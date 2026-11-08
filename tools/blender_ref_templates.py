@@ -196,6 +196,11 @@ def head(kind, p, d, k=1.0):
         capsule(p + d * 0.05 + Vector((0, 0, -0.02)), p + d * 0.24 + Vector((0, 0, -0.04)), 0.075, 0.05)
         for s in (-1, 1):
             capsule(p + Vector((s * 0.06, 0, 0.07)) - d * 0.03, p + Vector((s * 0.08, 0, 0.17)) - d * 0.06, 0.04, 0.008)
+    elif kind == "small":                       # a small mammal: round skull, tapering snout, small round ears
+        sphere(p, 0.10)
+        capsule(p + d * 0.04 + Vector((0, 0, -0.01)), p + d * 0.20 + Vector((0, 0, -0.03)), 0.075, 0.03)
+        for s in (-1, 1):
+            ellipsoid(p + Vector((s * 0.07, 0, 0.07)) - d * 0.04, 0.035, 0.015, 0.035)
     elif kind == "lion":                        # skull, muzzle and a mane ruff
         ellipsoid(p - d * 0.06, 0.24, 0.20, 0.26)
         sphere(p + d * 0.06, 0.15)
@@ -409,13 +414,134 @@ def biped(wings=False, tail=False, small=False):
     return {"view": (0.0, -1.0, 0.0), "margin": 1.10, "keypoints": kp}
 
 
+def membrane(outline, thick):
+    """A flat sheet (a wing membrane) through the polygon `outline` (3D points, fan-triangulated from
+    their centroid), `thick` thick."""
+    import bmesh
+    bm = bmesh.new()
+    c = sum((Vector(p) for p in outline), Vector()) / len(outline)
+    vc = bm.verts.new(c)
+    vs = [bm.verts.new(Vector(p)) for p in outline]
+    for i in range(len(vs)):
+        bm.faces.new((vc, vs[i], vs[(i + 1) % len(vs)]))
+    me = bpy.data.meshes.new("membrane")
+    bm.to_mesh(me)
+    bm.free()
+    ob = bpy.data.objects.new("membrane", me)
+    bpy.context.scene.collection.objects.link(ob)
+    mod = ob.modifiers.new("solid", "SOLIDIFY")
+    mod.thickness, mod.offset = thick, 0.0
+    bpy.context.view_layer.objects.active = ob
+    ob.select_set(True)
+    bpy.ops.object.modifier_apply(modifier="solid")
+
+
+def quad_pose(kind="mammal", wings=False, small=False):
+    """A rig-friendly quadruped facing +Y (2026-11-08, docs/references.md "Rig-friendly quadrupeds"): all
+    four legs straight and apart with every foot planted (no raised paw, no sitting, no rearing), the
+    tail held out behind along the body line and clear of the floor and the hind legs, the head forward
+    on the neck, wings (membrane) raised up and spread clear of the back and legs. Seen from the side and
+    a little from the front (60 degrees off the front, camera 12 degrees up), so the far legs show beside
+    the near ones instead of behind them. kind: mammal (a dog-like barrel on straight legs), reptile (a
+    long low body, the elbows and knees bent out, feet planted outside the body, a long tail), dragon (a
+    deep chest on straight legs, a long neck rising forward, a long tail). small: tiny/small proportions
+    (a longer, lower body on shorter legs and a bigger head)."""
+    k = 1.0
+    if kind == "reptile":
+        z, rx, ry_, rz = 0.48, 0.30, 0.95, 0.22
+        cy, ry, lx, lr = 0.60, -0.62, 0.32, 0.11
+    elif kind == "dragon":
+        z, rx, ry_, rz = 1.00, 0.30, 0.72, 0.32
+        cy, ry, lx, lr = 0.52, -0.55, 0.25, 0.11
+    else:
+        z, rx, ry_, rz = 0.72, 0.20, 0.55, 0.22
+        cy, ry, lx, lr = 0.42, -0.45, 0.15, 0.065
+    if small:                                   # longer, lower body, shorter legs, bigger head
+        z *= 0.72
+        ry_ *= 1.1
+        k = 1.35
+        if kind == "mammal":                    # a weasel / rat build: long and low on short legs
+            z, ry_, rz, cy, ry = 0.36, 0.62, 0.17, 0.48, -0.50
+            rx, lr, k = 0.16, 0.05, 1.0
+    ellipsoid((0, 0, z), rx, ry_, rz)
+    ellipsoid((0, cy, z + 0.04), rx * 0.95, rx * 1.05, rz * 1.08)              # chest
+    ellipsoid((0, ry, z + 0.02), rx * 0.95, rx * 1.0, rz * 1.02)               # rump
+    for s in (-1, 1):
+        if kind == "reptile":                   # splayed: elbow and knee out, the foot planted outside the body
+            for y0, r0 in ((cy + 0.02, lr), (ry - 0.02, lr * 1.25)):
+                chain([(s * rx * 0.75, y0, z), (s * (lx + 0.10), y0 + 0.03, z * 0.70), (s * (lx + 0.14), y0 + 0.06, 0.06)],
+                      [r0, r0 * 0.8, r0 * 0.6])
+                ellipsoid((s * (lx + 0.15), y0 + 0.13, 0.03), r0 * 0.9, r0 * 1.4, 0.03)
+        else:                                   # straight legs, a little wider than the body, toes forward
+            foot = (lr * 1.05, lr * 1.6, lr * 0.6)
+            chain([(s * lx * 0.85, cy, z), (s * lx, cy + 0.02, z * 0.48), (s * lx * 1.05, cy + 0.02, foot[2])],
+                  [lr * 1.2, lr * 0.8, lr * 0.65])
+            chain([(s * lx * 0.85, ry, z + 0.02), (s * lx, ry + 0.10 * z, z * 0.58), (s * lx * 1.05, ry - 0.06 * z, z * 0.25),
+                   (s * lx * 1.05, ry - 0.03 * z, foot[2])], [lr * 1.45, lr * 0.9, lr * 0.65, lr * 0.65])
+            for y0 in (cy + 0.02, ry - 0.03 * z):
+                ellipsoid((s * lx * 1.05, y0 + foot[1] * 0.6, foot[2]), *foot)
+    # tail: out behind along the body line, sloping a little down, clear of the floor and the hind legs
+    t0 = (0, ry - rx * 0.8, z + 0.02)
+    if kind == "reptile":
+        pts = bezier(t0, (0, t0[1] - 0.55, z * 0.85), (0, t0[1] - 1.15, z * 0.55), (0, t0[1] - 1.65, z * 0.40), n=12)
+        chain(pts, [rz * 0.95 * (1 - i / 13) + 0.015 for i in range(13)])
+    elif kind == "dragon":
+        pts = bezier(t0, (0, t0[1] - 0.70, z * 0.95), (0, t0[1] - 1.40, z * 0.75), (0, t0[1] - 2.00, z * 0.62), n=14)
+        chain(pts, [0.20 * (1 - i / 15) + 0.015 for i in range(15)])
+    else:
+        L = 0.75 if small else 0.55
+        pts = bezier(t0, (0, t0[1] - 0.35 * L, z * 0.98), (0, t0[1] - 0.75 * L, z * 0.85), (0, t0[1] - L, z * 0.72), n=10)
+        chain(pts, [0.05 * (1 - i / 11) + 0.012 for i in range(11)])
+    # neck and head, the head looking forward
+    top = Vector((0, cy + rx * 0.5, z + rz * 0.55))
+    if kind == "dragon":
+        pp = [top, top + Vector((0, 0.25, 0.30)), top + Vector((0, 0.45, 0.65)), top + Vector((0, 0.75, 0.80))]
+        curve = bezier(*pp, n=12)
+        chain(curve, [0.22 - 0.09 * i / 12 for i in range(13)])
+        d = Vector((0, 1, -0.15))
+        head("reptile", curve[-1], d, 1.35 * k)
+    elif kind == "reptile":
+        p = Vector((0, cy + rx * 1.3, z + 0.02))
+        capsule((0, cy + 0.1, z), p, 0.18, 0.15)
+        head("reptile", p, Vector((0, 1, -0.05)), 1.7 * k)
+    else:
+        nk = [(0.08, 0.10), (0.16, 0.18), (0.24, 0.22)] if not small else [(0.07, 0.04), (0.14, 0.07), (0.20, 0.08)]
+        pp = [top] + [top + Vector((0, a, b)) for a, b in nk]
+        curve = bezier(*pp, n=8)
+        chain(curve, [0.09 - 0.02 * i / 8 for i in range(9)])
+        head("small" if small else "dog", curve[-1], Vector((0, 1, -0.1)), 1.15 * k)
+    if wings:                                   # raised up and spread in a V above the back, clear of the legs and neck
+        W = 1.35 if kind == "dragon" else 0.85
+        tilt = math.radians(30)                 # the wing plane leans out from the vertical
+        for s in (-1, 1):
+            root = Vector((s * rx * 0.55, cy - 0.30, z + rz * 0.75))
+            up = Vector((s * math.sin(tilt), 0, math.cos(tilt)))
+            at = lambda u, v: root + Vector((0, u * W, 0)) + up * (v * W)
+            # a bat wing: the arm up to the wrist, three fingers fanned back, a scalloped membrane between
+            # them whose trailing edge stays above the back
+            wrist, tips = at(0.05, 1.0), [at(-0.30, 1.18), at(-0.72, 0.98), at(-1.00, 0.58)]
+            chain([root, at(0.10, 0.5), wrist], [0.06, 0.045, 0.025])
+            for t in tips:
+                capsule(wrist, t, 0.02, 0.008)
+            outline = [root, at(0.08, 0.5), wrist, tips[0], at(-0.42, 0.80), tips[1], at(-0.68, 0.52), tips[2],
+                       at(-0.70, 0.22), at(-0.50, 0.05)]
+            membrane(outline, 0.012)
+    a = math.radians(60)
+    return {"view": (math.sin(a), math.cos(a), math.tan(math.radians(15 if kind == "reptile" else 12))), "margin": 1.08}
+
+
+QUAD_POSES = {"quad_side": ("mammal", False), "quad_low_side": ("reptile", False), "quad_wings_side": ("dragon", True)}
+
+
 TEMPLATES = {"serpentine_side_depth": snake, "centaur_34_depth": centaur, "hydra_34_depth": hydra,
              "twohead_dog_34_depth": twohead_dog, "sphinx_side_depth": sphinx, "chimera_34_depth": chimera,
              "biped_wings_front_depth": lambda: biped(wings=True), "biped_tail_front_depth": lambda: biped(tail=True),
              "biped_wings_tail_front_depth": lambda: biped(wings=True, tail=True),
              "biped_wings_front_small_depth": lambda: biped(wings=True, small=True),
              "biped_tail_front_small_depth": lambda: biped(tail=True, small=True),
-             "biped_wings_tail_front_small_depth": lambda: biped(wings=True, tail=True, small=True)}
+             "biped_wings_tail_front_small_depth": lambda: biped(wings=True, tail=True, small=True),
+             **{f"{n}{'_small' if sm else ''}_depth": (lambda kd=kd, w=w, sm=sm: quad_pose(kd, w, sm))
+                for n, (kd, w) in QUAD_POSES.items() for sm in (False, True)}}
 
 
 # ---------------------------------------------------------------- render

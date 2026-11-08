@@ -1,4 +1,4 @@
 {
-  "ref_pick": 1,
-  "notes": "Tier-2 review 2026-11-05 (pass 4): ref_0 meshed as a crumpled shard-textured lump (0.25 m, 4367 tris), no tail, and BACKWARDS (face in the back tile). ref_1 (side view, low on all four, tail on the ground): re-pick 1, re-mesh next pass (no yaw: the mesh goes)."
+  "ref_pick": 2,
+  "notes": "Tier-2 review 2026-11-05 (pass 4): ref_0 meshed as a crumpled shard-textured lump (0.25 m, 4367 tris), no tail, and BACKWARDS (face in the back tile). ref_1 (side view, low on all four, tail on the ground): re-pick 1, re-mesh next pass (no yaw: the mesh goes). Rig-friendly quadruped pose 2026-11-08 (docs/references.md \"Rig-friendly quadrupeds\"): re-rolled with plan default, ref_2 picked; canon ok (was fail: a curled lump, 3 legs); walk on 4 feet (was 3); clip audit 0 -> 0; brown rat, long and low, tail out behind; whisker spikes on the snout kept (as before). Old dir backed up in ~/.cache/monster-forge-scratch/quadpose/backup/rat/."
 }

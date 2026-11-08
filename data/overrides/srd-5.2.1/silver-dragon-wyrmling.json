@@ -1,5 +1,4 @@
 {
-  "ref_pick": 2,
-  "notes": "Tier-1 review 2026-11-05: refs 0 (default) and 1 are teal-green scaled dragons (not silver); the ref_0 mesh faces front-ish (gate ok 23.0) and is 2.6 m wide for 2.5 m long. ref_2: a silver-white wyrmling, side view, tail coiled behind, 4 feet down. Re-pick 2 for the colour.",
-  "rig_leg_seams": true
+  "ref_pick": 3,
+  "notes": "Tier-1 review 2026-11-05: refs 0 (default) and 1 are teal-green scaled dragons (not silver); the ref_0 mesh faces front-ish (gate ok 23.0) and is 2.6 m wide for 2.5 m long. ref_2: a silver-white wyrmling, side view, tail coiled behind, 4 feet down. Re-pick 2 for the colour. Rig-friendly quadruped pose 2026-11-08 (docs/references.md \"Rig-friendly quadrupeds\"): re-rolled with plan default, ref_3 picked; canon ok (was fail: the fore-leg chains ran down the hind legs); walk on 4 feet; clip audit 0 -> 0, both wings flap; silver; reads less like a big-headed hatchling than before. Old dir backed up in ~/.cache/monster-forge-scratch/quadpose/backup/silver-dragon-wyrmling/."
 }

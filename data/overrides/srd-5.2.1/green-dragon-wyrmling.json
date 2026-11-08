@@ -1,0 +1,4 @@
+{
+  "ref_pick": 3,
+  "notes": "Rig-friendly quadruped pose 2026-11-08 (docs/references.md \"Rig-friendly quadrupeds\"): re-rolled with plan default, ref_3 picked; canon ok (was partial: tail on the floor dropped by the clips, 1 of 2 wings; 5 SkinTokens legs); walk on 4 feet; clip audit 5.0 -> 1.23 (swim stretch 1.23; the right wing no longer frozen in fly); emerald green, the crest frill lower than before. Old dir backed up in ~/.cache/monster-forge-scratch/quadpose/backup/green-dragon-wyrmling/."
+}

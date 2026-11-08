@@ -1,3 +1,4 @@
 {
-  "rig_leg_seams": true
+  "ref_pick": 2,
+  "notes": "Rig-friendly quadruped pose 2026-11-08 (docs/references.md \"Rig-friendly quadrupeds\"): re-rolled with plan default, ref_2 picked; canon ok (was fail: sat with no fore-leg chain on the floor, 3 legs); walk on 4 feet (was 3); clip audit 3.79 -> 0 (the left wing no longer frozen in fly); blue with pale blue wings (the old one had gold wings); black unpainted patches at the wing tips and inner legs (paint, thin membranes). Old dir backed up in ~/.cache/monster-forge-scratch/quadpose/backup/blue-dragon-wyrmling/."
 }

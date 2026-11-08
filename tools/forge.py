@@ -557,9 +557,19 @@ REF_TEMPLATES = {
            "extra": [{"image": _sized(f"workflows/pose/{n}_depth.png", f"workflows/pose/{n}_small_depth.png"),
                       "type": "depth", "strength": 0.3, "start": 0.0, "end": 0.35}]}
        for n in ("biped_wings_front", "biped_tail_front", "biped_wings_tail_front")},
+    # rig-friendly quadrupeds (docs/references.md "Rig-friendly quadrupeds", 2026-11-08): all four feet
+    # planted, legs straight and apart, the tail held out behind along the body line (off the floor),
+    # wings raised in a V above the back, head forward; seen from the side, 60 degrees off the front, so
+    # the far legs show beside the near ones (tools/blender_ref_templates.py quad_pose). Depth only (the
+    # union model's OpenPose is a human skeleton). quad_low_side: crocodiles and lizards (splayed legs),
+    # chosen per id by the override `ref_template`.
+    **{n: {"image": _sized(f"workflows/pose/{n}_depth.png", f"workflows/pose/{n}_small_depth.png"),
+           "type": "depth", "strength": 0.55, "start": 0.0, "end": 0.5}
+       for n in ("quad_side", "quad_low_side", "quad_wings_side")},
 }
 REF_TEMPLATE_BY_PLAN = {"serpentine": "serpentine_side", "centauroid": "centaur_34"}
 RIG_FRIENDLY_PLANS = {"biped", "winged_biped"}
+QUAD_FRIENDLY = {"quadruped": "quad_side", "winged_quadruped": "quad_wings_side"}
 TAIL_WORD = re.compile(r"\btails?\b", re.I)
 
 
@@ -567,10 +577,15 @@ def rig_friendly_template(mon: dict) -> str | None:
     """The default pose template of a biped / winged biped drawn after 2026-11-08 (docs/references.md
     "Rig-friendly poses"): wings for a winged biped, a tail when the registry prompt names one, else the
     wide A-pose. None (the house A-pose) for a record in prompt_tweaks.json `_frozen.pose_v1_ids`: every
-    biped that had a reference when the default changed keeps its prompt (and the batch's fingerprint)."""
+    biped that had a reference when the default changed keeps its prompt (and the batch's fingerprint).
+    Quadrupeds (2026-11-08): quad_side, winged quadrupeds quad_wings_side, except `_frozen.quad_pose_v1_ids`
+    (every quadruped / winged quadruped with a reference then: no template, as before)."""
+    fz = load_prompt_tweaks().get("_frozen") or {}
+    if mon.get("body_plan") in QUAD_FRIENDLY:  # quadrupeds: `_frozen.quad_pose_v1_ids` keep no template
+        return None if mon["id"] in set(fz.get("quad_pose_v1_ids") or []) else QUAD_FRIENDLY[mon["body_plan"]]
     if mon.get("body_plan") not in RIG_FRIENDLY_PLANS:
         return None
-    if mon["id"] in set((load_prompt_tweaks().get("_frozen") or {}).get("pose_v1_ids") or []):
+    if mon["id"] in set(fz.get("pose_v1_ids") or []):
         return None
     wings = mon["body_plan"] == "winged_biped"
     tail = bool(TAIL_WORD.search(mon.get("reference_prompt") or ""))

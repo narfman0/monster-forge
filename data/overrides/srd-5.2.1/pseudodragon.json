@@ -1,0 +1,4 @@
+{
+  "ref_pick": 0,
+  "notes": "Rig-friendly quadruped pose 2026-11-08 (docs/references.md \"Rig-friendly quadrupeds\"): re-rolled with plan default, ref_0 picked; canon ok (was fail: stood upright, 3 legs); walk on 4 feet (was 3); clip audit 1.5 -> 0; red-brown with red bat wings, horned head, spiked tail. Old dir backed up in ~/.cache/monster-forge-scratch/quadpose/backup/pseudodragon/."
+}

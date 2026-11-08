@@ -254,6 +254,89 @@ imp, half-dragon, deva: 3-4 legs -> 2). Tails: held out behind meshes best (were
 with the arm (wererat). The pose words also change the costume: long garments open over the legs (robes, coats) and
 some clothing is dropped (incubus, half-dragon armour), so likeness needs the per-id words kept strong.
 
+### Rig-friendly quadrupeds (2026-11-08)
+
+21 quadrupeds stayed on `bone_N` after the leg-pair fix (docs/rig-anim.md "Standard quadruped skeleton"),
+all for the mesh: dragons rearing with the fore paws up (adult blue / red, ancient silver), sitting with no fore
+leg on the floor (blue / bronze / green wyrmlings, young blue / green / silver), fore-leg chains running down the
+hind legs (adult silver, silver wyrmling), a meerkat-upright weasel, a curled rat, a kaiju giant crocodile, a
+crocodile, bulette and pseudodragon missing a leg. The rig cannot find four standing legs in such a mesh.
+
+**Templates** (`forge.REF_TEMPLATES`, `tools/blender_ref_templates.py` `quad_pose(kind, wings, small)`), depth
+only (controlnet-union's OpenPose is a human skeleton), 0.55 / end 0.5:
+
+| template | proxy | images |
+|---|---|---|
+| `quad_side` | a dog-like barrel on straight legs a little wider than the body, toes forward, the tail out behind along the body line sloping a little down, clear of the floor and the hind legs, the head forward on a short neck. `_small`: a weasel / rat build (long and low, short legs, small round ears) | `quad_side{,_small}_depth.png` |
+| `quad_low_side` | crocodiles: a long low body, elbows and knees bent out, every foot planted outside the body, a long tail held just off the floor | `quad_low_side{,_small}_depth.png` |
+| `quad_wings_side` | dragons: a deep chest on straight legs, a long neck rising forward, the head forward, a long tail out behind, two bat wings (an arm, three fingers, a scalloped membrane, not ellipsoid lobes, which drew petals and egg shapes) raised in a V above the back, their trailing edge above it | `quad_wings_side{,_small}_depth.png` |
+
+All are seen from the side and 30 degrees toward the front (60 degrees off the front, camera 12-15 degrees up), so
+the far legs show beside the near ones instead of hiding behind them. Tiny and small creatures get `_small`.
+
+**Default.** `forge.rig_friendly_template`: quadruped `quad_side`, winged quadruped `quad_wings_side`, except
+`prompt_tweaks.json` `_frozen.quad_pose_v1_ids` (all 110 quadrupeds / winged quadrupeds had a reference when the
+default changed), which keep no template and no `pose_quad_*` rule: no prompt or batch fingerprint changed (checked
+on all 330 records against HEAD). `quad_low_side` is per id (override `ref_template`). Rules (match key
+`templates`):
+
+| rule | templates | insert / negative |
+|---|---|---|
+| `pose_quad_stance` | quad_side, quad_wings_side | "(standing on all four legs, legs straight and apart, all four feet planted on the ground, head held forward:1.2), seen from the side and a little from the front" / sitting, crouching, lying down, rearing, raised paw, standing on hind legs, legs together, legs tucked under the body |
+| `pose_quad_low_stance` | quad_low_side | "(standing on all four short legs sprawled out at the sides, all four feet planted on the ground, belly off the ground, head held forward:1.2), ..." / lying flat on the belly, rearing, raised paw, legs tucked under, legs hidden |
+| `pose_quad_tail_out` | all three | "(tail held out straight behind along the line of the body, off the ground:1.2)" / tail on the ground, curled, coiled, hanging down, between or wrapped round the legs |
+| `pose_quad_wings_up` | quad_wings_side | removes the plan's "wings partly spread, "; "(both wings raised high and spread above the back:1.2)" / folded, drooping, hanging beside the legs |
+| `pose_style_guard` | now also the three | as for the bipeds |
+
+A per-id `prompt` (giant-crocodile) replaces the subject, so its pose words are written into it.
+
+**Look.** The pose holds on every candidate (four feet down, tail out, wings up), but the depth map pulls the
+drawing toward a lighter watercolour line on cream backgrounds with soft floor shadows, and some species detail
+goes (the adult red dragon's big swept horns, the bulette's armoured bulk: round 1 drew a lean shark-headed dog).
+The first `quad_side_small` (the dog proxy shrunk) drew the weasel as a fox; the weasel / rat proxy fixed it.
+
+**Straight legs and the foot IK.** A leg modelled dead straight with its foot bone pointing down locked
+`blender_clips`' level foot IK (position + the foot's rest orientation): the solver kept the orientation and let
+the position go, the floor pass lowered the body for the gap, which grew (young blue dragon: idle sank 0.49 m,
+0.77 m gap, audit 40.6). `blender_clips.level_ik_bends`: before any key, each level leg's target is raised 0.05 x
+height (the body lowered as much); a leg that falls short by more than a quarter of that drops `use_rotation`
+(clip report `ik_unlevel`). Young blue dragon: idle +0.003 m, audit 40.6 -> 4.3. None of the 110 existing
+quadruped rigs triggers it (idle clip on all 110), and 6 of them (lion, wolf, draft horse, pegasus, adult green
+and black wyrmling dragons, 44 clips) rebuild byte-identical.
+
+Results: see the table below (filled per id). Sheets `~/.cache/monster-forge-scratch/quadpose/sheets/cmp_<id>.png`
+(old / new ref and mesh, old / new clip-audit sheets), candidates `r1_*.png`, numbers `.../quadpose/results/<id>.json`,
+old dirs `.../quadpose/backup/<id>/`.
+
+Results (one round of 4 candidates each unless noted, picked by eye; then mesh, qa, paint, lod, the SkinTokens rig
+(4 rolls) with the canon rename, procedural clips, `clip_audit.py`). "feet" = feet the walk drives; audit = clip-audit
+score (sum of flag severities; 0 is clean, but the old 0s include walks on 2-3 legs that barely moved):
+
+| id | template, pick | canon old -> new | feet | audit old -> new | outcome / look |
+|---|---|---|---|---|---|
+| young-blue-dragon | wings, ref_1 | fail (3 legs) -> ok | 3 -> 4 | 0 -> 4.3 | **replaced**: walk sink 1.05, burrow / death pop; needed `level_ik_bends` (40.6 without) |
+| adult-red-dragon | wings, ref_0 | fail (2) -> ok | 2 -> 4 | 5.95 -> 0 | **replaced**: crimson, red wings; smaller horns than before; facing check off |
+| crocodile | low, ref_0 | fail (1) -> ok | 3 -> 4 | 0 -> 0 | **replaced**: facing check off |
+| rat | small, ref_2 | fail (3) -> ok | 3 -> 4 | 0 -> 0 | **replaced**: a rat instead of a curled lump; whisker spikes on the snout as before |
+| weasel | small, ref_1 | fail (2) -> ok | 2 -> 4 | 0 -> 0 | **replaced**: long and low, tan and white; prompt_extra tail "held out" (was "on the ground"); facing check off |
+| pseudodragon | wings small, ref_0 | fail (3) -> ok | 3 -> 4 | 1.5 -> 0 | **replaced**: red-brown, red bat wings, horns |
+| ancient-silver-dragon | wings, ref_1 | fail (2) -> ok | 2 -> 4 | 2.72 -> 0 | **replaced**: silver-white ink-line scales; dark unpainted patches on the inner legs |
+| adult-silver-dragon | wings, ref_3 | fail (pairs) -> ok | 4 -> 4 | 4.43 -> 0 | **replaced**: the left wing no longer frozen in fly |
+| young-silver-dragon | wings, ref_3 | fail (3) -> partial (1 of 2 wings) | 3 -> 4 | 6.7 -> 5.0 | **replaced**: the left wing still frozen in fly (as before) |
+| silver-dragon-wyrmling | wings, ref_3 | fail (pairs) -> ok | 4 -> 4 | 0 -> 0 | **replaced**: less of a big-headed hatchling |
+| blue-dragon-wyrmling | wings, ref_2 | fail (3) -> ok | 3 -> 4 | 3.79 -> 0 | **replaced**: pale blue wings (were gold); black unpainted patches at the wing tips |
+| bronze-dragon-wyrmling | wings, ref_3 | fail (3) -> ok | 3 -> 4 | 1.21 -> 0 | **replaced**: bronze now (the old mesh was teal) |
+| green-dragon-wyrmling | wings, ref_3 | partial -> ok | 4 -> 4 | 5.0 -> 1.23 | **replaced**: tail and both wings now driven; swim stretch 1.23 |
+| young-green-dragon | wings, ref_1 | fail (3) -> ok | 3 -> 4 | 0 -> 0 | **replaced** |
+| giant-crocodile | low, ref_0 | fail (2) -> partial (no neck bone) | 2 -> 4 | 7.42 -> 1.69 | **replaced**: one long low crocodile (was a kaiju, then two stacked); per-id prompt rewritten for the pose; yaw pin dropped; facing check off |
+| adult-blue-dragon | wings, round 2 ref_3 | fail (2) -> ok | 2 -> 4 | 0 -> 0 | **replaced**: round 1 drew white wing membranes (meshed with one wing chain, the left frozen in fly); round 2 (`seed_ref` 3003, "opaque deep blue wing membranes" / white, pale, translucent wings negative): deep blue, both wings flap |
+| bulette | side, round 4 ref_0 | fail (3) -> ok | 3 -> 4 | 0 -> 0 | **held (look)**: rigs and walks, but rounds 1-4 never drew the armoured bulette: a lean shark-headed dog (0.55), a robot armadillo (0.45), sharks on legs with tail fins (0.35, 0.45); the kept candidate (photo-like shark on four legs, tail fin, no plates) is in `~/.cache/monster-forge-scratch/quadpose/held/bulette/` |
+
+Facing: the rig's `rig_facing_check` refused 4 of the 17 new meshes at 86-94 degrees (adult red dragon, crocodile,
+weasel, giant crocodile; all face +Y in thumb.png): a three-quarter reference meshes with the body a little turned
+or a wing swept to one side, which the check reads as sideways. Those have `rig_facing_check: false`.
+
+
 ## Unarmed check subject (name with a weapon word)
 
 `forge.py` passes the display name ("a kuo-toa whip") to `tools/unarmed_check.py` for the

@@ -1,0 +1,4 @@
+{
+  "ref_pick": 3,
+  "notes": "Rig-friendly quadruped pose 2026-11-08 (docs/references.md \"Rig-friendly quadrupeds\"): re-rolled with plan default, ref_3 picked; canon ok (was fail: sat with no fore-leg chain on the floor, 3 legs); walk on 4 feet (was 3); clip audit 1.21 -> 0; bronze scales and wings (the old one was teal with gold wings); no webbed claws or fin frill visible. Old dir backed up in ~/.cache/monster-forge-scratch/quadpose/backup/bronze-dragon-wyrmling/."
+}

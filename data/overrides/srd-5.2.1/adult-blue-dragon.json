@@ -1,0 +1,7 @@
+{
+  "ref_pick": 3,
+  "prompt_extra": "(opaque deep blue wing membranes, dark blue wings:1.4)",
+  "negative_extra": "(white wings, pale wings, translucent wings, transparent wings:1.4)",
+  "seed_ref": 3003,
+  "notes": "Rig-friendly quadruped pose 2026-11-08 (docs/references.md \"Rig-friendly quadrupeds\"): re-rolled with plan default, ref_3 picked; canon ok (was fail: reared with the fore paws up, 2 legs); walk on 4 feet (was 2); clip audit 0 -> 0, both wings flap; round 2 (seed_ref 3003, prompt_extra / negative_extra for opaque deep blue wings: round 1 drew white membranes and meshed with one wing chain); deep blue, the single snout horn not prominent. Old dir backed up in ~/.cache/monster-forge-scratch/quadpose/backup/adult-blue-dragon/."
+}

@@ -1,3 +1,4 @@
 {
-  "rig_leg_seams": true
+  "ref_pick": 1,
+  "notes": "Rig-friendly quadruped pose 2026-11-08 (docs/references.md \"Rig-friendly quadrupeds\"): re-rolled with plan default, ref_1 picked; canon ok (was fail: sat with no fore-leg chain on the floor, 3 legs); walk on 4 feet (was 3); clip audit 0 -> 4.3 (walk sink 1.05, burrow / death pop: the old 0 hid a 3-leg walk that barely moved); its straight fore leg needed blender_clips.level_ik_bends (idle sank 0.49 m without it). Old dir backed up in ~/.cache/monster-forge-scratch/quadpose/backup/young-blue-dragon/."
 }

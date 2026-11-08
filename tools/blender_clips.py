@@ -916,6 +916,29 @@ def ik_count(g: dict, above: int) -> int:
     return n
 
 
+LEVEL_PROBE = 0.05  # x height: how far level_ik_bends raises the foot target (the body lowered as much)
+LEVEL_MISS = 0.25   # share of the probe a leg may fall short by before its foot is no longer held level
+
+
+def level_ik_bends(g: dict, tgt, ik) -> bool:
+    """Can the level leg's IK (position + the foot's rest orientation) bend to a target raised
+    LEVEL_PROBE x height above the foot's rest, as when a clip lowers the body? A leg held dead
+    straight with its foot bone pointing down can lock: the solver keeps the orientation and lets
+    the position go, the gap grows as the body is lowered for it, and the floor pass lowers it
+    further (young blue dragon's rig-friendly re-roll, 2026-11-08: its idle sank 0.49 m with a
+    0.77 m gap on one fore leg). Such a leg drops `use_rotation` (report `ik_unlevel`); a leg that
+    reaches keeps it, so rigs whose legs bend are unchanged. Run on the rest pose, before any key."""
+    rest = effector(g, rest=True)
+    probe = LEVEL_PROBE * height
+    tgt.location = rest + Vector((0, 0, probe))
+    ik.influence = 1.0
+    bpy.context.view_layer.update()
+    gap = (effector(g) - tgt.matrix_world.translation).length
+    tgt.location = rest
+    bpy.context.view_layer.update()
+    return gap <= LEVEL_MISS * probe
+
+
 def setup_ik(clip: Clip) -> list:
     """IK targets on every leg (and on the wrists the clip drives); returns the empties."""
     made = []
@@ -933,6 +956,9 @@ def setup_ik(clip: Clip) -> list:
             tgt.rotation_mode = "QUATERNION"
             tgt.rotation_quaternion = (world @ arm.data.bones[g["ik_bone"]].matrix_local).to_quaternion()
             ik.chain_count = min(3, above) + 1  # the foot and up to 3 bones above it
+            if not level_ik_bends(g, tgt, ik):
+                ik.use_rotation = False
+                clip.info.setdefault("ik_unlevel", []).append(g["foot"])
         else:
             ik.chain_count = ik_count(g, above)
         clip.targets.append((g, tgt, effector(g, rest=True)))
