@@ -67,6 +67,19 @@ def idle_lift(mon: dict, want: list) -> tuple:
     return (lift or None), move
 
 
+def clip_job(mon: dict, d: Path, adir: Path, report: Path) -> dict:
+    """blender_clips.py's job for this monster (also its parts_only run, tools/quadcanon.py)."""
+    want = list(mon.get("animation_set") or [])
+    plan = mon["body_plan"]
+    lift, move = idle_lift(mon, want)
+    return {"idle_lift": lift, "move_clip": move,
+            "src": str(d / "model_rigged.glb"), "out_dir": str(adir), "report": str(report), "clips": want,
+            "feet": overrides.FEET_BY_PLAN.get(plan, 0), "sprawl": plan in SPRAWLED, "upright": plan in UPRIGHT,
+            "arms": plan in ARMED and bool(mon.get("hands")), "plan": plan, "weapon_r": wielded(mon),
+            "weapon_l": wielded(mon, "hand_l"), "tail_fused": rig.tail_fused(mon),
+            "template": mon.get("rig_template")}
+
+
 def stage_anim(fg, mon: dict, d: Path, args) -> None:
     want = list(mon.get("animation_set") or [])
     adir = d / "anims"
@@ -84,13 +97,7 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
     adir.mkdir(exist_ok=True)
     report = adir / "clips.json"
     report.unlink(missing_ok=True)
-    lift, move = idle_lift(mon, want)
-    job = {"idle_lift": lift, "move_clip": move,
-           "src": str(d / "model_rigged.glb"), "out_dir": str(adir), "report": str(report), "clips": want,
-           "feet": overrides.FEET_BY_PLAN.get(plan, 0), "sprawl": plan in SPRAWLED, "upright": plan in UPRIGHT,
-           "arms": plan in ARMED and bool(mon.get("hands")), "plan": plan, "weapon_r": wielded(mon),
-           "weapon_l": wielded(mon, "hand_l"), "tail_fused": rig.tail_fused(mon),
-           "template": mon.get("rig_template")}
+    job = clip_job(mon, d, adir, report)
     t0 = time.time()
     proc = subprocess.run([fg.BLENDER, "-b", "--factory-startup", "--python-exit-code", "1", "-P", str(BLENDER_CLIPS),
                            "--", json.dumps(job)], capture_output=True, text=True, timeout=1800)

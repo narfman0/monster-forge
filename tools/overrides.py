@@ -275,6 +275,10 @@ FIELDS = {
                       "the weights around the seams between them are relaxed over the surface so the bridge stretches "
                       "evenly instead of tearing into a web (tools/rig_reweight.smooth_seams; `forge.py rig <id> "
                       "--force`, CPU only). Off by default"),
+    "rig_canon": (_bool, "rig", "quadrupeds / winged quadrupeds: rename the rig's bones to the standard quadruped "
+                  "skeleton after the rig stage (pelvis, spine_NN, chest, neck_NN, head, <leg>_upper.., tail_NN, "
+                  "wing_<s>_NN; tools/quadcanon.py, docs/rig-anim.md \"Standard quadruped skeleton\"). On by default; "
+                  "false keeps bone_N (`forge.py canon <id> --undo` reverts a renamed one)"),
     "rig_add_wings": (_bool, "rig", "insert wing chains found on the mesh when a winged roll has fewer than 2 "
                       "(tools/blender_wing_weights.py); on by default for the winged plans and avians, false keeps the "
                       "roll's own wing chains (the gold dragon wyrmling's: its wing fingers rest on the floor and the rig "

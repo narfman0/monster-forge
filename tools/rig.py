@@ -559,3 +559,5 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
     fg.save_manifest(d, man)
     fg.log(f"{mon['id']}: rig done in {man['rig']['seconds']}s, {rep['joints']} joints, {rep['legs']} legs, "
            f"sockets {sorted(rep['sockets'])}")
+    import quadcanon  # quadrupeds: the standard skeleton's names (override rig_canon false: bone_N)
+    quadcanon.stage(fg, mon, d)

@@ -1451,6 +1451,88 @@ erinyes -5.9, horned-devil -5.8, flesh-golem -5.7, werebear -4.9, oni -4.8, gobl
 ogre-zombie -4.5, bandit -4.5, shambling-mound -4.5, priest -4.2, storm-giant -4.2, troll -4.2,
 scout -3.9, shield-guardian -3.5, warrior-infantry -3.3, shadow -3.3; all to within 1 deg of upright.
 
+### Standard quadruped skeleton (2026-11-08)
+
+SkinTokens quadrupeds have bones `bone_N` and their parts were found again on every clip run. `tools/quadcanon.py`
+(also `forge.py canon <id>`, and the rig stage runs it after every quadruped / winged quadruped rig) renames
+them to one layout, the non-biped analogue of the UAL skeleton for bipeds (docs/anim-reuse.md). Only names
+change: the glTF JSON chunk of `model_rigged.glb`, its LODs and every `anims/*.glb` is rewritten, the binary
+chunk is copied byte for byte (skins bind joints by index, clip channels target nodes by index), the anim
+sidecars (`anims/*.json`, `manifest.anim`) are renamed with the same map, so a renamed monster needs no new
+clips and keeps its tuned weights (leg seams, tail isolation, raised wings). Blender names vertex groups after
+the joints and Godot binds tracks by bone name, so both follow.
+
+```sh
+python3 -I tools/quadcanon.py --all --dry-run --jobs 6      # map + gate only
+python3 -I tools/forge.py canon wolf                        # rename (skips one already renamed; --force undoes first)
+python3 -I tools/quadcanon.py wolf --undo                   # back to bone_N from canon.json (round trip exact)
+```
+
+**Names** (Blender world: Z up, +Y forward, +X the creature's right; glTF -Z forward). Chains are variable
+length and numbered from the body outward, so a chain retarget can resample them:
+
+| part | names | rule |
+|---|---|---|
+| trunk | `pelvis`, `spine_01..N`, `chest` | pelvis: the common ancestor of the hind legs; chest: where the front legs leave the root-to-head path (blender_clips' cut); spine: the tree path between them, numbered from the hips forward whichever way the hierarchy runs |
+| neck, head | `neck_01..N`, `head`, `snout` | head = the skull; snout = a leaf past it the clips lunge with (jaw or muzzle), only when there is one |
+| legs | `<leg>_shoulder` / `_hip` (`_2`, `_3` further up), `_upper`, `_lower`, `_ankle`, `_foot`, `_toe_NN` | leg = `front_l`, `front_r`, `hind_l`, `hind_r`; ankle (metacarpus / metatarsus) only when the bone above the foot starts in the lower half of the leg; foot = the IK end; toes = everything below it |
+| tail, wings | `tail_01..N`, `wing_l_01..N`, `wing_r_01..N` | the chains the clips drive (a tail the clips' gate drops for lying on the floor is still named) |
+| root | `root` | only when the top bone is none of the above |
+| extras | `<nearest canonical ancestor>_x<n>` | ears, horns, wing fingers, membrane bones, zero-length helpers: `head_x1`, `pelvis_x2`, `wing_l_03_x1` |
+
+The hierarchy stays SkinTokens': the top bone (the body transform) is wherever the roll put it, so it is
+`pelvis` on some rigs, `spine_01` (wolf) or `chest` (warhorse) on others; parents are not canonical, the
+names are. Sockets (`manifest.rig.sockets`) keep their names; a canonical `head` is a bone the game can
+attach to (`has_socket("head")`). `canon.json` per monster: `status`, `problems`, `changes`, `names`
+(old -> new), and `measures` for a chain retarget (height, pelvis and chest positions, per leg the chain,
+bone lengths, length, hip height, top and foot positions, level; spine/neck/tail/wing chains and lengths).
+`manifest.rig.canon` = {status, problems}. Override `rig_canon: false` opts a monster out.
+
+Retargeting later (not done): Mesh2Motion's CC0 rigs map chain by chain: hips -> `pelvis`, `spine_1..5` ->
+`spine_NN` + `chest` (+ `neck_NN`), head -> `head`, tail -> `tail_NN`; front leg shoulder / upper / lower /
+ankle / foot -> the same slots; back leg pelvis / upper / lower / ankle / foot / toe -> `hip` / `upper` /
+`lower` / `ankle` / `foot` / `toe_01`; wings segment by segment onto `wing_<s>_NN`. Godot's SkeletonProfile
+wants a fixed bone list, so a profile would cover the named slots and cap each chain (e.g. spine 4, tail 8);
+not written yet.
+
+**Where the parts come from.** `blender_clips.py` job `parts_only`: its own search and topology gate, written
+out before any clip is built (~5 s). On a renamed rig blender_clips reads the parts from the names (`CANON`:
+`rig_topology.canon_legs`, `canon_chain`; head = `snout` else `head`) and skips the search, so the clips get
+exactly the parts the map was made from. The quadrants are checked against the leg joints (the centroid of
+each chain below its first bone: the two farthest forward are the front pair, then -X is left), not taken
+from the clips' split (feet against their mean y and x), which mislabels a foot crossed under the body.
+
+**Gate** (`status`): fail = not renamed: not 4 legs or the clips walk on a partial set, the legs not two
+pairs (front and hind centroids under 0.1 x h apart), the clips' grouping differs from the joints' (renaming
+would change the gait), no head, the head off the centre line or reached through a wing chain, a name
+conflict. partial = renamed with notes: no neck bone, the tail the clips drop, fewer than 2 wings on a
+winged plan, or the clips' head was an off-centre leaf (an ear or horn, more than 0.15 x h off the centre
+line) and the head is now its parent, the skull (`changes`; those clips change).
+
+**Result** on the 110 rigged quadrupeds / winged quadrupeds: 47 ok, 25 partial (renamed), 38 fail.
+- partial: no neck bone 15 (the head sits on the chest bone: cat, deer, tiger, owlbear, ...), tail dropped by
+  the clips' gate 7 (ancient blue/brass/copper/gold, gorgon, green wyrmling, sphinx of wonder), skull for an
+  off-centre leaf head 4 (blink-dog, chimera, panther, rhinoceros: the old clips lunged with an ear), fewer
+  than 2 wings 2 (green wyrmling, sphinx of lore: none).
+- fail: partial leg set 16 (2-3 legs: frog, giant-frog, crocodile, giant-crocodile, bulette, rat, weasel,
+  pseudodragon, adult blue/red, ancient silver, blue/bronze wyrmlings, young blue/green/silver), the clips'
+  leg grouping not the anatomical one 12 (adult black/copper/gold, ancient black, young black/brass/bronze,
+  badger, black bear, giant hyena, griffon, nightmare), legs not two pairs 8 (adult silver, draft-horse,
+  giant-toad, manticore, pegasus: one "front" chain behind the body middle, red/silver wyrmlings, young
+  gold), head 2 (adult brass dragon: its "head" is reached through the right wing chain; pony: an ear, and
+  the skull is off-centre too). These keep bone_N and today's clips; they need a re-roll or the leg fixes first.
+
+**Before / after** (scratch copies in `~/.cache/monster-forge-scratch/quadcanon/`, clips rebuilt with the same
+code on bone_N and on the renamed rig): on 68 of the renamed rigs every key of every clip is identical
+(max difference 0); the 4 skull-head rigs change only the head turn (rhinoceros attack stretch 2.11 -> 2.37,
+no new flag). `clip_audit.py` over the 68: score 130.7 vs 129.6, the one new flag being deer
+death:socket_head 0.032 (the audit treats any bone called `head` as a socket, the motion is identical). Ten of
+the regrouped rigs were tried renamed (an earlier rule): neutral to worse (black bear swim stretch 3.96 -> 4.75, young black
+dragon swim 3.51 -> 5.73, nightmare walk feet_up 0.031), hence the fail rule. Sheets:
+`~/.cache/monster-forge-scratch/quadcanon/audit_{before,after}/sheets/<id>.png`. Godot: `check_monsters.gd`
+ALL PASS on wolf, warhorse, adult-green-dragon, black-dragon-wyrmling, rhinoceros after the sync, every
+track bound (bones by name: `front_l_foot`, `hind_l_foot` lowest in the walk).
+
 ## Body plans (2026-11-04)
 
 One pilot per plan the six pilots did not cover took the whole chain (`forge.py run`, paint

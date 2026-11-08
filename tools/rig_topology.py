@@ -5,6 +5,7 @@ is a dict: name, parent (name or None), head, tail (xyz, Z up, in metres).
 """
 
 import math
+import re
 
 GROUND = 0.18      # a foot ends within this fraction of the height above the ground
 TOES = 0.09        # bones this low are toes: climbing past them finds the foot, not the shin
@@ -693,3 +694,55 @@ def find_spine(bones: list[dict], height: float, legs: list[dict], arms: list[di
     neck = [n for n in path_to_root(head, bones) if n not in path_to_root(top, bones)] if top and head else []
     return {"hip": hip, "shoulder": shoulder, "torso": torso, "neck": neck,
             "torso_length": sum(_dist(by_name[a]["head"], by_name[b]["head"]) for a, b in zip(torso, torso[1:])) / height}
+
+
+# --- standard quadruped skeleton (tools/quadcanon.py, docs/rig-anim.md "Standard quadruped skeleton") ---
+# A quadruped rig renamed by quadcanon.py carries its parts in its bone names, so the clips read them
+# instead of searching (blender_clips.py CANON). Legs: <leg>_<slot>, leg = front_l | front_r | hind_l |
+# hind_r, slots from the body down: shoulder (front) / hip (hind) [+ _2, _3 further up], upper, lower,
+# ankle (metacarpus / metatarsus, optional), foot (the IK end), then toes below the foot (<leg>_toe_NN).
+CANON_LEGS = ("front_l", "front_r", "hind_l", "hind_r")
+_CANON_CHAIN = r"^{leg}_((shoulder|hip)(_\d+)?|upper|lower|ankle)$"
+_CANON_SEQ = re.compile(r"^(spine|neck|tail|wing_[lr])_(\d\d)$")
+
+
+def is_canon(bones: list[dict]) -> bool:
+    """True for a rig quadcanon.py renamed: every leg has its <leg>_foot."""
+    names = {b["name"] for b in bones}
+    return all(f"{g}_foot" in names for g in CANON_LEGS)
+
+
+def canon_chain(bones: list[dict], prefix: str) -> list[str]:
+    """A numbered canonical chain (spine_01.., neck_01.., tail_01.., wing_l_01..) in order."""
+    out = []
+    for b in bones:
+        m = _CANON_SEQ.match(b["name"])
+        if m and m.group(1) == prefix:
+            out.append((int(m.group(2)), b["name"]))
+    return [n for _, n in sorted(out)]
+
+
+def canon_legs(bones: list[dict], height: float) -> list[dict]:
+    """find_legs' answer on a canonical rig, read from the names: the same dicts ({"chain",
+    "foot", "shin", "level", "length", "drop"}, plus "canon": the leg's name), the same order
+    (drop over length, steepest first). A foot with toes, or one in the toe band, stands level
+    (IK on the foot); a leaf foot above the toe band is a tip (IK on its tail)."""
+    by_name = {b["name"]: b for b in bones}
+    kids = _children(bones)
+    toes = height * TOES
+    legs = []
+    for leg in CANON_LEGS:
+        foot = f"{leg}_foot"
+        up = re.compile(_CANON_CHAIN.format(leg=leg))
+        chain = [foot]
+        while by_name[chain[0]]["parent"] and up.match(by_name[chain[0]]["parent"]):
+            chain.insert(0, by_name[chain[0]]["parent"])
+        last = by_name[foot]
+        tip_only = not kids[foot] and last["head"][2] > toes
+        pts = [by_name[n]["head"] for n in chain] + ([last["tail"]] if tip_only else [])
+        length = sum(_dist(a, b) for a, b in zip(pts, pts[1:]))
+        drop = pts[0][2] - pts[-1][2]
+        legs.append({"chain": chain, "foot": foot, "shin": foot if tip_only else chain[-2], "level": not tip_only,
+                     "length": length, "drop": drop, "canon": leg})
+    legs.sort(key=lambda g: g["drop"] / g["length"] if g["length"] > 0 else 0.0, reverse=True)
+    return legs

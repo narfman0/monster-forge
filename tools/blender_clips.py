@@ -35,7 +35,11 @@ clip) on those parts:
   tail-lift series with a one-frame jump are smoothed (smooth_series), not on upright plans.
 
 Looping clips use whole periods of t, so the first and last frames are the same pose.
-job: src, out_dir, report, clips, feet, sprawl, upright, plan, optional wings (chains).
+- A rig renamed to the standard quadruped skeleton (tools/quadcanon.py: front_l_foot, head, tail_01, ...)
+  gives its legs, head, tail and wings by name (CANON) instead of the search; the job's parts_only mode
+  writes what the search found (after the gate) and stops, which is how quadcanon.py names them.
+
+job: src, out_dir, report, clips, feet, sprawl, upright, plan, optional wings (chains), parts_only.
 """
 import json
 import math
@@ -122,8 +126,14 @@ legless = PLAN in LEGLESS
 # stage) adds a missing leg whose twin is there.
 STAND = None
 PARTIAL = None
+# A rig renamed to the standard quadruped skeleton (tools/quadcanon.py; docs/rig-anim.md "Standard
+# quadruped skeleton") names its legs, head, tail and wings: they are read from the names, not searched
+# (the names were given from this script's own search, parts_only below, so the answer is the same).
+CANON = not legless and not job["upright"] and not job["sprawl"] and rig_topology.is_canon(bones)
 if legless:
     legs = []
+elif CANON:
+    legs = rig_topology.canon_legs(bones, height)
 else:
     legs = rig_topology.find_legs(bones, height, 8 if job["sprawl"] else job["feet"], job["sprawl"],
                                   rescue=not job["upright"], sprawl_drop=job["sprawl"])
@@ -138,7 +148,7 @@ drop = max(g["drop"] for g in legs) if legs else 0.3 * height
 cx = rig_topology.centre_x(bones, legs)
 for g in legs:
     g["x"], g["y"] = by_name[g["foot"]]["head"][:2]
-    g["side"] = "r" if g["x"] >= cx else "l"
+    g["side"] = g["canon"][-1] if CANON else "r" if g["x"] >= cx else "l"
     # IK ends at the foot itself, position and orientation, rather than at the shin's tail:
     # SkinTokens bones need not touch, and a foot hung 0.7 m off the shin's tail (the
     # dragon) swings up and down as the shin turns. A plantigrade "shin" that lies on the
@@ -151,22 +161,26 @@ for g in legs:
 ys = [p[1] for b in bones for p in (b["head"], b["tail"])]
 body_len = max(ys) - min(ys)
 leg_y = sum(g["y"] for g in legs) / len(legs) if legs else sum(b["head"][1] for b in bones) / len(bones)
-front = [g for g in legs if g["y"] >= leg_y] if not job["upright"] else []
+front = [g for g in legs if g["canon"].startswith("front")] if CANON else \
+    [g for g in legs if g["y"] >= leg_y] if not job["upright"] else []
 # body turns pivot at the ground under the feet (upright) or at the hind hips (horizontal),
 # so a nose-up lean lifts the front instead of driving the rump and tail into the ground
-hind = [g for g in legs if g["y"] < leg_y] if not job["upright"] else []
+hind = [g for g in legs if g["canon"].startswith("hind")] if CANON else \
+    [g for g in legs if g["y"] < leg_y] if not job["upright"] else []
 PIVOT = Vector((cx, sum(by_name[g["chain"][0]]["head"][1] for g in hind) / len(hind),
                 sum(by_name[g["chain"][0]]["head"][2] for g in hind) / len(hind))) if hind else Vector((cx, leg_y, 0.0))
 arms = rig_topology.find_arms(bones, height, legs) if job["upright"] or job.get("arms") else []
 arm_by_side = {a["side"]: a for a in arms}
 # upright: the highest bone on the centre line; horizontal: the one reaching farthest forward
-head = rig_topology.find_head(bones, height, legs) if job["upright"] or (legless and arms) or PLAN == "centauroid" else \
+head = ("snout" if "snout" in by_name else "head" if "head" in by_name else None) if CANON else \
+    rig_topology.find_head(bones, height, legs) if job["upright"] or (legless and arms) or PLAN == "centauroid" else \
     None if job["sprawl"] or legless else rig_topology.find_snout(bones, height, legs)
 # An upright body has no tail test (it matches an arm), but a chain the rig stage adopted as the
 # tail by name (override rig_tail_chain {"adopt": bone}: the tarrasque's) is driven: the "upright
 # tail" layers below (heavy_tail_*), every other upright clip as before.
 UPRIGHT_TAIL = job["upright"] and not legless and rig_topology.TAIL_PREFIX + "00" in by_name
-tail = [] if (job["upright"] and not UPRIGHT_TAIL) or legless else rig_topology.find_tail(bones, height, legs)
+tail = rig_topology.canon_chain(bones, "tail") if CANON else \
+    [] if (job["upright"] and not UPRIGHT_TAIL) or legless else rig_topology.find_tail(bones, height, legs)
 # else a short tail fan that slopes down onto the ground (a bird's): the floor clips turn it
 # up at its root (below) instead of raising the whole body off it. Birds only: on a quadruped
 # such a chain is a foot or the rump on the floor (the giant badger's 2-bone bone_24..25, 0.40
@@ -186,6 +200,8 @@ if tail and not fan:
 WING_PLANS = {"winged_quadruped", "winged_biped", "avian"}
 wing_search = PLAN in WING_PLANS or "fly" in job["clips"]
 wings = [{"side": w[0], "chain": w[1]} for w in job["wings"]] if job.get("wings") else [] if legless else \
+    [{"side": s, "chain": rig_topology.canon_chain(bones, f"wing_{s}")} for s in "rl"
+     if rig_topology.canon_chain(bones, f"wing_{s}")] if CANON else \
     rig_topology.find_wings(bones, height, legs, arms, exclude=(head,) if head else (),
                             raised=PLAN in WING_PLANS) if wing_search else []
 root = next(b["name"] for b in bones if b["parent"] is None)
@@ -341,6 +357,7 @@ def topology_gate() -> None:
         is_tail = np.zeros(len(REST_V), bool)
 
 
+_tail_found = list(tail)  # before the gate (parts_only)
 if not legless and legs:
     _nw = len(wings)
     topology_gate()
@@ -348,6 +365,17 @@ if not legless and legs:
         body_h = body_height()
 for _w in WARNINGS:
     print("WARNING", _w)
+if job.get("parts_only"):  # tools/quadcanon.py: the parts this run would drive, no clips
+    _ys = [g["y"] for g in legs]
+    with open(job["report"], "w") as _f:
+        json.dump({"height": height, "cx": cx, "canon": CANON, "root": root, "head": head, "skull": skull,
+                   "neck": neck, "spine": spine, "tail": tail, "tail_found": _tail_found, "wings": {w["side"]: w["chain"] for w in wings},
+                   "legs": [{"chain": g["chain"], "foot": g["foot"], "side": g["side"], "front": g in front,
+                             "level": g["level"]} for g in legs],
+                   "warnings": WARNINGS, "partial_legs": PARTIAL, "stand_fallback": STAND,
+                   "bones": bones}, _f, indent=1)
+    print("_OK")
+    sys.exit(0)
 # Ground contacts: vertices lying on the floor at rest (z <= FLOOR_TOL) that no leg owns and
 # no tail turn lifts: the harpy's hip-feather tips, skinned to the pelvis. A floor clip may
 # lower the body for its standing feet only as far as these stay above -CONTACT_DIP; below

@@ -1186,7 +1186,7 @@ RUN_ORDER = ["ref", "mesh", "qa", "paint", "lod", "rig", "anim"]
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=["ref", "mesh", "qa", "paint", "lod", "rig", "anim", "run", "contact", "promote",
-                                    "share"],
+                                    "share", "canon"],
                     help="promote: copy the UAL clips that passed the gate from anims_ual/ into anims/ "
                     "(procedural files move to anims_proc/; docs/anim-reuse.md); share (after promote, UAL rigs): "
                     "the UAL clips that match the shared library leave anims/ (tools/ual_library.py)")
@@ -1243,6 +1243,15 @@ def main() -> int:
         import retarget_ual
         for mid in args.ids:
             log(f"{mid}: promoted {retarget_ual.promote(mid)}")
+        return 0
+    if args.cmd == "canon":  # quadrupeds: standard skeleton names (tools/quadcanon.py; --force: undo first)
+        import quadcanon
+        for mid in args.ids:
+            if args.force and (OUT_ROOT / args.source / mid / "canon.json").exists():
+                log(quadcanon.undo(mid, OUT_ROOT / args.source))
+            r = quadcanon.run(mid, OUT_ROOT / args.source, blender=BLENDER)
+            log(f"{mid}: canon {r['status']}" + (f" ({'; '.join(r['problems'])})" if r.get("problems") else "")
+                + (", renamed" if r.get("applied") else ""))
         return 0
     if args.cmd == "share":
         import ual_library
