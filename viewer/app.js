@@ -1848,3 +1848,11 @@ refreshIndex().then((idx) => {
 });
 
 window.__viewer = { THREE, scene, view, state, camera, controls }; // debugging hook
+
+// ------------------------------------------------------------------ phone layout tabs (style.css, max-width 820px)
+for (const b of document.querySelectorAll('#tabs button')) {
+  b.addEventListener('click', () => {
+    document.body.classList.toggle('tab-info', b.dataset.tab === 'info');
+    for (const o of document.querySelectorAll('#tabs button')) o.classList.toggle('on', o === b);
+  });
+}

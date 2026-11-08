@@ -35,6 +35,10 @@ no foreign `Origin` (so other web pages cannot drive the job queue), and every `
 be a registry id of the served source. `--out-root` serves another out tree for testing
 (re-run jobs still write to `out/`).
 
+On a phone or a window narrower than 820 px (or a phone on its side) the layout stacks: the 3D view
+on top, then a tab strip switching between the monster list and the clips/overrides/details panel (the
+stage bars and key help are hidden; the toolbar scrolls sideways).
+
 The page re-fetches the index whenever the tab regains focus, so new forge output shows up
 without restarting anything. `#<id>` in the URL selects a monster (`/#owlbear`).
 
