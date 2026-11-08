@@ -48,6 +48,23 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); font-weight: 500;
 #filters input[type=search] { width: 100%; }
 #filters select { flex: 1; min-width: 0; }
 #count { margin-left: auto; font-size: 11px; white-space: nowrap; }
+/* tag facet (docs/tags.md): selected row, then the groups, each a folding chip row */
+#tag-active { flex-wrap: wrap; gap: 4px; }
+#tag-facet { margin-top: 4px; }
+#tag-facet > summary { cursor: pointer; color: var(--muted); font-size: 11px; }
+#tag-groups { max-height: 38vh; overflow-y: auto; margin-top: 2px; }
+.tgroup > summary { cursor: pointer; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 4px 0 2px; }
+.tchips { display: flex; flex-wrap: wrap; gap: 3px; }
+.tchip { font-size: 11px; padding: 0 6px; border-radius: 10px; line-height: 18px; background: var(--bg3); color: var(--fg);
+  border: 1px solid var(--line); cursor: pointer; white-space: nowrap; }
+.tchip small { color: var(--muted); margin-left: 4px; font-variant-numeric: tabular-nums; }
+.tchip.on { background: var(--accent); color: #0b1220; border-color: var(--accent); }
+.tchip.on small { color: #0b1220; }
+.tchip.pipe:not(.on) { border-style: dashed; }
+.tchip.unknown { background: #5a2a2a; border-color: #e05a5a; color: var(--fg); }
+.tchip .x { margin-left: 4px; }
+.tchip.clear { background: none; color: var(--muted); }
+#details dd.tchips { gap: 3px; }
 #list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; outline: none; }
 #list li { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px; align-items: center;
   padding: 4px 12px; cursor: pointer; border-left: 3px solid transparent; }
@@ -197,6 +214,8 @@ body.static #list li { grid-template-columns: 40px minmax(0, 1fr); }
   #filters .row { margin: 3px 0; }
   input[type=search], select, button { font-size: 16px; }  /* 16px: iOS does not zoom on focus */
   #list li { padding: 6px 10px; }
+  #tag-groups { max-height: 28dvh; }
+  .tchip { font-size: 13px; line-height: 24px; padding: 0 9px; border-radius: 13px; }  /* touch targets */
   #hud { left: 8px; right: 8px; top: 6px; overflow: hidden; }
   #hud-title { font-size: 15px; }
   #hud-stats { font-size: 10px; max-height: 6.5em; overflow: hidden; text-overflow: ellipsis; }

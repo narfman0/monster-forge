@@ -49,7 +49,7 @@ names a held weapon.
 | `size` | string | Primary size category: tiny / small / medium / large / huge / gargantuan. For swarms, the size of the swarm as a whole. |
 | `size_options` | string[] | Every allowed size (e.g. `["medium","small"]` for NPC humanoids) |
 | `type` | string | Creature type (lowercase). Swarms use the unit's type. |
-| `tags` | string[] | Type tags (`devil`, `chromatic`, `goblinoid`, ...). Swarms get `swarm`. |
+| `tags` | string[] | The stat block's own type tags (`devil`, `chromatic`, `goblinoid`, ...). Swarms get `swarm`. The full tag set (family, movement, size, CR band ...) is derived from these by `tools/tags.py` into `data/tags.computed.json` (`docs/tags.md`). |
 | `swarm_unit_size` | string | Swarms only: size of one unit (e.g. `tiny`) |
 | `cr` | string | Challenge rating as written (`"1/4"`, `"24"`) |
 | `speeds` | object | `walk`, `fly`, `swim`, `climb`, `burrow` in feet, plus `hover: true` |

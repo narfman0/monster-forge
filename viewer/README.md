@@ -24,8 +24,13 @@ python3 -I tools/viewer.py --port 8790 --no-open --out-root out/_viewtest   # te
 | `GET /api/download/<id>` | one monster's game files: `{id, zip, files: [{name, url, bytes}]}` (urls under `/out/`) |
 | `GET /api/download/<id>.zip` | those files as one zip, folder `<id>/`: `model_rigged.glb`, `model_rigged_lod*.glb`, `anims/*.glb` + `*.json`, `manifest.json`, `lods.json` (what godot-dnd's `sync_monsters.py` reads) |
 | `GET /api/download/all.zip` | every rigged monster in one zip (streamed, several GB) |
+| `GET /api/download?tag=dinosaur` | the list, only the rigged monsters carrying every tag given (`?tag=dragon,flying`, or `tag` repeated); `zip_all` then carries the same `?tag=` and the reply has `tags` |
+| `GET /api/download/all.zip?tag=a,b` | those monsters in one zip, named `<source>-a-b.zip` |
+| `GET /api/download/tag/<tag>.zip` | the same as `all.zip?tag=<tag>` (`tag/dragon,flying.zip` for several; an extra `?tag=` adds more) |
 
-The download routes take `?lods=0` to leave out the LOD files. They are GETs, so a LAN
+The download routes take `?lods=0` to leave out the LOD files. `?tag=` matches content and
+pipeline tags (below, `docs/tags.md`), AND across tags; an unknown tag is a 400 with the
+name (`curl -OJ 'http://127.0.0.1:8787/api/download/tag/dinosaur.zip?lods=0'`). They are GETs, so a LAN
 client of `--host 0.0.0.0` can use them too (`curl -OJ http://<host>:8787/api/download/owlbear.zip`).
 The details panel links the selected monster's zip.
 
@@ -41,6 +46,20 @@ stage bars and key help are hidden; the toolbar scrolls sideways).
 
 The page re-fetches the index whenever the tab regains focus, so new forge output shows up
 without restarting anything. `#<id>` in the URL selects a monster (`/#owlbear`).
+
+**Tags** (`docs/tags.md`). Under the filters, `tags` folds out the tag facet: one folding
+row of chips per tag group (source, creature type, family, dragons, role, trait, movement,
+size, challenge, body plan, pipeline; family and movement start open, the open state is
+remembered per browser). Click a chip to add the tag to the filter, again to drop it.
+Selected tags combine with AND, and with the other filters; they also show as a row of
+chips above the facet (click one to drop it, `clear` drops all) that stays visible while
+the facet is folded. Each chip's count is how many monsters the list would show with that
+tag added, so counts follow the search and the selects; tags that would leave the list
+empty are hidden. The search box also matches tag text (`dinosaur`, `cr-epic`). The details
+panel lists the selected monster's tags as chips right under the type (pipeline tags
+dashed); a click adds that tag to the filter (on a phone it also switches to the list).
+The filter lives in the URL as `?tag=dragon,flying`, kept up to date, so a link shares it
+(`/?tag=dinosaur#triceratops`). Works the same in static mode, over the published monsters.
 
 three.js r179 is vendored under `vendor/three/` (MIT, `vendor/three/LICENSE`) with the
 same directory layout as the npm package, so addon-relative imports keep working. The
@@ -80,6 +99,13 @@ Each entry also gets `expected_clips` (the registry `animation_set`), `missing_c
 
 `summary` holds per-stage totals (plus `anim_complete`) and per-body-plan counts. Stage
 order: ref, mesh, qa, paint, lod, rig, anim.
+
+Tags: `tags` (content tags, computed live by `tools/tags.py` from the registry and
+`data/tags.json`, so the page never waits for `tags.py compute`) and `pipeline_tags`
+(`rig-ual`, `rig-quad-canon`, `paired`, from the manifest). The top-level `tag_index` has
+`groups` (in facet order: `{id, label, description, tags}`, only tags in use) and `tags`
+(`{tag: {group, description}}`). If `data/tags.json` is missing or broken the entries carry
+the registry's own tags and `tag_index` is `null` (the page then shows one flat group).
 
 Other per-entry fields the page uses: `lods` (from `lods.json`), `hi_faces` (triangles of
 the RAW tier), and in `files`: `hi` (`model_hi_tex.glb` or `model_hi.glb`), `hi_textured`,
@@ -404,7 +430,7 @@ cut down to the released monsters, with the same per-entry shape, except:
 - added per entry: `wields` (the registry's wielded props that were published); top level:
   `static: true`, `registry_total`, `license`, `attribution` (paragraphs taken from the
   repo README's "License and attribution" section) and `props` (`props.json`);
-- `summary` counts only the published monsters.
+- `summary` counts only the published monsters, and `tag_index` lists only the tags they use.
 
 **Detection.** The same `app.js` serves both modes. It is static when the page has
 `<meta name="monster-forge-static" content="index.json">` (publish.py adds it to the copied
@@ -415,7 +441,7 @@ the dev page never requests a missing `./index.json`, so neither logs a 404.
 In static mode the page reads `./index.json` and `./props.json` and loads everything by
 relative path. It hides the stage bars, the body-plan table, the status filter, the stage
 dots, the overrides form, the re-run queue and the job polling, and it never offers RAW (a
-stored `mf.lodMode` of `raw` falls back to auto). It adds type and CR filters (with counts;
+stored `mf.lodMode` of `raw` falls back to auto). It keeps the tag facet and `?tag=`, and adds type and CR filters (with counts;
 sizes only as present), shows type, size and CR in the list, shows a short details table
 (stat-block facts, dims, LOD tris, joints, clips, sockets, props) and puts the attribution
 footer under the list. Kept as in dev: model view, wireframe, wire on shaded, textures,

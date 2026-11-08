@@ -11,7 +11,9 @@ A monster is released when its out/<source>/<id>/manifest.json has `"released": 
 thumb.png and a trimmed manifest.json) to <dest>/<source>/<id>/, the props the released
 monsters wield (out/props/<id>/model.glb + LODs + a trimmed manifest) to <dest>/props/<id>/,
 and bakes <dest>/index.json with tools/viewer.py's build_index (same per-entry shape as the
-dev /api/index.json, dev-only fields stripped) plus <dest>/props.json. It copies viewer/
+dev /api/index.json, dev-only fields stripped; each entry keeps its content `tags` and
+`pipeline_tags`, and `tag_index` lists the tags the released monsters use, docs/tags.md)
+plus <dest>/props.json. It copies viewer/
 (index.html with a static-mode marker, app.js, style.css, vendor/) and writes a README with
 the CC-BY-4.0 SRD attribution from README.md.
 
@@ -279,6 +281,9 @@ def main() -> int:
         "props": "props.json",
         # paired animations (tools/paired.py), for the UAL bipeds published with shared clips
         "paired": viewer.paired_entries(args.source, f"{args.source}/") if paired_files else {},
+        # the tag facet over the released monsters only (tools/tags.py, docs/tags.md)
+        "tag_index": viewer.taglib.tag_index(None, {t for e in entries for t in (e.get("tags") or [])
+                                                     + (e.get("pipeline_tags") or [])}) if full.get("tag_index") else None,
     }
     pub.write_json("index.json", index, indent=None)
     pub.write_json("props.json", {"source": "props", "count": len(props_out), "props": props_out})

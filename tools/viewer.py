@@ -5,7 +5,8 @@ Stdlib only. Serves viewer/ as static files, out/ under /out/, a live index at
 /api/index.json (rebuilt from the registry + out/ on every request), per-monster
 overrides (GET/POST /api/override/<id>, data/overrides/<source>/<id>.json) and a re-run
 job queue (POST /api/run/<id>, GET /api/jobs) that runs tools/forge.py one job at a time,
-and downloads of the game files (GET /api/download[/<id>[.zip]|/all.zip], viewer/README.md).
+and downloads of the game files (GET /api/download[/<id>[.zip]|/all.zip|/tag/<tag>.zip], ?tag= filters,
+viewer/README.md). Index entries carry content tags and pipeline tags (tools/tags.py, docs/tags.md).
 
     python3 -I tools/viewer.py [--port 8787] [--source srd-5.2.1] [--no-open]
 
@@ -38,6 +39,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import overrides  # noqa: E402  (tools/overrides.py)
 import sources  # noqa: E402  (tools/sources.py)
+import tags as taglib  # noqa: E402  (tools/tags.py)
 
 ROOT = Path(__file__).resolve().parent.parent
 VIEWER = ROOT / "viewer"
@@ -223,9 +225,49 @@ def rider_height(source: str, mid: str) -> float | None:
     return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
 
 
+def content_tags(source: str, monsters: list[dict]) -> tuple[dict[str, list[str]], dict]:
+    """({id: content tags}, tag definitions) from tools/tags.py (rules + data/tags.json, computed
+    live so the page never shows a stale data/tags.computed.json); the registry's own tags when
+    data/tags.json is missing or broken."""
+    try:
+        defs = taglib.load_defs()
+        return taglib.compute(source, defs, taglib.load_curation(source), monsters), defs
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        print(f"viewer: tags fall back to the registry's ({e})", file=sys.stderr)
+        return {m["id"]: list(m.get("tags") or []) for m in monsters}, {"groups": [], "tags": {}}
+
+
+def entry_pipeline_tags(source: str, mid: str, paired_ok: bool) -> list[str]:
+    return taglib.pipeline_tags(load_json(OUT_ROOT / source / mid / "manifest.json"), paired_ok)
+
+
+def tag_filter(source: str, want: list[str]) -> tuple[set[str] | None, list[str]]:
+    """(ids carrying every tag in want (content or pipeline), unknown tags). None when want is empty."""
+    if not want:
+        return None, []
+    monsters = load_json(sources.registry_path(source)).get("monsters", [])
+    tags, defs = content_tags(source, monsters)
+    unknown = [t for t in want if t not in defs["tags"] and not any(t in ts for ts in tags.values())]
+    if unknown:
+        return set(), unknown
+    ok = taglib.paired_available(source, OUT_ROOT)
+    need = set(want)
+    ids = set()
+    for m in monsters:
+        have = set(tags.get(m["id"], []))
+        if need - have:
+            have |= set(entry_pipeline_tags(source, m["id"], ok))
+        if need <= have:
+            ids.add(m["id"])
+    return ids, []
+
+
 def build_index(source: str) -> dict:
     reg = load_json(sources.registry_path(source))
     monsters = reg.get("monsters", [])
+    tags, tag_defs = content_tags(source, monsters)
+    paired_ok = taglib.paired_available(source, OUT_ROOT)
+    used: set[str] = set()
     out = []
     totals = {s: 0 for s in STAGES}
     totals["anim_complete"] = 0
@@ -258,6 +300,9 @@ def build_index(source: str) -> dict:
         # docs/equipment.md "Prop space"); viewer/app.js scales props by it over scale_m.
         entry["rider_height_m"] = man.get("rider_height_m") or rider_height(source, rec["id"]) or rec.get("rider_height_m")
         entry["job"] = JOBS.state_of(rec["id"])
+        entry["tags"] = tags.get(rec["id"], [])
+        entry["pipeline_tags"] = taglib.pipeline_tags(man, paired_ok)
+        used.update(entry["tags"], entry["pipeline_tags"])
         out.append(entry)
         plan = by_plan.setdefault(rec.get("body_plan", "?"), {"total": 0, **{s: 0 for s in STAGES}})
         plan["total"] += 1
@@ -274,6 +319,8 @@ def build_index(source: str) -> dict:
         "summary": {"total": len(out), "stages": totals, "by_body_plan": by_plan},
         "monsters": out,
         "paired": paired_entries(source),
+        # the tag facet: groups in order with their tags, per-tag group and description (docs/tags.md)
+        "tag_index": taglib.tag_index(tag_defs, used) if tag_defs.get("groups") else None,
     }
 
 
@@ -558,21 +605,41 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         GET /api/download/<id>         -> {id, files: [{name, url, bytes}], zip}
         GET /api/download/<id>.zip     -> the game files as one zip (folder <id>/)
         GET /api/download/all.zip      -> every rigged monster in one zip
-        ?lods=0 leaves out model_rigged_lod*.glb."""
+        GET /api/download/tag/<tag>.zip -> every rigged monster with that tag (= all.zip?tag=<tag>)
+        ?lods=0 leaves out model_rigged_lod*.glb. ?tag=a,b (list and all.zip) keeps the monsters
+        that carry every tag given (content or pipeline tags, docs/tags.md)."""
         q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
         lods = (q.get("lods") or ["1"])[0] not in ("0", "false", "no")
+        want = [t for v in q.get("tag", []) for t in v.split(",") if t.strip()]
+        want = list(dict.fromkeys(t.strip() for t in want))
         src = self.source
-        if name in ("", "all.zip"):
-            ids = sorted(i for i in registry_ids(src) if (OUT_ROOT / src / i / "model_rigged.glb").is_file())
+        tag_zip = name.startswith("tag/") and name.endswith(".zip")
+        if tag_zip:
+            want = list(dict.fromkeys(want + [t for t in urllib.parse.unquote(name[len("tag/"):-4]).split(",") if t]))
+        if name in ("", "all.zip") or tag_zip:
+            if tag_zip and not want:
+                self.send_json({"error": "no tag given"}, 400)
+                return
+            keep, unknown = tag_filter(src, want)
+            if unknown:
+                self.send_json({"error": f"unknown tag(s): {', '.join(unknown)}"}, 400)
+                return
+            ids = sorted(i for i in registry_ids(src) if (OUT_ROOT / src / i / "model_rigged.glb").is_file()
+                         and (keep is None or i in keep))
+            suffix = ("?tag=" + urllib.parse.quote(",".join(want), safe=",")) if want else ""
             if name == "":
                 out = {}
                 for i in ids:
                     fs = game_files(src, i, lods)
                     out[i] = {"files": len(fs), "bytes": sum(p.stat().st_size for _, p in fs),
                               "zip": f"/api/download/{i}.zip"}
-                self.send_json({"source": src, "monsters": out, "zip_all": "/api/download/all.zip"})
+                res = {"source": src, "monsters": out, "zip_all": "/api/download/all.zip" + suffix}
+                if want:
+                    res["tags"] = want
+                self.send_json(res)
                 return
-            self.send_zip(f"{src}.zip", list(dict.fromkeys(f for i in ids for f in game_files(src, i, lods))))
+            fname = f"{src}-{'-'.join(want)}.zip" if want else f"{src}.zip"
+            self.send_zip(fname, list(dict.fromkeys(f for i in ids for f in game_files(src, i, lods))))
             return
         as_zip = name.endswith(".zip")
         mid = self._mid("/" + (name[:-4] if as_zip else name), "/")

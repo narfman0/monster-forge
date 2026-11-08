@@ -35,6 +35,11 @@ let STATIC = new URLSearchParams(location.search).get('static') === '1' || !!sta
 const STATIC_INDEX = './' + (staticMeta?.content || 'index.json');
 
 // ------------------------------------------------------------------ state
+// ?tag=dragon,flying (or repeated ?tag=): the tag filter a shared link carries.
+function urlTags() {
+  const q = new URLSearchParams(location.search);
+  return new Set(q.getAll('tag').flatMap((v) => v.split(',')).map((t) => t.trim()).filter(Boolean));
+}
 const state = {
   index: null,
   filtered: [],
@@ -50,6 +55,7 @@ const state = {
   jobList: [],
   ov: null,            // GET /api/override/<id> payload for the selected monster
   props: {},           // static mode: props.json records by id (grip_socket, dir, ...)
+  tags: urlTags(),     // selected tag filter (AND), mirrored in ?tag=a,b
 };
 
 // ------------------------------------------------------------------ three.js scene
@@ -1321,7 +1327,7 @@ async function renderSide(entry) {
 
   if (STATIC) { renderStaticDetails(entry, man); return; }
   const rows = [
-    ['id', entry.id], ['type', entry.type + (entry.tags?.length ? ` (${entry.tags.join(', ')})` : '')],
+    ['id', entry.id], ['type', entry.type],
     ['size', entry.size], ['CR', entry.cr], ['body plan', `${entry.body_plan} (${fmt(entry.body_plan_confidence)})`],
     ['rig template', entry.rig_template], ['scale_m', entry.scale_m],
     ['speeds', Object.entries(entry.speeds || {}).map(([k, v]) => `${k} ${v}`).join(', ')],
@@ -1353,6 +1359,7 @@ async function renderSide(entry) {
   if (man.ref?.prompt) rows.push(['prompt', man.ref.prompt, 'long']);
   for (const [k, v, cls] of rows) {
     $('details').append(el('dt', { textContent: k }), el('dd', { textContent: String(v ?? '–'), className: cls || '' }));
+    if (k === 'type') appendTagRow(entry);
   }
   if (entry.files.manifest) {
     $('manifest-link').href = entry.dir + 'manifest.json';
@@ -1367,7 +1374,7 @@ async function renderSide(entry) {
 // Static mode details: the stat-block facts and the game files, no pipeline diagnostics.
 function renderStaticDetails(entry, man) {
   const rows = [
-    ['id', entry.id], ['type', entry.type + (entry.tags?.length ? ` (${entry.tags.join(', ')})` : '')],
+    ['id', entry.id], ['type', entry.type],
     ['size', entry.size], ['CR', entry.cr], ['body plan', entry.body_plan], ['scale_m', entry.scale_m],
     ['speeds', Object.entries(entry.speeds || {}).map(([k, v]) => `${k} ${v} ft`).join(', ')],
   ];
@@ -1377,7 +1384,10 @@ function renderStaticDetails(entry, man) {
   rows.push(['clips', (entry.found_clips || []).join(', ') || '–']);
   if (entry.rig_sockets && Object.keys(entry.rig_sockets).length) rows.push(['sockets', Object.keys(entry.rig_sockets).join(', ')]);
   if (entry.wields?.length) rows.push(['props', entry.wields.join(', ')]);
-  for (const [k, v] of rows) $('details').append(el('dt', { textContent: k }), el('dd', { textContent: String(v ?? '–') }));
+  for (const [k, v] of rows) {
+    $('details').append(el('dt', { textContent: k }), el('dd', { textContent: String(v ?? '–') }));
+    if (k === 'type') appendTagRow(entry);
+  }
   $('manifest-link').href = entry.dir + 'manifest.json';
   $('manifest-link').textContent = 'manifest.json ↗';
 }
@@ -1472,8 +1482,9 @@ function matches(m) {
     if (st === 'anim-incomplete' && m.anim_complete) return false;
     if (st === 'errors' && !m.errors) return false;
   }
+  for (const t of state.tags) if (!tagsOf(m).includes(t)) return false;
   if (q) {
-    const hay = `${m.name} ${m.id} ${m.type} ${(m.tags || []).join(' ')} ${m.body_plan} cr${m.cr}`.toLowerCase();
+    const hay = `${m.name} ${m.id} ${m.type} ${tagsOf(m).join(' ')} ${m.body_plan} cr${m.cr}`.toLowerCase();
     if (!q.split(/\s+/).every((w) => hay.includes(w))) return false;
   }
   return true;
@@ -1483,6 +1494,7 @@ function applyFilters() {
   const idx = state.index;
   state.filtered = idx.monsters.filter(matches);
   $('count').textContent = `${state.filtered.length} / ${idx.monsters.length}`;
+  renderTagFacet();
   const ul = $('list');
   ul.replaceChildren();
   const frag = document.createDocumentFragment();
@@ -1503,6 +1515,104 @@ function applyFilters() {
   }
   ul.append(frag);
 }
+
+// ------------------------------------------------------------------ tag facet (docs/tags.md)
+// Content tags (entry.tags: source, type-*, family, size, cr band, body plan, movement ...) plus
+// pipeline tags (entry.pipeline_tags: rig-ual, rig-quad-canon, paired). Selected tags combine
+// with AND and with the other filters; each chip's count is how many monsters the list would
+// show with that tag added, and tags that would leave nothing are hidden. Groups and descriptions come from the index's tag_index.
+const tagsOf = (m) => (m.pipeline_tags?.length ? [...(m.tags || []), ...m.pipeline_tags] : (m.tags || []));
+const tagOpen = LS.get('tagGroupsOpen', {});
+function tagGroups(idx) {
+  if (idx.tag_index?.groups?.length) return idx.tag_index.groups;
+  const seen = [...new Set(idx.monsters.flatMap(tagsOf))].sort();  // an index without tag_index
+  return seen.length ? [{ id: 'tags', label: 'tags', tags: seen }] : [];
+}
+function tagInfo(t) { return state.index?.tag_index?.tags?.[t] || {}; }
+function setTags(tags) {
+  state.tags = new Set(tags);
+  const q = new URLSearchParams(location.search);
+  q.delete('tag');
+  let qs = q.toString();
+  if (state.tags.size) qs += (qs ? '&' : '') + 'tag=' + [...state.tags].map(encodeURIComponent).join(',');
+  history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+  applyFilters();
+}
+function toggleTag(t, on = !state.tags.has(t)) {
+  const next = new Set(state.tags);
+  if (on) next.add(t); else next.delete(t);
+  setTags(next);
+}
+function tagChip(t, opts = {}) {
+  const info = tagInfo(t);
+  const b = el('button', { type: 'button', className: 'tchip' + (state.tags.has(t) ? ' on' : '') + (opts.cls ? ' ' + opts.cls : ''),
+    title: (info.description || t) + (info.group ? ` (${info.group})` : '') });
+  b.dataset.tag = t;
+  b.append(t);
+  if (opts.count != null) b.append(el('small', { textContent: String(opts.count) }));
+  return b;
+}
+function renderTagFacet() {
+  const idx = state.index;
+  const groups = tagGroups(idx);
+  $('tag-facet').classList.toggle('hidden', !groups.length);
+  const counts = {};
+  for (const m of state.filtered) for (const t of tagsOf(m)) counts[t] = (counts[t] || 0) + 1;
+  // selected tags: a row that stays visible while the facet is folded
+  const act = $('tag-active');
+  act.replaceChildren();
+  for (const t of state.tags) {
+    const c = tagChip(t, { cls: 'on' + (tagInfo(t).group || idx.monsters.some((m) => tagsOf(m).includes(t)) ? '' : ' unknown') });
+    c.append(el('span', { className: 'x', textContent: '×' }));
+    c.title = 'remove from the filter';
+    c.onclick = () => toggleTag(t, false);
+    act.append(c);
+  }
+  if (state.tags.size > 1) {
+    const clr = el('button', { type: 'button', className: 'tchip clear', textContent: 'clear' });
+    clr.onclick = () => setTags([]);
+    act.append(clr);
+  }
+  act.classList.toggle('hidden', !state.tags.size);
+  $('tag-summary').textContent = state.tags.size ? `${state.tags.size} selected (all must match)` : '';
+  const box = $('tag-groups');
+  box.replaceChildren();
+  for (const g of groups) {
+    const shown = g.tags.filter((t) => counts[t] || state.tags.has(t));  // tags that would empty the list are hidden
+    if (!shown.length) continue;
+    const n = shown.length;
+    const d = el('details', { className: 'tgroup', open: tagOpen[g.id] ?? ['family', 'movement'].includes(g.id) });
+    d.dataset.group = g.id;
+    d.ontoggle = () => { tagOpen[g.id] = d.open; LS.set('tagGroupsOpen', tagOpen); };
+    d.append(el('summary', { textContent: g.label || g.id, title: g.description || '' }, el('span', { className: 'muted', textContent: ` ${n}` })));
+    const row = el('div', { className: 'tchips' });
+    for (const t of shown) {
+      const chip = tagChip(t, { count: counts[t] || 0 });
+      chip.onclick = () => toggleTag(t);
+      row.append(chip);
+    }
+    d.append(row);
+    box.append(d);
+  }
+}
+// Details panel: the monster's tags as chips; a click adds the tag to the filter.
+function appendTagRow(entry) {
+  const all = tagsOf(entry);
+  if (!all.length) return;
+  const dd = el('dd', { className: 'tchips' });
+  for (const t of all) {
+    const c = tagChip(t, { cls: (entry.pipeline_tags || []).includes(t) ? 'pipe' : '' });
+    c.title = `${tagInfo(t).description || t}: click to filter the list by it`;
+    c.onclick = () => {
+      toggleTag(t, true);
+      if (document.body.classList.contains('tab-info')) $('tab-list').click();  // phone: show the list
+    };
+    dd.append(c);
+  }
+  $('details').append(el('dt', { textContent: 'tags' }), dd);
+}
+$('tag-facet').open = LS.get('tagFacetOpen', false);
+$('tag-facet').ontoggle = () => LS.set('tagFacetOpen', $('tag-facet').open);
 
 function select(id) {
   const entry = state.index.monsters.find((m) => m.id === id);

@@ -26,6 +26,8 @@ renamed analogues.
 - `data/body_plan_overrides.json`, `data/body_plan_reviewed.json` hand-curated taxonomy.
 - `tools/sources.py` where each source's registry, curation and overrides live (SRD here,
   everything else in the non-SRD checkout).
+- `data/tags.json` the tag taxonomy and curated tags, `tools/tags.py` computes
+  `data/tags.computed.json` (`docs/tags.md`: groups, rules, how to add a tag).
 - `docs/plan.md` pipeline design and milestones. `docs/research-*.md` tool research.
 - `tools/` scripts. `workflows/` ComfyUI API workflows. `viewer/` local web viewer.
 - `out/<source>/<id>/` generated assets (git-ignored; never commit art).
