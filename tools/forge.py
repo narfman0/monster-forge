@@ -1185,9 +1185,11 @@ RUN_ORDER = ["ref", "mesh", "qa", "paint", "lod", "rig", "anim"]
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["ref", "mesh", "qa", "paint", "lod", "rig", "anim", "run", "contact", "promote"],
+    ap.add_argument("cmd", choices=["ref", "mesh", "qa", "paint", "lod", "rig", "anim", "run", "contact", "promote",
+                                    "share"],
                     help="promote: copy the UAL clips that passed the gate from anims_ual/ into anims/ "
-                    "(procedural files move to anims_proc/; docs/anim-reuse.md)")
+                    "(procedural files move to anims_proc/; docs/anim-reuse.md); share (after promote, UAL rigs): "
+                    "the UAL clips that match the shared library leave anims/ (tools/ual_library.py)")
     ap.add_argument("ids", nargs="+", help="monster ids (registry slugs)")
     ap.add_argument("--source", default="srd-5.2.1")
     ap.add_argument("--force", action="store_true", help="redo stages whose outputs exist")
@@ -1241,6 +1243,19 @@ def main() -> int:
         import retarget_ual
         for mid in args.ids:
             log(f"{mid}: promoted {retarget_ual.promote(mid)}")
+        return 0
+    if args.cmd == "share":
+        import ual_library
+        reps = {mid: ual_library.check(mid) for mid in args.ids}
+        keys = {r["key"] for rep in reps.values() for r in (rep.get("clips") or {}).values() if r.get("shared")}
+        loops = {r["key"] for rep in reps.values() for c, r in (rep.get("clips") or {}).items() if c in ual_library.LOOP_CLIPS}
+        lib = ual_library.lib_dir() / "library.json"
+        have = set(json.loads(lib.read_text()).get("clips", {})) if lib.exists() else set()
+        if {ual_library.clip_name(k) for k in keys} - have:
+            ual_library.build(sorted(keys), loops)
+        for mid, rep in reps.items():
+            r = ual_library.share(mid, rep)
+            log(f"{mid}: " + (r["error"] if r.get("error") else f"shared {sorted(r['shared'])}, own {sorted(r['own'])}"))
         return 0
     if args.cmd == "run":
         want = args.stages.split(",") if args.stages else RUN_ORDER

@@ -123,7 +123,13 @@ def stage_status(d: Path, man: dict) -> dict:
     embedded = [str(c) for c in anim_m.get("embedded_clips", []) or []]
     external = sorted(p.stem for p in (d / "anims").glob("*.glb")) if exists else []
     listed = [str(c) for c in anim_m.get("clips", []) or []]
-    found = sorted(set(embedded) | set(external) | set(listed))
+    # UAL bipeds: clips from the shared library (tools/ual_library.py): {clip: GLB path relative to
+    # this monster's dir}; the page rebuilds the pelvis track from manifest anim.ual_shared
+    sh = anim_m.get("ual_shared") or {}
+    lib = load_json(d.parent / sh["library"] / "library.json") if exists and sh.get("library") else {}
+    shared = {c: f"../{sh['library']}/{lib['clips'][n]['file']}" for c, n in (sh.get("clips") or {}).items()
+              if n in (lib.get("clips") or {}) and c not in external}
+    found = sorted(set(embedded) | set(external) | set(listed) | set(shared))
     anim = bool(found) and not anim_m.get("error")
 
     # lod: lods.json lists the chain and every file it names exists.
@@ -152,6 +158,7 @@ def stage_status(d: Path, man: dict) -> dict:
         "lods": lods,
         "found_clips": found,
         "external_clips": external,
+        "shared_clips": shared,
         "embedded_clips": embedded,
         "files": {
             "model": model, "hi": hi, "hi_textured": hi == "model_hi_tex.glb",
@@ -375,7 +382,22 @@ def game_files(source: str, mid: str, lods: bool = True) -> list[tuple[str, Path
         files += sorted(d.glob("model_rigged_lod*.glb"))
     files += sorted(p for p in (d / "anims").glob("*") if p.suffix in (".glb", ".json"))
     files += [p for p in (d / "manifest.json", d / "lods.json") if p.is_file()]
-    return [(f"{mid}/{p.relative_to(d).as_posix()}", p) for p in files]
+    out = [(f"{mid}/{p.relative_to(d).as_posix()}", p) for p in files]
+    # UAL bipeds: the clips they take from the shared library (manifest anim.ual_shared, relative to
+    # out/<source>/, so the zip keeps that layout: <id>/... next to _shared/ual/...)
+    return out + shared_library_files(source, load_json(d / "manifest.json") if (d / "manifest.json").is_file() else {})
+
+
+def shared_library_files(source: str, man: dict) -> list[tuple[str, Path]]:
+    """(name in the bundle, path) of the shared UAL clip library a monster uses (library.json + the
+    GLBs of the clips it takes from it; tools/ual_library.py), or []."""
+    sh = ((man.get("anim") if isinstance(man.get("anim"), dict) else {}) or {}).get("ual_shared") or {}
+    if not sh.get("clips") or not sh.get("library"):
+        return []
+    lib_dir = OUT_ROOT / source / sh["library"]
+    lib = load_json(lib_dir / "library.json")
+    names = sorted({(lib.get("clips") or {}).get(n, {}).get("file") for n in sh["clips"].values()} - {None})
+    return [(f"{sh['library']}/{n}", lib_dir / n) for n in ["library.json"] + names if (lib_dir / n).is_file()]
 
 
 def zip_stream(out, files: list[tuple[str, Path]]) -> None:
@@ -522,7 +544,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                               "zip": f"/api/download/{i}.zip"}
                 self.send_json({"source": src, "monsters": out, "zip_all": "/api/download/all.zip"})
                 return
-            self.send_zip(f"{src}.zip", [f for i in ids for f in game_files(src, i, lods)])
+            self.send_zip(f"{src}.zip", list(dict.fromkeys(f for i in ids for f in game_files(src, i, lods))))
             return
         as_zip = name.endswith(".zip")
         mid = self._mid("/" + (name[:-4] if as_zip else name), "/")

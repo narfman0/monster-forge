@@ -303,3 +303,35 @@ done
 rig is kept as rig/skintokens_rigged.glb); `retarget_ual.py --unpromote` undoes only the promote step.
 - Unverified: as before, sheets at tile size only (no viewer, no Godot); the rules' thresholds were tuned on the
   same 71 verdicts they are compared with; the new calls are one look per sheet.
+
+## Shared UAL library (tools/ual_library.py, 2026-11-08)
+UAL bipeds (rig_source "ual") no longer carry their own copy of each UAL clip: `forge.py share <id>...` (or
+`python3 -I tools/ual_library.py share --all`, after `promote`) keeps one GLB per UAL clip in
+`out/srd-5.2.1/_shared/ual/<clip>.glb` + `library.json` and drops the matching files from `anims/` (the same bytes stay
+in `anims_ual/`; `ual_library.py unshare <id>` puts them back, checked byte-identical). Pure Python + numpy, ~0.5 s for all.
+- **What differs between monsters** (checked on every clip it shares, `ual_library.py check`): blender_rig_ual bakes local
+  rotations equal to UAL's own, so rotation channels are identical across monsters (<= 0.001 deg). Translations are each
+  bone's constant rest offset (the monster's proportions) except the pelvis: `pelvis(t) = s * u(t) + c + lift(t) * up`,
+  u = UAL's pelvis track, s = hip_scale (fitted, = manifest rig.hip_scale), c = a constant in the root bone's frame
+  (our pelvis-over-hips vs UAL's, scaled), lift = the bake's floor lift (deaths, some walks; matches each clip's
+  `floor_lift_max` exactly). After those the rebuild matches the bake within 0.05 mm on all 373 UAL clips of the 75 UAL
+  bipeds; sockets and the root never move. A clip keying other bones off their rest (extra chains) or off the
+  rebuild stays per-monster (none today).
+- **Library clip**: UAL's clip resampled like `sample_clip()` (30 fps), on UAL1's own skeleton at its rest pose, 64
+  rotation channels (all bones but root) + the pelvis translation u, nothing else. Note: Blender imports UAL at the
+  scene's 30 fps and sample_clip reads those frames as 24 fps, so every baked UAL clip runs 1.25x longer than UAL
+  authored it (Idle_Loop 2.5 s -> 3.125 s, Death01 2.4 s -> 3.0 s); the library replicates that so shared and
+  per-monster clips agree. Fixing it means changing UAL_FPS in blender_rig_ual.py and re-baking (then `share` again).
+- **manifest.anim.ual_shared** (the contract): `library` ("_shared/ual", relative to out/<source>/), `hip_scale`,
+  `pelvis_offset` (c, glTF, root-local), `lift_axis` (root-local up), `fps`, `root_bone`, `pelvis_bone`,
+  `clips` {our clip: library clip}, `lift` {our clip: per-frame metres; only clips with a lift >= 0.5 mm},
+  `own` {clip: why it stays in anims/: procedural, ...}, `check` (max errors). `anim.clips` still lists every clip.
+- **Players**: rotations as they are; pelvis = s * u + c + lift(t) * lift_axis; every other bone at its own rest.
+  The viewer (viewer/app.js `sharedClip`) rebuilds the pelvis track per monster (checked in node with three.js r179
+  against the anims_ual bakes: <= 0.05 mm on ape, stone-giant, archmage, mummy); `tools/viewer.py` lists them as
+  `shared_clips`, the download zip (`game_files`) adds `_shared/ual/` (library.json + the monster's clips),
+  `publish.py` copies them. godot-dnd: Skeleton3D.motion_scale = s, c in the root bone's rest, the lift as a
+  SkeletonModifier3D (its docs/monsters.md "Shared UAL clips").
+- Result (75 UAL bipeds): 373 of 484 anims/ GLBs shared, 36.9 MB -> 11 library files 0.88 MB; 111 GLBs (9.0 MB) stay
+  per-monster (attack_ranged 46, attack_melee 31, walk 13, death 11, fly/swim 6, idle 2, cast 1, breath 1: the
+  procedural clips). Re-run `share` after any `promote` (promote copies the clips back; rig --force drops ual_shared).

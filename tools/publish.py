@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import posixpath
 import re
 import shutil
 import sys
@@ -84,6 +85,10 @@ def trim_manifest(man: dict) -> dict:
         for c in anim.get("clips") or []:
             if isinstance(anim.get(c), dict):
                 a[c] = {k: anim[c][k] for k in ("seconds", "frames", "loop") if k in anim[c]}
+        sh = anim.get("ual_shared")
+        if isinstance(sh, dict) and sh.get("clips"):  # the viewer rebuilds shared UAL clips from these
+            a["ual_shared"] = {k: sh[k] for k in ("library", "hip_scale", "pelvis_offset", "pelvis_bone", "lift_axis",
+                                                  "fps", "clips", "lift") if k in sh}
         out["anim"] = a
     return out
 
@@ -228,6 +233,8 @@ def main() -> int:
             pub.write_json(rel + "lods.json", {"lods": e["lods"]})
         for name in e["external_clips"]:
             pub.copy(d / "anims" / f"{name}.glb", f"{rel}anims/{name}.glb")
+        for name, lib_rel in (e.get("shared_clips") or {}).items():  # shared UAL clips (once per file)
+            pub.copy((d / lib_rel).resolve(), posixpath.normpath(rel + lib_rel))
         if files.get("thumb"):
             pub.copy(d / files["thumb"], rel + files["thumb"])
         pub.write_json(rel + "manifest.json", trim_manifest(man))

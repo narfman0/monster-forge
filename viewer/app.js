@@ -318,6 +318,33 @@ function adaptClip(clip, root, fallbackName) {
   return { clip: out, ratio };
 }
 
+const sharedGLBs = new Map();  // url -> promise of the parsed GLB (the library is shared by many monsters)
+function loadSharedGLB(url) {
+  const u = new URL(url, location.href).href;
+  if (!sharedGLBs.has(u)) sharedGLBs.set(u, loadGLB(u).catch((e) => { sharedGLBs.delete(u); throw e; }));
+  return sharedGLBs.get(u);
+}
+
+// A library clip for one monster: UAL rotations as they are, the pelvis translation rebuilt,
+// nothing else (every other bone keeps this monster's rest).
+function sharedClip(src, sh, name) {
+  const s = sh.hip_scale || 1, c = sh.pelvis_offset || [0, 0, 0], ax = sh.lift_axis || [0, 0, 1];
+  const lift = (sh.lift || {})[name] || null, fps = sh.fps || 30, pelvis = sh.pelvis_bone || 'pelvis';
+  const tracks = [];
+  for (const t of src.tracks) {
+    const { nodeName, propertyName } = THREE.PropertyBinding.parseTrackName(t.name);
+    if (propertyName === 'quaternion') { tracks.push(t); continue; }
+    if (propertyName !== 'position' || nodeName !== pelvis) continue;
+    const v = new Float32Array(t.values.length);
+    for (let i = 0; i < t.times.length; i++) {
+      const h = lift ? lift[Math.min(lift.length - 1, Math.round(t.times[i] * fps))] : 0;
+      for (let e = 0; e < 3; e++) v[i * 3 + e] = s * t.values[i * 3 + e] + c[e] + h * ax[e];
+    }
+    tracks.push(new THREE.VectorKeyframeTrack(t.name, t.times, v));
+  }
+  return new THREE.AnimationClip(name, src.duration, tracks);
+}
+
 async function loadModel(entry) {
   const token = ++state.loadToken;
   disposeModel();
@@ -372,6 +399,27 @@ async function loadModel(entry) {
       });
     } catch (err) {
       clips.push({ clip: new THREE.AnimationClip(name, 0, []), source: 'anims/', ok: false, error: err.message });
+    }
+  }
+  // Shared UAL clips (tools/ual_library.py): one GLB per UAL clip on UAL's own skeleton; this
+  // monster's pelvis is hip_scale * u + pelvis_offset + lift(t) * lift_axis (manifest anim.ual_shared).
+  const shared = entry.shared_clips || {};
+  if (Object.keys(shared).length) {
+    let sh = {};
+    try {
+      const man = await (await fetch(entry.dir + 'manifest.json', { cache: 'no-store' })).json();
+      sh = (man.anim && man.anim.ual_shared) || {};
+    } catch { sh = {}; }
+    if (token !== state.loadToken) return;
+    for (const [name, rel] of Object.entries(shared)) {
+      try {
+        const ext = await loadSharedGLB(entry.dir + rel);
+        if (token !== state.loadToken) return;
+        const { clip, ratio } = adaptClip(sharedClip(ext.animations[0], sh, name), root, name);
+        clips.push({ clip, source: 'shared', ok: clip.tracks.length > 0, ratio });
+      } catch (err) {
+        clips.push({ clip: new THREE.AnimationClip(name, 0, []), source: 'shared', ok: false, error: err.message });
+      }
     }
   }
   view.clips = clips;
