@@ -35,6 +35,14 @@ python3 -I tools/paint.py compare harpy goblin-warrior     # review sheets
    view adds "face, eyes, mouth" to the negative. Head views use a close-up prompt. Sampler,
    steps, cfg and checkpoint come from the reference run (`manifest.ref`). Output:
    `paint/<view>_gen.png`.
+   **What it really fed (found 2026-11-08):** `forge.upload_file` stored every upload as
+   `<subfolder>/overwrite` (its form-field loop reused the `name` argument), so the ref, depth,
+   normal and init images of a view were one file, the last one uploaded: the view's voxel
+   colour render. Every painted texture so far was made that way (img2img from the colour
+   render, the depth ControlNet and IP-Adapter also on the colour render, never on the depth map
+   or `ref.png`), and the settings below were tuned on it. `upload_file` is fixed; `paint.py`
+   still passes the colour render for all four on purpose, so paint output is unchanged. Feeding
+   the real depth map and `ref.png` is an open decision (a re-tune and a re-paint pass).
 3. **Colour match**. Before the bake, each generated view's per-channel mean and spread
    inside the silhouette are pulled toward the voxel render of the same view
    (`color_match`, 0 = off, 1 = full). This keeps SDXL from drifting the overall hue or

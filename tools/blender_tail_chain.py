@@ -89,6 +89,12 @@ PREFIX = "tail_"  # inserted chains: tail_00 .. tail_05
 LEG_NEAR = 0.08   # x height: a tail band's centroid this close to a leg's joint path is on the leg
 LOW = 0.1         # x height above the floor: the lobe's vertices this low ...
 LOW_MAX = 0.06    # ... over this share of the lobe: it stands on the floor (rump, hind leg)
+# radial fallback (upright bipeds, `radial`): a tail held out back or to the side (the rig-friendly pose)
+R_LIMB = 0.09     # x height: lobe vertices are this far from every leg and arm joint path, or more
+R_TRUNK = 0.11    # x height: ... and this far (horizontally) from the vertical line through the hips
+R_TOP = 0.12      # x height: ... and at most this far above the hips
+R_STEP = 0.05     # x height: radial bands from the lobe's root
+R_MIN_LEN = 0.2   # x height: the lobe reaches this far from its root, at least
 
 
 def hips(bones: list[dict], legs: list[dict]) -> tuple[np.ndarray, list[dict]]:
@@ -144,7 +150,7 @@ def surface_samples(V: np.ndarray, F: np.ndarray, step: float) -> np.ndarray:
 
 
 def detect_tail(V: np.ndarray, F: np.ndarray, bones: list[dict], height: float, legs: list[dict], cx: float,
-                isolated: bool = True) -> dict:
+                isolated: bool = True, radial: bool = False) -> dict:
     """The tail on the rest mesh V (n,3) with triangles F, facing +Y with +Z up (module doc).
     Returns a report: "found" and, when found, "joints" (root .. tip), "line" (the band
     centroids), the numbers (x height) and "_verts" (the lobe's vertex indices); otherwise
@@ -204,6 +210,8 @@ def detect_tail(V: np.ndarray, F: np.ndarray, bones: list[dict], height: float, 
         prev = b
     if len(tail) < MIN_BANDS:
         rep["reason"] = f"rear profile: {len(tail)} tail bands (need {MIN_BANDS})"
+        if radial:
+            return detect_tail_radial(V, F, bones, h, legs, hip, rep)
         return rep
     width = float(np.median([b["w"] for b in tail]))
     rep.update({"bands": len(tail), "width": round(width / h, 3), "body_width": round(body_w / h, 3)})
@@ -243,6 +251,86 @@ def detect_tail(V: np.ndarray, F: np.ndarray, bones: list[dict], height: float, 
                 "root_top": round(float(tail[0]["z"] + BAND * h / 2), 4),
                 "root_behind": round((hip[1] - tail[0]["rear"]) / h, 3),
                 "tip_behind": round((hip[1] - tip[1]) / h, 3), "_verts": verts})
+    return rep
+
+
+def detect_tail_radial(V: np.ndarray, F: np.ndarray, bones: list[dict], h: float, legs: list[dict], hip: np.ndarray,
+                       rep: dict) -> dict:
+    """Fallback for an upright biped whose tail is held out behind or to the side, not hanging (the
+    rig-friendly reference pose, docs/references.md "Rig-friendly poses"): the rear profile sees one
+    band of it. The lobe is the largest surface-connected set of vertices at most R_TOP above the hips,
+    R_LIMB or more from every leg and arm joint path and R_TRUNK or more (horizontally) from the
+    hips' vertical line; its root is its vertex nearest the hips, and the joints are the centroids of
+    radial bands (R_STEP) from the root, out to the vertex farthest from it. Not found when that is
+    shorter than R_MIN_LEN or thicker than THIN x the body. Same report keys as detect_tail."""
+    import rig_topology
+    rep = dict(rep, method="radial", band_reason=rep.get("reason"))
+    z0 = float(V[:, 2].min())
+    arms = rig_topology.find_arms(bones, h, legs)
+    limbs = legs + [{"chain": a["chain"]} for a in arms if a.get("chain")]
+    near = _leg_near(V, bones, limbs)
+    horiz = np.hypot(V[:, 0] - hip[0], V[:, 1] - hip[1])
+    cand = (near >= R_LIMB * h) & (horiz >= R_TRUNK * h) & (V[:, 2] <= hip[2] + R_TOP * h)
+    if cand.sum() < 20:
+        rep["reason"] = f"radial: {int(cand.sum())} candidate vertices"
+        return rep
+    # connected pieces over the mesh edges among the candidates
+    idx = np.nonzero(cand)[0]
+    pos = {int(v): k for k, v in enumerate(idx)}
+    par = list(range(len(idx)))
+    def find(a):
+        while par[a] != a:
+            par[a] = par[par[a]]
+            a = par[a]
+        return a
+    for tri in F:
+        ks = [pos.get(int(v)) for v in tri]
+        ks = [k for k in ks if k is not None]
+        for a, b in zip(ks, ks[1:]):
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                par[ra] = rb
+    roots = np.array([find(k) for k in range(len(idx))])
+    lab, cnt = np.unique(roots, return_counts=True)
+    lobe = idx[roots == lab[np.argmax(cnt)]]
+    P = V[lobe]
+    root = P[np.argmin(np.linalg.norm(P - hip, axis=1))]
+    d = np.linalg.norm(P - root, axis=1)
+    length = float(d.max())
+    rep.update({"radial_lobe": int(len(lobe)), "radial_reach": round(length / h, 3)})
+    if length < R_MIN_LEN * h:
+        rep["reason"] = f"radial: the lobe reaches {length / h:.2f} x h (< {R_MIN_LEN})"
+        return rep
+    nb = max(int(length / (R_STEP * h)), MIN_BANDS)
+    cents, widths = [root], []
+    for k in range(1, nb + 1):
+        m = (d > (k - 1) * length / nb) & (d <= k * length / nb)
+        if m.sum() < 3:
+            continue
+        cents.append(P[m].mean(axis=0))
+        widths.append(float(np.max(np.linalg.norm(P[m] - P[m].mean(axis=0), axis=1))) * 2)
+    tip = P[np.argmax(d)]
+    near_hip = (np.abs(V[:, 2] - hip[2]) < BAND * h) & (np.abs(V[:, 1] - hip[1]) < REAR * h)
+    body_w = float(np.ptp(V[near_hip, 0])) if near_hip.sum() > 3 else h
+    width = float(np.median(widths)) if widths else h
+    rep.update({"bands": len(cents) - 1, "width": round(width / h, 3), "body_width": round(body_w / h, 3)})
+    if len(cents) - 1 < MIN_BANDS:
+        rep["reason"] = f"radial: {len(cents) - 1} bands (need {MIN_BANDS})"
+        return rep
+    if width > THIN * body_w * 1.6:  # a held-out tail seen across its curl is wider than a hanging one
+        rep["reason"] = f"radial: not thin: median width {width / h:.2f} x h vs body {body_w / h:.2f}"
+        return rep
+    line = np.array(cents + [tip])
+    L = float(np.linalg.norm(np.diff(line, axis=0), axis=1).sum())
+    n = int(np.clip(round(L / (BONE_LEN * h)), MIN_BONES, MAX_BONES))
+    joints = _resample(line, n)
+    r = lambda p: [round(float(c), 4) for c in p]
+    rep.update({"found": True, "reason": None, "joints": [r(j) for j in joints], "line": [r(p) for p in line],
+                "root": r(root), "tip": r(tip), "verts": int(len(lobe)), "length": round(L / h, 3),
+                "root_z": round((root[2] - z0) / h, 3), "tip_z": round((tip[2] - z0) / h, 3),
+                "root_top": round(float(root[2] + BAND * h / 2), 4),
+                "root_behind": round((hip[1] - root[1]) / h, 3), "tip_behind": round((hip[1] - tip[1]) / h, 3),
+                "_verts": lobe})
     return rep
 
 
@@ -438,10 +526,11 @@ def _seg(V: np.ndarray, a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return np.linalg.norm(V - (a + t[:, None] * ab), axis=1)
 
 
-def add_missing_tail(arm, me, rig_topology, feet: int, isolated: bool = True) -> dict | None:
+def add_missing_tail(arm, me, rig_topology, feet: int, isolated: bool = True, radial: bool = False) -> dict | None:
     """In Blender: when find_tail finds fewer than 4 bones, find the tail on the mesh, insert
     (or adopt and extend) a tail_00.. chain on the hip bone and weight it. Returns the report
-    (None when the skeleton already has a tail of 4+ bones or has not the plan's legs)."""
+    (None when the skeleton already has a tail of 4+ bones or has not the plan's legs). `radial`
+    (the UAL rig's upright bipeds): detect_tail_radial when the rear profile finds no hanging tail."""
     import bpy
     from mathutils import Vector
 
@@ -455,15 +544,20 @@ def add_missing_tail(arm, me, rig_topology, feet: int, isolated: bool = True) ->
     height = float(V[:, 2].max() - V[:, 2].min())
     legs = rig_topology.find_legs(bones, height, max(feet, 1))
     if len(legs) < max(feet, 2):
-        return None
+        return {"found": False, "reason": f"{len(legs)} legs found"} if radial else None
     had = rig_topology.find_tail(bones, height, legs, min_bones=2)
-    if len(rig_topology.find_tail(bones, height, legs)) >= MIN_BONES:
-        return None
+    found = rig_topology.find_tail(bones, height, legs)
+    if radial and found:  # upright: find_tail's test can match an arm (rig_topology.find_arms); that is no tail
+        arm_bones = {n for a in rig_topology.find_arms(bones, height, legs) for n in a.get("chain") or []}
+        if (arm_bones | {"hand_l", "hand_r", "grip_l", "grip_r", "head"}) & set(found):  # runs into a hand
+            had, found = [], []
+    if len(found) >= MIN_BONES:
+        return {"found": False, "reason": f"the skeleton has a tail: {found}"} if radial else None
     cx = rig_topology.centre_x(bones, legs)
     me.data.calc_loop_triangles()
     F = np.empty(len(me.data.loop_triangles) * 3, dtype=np.int64)
     me.data.loop_triangles.foreach_get("vertices", F)
-    rep = detect_tail(V, F.reshape(-1, 3), bones, height, legs, cx, isolated)
+    rep = detect_tail(V, F.reshape(-1, 3), bones, height, legs, cx, isolated, radial)
     rep = {"had": had, "height_m": round(height, 3), **rep}
     if not rep["found"]:
         return rep

@@ -65,16 +65,25 @@ REF_TEMPLATE_KEYS = {"name": _text(60), "image": _style, "model": _style, "type"
                      "strength": None, "start": None, "end": None}
 
 
-def _ref_template(v):
+def _ref_template(v, nested=False):
     """ref_template: false, a template name (forge.REF_TEMPLATES or "apose"), or an object
-    {name, image, model, type, strength 0-2, start/end 0-1} merged over the plan's template, or
+    {name, image, model, type, strength 0-2, start/end 0-1, extra: [{image, model, type, strength,
+    start, end}] (more ControlNets chained after the first)} merged over the plan's template, or
     over the forge.REF_TEMPLATES entry its `name` names."""
-    if v is False or (isinstance(v, str) and _NAME.match(v)):
+    if not nested and (v is False or (isinstance(v, str) and _NAME.match(v))):
         return None
     if not isinstance(v, dict):
         return "must be false, a template name or an object"
     for k, x in v.items():
-        if k not in REF_TEMPLATE_KEYS:
+        if k == "extra" and not nested:
+            if not isinstance(x, list):
+                return "extra must be a list of objects"
+            for t in x:
+                e = _ref_template(t, nested=True)
+                if e:
+                    return f"extra: {e}"
+            continue
+        if k not in REF_TEMPLATE_KEYS or (nested and k == "name"):
             return f"unknown key {k!r} (allowed: {sorted(REF_TEMPLATE_KEYS)})"
         chk = REF_TEMPLATE_KEYS[k] or (_num(0, 2) if k == "strength" else _num(0, 1))
         e = chk(x)

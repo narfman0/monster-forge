@@ -381,3 +381,20 @@ in `anims_ual/`; `ual_library.py unshare <id>` puts them back, checked byte-iden
 - Result (75 UAL bipeds): 373 of 484 anims/ GLBs shared, 36.9 MB -> 11 library files 0.88 MB; 111 GLBs (9.0 MB) stay
   per-monster (attack_ranged 46, attack_melee 31, walk 13, death 11, fly/swim 6, idle 2, cast 1, breath 1: the
   procedural clips). Re-run `share` after any `promote` (promote copies the clips back; rig --force drops ual_shared).
+
+## Rig-friendly re-rolls (2026-11-08)
+The 24 bipeds left on SkinTokens or review above were re-drawn with the rig-friendly pose (docs/references.md
+"Rig-friendly poses": arms out, feet apart, wings raised, tails held out), re-meshed, re-painted and rigged in a
+scratch copy of the repo (`~/.cache/monster-forge-scratch/posepilot/root/`; `--out-suffix` does not reach the UAL
+stage, which refuses a suffixed dir, nor rig_ual_verdict / retarget_ual / ual_library, which read out/<source>/<id>/).
+Sheets `~/.cache/monster-forge-scratch/posepilot/sheets/cmp_<id>.png`, numbers `.../posepilot/results/<id>.json`.
+- **Tails held out.** `blender_tail_chain.add_missing_tail(..., radial=True)` (the UAL rig's `rig_ual_add_tail` only):
+  `detect_tail_radial` when the rear profile finds no hanging tail (a tail straight out behind or to the side shows
+  as one band), and on an upright skeleton a `find_tail` chain that runs into a hand, grip or head (find_tail's
+  test matched an arm: weretiger, dretch) no longer counts as "the skeleton has a tail". Early returns on that path
+  now give a reason instead of None. `rig_ual_extra_weights: "heat"` suits the inserted tails (werewolf, weretiger,
+  horned-devil, sahuagin-warrior: the tail rides its own chain on every clip). The rig stage's quadruped tails are
+  unchanged (radial off).
+- Moved to UAL (replaced in out/, old dirs in `~/.cache/monster-forge-scratch/posepilot/backup/<id>/`, promoted and
+  shared): gargoyle, balor, werewolf, sahuagin-warrior, weretiger, horned-devil, steam-mephit, succubus, treant
+  (fit auto). Calls in `data/rig_ual_calls.json`; per-id results in docs/references.md "Rig-friendly poses".

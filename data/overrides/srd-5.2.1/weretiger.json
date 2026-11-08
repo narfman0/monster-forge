@@ -1,0 +1,10 @@
+{
+  "ref_template": "biped_tail_front",
+  "ref_pick": 1,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
+  "rig_ual_extras": "auto",
+  "rig_ual_extra_weights": "heat",
+  "rig_ual_add_tail": true,
+  "notes": "Rig-friendly pose pilot 2026-11-08 (docs/references.md \"Rig-friendly poses\"): re-rolled with ref_template biped_tail_front, ref_1 picked; UAL rig use_ual on every clip (max p99.9 3.7); the tail rides its own inserted chain (rig_ual_add_tail, heat extra weights; old: the looped tail rode the right thigh, needs_skintokens). Old dir backed up in ~/.cache/monster-forge-scratch/posepilot/backup/weretiger/."
+}

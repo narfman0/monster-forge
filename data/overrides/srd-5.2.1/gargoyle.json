@@ -1,4 +1,8 @@
 {
-  "ref_pick": 2,
-  "notes": "Tier-2 review 2026-11-06 (pass 5): ref_0 stands on a round display base and meshed with it; ref_1 on a carved plinth holding blades. Re-pick 2 (no base); re-mesh, check for a slab."
+  "ref_pick": 0,
+  "notes": "Tier-2 review 2026-11-06 (pass 5): ref_0 stands on a round display base and meshed with it; ref_1 on a carved plinth holding blades. Re-pick 2 (no base); re-mesh, check for a slab. Rig-friendly pose pilot 2026-11-08 (docs/references.md \"Rig-friendly poses\"): re-rolled with ref_template biped_wings_tail_front, ref_0 picked; UAL rig use_ual on every clip (idle/walk/run/attack/death 2.3/3.0/4.1/4.4/4.6 vs 5.1/6.0/11.0/8.4/9.3 old); SkinTokens 2 legs, no problems (old 3 legs, the tail taken for a leg); no display base; wing chains auto; the tail rides the right thigh (lobe too close to it for a chain) without tearing. Old dir backed up in ~/.cache/monster-forge-scratch/posepilot/backup/gargoyle/.",
+  "ref_template": "biped_wings_tail_front",
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
+  "rig_ual_extras": "auto"
 }

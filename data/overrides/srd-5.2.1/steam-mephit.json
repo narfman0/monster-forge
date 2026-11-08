@@ -1,0 +1,9 @@
+{
+  "ref_template": "biped_wings_front",
+  "ref_pick": 2,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
+  "rig_ual_weights": "skintokens",
+  "rig_ual_extras": "auto",
+  "notes": "Rig-friendly pose pilot 2026-11-08 (docs/references.md \"Rig-friendly poses\"): re-rolled with ref_template biped_wings_front, ref_2 picked; UAL rig use_ual on every clip (max p99.9 3.9 vs best old 1/6, death 24.9); SkinTokens weights + auto wing chains; wings raised clear of the arms, legs apart. Old dir backed up in ~/.cache/monster-forge-scratch/posepilot/backup/steam-mephit/."
+}

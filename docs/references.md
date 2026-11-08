@@ -71,7 +71,8 @@ the A-pose) with a per-plan template, `forge.REF_TEMPLATES` / `REF_TEMPLATE_BY_P
 
 | plan | template | image | ControlNet type | strength / end |
 |---|---|---|---|---|
-| biped, winged_biped | `apose` (the style's `controlnet`) | `workflows/pose/apose_openpose*.png` | openpose | 0.6 / 0.6 |
+| biped, winged_biped (in `_frozen.pose_v1_ids`: every one with a reference on 2026-11-08) | `apose` (the style's `controlnet`) | `workflows/pose/apose_openpose*.png` | openpose | 0.6 / 0.6 |
+| biped, winged_biped (new references) | rig-friendly, by plan and prompt (below) | `workflows/pose/biped_*_openpose.png` + `_depth.png`, `apose_wide_openpose*.png` | openpose + depth | 0.8 / 0.75 + 0.3 / 0.35 |
 | serpentine | `serpentine_side` | `workflows/pose/serpentine_side_depth.png` | depth | 0.75 / 0.7 |
 | centauroid | `centaur_34` | `workflows/pose/centaur_34_depth.png` | depth | 0.75 / 0.7 |
 
@@ -144,6 +145,114 @@ became floppy dog ears. Per-round prompts and results are in `data/prompt_tweaks
 | hydra | 2 | `hydra_34` 0.6 / 0.5 + white-background weight | ref_2: one crocodile-like body, five heads on five necks (smooth rendered look) | five necks fanned in 3D, feet down; facing 2 deg; walk on 4 legs (small stride), necks unanimated (`custom.hydra`) |
 | sphinx-of-lore | 3 | `sphinx_side` 0.6 / 0.5, `woman` head | ref_2: a calm woman's face, cloth bib over neck and chest, tawny lion body, raised feathered wings | facing 0.5 deg; fly clip has frozen wings (the raised-wing defect, docs/rig-anim.md "Raised wings") |
 | chimera | 4 | `chimera_34` 0.75 / 0.7 (0.6 / 0.5 put whole goats on its back) | ref_3: one lion body, maned head in front, goat head, red dragon head; white coat, feathered wings, studio-photo look | three heads apart, wings, feet down; facing 2.5 deg; rig 4 legs + 2 wings, no problems (-1.40); fly flaps both wings; painted cream-white, the front head reads as a lamb |
+
+### Rig-friendly poses (2026-11-08)
+
+Image-to-3D fuses parts that touch in the reference, and the rigger cannot pull them apart again:
+24 bipeds failed the direct UAL rig check (docs/anim-reuse.md "Extra chains") mostly for that
+reason: tails hanging against or between the legs (gargoyle, barbed-devil, dretch, rakshasa,
+sahuagin-warrior, wererat, werewolf, weretiger, half-dragon), wings or fringes drawn down beside the
+legs (balor, horned-devil, bone-devil, steam-mephit, imp, succubus, sprite, incubus), robes
+(cloud-giant, night-hag, deva, solar) and fit failures (treant, medusa, shambling-mound). The pilot
+re-drew them with a pose that keeps every appendage clear.
+
+**Templates** (`forge.REF_TEMPLATES`, `tools/blender_ref_templates.py` `biped(wings, tail, small)`,
+`tools/pose_skeleton.py`):
+
+| template | pose | images |
+|---|---|---|
+| `apose_wide` | arms 45 degrees from the body (house A-pose 35), each ankle 0.08 x height further out | `apose_wide_openpose{,_small}.png` (OpenPose only) |
+| `biped_wings_front` | wide A-pose, two membrane wings from the upper back raised up and out, tips above the head, the lower edge above the shoulders | `biped_wings_front{,_small}_{openpose,depth}.png` |
+| `biped_tail_front` | wide A-pose, a tail held out from behind the hips to the figure's left at hip height, under the hand, its end curving down well outside the foot | `biped_tail_front{,_small}_{openpose,depth}.png` |
+| `biped_wings_tail_front` | both | `biped_wings_tail_front{,_small}_{openpose,depth}.png` |
+
+The depth proxy is rendered front-on, and the same script writes `<name>_keypoints.json` (the
+proxy's COCO-18 joints projected by the same camera), from which `pose_skeleton.py --keypoints`
+draws the matching OpenPose image, so the two ControlNets agree. Tiny and small creatures get the
+stocky `_small` proxy (bigger head, shorter legs). A template may now chain more ControlNets:
+`extra: [{image, type, strength, start, end}]` (`forge.apply_template`; manifest
+`ref.controlnet.extra`; the override `ref_template` accepts `extra` too, replacing the template's).
+Template images may be per size (`{"default": ..., "tiny": ..., "small": ...}`).
+
+**Default.** `forge.rig_friendly_template`: a winged biped gets wings, a biped whose registry
+prompt names a tail gets the tail (both for a tailed winged biped), any other biped `apose_wide`,
+except the ids in `prompt_tweaks.json` `_frozen.pose_v1_ids` (the 120 bipeds that had a reference
+when the default changed, minus the ones re-rolled here), which keep the house `apose` and none of
+the rules below, so no existing prompt or batch fingerprint changes (checked on all 330 records).
+An id whose creature has a tail its prompt does not name (gargoyle, werewolf) sets `ref_template`
+in its override. Rules (`_rules`, match key `templates` = the pose template's name, new; the pose
+words follow the pose ControlNet):
+
+| rule | templates | insert / negative |
+|---|---|---|
+| `pose_legs_apart` | all four | "(legs apart, feet planted wide apart, arms held out away from the body:1.2)" / legs together, feet together, crossed legs, arms at the sides |
+| `pose_tail_out` | tail ones | "(tail held out to the side, away from the legs:1.2)" / tail between the legs, wrapped round a leg, touching the legs, coiled on the ground |
+| `pose_wings_up` | wing ones | "(wings spread up and out above the shoulders:1.2)" / folded, drooping, hanging beside the legs, touching the arms |
+| `pose_style_guard` | all four | "(full color manga ink illustration, isolated on a plain white background:1.3)" / photo, toy, action figure, figurine, insect, exoskeleton, naked mannequin |
+
+The `hands_free`, `house_ground` and `no_carried_gear` rules skip `_frozen.ids`; a re-rolled id
+leaves that list (and `pose_v1_ids`), so they apply to it again.
+
+**Rounds** (gargoyle, imp, balor, werewolf; 4 candidates each):
+
+| round | settings | drawn |
+|---|---|---|
+| 1 | OpenPose 0.8 / 0.75 + depth 0.45 / 0.5, no guard | pose right (tail out, wings up, feet apart) but photo / toy looks, insect wings (the proxy's membrane lobes), mannequin bodies; imp a red-and-black toy insect, werewolf without its clothes. (This round fed the depth map to BOTH ControlNets: the upload bug below) |
+| 2 | OpenPose only 0.8 / 0.75 | wings up, feet apart, bat wings back; tails mostly not out |
+| 3 | both, depth 0.3 / 0.35 vs 0.45 / 0.5, + `pose_style_guard` | the house ink look and white backgrounds back; at 0.3 / 0.35 the tails still stand clear and the likeness is closer (the werewolf keeps its jacket). Kept |
+
+**Upload bug (fixed).** `forge.upload_file` reused its `name` argument as the form-field loop
+variable, so every upload was stored as `<subfolder>/overwrite`: two ControlNets in one graph read
+one image, and paint has always fed the colour render for all its inputs (docs/paint-stage.md).
+
+**Mesh-side finding.** The sideways tail meshes free of the legs (werewolf: straight out behind),
+but `blender_tail_chain.detect_tail` reads a tail off the rear profile in horizontal bands and only
+finds a hanging one ("1 tail band"). `detect_tail_radial` (opt-in, `radial`, used by the UAL rig's
+`rig_ual_add_tail` only): the largest surface-connected lobe at most 0.12 h above the hips, 0.09 h
+or more from every leg and arm joint path and 0.11 h from the hips' vertical line, with the joints
+at the centroids of radial bands from its root (werewolf: 8 bands, 0.44 h). On that path a `find_tail` chain that
+runs into a hand, grip or head no longer counts as an existing tail (on upright skeletons find_tail matched an arm,
+so weretiger got no tail at all). The rig stage's quadruped tails are unchanged.
+
+**Results** (all 24, one round of 4 candidates each, picked by eye; then mesh, qa, paint, lod, the SkinTokens rig
+and the UAL variants: plain heat, auto extra chains with SkinTokens / heat / whole-body SkinTokens weights, an inserted
+tail. "UAL" = clips the gate keeps on UAL (retarget_ual.verdict against the same mesh's SkinTokens procedural clips;
+stale `anim_ual_exclude` of the old meshes dropped), best variant; old = best of the 2026-11-08 extra-chain runs.
+Sheets `~/.cache/monster-forge-scratch/posepilot/sheets/cmp_<id>.png` (old / new ref and mesh, both UAL sheets),
+candidates `r_final4.png`, `r_a.png`, `r_b.png`, `r_c.png`):
+
+| id | pick | UAL old -> new (max p99.9 new) | SkinTokens score old -> new | outcome |
+|---|---|---|---|---|
+| gargoyle | ref_0 | 2/6 -> 6/6 (4.6) | -2.43 (3 legs) -> -0.35 | **replaced**: no display base; tail rides the right thigh without tearing |
+| balor | ref_0 | 3/6 -> 6/6 (3.8) | -1.44 -> -0.47 | **replaced**: no fringe between the legs |
+| werewolf | ref_1 | needs_skintokens -> 6/6 (2.5) | -1.80 -> -0.84 | **replaced**: tail out behind, own chain (radial); keeps jacket and trousers; facing check off |
+| sahuagin-warrior | ref_0 | 3/6 -> 6/6 (3.7) | -1.38 -> -1.66 | **replaced**: tail chain (auto extras, heat) |
+| weretiger | ref_1 | needs_skintokens -> 6/6 (3.7) | -1.52 -> -1.07 | **replaced**: tail chain inserted (after the find_tail arm fix) |
+| horned-devil | ref_3 | 1/5 -> 5/5 (4.7) | -0.72 -> -1.73 | **replaced**: wing chains + inserted tail; dark slate body, red wings |
+| steam-mephit | ref_2 | 1/6 -> 6/6 (3.9) | -1.18 -> -0.13 | **replaced**: SkinTokens weights + wing chains; darker navy than the old cyan |
+| succubus | ref_3 | 3/6 -> 6/6 (2.0) | -0.96 -> -0.14 | **replaced**: wing chains |
+| treant | ref_0 | 1/6 (floats) -> 6/6 (4.7) | -0.61 -> -0.58 | **replaced**: fit auto; root legs apart instead of a trunk |
+| imp | ref_3 | 0/6 -> 6/6 (9.2) | -1.77 (3 legs) -> -0.65 | held: the ink ground line meshed as a bar under the feet, plus a loose stick; a re-roll with another seed drew white insect bellies |
+| dretch | ref_3 | 2/6 -> 6/6 (3.2) | -0.17 -> -1.44 | held: lean and muscular, the pot belly lost |
+| half-dragon | ref_2 | 2/6 -> 6/6 (2.7) | -1.49 (3 legs) -> -0.60 | held: the plate armour gone, paint drifted to red |
+| incubus | ref_0 | 0/7 -> 7/7 (3.3) | -1.04 -> -0.55 | held: "fine clothing" gone, a bare pale figure |
+| sprite | ref_1 | 3/5 -> 2/5 | -1.91 -> -1.27 | held (rig not better); **the old sprite mesh is topless**, the new one wears a leaf bodysuit |
+| barbed-devil | ref_1 | 2/6 -> 1/6 | -1.11 -> -1.18 | not better: the dense barbs tear |
+| rakshasa | ref_0 | 3/7 -> 4/7 | -0.59 -> -0.83 | not better; the coat opened |
+| wererat | ref_1 | 5/6 -> 4/6 (fit auto) | -0.94 -> -1.23 (1 arm in 8 rolls) | not better: the tail out under the right hand merged with the arm for SkinTokens |
+| bone-devil | ref_1 | 1/6 -> 0/6 (fit broken, 29 at idle) | -1.37 -> -2.37 (spine) | not better |
+| medusa | ref_1 | 4/6 -> 0/6 | -3.20 -> -0.80 | held: procedural clips much better on the new SkinTokens rig, but loose snake pieces lie at the feet; the snakes are still round the body, not hair |
+| shambling-mound | ref_1 | 4/6 -> 1/6 (fit auto) | -0.37 -> -0.34 | not better |
+| cloud-giant | ref_2 | 2/7 -> 7/7 (3.5) | -0.49 -> -0.10 | robe: user's call (the wide stance opened the robe over trousers) |
+| night-hag | ref_3 | 4/7 -> 5/7 | -0.59 -> -1.00 | robe: user's call (robe open at the legs) |
+| deva | ref_3 | 5/7 -> 7/7 (4.1) | -2.00 (4 legs) -> -0.45 | robe: user's call (drapes over a bodysuit; refs 0 and 2 near nude) |
+| solar | ref_1 | 6/7 -> 7/7 (7.3) | -1.68 -> -1.40 | robe: user's call (gown open at the legs) |
+
+Findings: wings are not the problem they looked like (the old references already raised them; what fused was
+legs, fringes and tails), and a raised wing pair plus a tail held out gives SkinTokens the right leg count (gargoyle,
+imp, half-dragon, deva: 3-4 legs -> 2). Tails: held out behind meshes best (werewolf); out at hand height can merge
+with the arm (wererat). The pose words also change the costume: long garments open over the legs (robes, coats) and
+some clothing is dropped (incubus, half-dragon armour), so likeness needs the per-id words kept strong.
 
 ## Unarmed check subject (name with a weapon word)
 

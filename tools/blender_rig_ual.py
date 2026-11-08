@@ -86,7 +86,8 @@ if SK and job.get("add_tail"):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import blender_tail_chain  # noqa: E402
     import rig_topology  # noqa: E402
-    REPORT["tail_added"] = blender_tail_chain.add_missing_tail(SK, ME, rig_topology, 2, isolated=False)
+    # radial: a tail held out back or sideways (the rig-friendly pose) has no hanging rear profile
+    REPORT["tail_added"] = blender_tail_chain.add_missing_tail(SK, ME, rig_topology, 2, isolated=False, radial=True)
     print("tail_added", json.dumps(REPORT["tail_added"], default=str)[:400], flush=True)
     if (REPORT["tail_added"] or {}).get("found") and not any(e["root"] == "tail_00" for e in job.get("extras") or []):
         job["extras"] = list(job.get("extras") or []) + [{"root": "tail_00", "kind": "tail"}]

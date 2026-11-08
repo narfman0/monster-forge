@@ -1,0 +1,11 @@
+{
+  "ref_template": "biped_tail_front",
+  "ref_pick": 1,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
+  "rig_ual_extras": "auto",
+  "rig_ual_extra_weights": "heat",
+  "rig_ual_add_tail": true,
+  "rig_facing_check": false,
+  "notes": "Rig-friendly pose pilot 2026-11-08 (docs/references.md \"Rig-friendly poses\"): re-rolled with ref_template biped_tail_front, ref_1 picked; UAL rig use_ual on every clip (1.5-2.5); the tail held out behind meshes clear of the legs and gets its own chain (rig_ual_add_tail, radial tail detection, heat extra weights; old: tail/coat flap welded to the right thigh, needs_skintokens); keeps jacket, shirt and trousers; rig_facing_check off (the tail mass throws off the mirror plane; the mesh faces front). Old dir backed up in ~/.cache/monster-forge-scratch/posepilot/backup/werewolf/."
+}

@@ -250,11 +250,13 @@ class ResourceSampler:
 
 def upload_file(path: Path, subfolder: str, name: str | None = None,
                 content_type: str = "image/png") -> str:
-    """Upload into ComfyUI's input dir (any file type; /upload/image does not check)."""
+    """Upload into ComfyUI's input dir (any file type; /upload/image does not check) as `name`
+    (default the file's own name). Until 2026-11-08 the form loop below reused `name`, so every
+    upload was stored as "<subfolder>/overwrite" (one file per subfolder, the last upload wins)."""
     boundary = uuid.uuid4().hex
     parts = []
-    for name, val in (("subfolder", subfolder), ("type", "input"), ("overwrite", "true")):
-        parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{val}\r\n".encode())
+    for field, val in (("subfolder", subfolder), ("type", "input"), ("overwrite", "true")):
+        parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{field}\"\r\n\r\n{val}\r\n".encode())
     parts.append(
         f"--{boundary}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"{name or path.name}\"\r\n"
         f"Content-Type: {content_type}\r\n\r\n".encode() + path.read_bytes() + b"\r\n")
@@ -319,7 +321,8 @@ RULE_INSERT_BEFORE = ". Low-poly game asset"
 def tweak_rule(rule: dict, mon: dict) -> dict | None:
     """The rule as it applies to `mon`, or None. Match keys (all given must hold): `plans`,
     `ids`, `id_match` (regex, fullmatch on the id), `types`, `sizes`, `prompt_match` (regex, searched
-    case-insensitively in the registry reference_prompt), `unarmed_reference` (bool);
+    case-insensitively in the registry reference_prompt), `unarmed_reference` (bool), `templates`
+    (the pose template's name, ref_template_name: the pose words follow the pose ControlNet);
     `except_ids` excludes. `by_group` {value: {insert, negative_append, ...}} is the generator:
     `id_match`'s first group picks the entry, merged over the rule (one rule covers e.g. every
     dragon colour); no entry for the group = no match."""
@@ -337,6 +340,8 @@ def tweak_rule(rule: dict, mon: dict) -> dict | None:
     if "unarmed_reference" in rule and bool(mon.get("unarmed_reference")) != bool(rule["unarmed_reference"]):
         return None
     if rule.get("prompt_match") and not re.search(rule["prompt_match"], mon.get("reference_prompt", ""), re.I):
+        return None
+    if rule.get("templates") and ref_template_name(mon, ov_for(mon)) not in rule["templates"]:
         return None
     out = dict(rule)
     if rule.get("id_match"):
@@ -521,6 +526,11 @@ def apply_style(wf: dict, style: dict, prompt: str, mon: dict, ov: dict | None =
 # OpenPose A-pose (data/style.json "controlnet", biped/winged_biped). Override `ref_template`:
 # false (no template), a name below, or an object merged over the plan's template (or over the
 # template it names: {"name": "hydra_34", "strength": 0.6, "end": 0.5}).
+def _sized(default: str, small: str) -> dict:
+    """A template image per size: tiny and small creatures get the stocky proxy."""
+    return {"default": default, "tiny": small, "small": small}
+
+
 REF_TEMPLATES = {
     "serpentine_side": {"image": "workflows/pose/serpentine_side_depth.png", "type": "depth",
                         "strength": 0.75, "start": 0.0, "end": 0.7},
@@ -535,27 +545,68 @@ REF_TEMPLATES = {
                     "strength": 0.75, "start": 0.0, "end": 0.7},
     "chimera_34": {"image": "workflows/pose/chimera_34_depth.png", "type": "depth",
                    "strength": 0.75, "start": 0.0, "end": 0.7},
+    # rig-friendly bipeds (docs/references.md "Rig-friendly poses", 2026-11-08): image-to-3D fuses
+    # parts that touch in the picture, so arms 45 degrees out, feet apart, wings raised clear of the
+    # arms, a tail held out clear of the legs. A stronger OpenPose (from the same proxy as the depth
+    # map, tools/blender_ref_templates.py biped()) plus a weak depth ControlNet for the wings / tail
+    # (`extra`: more ControlNets chained after the first).
+    "apose_wide": {"image": _sized("workflows/pose/apose_wide_openpose.png", "workflows/pose/apose_wide_openpose_small.png"),
+                   "type": "openpose", "strength": 0.8, "start": 0.0, "end": 0.75},
+    **{n: {"image": _sized(f"workflows/pose/{n}_openpose.png", f"workflows/pose/{n}_small_openpose.png"),
+           "type": "openpose", "strength": 0.8, "start": 0.0, "end": 0.75,
+           "extra": [{"image": _sized(f"workflows/pose/{n}_depth.png", f"workflows/pose/{n}_small_depth.png"),
+                      "type": "depth", "strength": 0.3, "start": 0.0, "end": 0.35}]}
+       for n in ("biped_wings_front", "biped_tail_front", "biped_wings_tail_front")},
 }
 REF_TEMPLATE_BY_PLAN = {"serpentine": "serpentine_side", "centauroid": "centaur_34"}
+RIG_FRIENDLY_PLANS = {"biped", "winged_biped"}
+TAIL_WORD = re.compile(r"\btails?\b", re.I)
 
 
-def ref_template(mon: dict, style: dict, ov: dict | None = None) -> dict | None:
-    """The ControlNet pose template for this monster's reference: {name, model, type, image
-    (Path), strength, start, end}, or None. Override `ref_template` > REF_TEMPLATE_BY_PLAN >
-    the style's A-pose (its controlnet.body_plans)."""
-    cn = (style or {}).get("controlnet") or {}
+def rig_friendly_template(mon: dict) -> str | None:
+    """The default pose template of a biped / winged biped drawn after 2026-11-08 (docs/references.md
+    "Rig-friendly poses"): wings for a winged biped, a tail when the registry prompt names one, else the
+    wide A-pose. None (the house A-pose) for a record in prompt_tweaks.json `_frozen.pose_v1_ids`: every
+    biped that had a reference when the default changed keeps its prompt (and the batch's fingerprint)."""
+    if mon.get("body_plan") not in RIG_FRIENDLY_PLANS:
+        return None
+    if mon["id"] in set((load_prompt_tweaks().get("_frozen") or {}).get("pose_v1_ids") or []):
+        return None
+    wings = mon["body_plan"] == "winged_biped"
+    tail = bool(TAIL_WORD.search(mon.get("reference_prompt") or ""))
+    return {(True, True): "biped_wings_tail_front", (True, False): "biped_wings_front",
+            (False, True): "biped_tail_front", (False, False): "apose_wide"}[(wings, tail)]
+
+
+def ref_template_name(mon: dict, ov: dict | None = None, style: dict | None = None) -> str | None:
+    """The pose template's name only (no style needed for the non-A-pose ones; "apose" when the plan is
+    in the style's controlnet.body_plans, or always for biped / winged_biped with style None)."""
     want = (ov or {}).get("ref_template")
     if want is False or want == "none":
         return None
     plan = mon.get("body_plan")
     if isinstance(want, str):
-        name = want
-    elif isinstance(want, dict) and want.get("name") in REF_TEMPLATES:  # {name, strength, ...}: a named template, tuned
-        name = want["name"]
-    else:
-        name = REF_TEMPLATE_BY_PLAN.get(plan)
-    if name is None and plan in cn.get("body_plans", []):
-        name = "apose"
+        return want
+    if isinstance(want, dict) and want.get("name") in REF_TEMPLATES:  # {name, strength, ...}: a named template, tuned
+        return want["name"]
+    name = REF_TEMPLATE_BY_PLAN.get(plan) or rig_friendly_template(mon)
+    if name is None:
+        cn = (style or {}).get("controlnet") or {} if style is not None else {"body_plans": sorted(RIG_FRIENDLY_PLANS)}
+        if plan in cn.get("body_plans", []):
+            name = "apose"
+    return name
+
+
+def ref_template(mon: dict, style: dict, ov: dict | None = None) -> dict | None:
+    """The ControlNet pose template for this monster's reference: {name, model, type, image
+    (Path), strength, start, end, extra?}, or None. Override `ref_template` > REF_TEMPLATE_BY_PLAN >
+    rig_friendly_template (bipeds not in `_frozen.pose_v1_ids`) > the style's A-pose (its
+    controlnet.body_plans)."""
+    cn = (style or {}).get("controlnet") or {}
+    want = (ov or {}).get("ref_template")
+    if want is False or want == "none":
+        return None
+    name = ref_template_name(mon, ov, style or {})
     if name == "apose":
         if not cn:
             return None
@@ -576,26 +627,38 @@ def ref_template(mon: dict, style: dict, ov: dict | None = None) -> dict | None:
     model = tpl.get("model") or cn.get("model")
     if not model:
         raise RuntimeError(f"{mon.get('id')}: ref_template {name!r} needs a ControlNet model (style has none)")
-    img = Path(tpl["image"])
-    return {"name": name, "model": model, "type": tpl.get("type", "depth"),
-            "image": img if img.is_absolute() else ROOT / img, "strength": float(tpl.get("strength", 0.6)),
-            "start": float(tpl.get("start", 0.0)), "end": float(tpl.get("end", 1.0))}
+    def norm(t: dict) -> dict:
+        img = t["image"]
+        if isinstance(img, dict):  # per size: {"default": ..., "tiny": ...}
+            img = img.get(mon.get("size"), img["default"])
+        img = Path(img)
+        return {"model": t.get("model") or model, "type": t.get("type", "depth"),
+                "image": img if img.is_absolute() else ROOT / img, "strength": float(t.get("strength", 0.6)),
+                "start": float(t.get("start", 0.0)), "end": float(t.get("end", 1.0))}
+    out = {"name": name, **norm(tpl)}
+    if tpl.get("extra"):  # more ControlNets chained after the first (a weak depth map under the OpenPose)
+        out["extra"] = [norm(t) for t in tpl["extra"]]
+    return out
 
 
 def apply_template(wf: dict, tpl: dict | None) -> None:
     """Add the pose template's ControlNet (controlnet-union, SetUnionControlNetType) to the ref graph."""
     if not tpl:
         return
-    wf["cn_img"] = {"class_type": "LoadImage", "inputs": {"image": upload_file(tpl["image"], "monster-forge/pose")}}
-    wf["cn_load"] = {"class_type": "ControlNetLoader", "inputs": {"control_net_name": tpl["model"]}}
-    wf["cn_type"] = {"class_type": "SetUnionControlNetType", "inputs": {
-        "control_net": ["cn_load", 0], "type": tpl["type"]}}
-    wf["cn_apply"] = {"class_type": "ControlNetApplyAdvanced", "inputs": {
-        "positive": ["pos", 0], "negative": ["neg", 0], "control_net": ["cn_type", 0],
-        "image": ["cn_img", 0], "strength": tpl["strength"], "start_percent": tpl["start"],
-        "end_percent": tpl["end"], "vae": ["ckpt", 2]}}
+    pos, neg = ["pos", 0], ["neg", 0]
+    for k, t in enumerate([tpl, *(tpl.get("extra") or [])]):
+        sfx = "" if k == 0 else f"_{k}"  # the first keeps the old node names (manifest, batch read them)
+        wf["cn_img" + sfx] = {"class_type": "LoadImage", "inputs": {"image": upload_file(t["image"], "monster-forge/pose")}}
+        wf["cn_load" + sfx] = {"class_type": "ControlNetLoader", "inputs": {"control_net_name": t["model"]}}
+        wf["cn_type" + sfx] = {"class_type": "SetUnionControlNetType", "inputs": {
+            "control_net": ["cn_load" + sfx, 0], "type": t["type"]}}
+        wf["cn_apply" + sfx] = {"class_type": "ControlNetApplyAdvanced", "inputs": {
+            "positive": pos, "negative": neg,
+            "control_net": ["cn_type" + sfx, 0], "image": ["cn_img" + sfx, 0], "strength": t["strength"],
+            "start_percent": t["start"], "end_percent": t["end"], "vae": ["ckpt", 2]}}
+        pos, neg = ["cn_apply" + sfx, 0], ["cn_apply" + sfx, 1]
     smp = wf["sample"]["inputs"]
-    smp["positive"], smp["negative"] = ["cn_apply", 0], ["cn_apply", 1]
+    smp["positive"], smp["negative"] = pos, neg
 
 
 def resolve_style(name: str | None) -> str:
@@ -763,7 +826,13 @@ def stage_ref(mon: dict, d: Path, args) -> None:
                                   "template": (ref_template(mon, style, ov) or {}).get("name"),
                                   "type": wf["cn_type"]["inputs"]["type"],
                                   "strength": wf["cn_apply"]["inputs"]["strength"],
-                                  "end": wf["cn_apply"]["inputs"]["end_percent"]}
+                                  "end": wf["cn_apply"]["inputs"]["end_percent"],
+                                  **({"extra": [{"image": wf[f"cn_img_{k}"]["inputs"]["image"],
+                                                 "type": wf[f"cn_type_{k}"]["inputs"]["type"],
+                                                 "strength": wf[f"cn_apply_{k}"]["inputs"]["strength"],
+                                                 "end": wf[f"cn_apply_{k}"]["inputs"]["end_percent"]}
+                                                for k in range(1, 9) if f"cn_apply_{k}" in wf]}
+                                     if "cn_apply_1" in wf else {})}
                                  if "cn_apply" in wf else None),
                   "tweaks": tweaks_used, "seconds": dt}
     if mon.get("swarm_unit"):

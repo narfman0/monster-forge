@@ -1,0 +1,8 @@
+{
+  "ref_template": "biped_wings_tail_front",
+  "ref_pick": 3,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
+  "rig_ual_extras": "auto",
+  "notes": "Rig-friendly pose pilot 2026-11-08 (docs/references.md \"Rig-friendly poses\"): re-rolled with ref_template biped_wings_tail_front, ref_3 picked; UAL rig use_ual on every clip (max p99.9 2.0 vs best old 3/6); auto wing chains; wings raised clear of the legs (old: wing tips hung beside the legs, feet off the floor). Old dir backed up in ~/.cache/monster-forge-scratch/posepilot/backup/succubus/."
+}

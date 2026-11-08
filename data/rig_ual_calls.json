@@ -16,8 +16,8 @@
   "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
  },
  "balor": {
-  "reason": "extras tried: legs/hand tear (idle 3.4-6.5 vs 1.2), attack/death 9-21",
-  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+  "reason": "rig-friendly re-roll: UAL rig use_ual on every clip (max p99.9 3.8: idle/walk/run/attack/death 2.1/2.0/2.4/3.1/3.8 vs best old 3.4/4.7/8.5/9.5/11.3); legs apart, no fringe skirt between them; wing chains auto",
+  "judged": "2026-11-08 sight call, pose pilot (sheets ~/.cache/monster-forge-scratch/posepilot/sheets/cmp_<id>.png)"
  },
  "barbed-devil": {
   "status": "needs_skintokens",
@@ -113,8 +113,8 @@
   "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
  },
  "gargoyle": {
-  "reason": "extras tried (wings, tail): the tail is welded to the calves, UAL leg motion tears it even at idle (5-7 vs 1.3)",
-  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+  "reason": "rig-friendly re-roll: UAL rig use_ual on every clip (idle/walk/run/attack/death 2.3/3.0/4.1/4.4/4.6 vs 5.1/6.0/11.0/8.4/9.3 old); SkinTokens 2 legs, no problems (old 3 legs, the tail taken for a leg); no display base; wing chains auto; the tail rides the right thigh (lobe too close to it for a chain) without tearing",
+  "judged": "2026-11-08 sight call, pose pilot (sheets ~/.cache/monster-forge-scratch/posepilot/sheets/cmp_<id>.png)"
  },
  "glabrezu": {
   "status": "use_ual",
@@ -179,8 +179,8 @@
   "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "horned-devil": {
-  "reason": "extras tried: leg/pelvis tears at idle (5.3-8.3 vs 1.9)",
-  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+  "reason": "rig-friendly re-roll: UAL rig use_ual on all 5 UAL clips (max p99.9 4.7 vs best old 1/5, death 16.7; attack stays procedural); wing chains auto, the tail out to the side gets its own inserted chain (rig_ual_add_tail, heat extra weights); legs apart",
+  "judged": "2026-11-08 sight call, pose pilot (sheets ~/.cache/monster-forge-scratch/posepilot/sheets/cmp_<id>.png)"
  },
  "ice-mephit": {
   "status": "use_ual",
@@ -282,9 +282,8 @@
   "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "sahuagin-warrior": {
-  "status": "needs_skintokens",
-  "reason": "tail inserted; attack 10.6, death 9",
-  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+  "reason": "rig-friendly re-roll: UAL rig use_ual on every clip (max p99.9 3.7 vs best old 3/6 with attack 10.6, death 9.0); the tail held out to the side meshes free of the legs and rides its own chain (auto extras, heat extra weights)",
+  "judged": "2026-11-08 sight call, pose pilot (sheets ~/.cache/monster-forge-scratch/posepilot/sheets/cmp_<id>.png)"
  },
  "scout": {
   "reason": "cloak streams out in the lunge (procedural by the cloak rule); walk, hit and death read fine. The old mesh's cape took the right arm; the re-rolled one does not",
@@ -300,8 +299,8 @@
   "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "sprite": {
-  "reason": "extras tried: one wing chain only, attack/death 12-16",
-  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+  "reason": "rig-friendly re-roll: the old mesh was topless (no-nudity rule); the leaf-bodysuit candidate is clothed, UAL 2/5 vs 3/5 so clips stay mostly procedural",
+  "judged": "2026-11-08 sight call, pose pilot (sheets ~/.cache/monster-forge-scratch/posepilot/sheets/cmp_<id>.png)"
  },
  "spy": {
   "status": "use_ual",
@@ -314,8 +313,8 @@
   "judged": "2026-11-06 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch_*.png)"
  },
  "steam-mephit": {
-  "reason": "extras tried: hand/calf tears 7-60",
-  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+  "reason": "rig-friendly re-roll: UAL rig use_ual on every clip (max p99.9 3.9 vs best old 1/6, death 24.9); SkinTokens weights + auto wing chains; wings raised clear of the arms, legs apart",
+  "judged": "2026-11-08 sight call, pose pilot (sheets ~/.cache/monster-forge-scratch/posepilot/sheets/cmp_<id>.png)"
  },
  "storm-giant": {
   "procedural_clips": [
@@ -327,12 +326,12 @@
   "judged": "2026-11-07 sight call from Blender workbench sheets (~/.cache/monster-forge-scratch/rigual/batch2_*.png)"
  },
  "succubus": {
-  "reason": "extras tried: feet off the floor 0.25 h and idle 5.4+ (hair/arm chains off the neck)",
-  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+  "reason": "rig-friendly re-roll: UAL rig use_ual on every clip (max p99.9 2.0 vs best old 3/6); auto wing chains; wings raised clear of the legs (old: wing tips hung beside the legs, feet off the floor)",
+  "judged": "2026-11-08 sight call, pose pilot (sheets ~/.cache/monster-forge-scratch/posepilot/sheets/cmp_<id>.png)"
  },
  "treant": {
-  "reason": "fit auto: floats 0.2 m at idle, branches smear",
-  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+  "reason": "rig-friendly re-roll: UAL rig (auto fit: the SkinTokens rig has no hand sockets) use_ual on every clip (max p99.9 4.7 vs old auto fit 1/6, floating 0.2 m); two root legs apart instead of a trunk, so the fit finds the legs",
+  "judged": "2026-11-08 sight call, pose pilot (sheets ~/.cache/monster-forge-scratch/posepilot/sheets/cmp_<id>.png)"
  },
  "troll": {
   "status": "use_ual",
@@ -363,13 +362,12 @@
   "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
  },
  "weretiger": {
-  "status": "needs_skintokens",
-  "reason": "the inserted tail covers only the looped tail's end; the rest rides the right thigh and the end smears on walk/run",
-  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+  "reason": "rig-friendly re-roll: UAL rig use_ual on every clip (max p99.9 3.7); the tail rides its own inserted chain (rig_ual_add_tail, heat extra weights; old: the looped tail rode the right thigh, needs_skintokens)",
+  "judged": "2026-11-08 sight call, pose pilot (sheets ~/.cache/monster-forge-scratch/posepilot/sheets/cmp_<id>.png)"
  },
  "werewolf": {
-  "reason": "tail/coat flap inserted; seam on the right thigh tears (walk 6.4-18)",
-  "judged": "2026-11-08 sight call, UAL rig with extra chains (sheets ~/.cache/monster-forge-scratch/ualx/<id>/*.png, _audit_*/sheets)"
+  "reason": "rig-friendly re-roll: UAL rig use_ual on every clip (1.5-2.5); the tail held out behind meshes clear of the legs and gets its own chain (rig_ual_add_tail, radial tail detection, heat extra weights; old: tail/coat flap welded to the right thigh, needs_skintokens); keeps jacket, shirt and trousers; rig_facing_check off (the tail mass throws off the mirror plane; the mesh faces front)",
+  "judged": "2026-11-08 sight call, pose pilot (sheets ~/.cache/monster-forge-scratch/posepilot/sheets/cmp_<id>.png)"
  },
  "wight": {
   "procedural_clips": [

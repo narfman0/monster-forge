@@ -258,15 +258,16 @@ def stage_paint(fg, mon: dict, d: Path, args) -> None:
             free_comfy(fg)
         t1 = time.time()
         sub = f"monster-forge/{mon['source']}/{d.name}/paint"
-        ref_name = fg.upload_file(d / "ref.png", sub, "ref.png")
         seed = s.get("seed") if s.get("seed") is not None else fg.base_seed(mon["id"]) % 100000
         prompts = {}
         for v in views:
             name = v["name"]
-            names = {"ref": ref_name,
-                     "depth": fg.upload_file(pdir / f"{name}_depth.png", sub),
-                     "normal": fg.upload_file(pdir / f"{name}_normal.png", sub),
-                     "init": fg.upload_file(pdir / f"{name}_color.png", sub)}
+            # AS PAINTED SO FAR, kept on purpose: until 2026-11-08 forge.upload_file stored every upload
+            # as "<sub>/overwrite", so the ref, depth, normal and init inputs all read the LAST upload,
+            # this view's colour render. The paint settings were tuned (and every texture made) that
+            # way; feeding the real ref.png / depth / normal maps is a separate decision (docs/paint-stage.md).
+            init = fg.upload_file(pdir / f"{name}_color.png", sub)
+            names = {"ref": init, "depth": init, "normal": init, "init": init}
             wf = build_view_graph(fg, man, name, cams[name], s, names, seed, sub)
             out = fg.run_prompt(wf, f"{mon['id']} paint {name}")
             fg.fetch_output(out["save"]["images"][0], pdir / f"{name}_gen.png")

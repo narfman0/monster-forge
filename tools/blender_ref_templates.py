@@ -29,6 +29,20 @@ point is ONE body silhouette, so the model cannot draw two dogs or three stacked
   (a face with a cloth/hair mass down the back of the neck; side flaps read as dog ears); side view.
 - chimera_34_depth.png: lion body, membrane wings mid-back, goat neck rising on the far side,
   maned lion head in front, dragon head on a long neck reaching forward; side view.
+
+Rig-friendly bipeds (2026-11-08, docs/references.md "Rig-friendly poses"): image-to-3D fuses parts
+that touch in the picture, so these keep every appendage clear of the legs and arms. `biped(wings,
+tail)`: a front-view humanoid in the wide A-pose (arms 45 degrees out, feet apart); each also
+writes `<name>_keypoints.json` (COCO-18 pixel positions from the same camera) that
+tools/pose_skeleton.py turns into the matching `<name>_openpose.png`, so the OpenPose and depth
+images line up.
+
+- biped_wings_front_depth.png: two membrane wings from the upper back, raised up and out (tips well
+  above the head, the lower edge above the shoulders, clear of the arms).
+- biped_tail_front_depth.png: a tail from behind the hips held out to the figure's left at hip
+  height (under the hand), its end curving down well outside the foot.
+- biped_wings_tail_front_depth.png: both.
+- biped_*_small_depth.png: the same in stocky tiny/small proportions (bigger head, shorter legs).
 """
 import math
 import os
@@ -337,8 +351,71 @@ def chimera():
     return {"view": (math.sin(a), math.cos(a), math.tan(math.radians(10))), "margin": 1.08}
 
 
+def biped(wings=False, tail=False, small=False):
+    """A front-view humanoid (faces -Y, toward the camera) 1.8 m tall in the wide A-pose: arms 45
+    degrees from the body, legs splayed with the feet apart. wings: two membrane wings from the upper
+    back raised up and out; tail: held out from behind the hips to the figure's left (image right)
+    under the hand, the end curving down. small: stocky tiny/small proportions (a bigger head, a
+    thicker trunk, shorter legs, as apose_openpose_small). Returns the spec with COCO-18 keypoints
+    (3D) for the matching OpenPose image."""
+    H = 1.8
+    if small:                                   # height fractions of the joints and trunk widths
+        P = dict(hip=0.40, knee=0.21, sh=0.72, neck=0.74, head=0.86, hr=0.10, trunk=1.25, sw=0.12, L=0.15)
+    else:
+        P = dict(hip=0.48, knee=0.25, sh=0.795, neck=0.81, head=0.915, hr=0.065, trunk=1.0, sw=0.10, L=0.17)
+    z = lambda f: f * H                        # height fraction -> z
+    sh, hip, tk = P["sw"] * H, 0.06 * H * P["trunk"], P["trunk"]
+    ang, L = math.radians(45), P["L"] * H
+    # trunk: pelvis, belly, ribcage, neck, head
+    ellipsoid((0, 0, z(P["hip"] + 0.02)), 0.09 * H * tk, 0.06 * H * tk, 0.055 * H)
+    capsule((0, 0, z(P["hip"] + 0.04)), (0, 0, z(P["sh"] - 0.095)), 0.08 * H * tk, 0.10 * H * tk)
+    ellipsoid((0, 0, z(P["sh"] - 0.065)), 0.12 * H * tk, 0.07 * H * tk, 0.08 * H)
+    capsule((0, 0, z(P["sh"] - 0.015)), (0, 0, z(P["head"] - 0.065)), 0.03 * H * tk, 0.03 * H * tk)
+    hr = P["hr"] * H
+    ellipsoid((0, -0.005 * H, z(P["head"])), hr * 0.85, hr * 0.92, hr * 1.05)
+    hz = z(P["head"])
+    kp = {0: (0, -hr, hz - 0.1 * hr), 1: (0, 0, z(P["neck"])), 14: (-0.3 * hr, -0.8 * hr, hz + 0.25 * hr),
+          15: (0.3 * hr, -0.8 * hr, hz + 0.25 * hr), 16: (-0.7 * hr, -0.3 * hr, hz + 0.15 * hr),
+          17: (0.7 * hr, -0.3 * hr, hz + 0.15 * hr)}
+    for s, (i_sh, i_el, i_wr, i_hp, i_kn, i_an) in ((-1, (2, 3, 4, 8, 9, 10)), (1, (5, 6, 7, 11, 12, 13))):
+        # image left = the figure's right (-X seen from -Y is image left): COCO 2-4 / 8-10 are "right"
+        sz = z(P["sh"])
+        shoulder = (s * sh, 0, sz)
+        elbow = (s * (sh + L * math.sin(ang)), 0, sz - L * math.cos(ang))
+        wrist = (s * (sh + 2 * L * math.sin(ang)), 0, sz - 2 * L * math.cos(ang))
+        chain([shoulder, elbow, wrist], [0.035 * H * tk, 0.028 * H * tk, 0.022 * H * tk])
+        hand = (s * (sh + 2.25 * L * math.sin(ang)), 0, sz - 2.25 * L * math.cos(ang))
+        ellipsoid(hand, 0.025 * H * tk, 0.015 * H * tk, 0.04 * H * tk)
+        hp = (s * hip, 0, z(P["hip"]))
+        kn = (s * (hip + 0.04 * H), 0, z(P["knee"]))
+        an = (s * (hip + 0.08 * H), 0, z(0.04))
+        chain([hp, kn, an], [0.042 * H * tk, 0.033 * H * tk, 0.025 * H * tk])
+        ellipsoid((an[0], -0.04 * H, 0.015 * H), 0.03 * H, 0.06 * H, 0.018 * H)   # foot, toes forward
+        kp.update({i_sh: shoulder, i_el: elbow, i_wr: wrist, i_hp: hp, i_kn: kn, i_an: an})
+    if wings:
+        for s in (-1, 1):
+            root = Vector((s * 0.05 * H, 0.06 * H, z(P["sh"] + 0.005)))
+            elbow = root + Vector((s * 0.20 * H, 0.04 * H, 0.22 * H))
+            tip = root + Vector((s * 0.40 * H, 0.06 * H, 0.42 * H))
+            chain([root, elbow, tip], [0.022 * H, 0.016 * H, 0.008 * H])      # the wing arm, up and out
+            for end in ((0.47, 0.34), (0.47, 0.22), (0.38, 0.11)):            # membrane lobes, above the shoulders
+                slab(root, root + Vector((s * end[0] * H, 0.07 * H, end[1] * H)), 0.12 * H, 0.008 * H, (0, 0, 1))
+    if tail:
+        s = 1                                   # the figure's left, image right
+        t0 = P["hip"] - 0.03                    # out under the hand, the end curving down
+        pts = bezier((0, 0.05 * H, z(t0)), (s * 0.16 * H, 0.15 * H, z(t0 - 0.04)),
+                     (s * 0.34 * H, 0.12 * H, z(t0 - 0.05)), (s * 0.44 * H, 0.04 * H, z(t0 - 0.21)), n=14)
+        chain(pts, [(0.04 * H - 0.03 * H * i / 14) * tk for i in range(15)])
+    return {"view": (0.0, -1.0, 0.0), "margin": 1.10, "keypoints": kp}
+
+
 TEMPLATES = {"serpentine_side_depth": snake, "centaur_34_depth": centaur, "hydra_34_depth": hydra,
-             "twohead_dog_34_depth": twohead_dog, "sphinx_side_depth": sphinx, "chimera_34_depth": chimera}
+             "twohead_dog_34_depth": twohead_dog, "sphinx_side_depth": sphinx, "chimera_34_depth": chimera,
+             "biped_wings_front_depth": lambda: biped(wings=True), "biped_tail_front_depth": lambda: biped(tail=True),
+             "biped_wings_tail_front_depth": lambda: biped(wings=True, tail=True),
+             "biped_wings_front_small_depth": lambda: biped(wings=True, small=True),
+             "biped_tail_front_small_depth": lambda: biped(tail=True, small=True),
+             "biped_wings_tail_front_small_depth": lambda: biped(wings=True, tail=True, small=True)}
 
 
 # ---------------------------------------------------------------- render
@@ -413,6 +490,17 @@ def render(name, build):
     sc.render.filepath = path
     bpy.ops.render.render(write_still=True)
     print(f"wrote {path} (depth {near:.2f}..{far:.2f} m, ortho {cam_data.ortho_scale:.2f} m)")
+    if spec.get("keypoints"):                   # pixel positions for the matching OpenPose image
+        from bpy_extras.object_utils import world_to_camera_view
+        import json
+        kp = {}
+        for i, p in spec["keypoints"].items():
+            c = world_to_camera_view(sc, cam, Vector(p))
+            kp[str(i)] = [round(c.x * RES, 1), round((1 - c.y) * RES, 1)]
+        kpath = path.replace("_depth.png", "_keypoints.json")
+        with open(kpath, "w") as f:
+            json.dump(kp, f, indent=1)
+        print(f"wrote {kpath}")
 
 
 os.makedirs(OUT, exist_ok=True)

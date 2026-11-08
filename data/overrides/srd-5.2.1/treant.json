@@ -1,0 +1,7 @@
+{
+  "ref_template": "apose_wide",
+  "ref_pick": 0,
+  "rig_source": "ual",
+  "rig_ual_fit": "auto",
+  "notes": "Rig-friendly pose pilot 2026-11-08 (docs/references.md \"Rig-friendly poses\"): re-rolled with ref_template apose_wide, ref_0 picked; UAL rig (auto fit: the SkinTokens rig has no hand sockets) use_ual on every clip (max p99.9 4.7 vs old auto fit 1/6, floating 0.2 m); two root legs apart instead of a trunk, so the fit finds the legs. Old dir backed up in ~/.cache/monster-forge-scratch/posepilot/backup/treant/."
+}

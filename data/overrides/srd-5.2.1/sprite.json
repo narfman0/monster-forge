@@ -1,4 +1,5 @@
 {
-  "ref_pick": 2,
-  "notes": "Tier-2 review 2026-11-06 (pass 5): the auto pick ref_0 (unarmed 2.02, under the threshold) is a dragonfly-mantis insect, meshed so; ref_3 another insect, ref_1 nearly topless. Re-pick 2 (butterfly-winged fairy in a leaf dress, hands empty); re-mesh."
+  "ref_pick": 1,
+  "notes": "Tier-2 review 2026-11-06 (pass 5): the auto pick ref_0 (unarmed 2.02, under the threshold) is a dragonfly-mantis insect, meshed so; ref_3 another insect, ref_1 nearly topless. Re-pick 2 (butterfly-winged fairy in a leaf dress, hands empty); re-mesh. Rig-friendly pose pilot 2026-11-08 (docs/references.md \"Rig-friendly poses\"): re-rolled with ref_template biped_wings_front, ref_1 picked; the old mesh was topless (no-nudity rule); the leaf-bodysuit candidate is clothed, UAL 2/5 vs 3/5 so clips stay mostly procedural. Old dir backed up in ~/.cache/monster-forge-scratch/posepilot/backup/sprite/.",
+  "ref_template": "biped_wings_front"
 }
