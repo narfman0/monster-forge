@@ -1,4 +1,6 @@
 {
   "ref_pick": 0,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
   "notes": "Tier-1 review 2026-11-05: the ref stage timed out (180 s) after drawing 4 candidates, before the unarmed check and ref.png. ref_0: red-skinned genie with a crown of flame, gold armour and sash, empty hands: on-model (refs 1 and 3 bald red men in white trousers, ref_2 a red-caped brass-armoured one, all empty-handed by eye). Pinned 0. batch.py reads ref as done (ref_*.png exist), so its next mesh fails on the missing ref.png: run forge.py ref efreeti --n 4 first (same seed, so the same candidates; the pin takes 0). Correction: forge stage_mesh copies ref_<ref_pick>.png to ref.png, so with the pin the next batch pass meshes without re-running ref."
 }

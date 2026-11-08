@@ -1,4 +1,6 @@
 {
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
   "anim_ual_exclude": [
     "walk",
     "run",

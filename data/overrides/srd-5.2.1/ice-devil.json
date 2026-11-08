@@ -1,4 +1,6 @@
 {
   "ref_pick": 1,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
   "notes": "Tier-1 review 2026-11-05: ref_0 (auto, -2.20) and ref_3 are red-and-blue skinned (not pale blue chitin). ref_1 (-3.75, empty): pale white-blue chitinous insectoid devil with horns and a fringe of spines round the ribs; ref_2 (-5.10) a darker blue one with spikes sticking out of the limbs. Re-pick 1 (the pale one, fewer spikes)."
 }

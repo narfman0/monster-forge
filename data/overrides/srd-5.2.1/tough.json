@@ -1,4 +1,6 @@
 {
   "ref_pick": 2,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
   "notes": "Tier-1 review 2026-11-05: ref_0 (auto, -2.61) and ref_3 are red-and-black superhero bodysuits with full masks (ref_0 reads as a well-known comic character): off-model. ref_1 a shirtless modern man in cargo trousers. ref_2 (-0.10, empty): a burly man in a leather bandolier, belt pouches and long coat, boots down. Re-pick 2."
 }

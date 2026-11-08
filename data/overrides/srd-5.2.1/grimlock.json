@@ -1,5 +1,7 @@
 {
   "prompt_extra": "(muscular grey-skinned humanoid with smooth grey flesh, smooth skin grown over where the eyes should be:1.3), a fleshy face with a wide mouth, crude loincloth",
   "negative_extra": "(skeleton, skull, bones, ribcage, exposed bones:1.5), eyes",
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
   "notes": "Tier-1 review 2026-11-05: 4 of 4 registry-prompt candidates are bare skeletons (\"empty sockets\" read as a skull), hands empty; the ref_0 mesh is a 1.7 m skeleton. Needs a re-roll: forge.py ref grimlock --force --n 4 (a prompt change does not make the batch re-roll). If skeletons persist (as the ghoul did), a per-id prompt in data/prompt_tweaks.json without empty sockets."
 }

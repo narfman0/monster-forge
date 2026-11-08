@@ -1,4 +1,6 @@
 {
   "ref_pick": 3,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
   "notes": "Tier-1 review 2026-11-05: 4 of 4 hyena-headed gnolls with empty hands (-3.94..1.17). ref_0 (auto, 1.17) has a fan of arrows over both shoulders and a long shaft down beside the left leg from hip to foot, both meshed (the shaft will bend with the leg). ref_3 (-3.94, the emptiest) has only a small quiver on the shoulder and nothing near the legs. Re-pick 3."
 }

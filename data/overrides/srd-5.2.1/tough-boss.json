@@ -1,4 +1,9 @@
 {
   "ref_pick": 1,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
+  "anim_ual_exclude": [
+    "run"
+  ],
   "notes": "Tier-1 review 2026-11-05: ref_0 (auto, -1.02) is a shirtless bodybuilder with a mail stole and modern blue jeans. ref_1 (-0.45, empty open hands): a hulking man in a full chain-mail coat, gauntlets and greaves, boots down: on-model for a gang boss in chain mail. Re-pick 1."
 }

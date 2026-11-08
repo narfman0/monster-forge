@@ -1,5 +1,10 @@
 {
   "prompt_extra": "(human face, bare human head with long hair:1.3), wreath of leaves",
   "negative_extra": "(animal head, deer head, skull mask, antlers, rabbit head, beast face:1.4)",
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
+  "anim_ual_exclude": [
+    "run"
+  ],
   "notes": "Tier-1 review 2026-11-05: 4 of 4 registry-prompt candidates drew an animal-headed figure (deer skull with antlers 3 of 4, a rabbit head ref_1) in robes; hands empty in all (-2.19..0.23). The ref_0 mesh is clean, but a druid is a humanoid. Needs a re-roll: forge.py ref druid --force --n 4 (a prompt change does not make the batch re-roll)."
 }

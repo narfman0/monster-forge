@@ -1,4 +1,6 @@
 {
-  "notes": "Batch smoke run 2026-11-04: all 3 registry-prompt candidates drew a bare skeleton, and a prompt_extra + negative_extra re-roll drew 3 more. Now a full prompt replacement in data/prompt_tweaks.json (ghoul). 2026-11-05 round 1 of the tweak: skull heads on a statue base 4 of 4; round 2: 4 of 4 fleshy grey clawed humanoids, empty hands (unarmed check -4.2..-4.6), painterly on grey rather than the ink style; ref 2 has no horns or yellow paint.",
-  "ref_pick": 2
+  "ref_pick": 2,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
+  "notes": "Batch smoke run 2026-11-04: all 3 registry-prompt candidates drew a bare skeleton, and a prompt_extra + negative_extra re-roll drew 3 more. Now a full prompt replacement in data/prompt_tweaks.json (ghoul). 2026-11-05 round 1 of the tweak: skull heads on a statue base 4 of 4; round 2: 4 of 4 fleshy grey clawed humanoids, empty hands (unarmed check -4.2..-4.6), painterly on grey rather than the ink style; ref 2 has no horns or yellow paint."
 }

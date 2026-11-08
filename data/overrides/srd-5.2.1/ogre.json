@@ -1,5 +1,7 @@
 {
   "prompt_extra": "(huge brutish fat giant with thick grey-brown skin, heavy muscular arms and legs, a big round pot belly, ugly tusked face, crude hide loincloth:1.3)",
   "negative_extra": "(skeleton, skull, bones, ribcage, thin, emaciated, skinny limbs:1.5)",
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
   "notes": "Tier-1 review 2026-11-05: 3 of 4 registry-prompt candidates are bare skeletons with a skull and a giant round belly (refs 0, 2, 3), ref_1 a gaunt dark-skinned man in an orange skirt; hands empty in all (-4.57..-2.57). The mesh stage then timed out (312 s). Needs a re-roll before the next pass meshes it: forge.py ref ogre --force --n 4 (a prompt change does not make the batch re-roll). Pass 2 (06:1x): the mesh stage ran again on the OLD skeleton ref_0 (ref.png existed, so the prompt change did not re-roll) and succeeded: a 2.9 m skeleton with a giant round belly. Still needs forge.py ref ogre --force --n 4; after that the newer ref.png makes the mesh stale and the batch re-meshes it."
 }

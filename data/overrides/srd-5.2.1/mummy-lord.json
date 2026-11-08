@@ -1,8 +1,10 @@
 {
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
   "anim_ual_exclude": [
     "walk",
     "run",
-    "death"
+    "attack_melee"
   ],
   "notes": "Tier-1 review 2026-11-05: the facing gate refused at 180 deg, but thumb.png shows the skull face and the jewelled front to the front camera (QA front_view yaw 180 right); the robe hem round the feet hides the toes. Do NOT pin the suggested yaw; clear the refusal by hand. Ref: 3 of 3 gilded pharaoh mummies with skull faces; refs 1 and 2 hold staffs; ref_0 (empty hands) kept. Facing (2026-11-05, fixed check): cleared: front-view reference, so the sign comes from the front view and the angle is the mirror axis (~0-7 deg); the toe rule's 'backwards' (robe / cloak / chains / tail at the feet) is recorded as cue_disagrees only. No yaw, no rig_facing_check needed."
 }

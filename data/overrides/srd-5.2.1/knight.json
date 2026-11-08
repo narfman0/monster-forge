@@ -1,6 +1,9 @@
 {
   "ref_pick": 3,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
   "anim_ual_exclude": [
+    "run",
     "attack_melee"
   ],
   "notes": "Tier-1 review 2026-11-05: ref_0 (auto, -0.78) has a yellow halo disc behind the helm and a floor spotlight under a floor-length cape: both meshed (a flat disc behind the head, a dark ground slab under the cape, mesh 1.05 m deep), and the facing gate refused it at 179.5 deg (false: visor and tabard face the front camera). ref_1 holds two swords (7.87). ref_3 (-0.01, empty open blue gauntlets): plate knight with a white heraldic tabard, short cloak, plain background, boots on the ground. Re-pick 3. Do NOT pin the suggested yaw."

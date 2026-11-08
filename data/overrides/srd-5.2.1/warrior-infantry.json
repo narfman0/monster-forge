@@ -1,5 +1,7 @@
 {
   "prompt_extra": "(medieval foot soldier in a chain mail shirt over a padded tunic, open-faced iron kettle helmet, leather boots:1.3), medieval fantasy",
   "negative_extra": "(modern clothes, sci-fi armor, motorcycle helmet, visor, jacket, jeans, space suit, tactical gear:1.4)",
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
   "notes": "Tier-1 review 2026-11-05: the ref stage timed out (180 s) after drawing 4 candidates but before ref.png was written: all 4 are modern or sci-fi (a black tactical armour suit with a visor helmet, a red coat with an army helmet, a yellow jacket and jeans with a motorcycle helmet, a white trooper suit). Off-model. Note: batch.py counts ref as done when ref_*.png exist, so its next pass will try mesh and fail (no ref.png): run forge.py ref warrior-infantry --force --n 4 first."
 }

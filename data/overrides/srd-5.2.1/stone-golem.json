@@ -1,4 +1,6 @@
 {
   "ref_pick": 2,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
   "notes": "Tier-1 review 2026-11-05: ref_0 (default) stands on a square stone plinth and ref_1 between rock slabs on a base (both would mesh the base); ref_2: a dark blocky armoured construct with orange glowing runes, no base (feet at the bottom edge, check they are not cropped). The ref_0 mesh timed out (312 s). Re-pick 2; forge mesh copies ref_2 to ref.png on the next pass. Pass 2 (ref_2): meshed, faces front (gate ok 0.0, head_known false; the thumb confirms the face is front), feet down, 3.0 m, but the side view leans forward ~15 deg and the colours are blue-and-orange armour rather than carved stone. Usable; a re-roll with \"grey carved stone, no armour\" if the look matters."
 }

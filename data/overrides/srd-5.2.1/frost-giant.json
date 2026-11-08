@@ -1,5 +1,13 @@
 {
+  "ref_pick": 3,
   "negative_extra": "(quiver, arrows, spears, javelins, weapons on the back, ice wings, ice crystals behind, antlers, halo:1.5)",
-  "notes": "Tier-2 review 2026-11-05 (pass 4): icy-blue bearded giants 4 of 4, but every candidate carries a fan of arrows / spears / ice blades behind the back (the REGISTRY prompt asks for 'quiver of huge arrows on the back'); ref_0 ice wings and antlers (3.49), ref_1 spears (4.53). Auto pick 2 (-1.61, hands empty) meshed with a 4.2 m-wide fan of spikes behind the shoulders. 6.4 m, faces front (gate ok 0.0). Re-roll with a no-quiver negative; the lasting fix is dropping the quiver from the registry prompt (equipment is a runtime prop). 2026-11-05 prompt table: prompt_extra removed, covered by the registry prompt (no quiver, visual_profiles.json) and the no_carried_gear rule; negative_extra kept for the ice wings / antlers / halo. Tier-2 review 2026-11-06 (pass 5): the quiver is gone, but 4 of 4 are robed blue-skinned sages; ref_0 (the first under the unarmed threshold) meshed with its cape flared into a 6.6 m bell. Re-pick 3 (fur collar, open coat, legs visible); re-mesh.",
-  "ref_pick": 3
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
+  "anim_ual_exclude": [
+    "walk",
+    "run",
+    "attack_melee",
+    "death"
+  ],
+  "notes": "Tier-2 review 2026-11-05 (pass 4): icy-blue bearded giants 4 of 4, but every candidate carries a fan of arrows / spears / ice blades behind the back (the REGISTRY prompt asks for 'quiver of huge arrows on the back'); ref_0 ice wings and antlers (3.49), ref_1 spears (4.53). Auto pick 2 (-1.61, hands empty) meshed with a 4.2 m-wide fan of spikes behind the shoulders. 6.4 m, faces front (gate ok 0.0). Re-roll with a no-quiver negative; the lasting fix is dropping the quiver from the registry prompt (equipment is a runtime prop). 2026-11-05 prompt table: prompt_extra removed, covered by the registry prompt (no quiver, visual_profiles.json) and the no_carried_gear rule; negative_extra kept for the ice wings / antlers / halo. Tier-2 review 2026-11-06 (pass 5): the quiver is gone, but 4 of 4 are robed blue-skinned sages; ref_0 (the first under the unarmed threshold) meshed with its cape flared into a 6.6 m bell. Re-pick 3 (fur collar, open coat, legs visible); re-mesh."
 }

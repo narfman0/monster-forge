@@ -1,4 +1,9 @@
 {
   "ref_pick": 2,
+  "rig_source": "ual",
+  "rig_ual_fit": "skintokens",
+  "anim_ual_exclude": [
+    "run"
+  ],
   "notes": "Tier-1 review 2026-11-05: 3 of 3 green-skinned black-haired clawed women (younger than hideous). ref_0 (default) meshed its long hair as a 1 m sheet streaming straight back from the head (mesh 1.62 m deep). ref_2: shorter ragged hair, ragged green dress, claws, no horns (ref_1 has ram horns). Re-pick 2."
 }
