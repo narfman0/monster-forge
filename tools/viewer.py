@@ -4,7 +4,8 @@
 Stdlib only. Serves viewer/ as static files, out/ under /out/, a live index at
 /api/index.json (rebuilt from the registry + out/ on every request), per-monster
 overrides (GET/POST /api/override/<id>, data/overrides/<source>/<id>.json) and a re-run
-job queue (POST /api/run/<id>, GET /api/jobs) that runs tools/forge.py one job at a time.
+job queue (POST /api/run/<id>, GET /api/jobs) that runs tools/forge.py one job at a time,
+and downloads of the game files (GET /api/download[/<id>[.zip]|/all.zip], viewer/README.md).
 
     python3 -I tools/viewer.py [--port 8787] [--source srd-5.2.1] [--no-open]
 
@@ -31,6 +32,7 @@ import threading
 import time
 import urllib.parse
 import webbrowser
+import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -361,6 +363,29 @@ class JobQueue:
 JOBS = JobQueue()
 
 
+def game_files(source: str, mid: str, lods: bool = True) -> list[tuple[str, Path]]:
+    """(name in the bundle, path) of the files a game needs for one monster: the files
+    godot-dnd's tools/sync_monsters.py copies (rigged LODs, anims/, manifest, lods.json).
+    Empty when the monster has no rig yet."""
+    d = OUT_ROOT / source / mid
+    if not (d / "model_rigged.glb").is_file():
+        return []
+    files = [d / "model_rigged.glb"]
+    if lods:
+        files += sorted(d.glob("model_rigged_lod*.glb"))
+    files += sorted(p for p in (d / "anims").glob("*") if p.suffix in (".glb", ".json"))
+    files += [p for p in (d / "manifest.json", d / "lods.json") if p.is_file()]
+    return [(f"{mid}/{p.relative_to(d).as_posix()}", p) for p in files]
+
+
+def zip_stream(out, files: list[tuple[str, Path]]) -> None:
+    """Write a zip of files to a non-seekable stream (zipfile adds data descriptors).
+    Stored, not deflated: GLBs and PNG-in-GLB barely compress."""
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as z:
+        for name, p in files:
+            z.write(p, name)
+
+
 def registry_ids(source: str) -> set[str]:
     return {m["id"] for m in load_json(sources.registry_path(source)).get("monsters", [])}
 
@@ -470,10 +495,64 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             mid = (q.get("id") or [None])[0]
             self.send_json(JOBS.snapshot(mid, tail=int((q.get("tail") or ["40"])[0])))
             return
+        if path == "/api/download" or path.startswith("/api/download/"):
+            self.download(path[len("/api/download"):].lstrip("/"))
+            return
         if path.startswith("/api/"):
             self.send_json({"error": "not found"}, 404)
             return
         super().do_GET()
+
+    def download(self, name: str):
+        """GET /api/download             -> {id: {files, bytes, zip}} for every rigged monster
+        GET /api/download/<id>         -> {id, files: [{name, url, bytes}], zip}
+        GET /api/download/<id>.zip     -> the game files as one zip (folder <id>/)
+        GET /api/download/all.zip      -> every rigged monster in one zip
+        ?lods=0 leaves out model_rigged_lod*.glb."""
+        q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+        lods = (q.get("lods") or ["1"])[0] not in ("0", "false", "no")
+        src = self.source
+        if name in ("", "all.zip"):
+            ids = sorted(i for i in registry_ids(src) if (OUT_ROOT / src / i / "model_rigged.glb").is_file())
+            if name == "":
+                out = {}
+                for i in ids:
+                    fs = game_files(src, i, lods)
+                    out[i] = {"files": len(fs), "bytes": sum(p.stat().st_size for _, p in fs),
+                              "zip": f"/api/download/{i}.zip"}
+                self.send_json({"source": src, "monsters": out, "zip_all": "/api/download/all.zip"})
+                return
+            self.send_zip(f"{src}.zip", [f for i in ids for f in game_files(src, i, lods)])
+            return
+        as_zip = name.endswith(".zip")
+        mid = self._mid("/" + (name[:-4] if as_zip else name), "/")
+        if not mid:
+            return
+        fs = game_files(src, mid, lods)
+        if not fs:
+            self.send_json({"error": f"{mid} has no rig yet"}, 404)
+            return
+        if as_zip:
+            self.send_zip(f"{mid}.zip", fs)
+            return
+        self.send_json({"id": mid, "zip": f"/api/download/{mid}.zip", "files": [
+            {"name": n, "url": "/out/" + p.relative_to(OUT_ROOT).as_posix(), "bytes": p.stat().st_size}
+            for n, p in fs]})
+
+    def send_zip(self, filename: str, files: list[tuple[str, Path]]):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/zip")
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Connection", "close")  # streamed: no Content-Length
+        self.end_headers()
+        self.close_connection = True
+        if self.command == "HEAD":
+            return
+        try:
+            zip_stream(self.wfile, files)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
 
     def do_POST(self):
         if not self._local_ok():

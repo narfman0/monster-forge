@@ -20,6 +20,14 @@ python3 -I tools/viewer.py --port 8790 --no-open --out-root out/_viewtest   # te
 | `POST /api/run/<id>` | `{"stages": ["qa", "paint", "lod"], "force": true}`: queue `forge.py run <id> --stages ... --force` (stages: ref, mesh, qa, paint, lod, rig, anim) |
 | `GET /api/jobs[?id=<id>&tail=N]` | queue and recent jobs: status (`queued`, `running`, `done`, `failed`, `cancelled`), rc, times, log tail |
 | `POST /api/jobs/<n>/cancel` | drop a queued job or terminate the running forge process |
+| `GET /api/download` | every rigged monster: `{monsters: {<id>: {files, bytes, zip}}, zip_all}` |
+| `GET /api/download/<id>` | one monster's game files: `{id, zip, files: [{name, url, bytes}]}` (urls under `/out/`) |
+| `GET /api/download/<id>.zip` | those files as one zip, folder `<id>/`: `model_rigged.glb`, `model_rigged_lod*.glb`, `anims/*.glb` + `*.json`, `manifest.json`, `lods.json` (what godot-dnd's `sync_monsters.py` reads) |
+| `GET /api/download/all.zip` | every rigged monster in one zip (streamed, several GB) |
+
+The download routes take `?lods=0` to leave out the LOD files. They are GETs, so a LAN
+client of `--host 0.0.0.0` can use them too (`curl -OJ http://<host>:8787/api/download/owlbear.zip`).
+The details panel links the selected monster's zip.
 
 The server binds 127.0.0.1 only and answers loopback clients only. POSTs must carry
 `Content-Type: application/json`, a `Host` of `127.0.0.1:<port>` or `localhost:<port>` and

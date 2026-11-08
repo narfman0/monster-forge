@@ -1233,6 +1233,8 @@ async function renderSide(entry) {
   imgs.replaceChildren();
   $('details').replaceChildren();
   $('manifest-link').textContent = '';
+  $('download-link').textContent = '';
+  $('download-link').removeAttribute('href');
   let man = {};
   if (entry.files.manifest) {
     try { man = await (await fetch(entry.dir + 'manifest.json', { cache: 'no-store' })).json(); } catch { man = {}; }
@@ -1302,6 +1304,10 @@ async function renderSide(entry) {
   if (entry.files.manifest) {
     $('manifest-link').href = entry.dir + 'manifest.json';
     $('manifest-link').textContent = 'manifest.json ↗';
+  }
+  if (entry.stages.rig) {
+    $('download-link').href = `/api/download/${encodeURIComponent(entry.id)}.zip`;
+    $('download-link').textContent = `download ${entry.id}.zip (game files)`;
   }
 }
 
