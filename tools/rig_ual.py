@@ -171,6 +171,26 @@ def rig_source(mon: dict, args=None) -> str:
             or "skintokens")
 
 
+def needs_skintokens_rig(mon: dict, d: Path) -> bool:
+    """True when this monster's UAL fit reads the SkinTokens rig (rig_ual_fit skintokens, extras, add_tail,
+    skintokens weights) and there is none for the current mesh: no rig/skintokens_rigged.glb and no
+    SkinTokens model_rigged.glb (after a re-roll the mesh stage clears both)."""
+    import overrides
+    ov = overrides.load(mon["source"], mon["id"])
+    if not (ov.get("rig_ual_fit") == "skintokens" or ov.get("rig_ual_extras") or ov.get("rig_ual_add_tail")
+            or ov.get("rig_ual_weights") == "skintokens"):
+        return False
+    if (d / "rig" / "skintokens_rigged.glb").exists():
+        return False
+    man = fg_manifest(d)
+    return not ((d / "model_rigged.glb").exists() and (man.get("rig") or {}).get("tool") != "ual")
+
+
+def fg_manifest(d: Path) -> dict:
+    p = d / "manifest.json"
+    return json.loads(p.read_text()) if p.exists() else {}
+
+
 def stage(fg, mon: dict, d: Path, args) -> None:
     """forge.py rig for rig_source "ual" (opt-in; bipeds and winged bipeds): rig the mesh to the UAL
     skeleton with heat weights, no SkinTokens roll. Fit: override rig_ual_fit, "auto" (default, from

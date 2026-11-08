@@ -11,6 +11,7 @@ model.glb on its own (blender_rig.py "facing") and refuses to roll when it is mo
 FACING_MAX_DEG off with good confidence; pin `yaw`, or set the `rig_facing_check`
 override to false for a false alarm. Roll scoring: score() below, docs/rig-anim.md.
 """
+import argparse
 import json
 import math
 import shutil
@@ -450,6 +451,9 @@ def tail_changed(rep: dict) -> bool:
 def stage_rig(fg, mon: dict, d: Path, args) -> None:
     import rig_ual  # opt-in direct UAL rig (override rig_source "ual" / --rig-source ual), docs/anim-reuse.md
     if rig_ual.rig_source(mon, args) == "ual":
+        if rig_ual.needs_skintokens_rig(mon, d):  # a fresh mesh (re-roll): SkinTokens first, the UAL fit reads it
+            fg.log(f"{mon['id']}: UAL rig reads the SkinTokens rig, none for this mesh: rigging with SkinTokens first")
+            stage_rig(fg, mon, d, argparse.Namespace(**{**vars(args), "rig_source": "skintokens", "force": True}))
         return rig_ual.stage(fg, mon, d, args)
     man = fg.load_manifest(d)
     if not (d / "model.glb").exists():
