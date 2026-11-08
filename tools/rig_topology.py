@@ -706,6 +706,106 @@ _CANON_CHAIN = r"^{leg}_((shoulder|hip)(_\d+)?|upper|lower|ankle)$"
 _CANON_SEQ = re.compile(r"^(spine|neck|tail|wing_[lr])_(\d\d)$")
 
 
+QUAD_GAP = 0.1      # quadrants: the front pair's joints at least this x the height ahead of the hind pair's
+QUAD_CANDS = 16     # quad_legs: chains looked at (strict and rescue rules together)
+PAIR_W = 2.0        # quad_legs: weight of a pair's mismatch (tops front to back and in height, soles in height)
+QUAD_TAIL_RUN = 1.2  # quad_legs: a chain ending on the centre line that runs backwards more than this x its drop
+                     # is a tail (the crocodile's 1.22, the adult black dragon's 1.31; a cat's hind leg 1.12)
+QUAD_REACH = 1.2   # quad_legs: a chain whose end lies farther out (floor plane) from its top than this x its drop is not a leg
+TIP_COST = 0.1      # quad_legs: a leg with no foot on the floor (IK on a bone's tip) costs this much drop / length
+
+
+def leg_centroid(g: dict, by_name: dict) -> list[float]:
+    """The mean of a leg's joints below its first bone (which often starts on the trunk, on
+    the other side or at the middle): where the leg is, for its quadrant."""
+    pts = [by_name[n]["head"] for n in g["chain"][1:]] or [by_name[g["chain"][0]]["head"]]
+    return [sum(p[i] for p in pts) / len(pts) for i in range(3)]
+
+
+def quadrants(legs: list[dict], bones: list[dict], height: float) -> tuple[dict | None, float]:
+    """Four legs -> ({front_l, front_r, hind_l, hind_r: leg}, gap): by the legs' joints (leg_centroid),
+    the two farthest forward are the front pair, then -X is the left in each pair. gap is how far (x
+    height) the front pair is ahead of the hind pair; None when it is under QUAD_GAP (not two pairs).
+
+    Not by the feet (the clips' old split: feet against their mean y and x): a mesh in mid-stride,
+    or with a foot crossed under the body, put a foot on the other side of the feet's mean (the black
+    bear's hind feet are 0.00-0.02 x h either side of it, its left hind's hip 0.2 x h out on the left),
+    and the walk then stepped three legs on one side (docs/rig-anim.md "Standard quadruped skeleton")."""
+    if len(legs) != 4:
+        return None, 0.0
+    by_name = {b["name"]: b for b in bones}
+    c = [leg_centroid(g, by_name) for g in legs]
+    order = sorted(range(4), key=lambda i: -c[i][1])
+    gap = (min(c[i][1] for i in order[:2]) - max(c[i][1] for i in order[2:])) / height
+    if gap < QUAD_GAP:  # a crouched body's hind legs reach forward under it (the young gold dragon's): by the
+        # legs' first joints (hips and shoulders) instead, still left and right by the joints below
+        t = [by_name[g["chain"][0]]["head"][1] for g in legs]
+        order = sorted(range(4), key=lambda i: -t[i])
+        gap = (min(t[i] for i in order[:2]) - max(t[i] for i in order[2:])) / height
+        if gap < QUAD_GAP:
+            return None, gap
+    out = {}
+    for end, pair in (("front", order[:2]), ("hind", order[2:])):
+        l, r = sorted(pair, key=lambda i: c[i][0])
+        out[f"{end}_l"], out[f"{end}_r"] = legs[l], legs[r]
+    return out, gap
+
+
+def quad_legs(bones: list[dict], height: float) -> list[dict]:
+    """A quadruped's four legs as two pairs, each leg labelled ("canon": front_l ...), or [] when no
+    four chains make two pairs. The candidates are find_legs' strict and rescue answers together;
+    of every four disjoint ones that make two pairs (quadrants), the best by drop / length (a tip
+    foot costs TIP_COST) less PAIR_W x how unlike its twin each leg is: the two tops' difference front
+    to back and in height, and the two soles' heights. Taking the steepest four chains walked a
+    hanging tail as a hind leg and dropped a front leg (pegasus, manticore, draft horse: the tail
+    hangs nearly as steep as a leg, but from behind and above the hips, its tip off the floor)."""
+    from itertools import combinations
+    by_name = {b["name"]: b for b in bones}
+    pool = []
+    mid_x = next(b for b in bones if not b["parent"])["head"][0]
+    kids = _children(bones)
+    toes = {n for f in _toe_fans(bones, height, kids, by_name) for n in _descendants(f, kids)}
+    for g in _find_legs(bones, height, QUAD_CANDS) + rescue_legs(bones, height, QUAD_CANDS):
+        if g["chain"][0] in toes:
+            continue  # a toe of a foot that fans into toes (the giant toad's right fore foot gave two "legs")
+        top, end = by_name[g["chain"][0]]["head"], by_name[g["foot"]]["head" if g["level"] else "tail"]
+        if top[1] - end[1] > QUAD_TAIL_RUN * g["drop"] and abs(end[0] - mid_x) < TAIL_MID * height:
+            continue  # backwards along the floor on the centre line: a tail (rescue_legs' rule, a little looser)
+        if math.hypot(end[0] - top[0], end[1] - top[1]) > QUAD_REACH * g["drop"]:
+            continue  # reaches out farther than it drops: a tail curled on the floor beside the body (the red dragon
+            # wyrmling's 1.28), a toe of a squat fore foot (the giant toad's 1.29-1.64); a cat's hind leg 1.12
+        if not any(g["chain"] == o["chain"] for o in pool):
+            pool.append(g)
+    pool = sorted(pool, key=lambda g: g["drop"] / g["length"], reverse=True)[:QUAD_CANDS]
+
+    def sole_z(g):
+        return min(min(by_name[n]["head"][2], by_name[n]["tail"][2])
+                   for n in [g["foot"], *_descendants(g["foot"], kids)]) if g["level"] else by_name[g["foot"]]["tail"][2]
+
+    best, best_s = None, -1e9
+    for four in combinations(pool, 4):
+        names = [n for g in four for n in g["chain"]]
+        if len(set(names)) != len(names):
+            continue
+        quad, _ = quadrants(list(four), bones, height)
+        if not quad:
+            continue
+        s = sum(g["drop"] / g["length"] - (0 if g["level"] else TIP_COST) for g in four)
+        for end in ("front", "hind"):
+            a, b = quad[f"{end}_l"], quad[f"{end}_r"]
+            ta, tb = by_name[a["chain"][0]]["head"], by_name[b["chain"][0]]["head"]
+            s -= PAIR_W * (abs(ta[1] - tb[1]) + abs(ta[2] - tb[2]) + abs(sole_z(a) - sole_z(b))) / height
+        if s > best_s:
+            best, best_s = quad, s
+    if not best:
+        return []
+    out = []
+    for k in CANON_LEGS:
+        out.append({**best[k], "canon": k})
+    out.sort(key=lambda g: g["drop"] / g["length"], reverse=True)
+    return out
+
+
 def is_canon(bones: list[dict]) -> bool:
     """True for a rig quadcanon.py renamed: every leg has its <leg>_foot."""
     names = {b["name"] for b in bones}

@@ -30,7 +30,8 @@ same parts (blender_clips.py reads them from the names: CANON). Names, Z up, +Y 
 - everything else (ears, horns, jaw pieces, wing fingers, membrane bones, zero-length helpers):
   `<nearest canonical ancestor>_x<n>`. Socket bones (manifest rig.sockets) keep their names.
 
-Gate (`status` in canon.json): fail = not renamed (fewer or more than one leg per quadrant, no head,
+Gate (`status` in canon.json): fail = not renamed (fewer or more than one leg per quadrant, no head (a head
+off the centre line passes, partial, when it ends a turned neck: TURN_NECK, TURN_STEP),
 the head off the centre line, a name conflict); partial = renamed, with `problems` (a winged plan
 with fewer than 2 wings, a tail the clips drop, no neck or no spine bone); ok = renamed, nothing
 missing. canon.json also holds the measures a chain retarget needs (per leg: chain, bone lengths,
@@ -58,8 +59,9 @@ BLENDER = os.environ.get("BLENDER", "/usr/bin/blender")
 CLIPS = ROOT / "tools" / "blender_clips.py"
 PLANS = {"quadruped", "winged_quadruped"}
 WINGED = {"winged_quadruped"}
-HEAD_SIDE = 0.15   # the head's midpoint at most this x the height off the feet's centre line
-QUAD_GAP = 0.1     # the front pair's leg tops at least this x the height ahead of the hind pair's
+HEAD_SIDE = 0.15   # the head's midpoint at most this x the height off the feet's centre line ...
+TURN_NECK = 3      # ... unless it ends a neck of this many bones or more that starts on the centre line ...
+TURN_STEP = 0.12   # ... and bends off it at most this x the height per joint (a turned head, not an ear: pony 0.10)
 ANKLE = 0.5        # the bone above the foot is an ankle when it starts below this share of the leg's height
 GIRDLE = {"front": "shoulder", "hind": "hip"}
 SPEC = {
@@ -174,33 +176,32 @@ def plan(mon: dict, parts: dict, kept: set) -> dict:
         fail.append(f"{len(legs)} legs found" + (": the clips walk on a partial leg set" if parts.get("partial_legs")
                                                  else ""))
     else:
-        # quadrants from the legs' joints (centroid below the chain's first bone): the two farthest
-        # forward are the front pair, then left (-X) / right in each pair. The clips' own split (feet against their mean y and
-        # x) mislabels a foot crossed under the body or a stride's planted foot.
-        def centroid(g):  # the leg's joints below its first bone (which often starts on the trunk)
-            pts = [by_name[n]["head"] for n in g["chain"][1:]]
-            return [sum(p[i] for p in pts) / len(pts) for i in range(3)]
-
-        top = {id(g): centroid(g) for g in legs}
-        order = sorted(legs, key=lambda g: -top[id(g)][1])
-        gap = min(top[id(g)][1] for g in order[:2]) - max(top[id(g)][1] for g in order[2:])
-        if gap < QUAD_GAP * h:
-            fail.append(f"front and hind legs {gap / h:.2f} x h apart front to back (< {QUAD_GAP}): "
+        # quadrants from the legs' joints (rig_topology.quadrants, which the clips' quad_legs labels its legs with)
+        q, gap = rt.quadrants(legs, bones, h)
+        if not q:
+            fail.append(f"front and hind legs {gap:.2f} x h apart front to back (< {rt.QUAD_GAP}): "
                         "the four chains are not two pairs")
-        for end, pair in (("front", order[:2]), ("hind", order[2:])):
-            l, r = sorted(pair, key=lambda g: top[id(g)][0])
-            for side, g in (("l", l), ("r", r)):
-                key = f"{end}_{side}"
-                quad[key] = g
-                if (g["front"], g["side"]) != (end == "front", side):
-                    fail.append(f"{g['chain'][0]}.. was {'front' if g['front'] else 'hind'}_{g['side']} in the "
-                                   f"clips, is {key} by its joints: the clips' grouping is not the anatomical one (re-rig, or a "
-                                f"look at the gait; renaming would change the clips)")
+        for key, g in (q or {}).items():
+            end, side = key.split("_")
+            quad[key] = g
+            if (g["front"], g["side"]) != (end == "front", side):
+                fail.append(f"{g['chain'][0]}.. was {'front' if g['front'] else 'hind'}_{g['side']} in the "
+                            f"clips, is {key} by its joints: the clips' grouping is not the anatomical one (re-rig, or a "
+                            f"look at the gait; renaming would change the clips)")
     head, skull = parts.get("head"), parts.get("skull")
 
     def off(n):
         b = by_name[n]
         return abs((b["head"][0] + b["tail"][0]) / 2 - parts["cx"]) / h
+
+    def turned(n):  # a head at the end of a neck that leaves the chest on the centre line and bends off it
+        # step by step (the pony's, the giant hyena's: the mesh looks aside), not an ear or a horn off the skull
+        path = rt.path_to_root(n, bones)
+        ups = [set(rt.path_to_root(quad[k]["chain"][0], bones)) for k in ("front_l", "front_r")]
+        cut = max((i for i, x in enumerate(path) if any(x in u for u in ups)), default=-1)
+        neck = path[cut + 1:]
+        xs = [(by_name[x]["head"][0] - parts["cx"]) / h for x in neck] + [((by_name[n]["head"][0] + by_name[n]["tail"][0]) / 2 - parts["cx"]) / h]
+        return len(neck) >= TURN_NECK and abs(xs[0]) <= HEAD_SIDE and max(abs(a - b) for a, b in zip(xs, xs[1:])) <= TURN_STEP
 
     if not head:
         fail.append("no head")
@@ -209,6 +210,8 @@ def plan(mon: dict, parts: dict, kept: set) -> dict:
             changes.append(f"the clips' head {head} is {off(head):.2f} x h off the centre line (an ear or a horn): "
                            f"the head is its parent {skull}")
             head = skull
+        elif quad and turned(head):
+            problems.append(f"head {head} {off(head):.2f} x h off the centre line at the end of a turned neck")
         else:
             fail.append(f"head {head} {off(head):.2f} x h off the centre line")
     if head and any(n.startswith(rt.WING_PREFIX) for n in rt.path_to_root(head, bones)):

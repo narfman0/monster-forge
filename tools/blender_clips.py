@@ -126,6 +126,7 @@ legless = PLAN in LEGLESS
 # stage) adds a missing leg whose twin is there.
 STAND = None
 PARTIAL = None
+QUAD_PLANS = {"quadruped", "winged_quadruped"}
 # A rig renamed to the standard quadruped skeleton (tools/quadcanon.py; docs/rig-anim.md "Standard
 # quadruped skeleton") names its legs, head, tail and wings: they are read from the names, not searched
 # (the names were given from this script's own search, parts_only below, so the answer is the same).
@@ -134,6 +135,15 @@ if legless:
     legs = []
 elif CANON:
     legs = rig_topology.canon_legs(bones, height)
+# A quadruped not renamed yet: its four legs as two pairs (rig_topology.quad_legs: of the chains the strict
+# and rescue rules find, the four that make a front and a hind pair, each leg labelled by its joints), so
+# the gait's sides and ends are the anatomical ones and the rename (quadcanon.py) keeps them. Taking the
+# steepest four chains and splitting them by the feet walked a hanging tail as a hind leg (pegasus,
+# manticore, draft horse, both of the adult black dragon's) and stepped three legs on one side when a
+# foot stood near the feet's middle (black bear, badger, nightmare: a mid-stride or crossed-under foot).
+elif PLAN in QUAD_PLANS and not job["upright"] and not job["sprawl"] and job["feet"] == 4 and \
+        (legs := rig_topology.quad_legs(bones, height)):
+    pass
 else:
     legs = rig_topology.find_legs(bones, height, 8 if job["sprawl"] else job["feet"], job["sprawl"],
                                   rescue=not job["upright"], sprawl_drop=job["sprawl"])
@@ -148,7 +158,7 @@ drop = max(g["drop"] for g in legs) if legs else 0.3 * height
 cx = rig_topology.centre_x(bones, legs)
 for g in legs:
     g["x"], g["y"] = by_name[g["foot"]]["head"][:2]
-    g["side"] = g["canon"][-1] if CANON else "r" if g["x"] >= cx else "l"
+    g["side"] = g["canon"][-1] if "canon" in g else "r" if g["x"] >= cx else "l"
     # IK ends at the foot itself, position and orientation, rather than at the shin's tail:
     # SkinTokens bones need not touch, and a foot hung 0.7 m off the shin's tail (the
     # dragon) swings up and down as the shin turns. A plantigrade "shin" that lies on the
@@ -161,11 +171,12 @@ for g in legs:
 ys = [p[1] for b in bones for p in (b["head"], b["tail"])]
 body_len = max(ys) - min(ys)
 leg_y = sum(g["y"] for g in legs) / len(legs) if legs else sum(b["head"][1] for b in bones) / len(bones)
-front = [g for g in legs if g["canon"].startswith("front")] if CANON else \
+LABELLED = bool(legs) and all("canon" in g for g in legs)  # CANON, or quad_legs' pairs
+front = [g for g in legs if g["canon"].startswith("front")] if LABELLED else \
     [g for g in legs if g["y"] >= leg_y] if not job["upright"] else []
 # body turns pivot at the ground under the feet (upright) or at the hind hips (horizontal),
 # so a nose-up lean lifts the front instead of driving the rump and tail into the ground
-hind = [g for g in legs if g["canon"].startswith("hind")] if CANON else \
+hind = [g for g in legs if g["canon"].startswith("hind")] if LABELLED else \
     [g for g in legs if g["y"] < leg_y] if not job["upright"] else []
 PIVOT = Vector((cx, sum(by_name[g["chain"][0]]["head"][1] for g in hind) / len(hind),
                 sum(by_name[g["chain"][0]]["head"][2] for g in hind) / len(hind))) if hind else Vector((cx, leg_y, 0.0))
@@ -1427,8 +1438,9 @@ def walk(scale: float = 1.0, phase: float | None = None) -> Clip:
         c.info = {**c.info, "start_phase": round(phase, 4), "from_idle_phase0_m": round(dev0, 4)}
         return c
     c = Clip("walk", max(0.7, min(2.0, math.sqrt(drop / 0.6))), True)
-    left = sorted((g for g in legs if g["side"] == "l"), key=lambda g: -g["y"])
-    right = sorted((g for g in legs if g["side"] == "r"), key=lambda g: -g["y"])
+    order = (lambda g: (g["canon"].startswith("hind"), -g["y"])) if LABELLED else (lambda g: -g["y"])
+    left = sorted((g for g in legs if g["side"] == "l"), key=order)  # front first (a labelled front foot
+    right = sorted((g for g in legs if g["side"] == "r"), key=order)  # can stand behind its hind foot mid-stride)
     if len(legs) == 2:
         for g, p in zip(left + right, (0.0, 0.5)):
             g["phase"] = p

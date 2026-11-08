@@ -1533,6 +1533,50 @@ dragon swim 3.51 -> 5.73, nightmare walk feet_up 0.031), hence the fail rule. Sh
 ALL PASS on wolf, warhorse, adult-green-dragon, black-dragon-wyrmling, rhinoceros after the sync, every
 track bound (bones by name: `front_l_foot`, `hind_l_foot` lowest in the walk).
 
+**Leg pairs (2026-11-08, second pass): 89 of 110 canonical.** The 38 fails had one root cause in the clips:
+the legs were the steepest `feet` chains find_legs found, split front / hind by the feet's mean y and left /
+right by the feet's mean x. That walked a hanging tail as a hind leg and dropped a raised front leg (pegasus,
+manticore, draft horse; the adult black dragon walked on two tail chains, one hind leg and a toe fan at its
+jaw, its real fore legs unkeyed; the adult white dragon, renamed in the first pass, had its tail as `hind_l`),
+and a foot standing near the feet's middle (mid-stride, crossed under the body) went to the other side, so
+three legs stepped as one side (black bear, badger, nightmare, black / brass / bronze / copper / gold dragons).
+
+- `rig_topology.quad_legs` (blender_clips, quadruped and winged quadruped, not yet renamed): the candidates
+  are the strict and rescue chains together, less toes under a toe fan, a chain ending on the centre line
+  that runs backwards more than `QUAD_TAIL_RUN` (1.2) x its drop (a tail on the floor: crocodile 1.22,
+  adult black dragon 1.31; a cat's hind leg 1.12), and one whose end lies farther out from its top than
+  `QUAD_REACH` (1.2) x its drop (the red wyrmling's curled tail, the giant toad's fore toes). Of every
+  four disjoint candidates that make two pairs (`quadrants`), the best by drop / length (a tip foot costs
+  `TIP_COST` 0.1) less `PAIR_W` (2) x each pair's mismatch (tops front to back and in height, soles in
+  height). Each leg is labelled (`canon`), so the gait's sides and ends are the labels, the same the rename
+  gives; nothing found: the old search as before (dragon turtle, rust monster, giant toad fall back to it).
+- `rig_topology.quadrants` (shared with quadcanon.py): front / hind by the legs' joints below the first
+  bone, and when those are under `QUAD_GAP` apart (a crouched body's hind legs reach forward under it:
+  young gold dragon), by the legs' first joints (hips, shoulders); left / right by the joints.
+- walk: a side's legs are ordered front first by label, not by foot y.
+- quadcanon gate: a head off the centre line passes (partial) when it ends a neck of 3+ bones that leaves
+  the chest on the centre line and bends off it at most 0.12 x h per joint (a turned head: pony 0.10 per
+  joint, giant hyena; an ear or a horn jumps off the skull).
+
+Applied (backups and sheets in `~/.cache/monster-forge-scratch/quadfix/`: `backup/<id>/`, before / after
+`sheets/<id>.png`): 18 re-animated (`forge.py anim --force`) and renamed. ok 8: adult copper / gold / white,
+ancient black, badger, black bear, draft horse, red dragon wyrmling (rearing: the fore legs are the raised
+paws, as before). partial 10: adult black (no neck bone), giant hyena and pony (turned head), manticore,
+nightmare, young black / brass (the clips' gate drops the tail), pegasus, young bronze, young gold (wings
+found 1, 1, 0). Clip audit over the 18: 93.5 -> 88.9 (draft horse 5.0 -> 2.1: the tail no longer walks;
+adult black dragon 60.9 -> 54.6, its walk clean, the one-shots still sink and stretch: rig weights).
+Regression: the other 71 renamed rigs rebuild every clip key-identical (max difference 0), so their audit
+(130.7) is unchanged. Godot: `check_monsters.gd` ALL PASS on black bear, draft horse, pegasus, adult
+white dragon, pony, young bronze dragon (warnings only for the lifted fly / swim / burrow clips).
+
+Still bone_N (21), all mesh or rig problems, not the search: 2-3 legs (adult blue / red and ancient silver
+dragons rear with the fore paws up; blue / bronze / green wyrmlings and young blue / green / silver sit
+with no fore-leg chain on the floor; crocodile has no right hind leg; bulette, rat (a curled lump), weasel
+(upright), frog and giant frog (folded 2-bone hind legs), giant crocodile (upright kaiju), pseudodragon),
+legs not two pairs (adult silver dragon, silver wyrmling: the fore-leg chains run down the hind legs;
+giant toad: its fore-leg "chains" are toes), head through a wing chain (adult brass dragon, griffon: the
+neck is in the inserted wing chain). Re-rolls with the rig-friendly reference poses (02d50d3) or re-rigs.
+
 ## Body plans (2026-11-04)
 
 One pilot per plan the six pilots did not cover took the whole chain (`forge.py run`, paint
