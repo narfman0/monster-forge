@@ -228,6 +228,9 @@ FIELDS = {
     "forward": (_choice("-Z", "+Z"), "qa", "glTF facing direction"),
     "level": (_bool, "qa", "stance leveling on/off"),
     "level_tilt": (_num(0, 60), "qa", "max tilt (deg) leveling may apply"),
+    "level_pitch": (_num(-45, 45), "qa", "upright pitch (deg) QA applies about the side axis: + tips the top "
+                    "forward, - back, 0 none; replaces the auto value (bipeds / winged bipeds leaning back more "
+                    "than 3 deg are pitched upright; tools/lean.py, docs/rig-anim.md \"Lean check\")"),
     "lod_ratios": (_ratios, "lod", "LOD1.. triangle ratios of LOD0"),
     "rig_reweight": (_reweight, "rig", "geometric re-weight of bone chains in the game files, before sockets: "
                      "[{bones: [root..tip], bias, reach (m), blend (m), strip, fit, hand_room (m), far (m)}] (tools/rig_reweight.py)"),
@@ -334,7 +337,7 @@ def defaults(mon: dict, style_name: str | None = None) -> dict:
         "ref_unarmed_check": bool(mon.get("unarmed_reference")),
         "prompt_extra": "", "negative_extra": "", "style": style_name, "seed_ref": None, "ref_template": None,
         "yaw": None, "forward": "-Z", "level": plan in FEET_BY_PLAN,
-        "level_tilt": TILT_CAP_BY_PLAN.get(plan, DEFAULT_TILT_CAP),
+        "level_tilt": TILT_CAP_BY_PLAN.get(plan, DEFAULT_TILT_CAP), "level_pitch": None,
         "lod_ratios": list(LOD_RATIOS), "rig_facing_check": True, "lod_screen_ratios": None, "notes": "",
         # on for rig.TAIL_ADDED's plans (rig.adds_tail; overrides cannot import rig)
         "anim_source": "procedural", "anim_ual_exclude": None, "rig_source": "skintokens", "rig_ual_fit": "auto",

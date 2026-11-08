@@ -36,7 +36,7 @@ import overrides  # noqa: E402  (tools/overrides.py, stdlib only)
 if job.get("id") and job.get("source"):
     _ov = overrides.load(job["source"], job["id"])
     for jk, ok in (("yaw_override", "yaw"), ("forward", "forward"), ("level", "level"),
-                   ("level_tilt", "level_tilt")):
+                   ("level_tilt", "level_tilt"), ("level_pitch", "level_pitch")):
         if job.get(jk) is None and _ov.get(ok) is not None:
             job[jk] = _ov[ok]
     report["overrides"] = _ov
@@ -491,6 +491,59 @@ report["level"] = {"enabled": bool(level_on), "method": lv["method"] if level_on
 _feet_pts = np.array([c["point"] for c in lv["clusters"]]) if lv["clusters"] else np.zeros((0, 3))
 _v_pre = verts_np()
 transform(R_level)
+
+# ---- upright pitch (docs/rig-anim.md "Lean check"). Two feet side by side give the
+# leveling above no pitch, so a biped the generator reconstructed leaning back (a reference
+# drawn from a low camera) kept the lean: 0.0 deg leveling on every biped. Measure the body
+# column's lean in the side plane (tools/lean.py) and pitch it upright about X when it leans
+# back more than PITCH_MIN, unless its estimates disagree by more than PITCH_SPREAD (robes,
+# drapes: left to the eye and the `level_pitch` override). Forward leans (hunched trolls,
+# ghouls) are the reference's pose and stay. Override level_pitch: degrees to tip the top
+# forward (+) or back (-), replacing the auto value; 0 turns it off.
+import lean  # noqa: E402  (tools/lean.py)
+
+PITCH_PLANS = {"biped", "winged_biped"}
+PITCH_MIN, PITCH_SPREAD, PITCH_CAP = 3.0, 12.0, 20.0
+
+
+def _side_lean():
+    n = len(me.polygons)
+    a, c = np.empty(n), np.empty(n * 3)
+    me.polygons.foreach_get("area", a)
+    me.polygons.foreach_get("center", c)
+    return lean.core_lean(c.reshape(-1, 3), a, _fwd[1])
+
+
+_pin = job.get("level_pitch")
+pitch_rep = {"method": "off", "applied_deg": 0.0}
+if _pin is not None or plan in PITCH_PLANS:
+    cl = _side_lean()
+    pitch_rep.update({"lean_before_deg": cl["lean"], "fits": cl["fits"], "spread": cl["spread"]})
+    if _pin is not None:
+        pitch_rep.update(method="override", applied_deg=float(_pin))
+    elif cl["lean"] is None:
+        pitch_rep["method"] = "no_column"
+    elif cl["lean"] >= -PITCH_MIN:
+        pitch_rep["method"] = "upright"
+    elif cl["spread"] > PITCH_SPREAD:
+        pitch_rep["method"] = "unsure_spread"
+    else:
+        pitch_rep.update(method="auto", applied_deg=round(min(-cl["lean"], PITCH_CAP), 2))
+    if pitch_rep["applied_deg"]:
+        # + tips the top toward the facing direction: about X, negative for a +Y facing
+        transform(Matrix.Rotation(math.radians(-_fwd[1] * pitch_rep["applied_deg"]), 4, "X"))
+        after = _side_lean()["lean"]
+        # the estimate is a median of fits on re-sliced surface, not linear in the angle:
+        # up to two more steps take what is left (more than 1 deg back) off
+        for _ in range(2 if pitch_rep["method"] == "auto" else 0):
+            if after is None or after >= -1.0 or pitch_rep["applied_deg"] >= PITCH_CAP:
+                break
+            step = min(-after, PITCH_CAP - pitch_rep["applied_deg"])
+            transform(Matrix.Rotation(math.radians(-_fwd[1] * step), 4, "X"))
+            pitch_rep["applied_deg"] = round(pitch_rep["applied_deg"] + step, 2)
+            after = _side_lean()["lean"]
+        pitch_rep["lean_after_deg"] = after
+report["level"]["pitch"] = pitch_rep
 
 # ---- scale and origin at the feet
 v = verts_np()

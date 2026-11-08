@@ -1091,6 +1091,7 @@ def stage_qa(mon: dict, d: Path, args) -> None:
         "thumb_ground": str(d / "thumb_ground.png"), "id": mon["id"], "source": mon["source"],
         # stance leveling: flags > override file (read by blender_qa.py) > body-plan defaults
         "level": False if args.no_level else None, "level_tilt": args.level_tilt,
+        "level_pitch": args.level_pitch,  # upright pitch (blender_qa.py, docs/rig-anim.md "Lean check")
     }
     clear_lods(d)  # model.glb changes: the LOD chain is stale
     paint.clear_paint(d, man)  # ... and QA re-exports the voxel albedo: paint is stale too
@@ -1117,7 +1118,8 @@ def stage_qa(mon: dict, d: Path, args) -> None:
     save_manifest(d, man)
     lv = rep.get("level", {})
     log(f"{mon['id']}: qa done in {dt}s, {rep['tris']} tris, dims {rep['dims_m']}, "
-        f"level {lv.get('method')} tilt {lv.get('tilt_deg')} deg")
+        f"level {lv.get('method')} tilt {lv.get('tilt_deg')} deg, pitch {(lv.get('pitch') or {}).get('method')} "
+        f"{(lv.get('pitch') or {}).get('applied_deg')} deg")
 
 
 def stage_lod(mon: dict, d: Path, args) -> None:
@@ -1211,6 +1213,9 @@ def main() -> int:
     ap.add_argument("--forward", default=None, choices=["-Z", "+Z"],
                     help="glTF facing direction (default -Z, or the override file's)")
     ap.add_argument("--no-level", dest="no_level", action="store_true", help="QA: no stance leveling")
+    ap.add_argument("--level-pitch", dest="level_pitch", type=float,
+                    help="QA: upright pitch in degrees (+ tips the top forward, 0 none; default auto for "
+                    "bipeds leaning back, or the override level_pitch)")
     ap.add_argument("--level-tilt", dest="level_tilt", type=float,
                     help="QA: largest tilt (deg) stance leveling may apply (default 20, insectoid 40)")
     ap.add_argument("--stages", help="run: comma list of stages (default ref,mesh,qa,paint,lod,rig,anim; paint "

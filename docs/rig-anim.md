@@ -1400,6 +1400,57 @@ each). Partial: brass wyrmling and young green beat only the upper strip of thei
 rest is on a chain rescue took for a leg / on body bones). Swim folds the raised wings across the back
 (black wyrmling swim stretch 3.5 -> 6.5, adult black 10 -> 20: that rig is already flagged everywhere).
 
+### Lean check (2026-11-08)
+
+Some bipeds stood leaning back. `tools/lean_check.py` (+ `blender_lean.py`) renders an orthographic
+side view (head to the right) of every `model.glb` at rest and of `model_rigged.glb` on `anims/idle.glb`'s
+first frame into `~/.cache/monster-forge-scratch/lean/<tag>/`, at most 8 Blender jobs at once (about 20 s
+for all 330 x 2), and measures the lean: `core_lean` (`tools/lean.py`): the body column (surface within
+0.09 x h of the mid-plane, so arms and spread wings drop out), per 5% height slice its forward centroid,
+then the median of three line fits (whole, lower 60%, upper 60%) and the head-over-feet line; degrees from
+vertical, + forward. Horizontal plans get `pitch_torso` (a line through the trunk's centroids over the
+middle half of the length). Sheets draw the support (green), the slice centroids and the column line
+(orange); `--compare <tag>` pairs a before run with this one. Read the sheets: the numbers are a hint.
+
+```sh
+python3 -I tools/lean_check.py --all-sheets                 # tag "before", every monster
+python3 -I tools/lean_check.py ogre troll --tag after --compare before
+```
+
+**Cause: the mesh as generated.** Every upright reference reconstructs a little pitched, and QA's stance
+leveling cannot see it: two feet side by side define no pitch (`two_lowest_pitch` applied 0.0 deg on every
+biped). The rig rest pose is the mesh, and the procedural idle starts on it, so the lean went through to
+the game (the UAL idles take some of it out: ape -12.3 at rest, -5.6 on the idle). Quadrupeds are not
+affected (the four-foot plane fit levels them); their high `pitch_torso` readings are poses (sitting
+lizard, rearing wyrmlings, birds).
+
+**Fix: QA upright pitch** (`blender_qa.py`, after leveling, bipeds and winged bipeds): when `core_lean`
+is back past 3 deg and its four estimates agree within 12 deg, the model is pitched forward about the side
+axis until the column is upright (up to two more steps for the estimate's non-linearity, cap 20 deg);
+forward leans stay (hunched trolls and ghouls are the reference's pose). `qa.json` `level.pitch` records
+method (`auto`, `upright`, `unsure_spread`, `override`), the fits and the degrees applied. Override
+`level_pitch` (or `forge.py qa --level-pitch`): degrees, + tips the top forward, 0 turns it off.
+Unsure and left alone: deva, solar, night-hag (robes), sahuagin-warrior (fins).
+
+**Applying it without a re-paint or re-roll: `tools/repitch.py <ids> --apply`.** `qa --force` would drop
+the paint and the SkinTokens skeleton (GPU, new bone names under the overrides). repitch runs the new QA
+into scratch, builds the similarity QA's change amounts to (pitch, scale_factor ratio, re-centring),
+checks it maps the old `model.glb` onto the new output (1e-4 x h), and applies it as glTF data to
+`model.glb` (paint kept), the LODs, `rig/chosen.glb`, `rig/skintokens_rigged.glb` and the rolls
+(positions, normals, joints, inverse bind matrices); backups in `~/.cache/monster-forge-scratch/repitch/
+<id>/backup/`. Then `forge.py rig <id> --force` and `anim <id> --force` (+ `promote` for `rig_source ual`),
+CPU only. On troll the rebuilt rig matches the old one (score -0.216 both); erinyes' left `hand_l` moved
+to the other finger chain of the same hand (bone_15 -> bone_12). The UAL heat weights are chaotic in the
+pitch (ice-devil: 0 unweighted vertices at 9.5, 11.25, 11.75 deg, 218-518 at 10.0-11.0, all five clips
+over the stretch gate): ice-devil pins `level_pitch` 11.25. Priest's `cast` went 10 -> 11.1 stretch and
+stays procedural; every other UAL id promotes the same clips as before.
+
+Corrected (core_lean at rest, before -> after): ape -12.3, minotaur-of-baphomet -11.6, ice-devil -10.7,
+giant-ape -8.1, stone-golem -7.5, glabrezu -7.4, fire-giant -7.1, clay-golem -6.7, priest-acolyte -6.3,
+erinyes -5.9, horned-devil -5.8, flesh-golem -5.7, werebear -4.9, oni -4.8, goblin-boss -4.7,
+ogre-zombie -4.5, bandit -4.5, shambling-mound -4.5, priest -4.2, storm-giant -4.2, troll -4.2,
+scout -3.9, shield-guardian -3.5, warrior-infantry -3.3, shadow -3.3; all to within 1 deg of upright.
+
 ## Body plans (2026-11-04)
 
 One pilot per plan the six pilots did not cover took the whole chain (`forge.py run`, paint
