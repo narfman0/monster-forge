@@ -311,6 +311,31 @@ rig the LOD buttons load `model_rigged_lod<k>.glb`: they share LOD0's joint orde
 geometry swaps under one skeleton while a clip plays. The HUD flags a mismatch when the
 GLB has a skeleton but the manifest has no rig stage, or the reverse.
 
+## Paired animations
+Two monsters playing a paired entry (docs/anim-reuse.md "Paired animations"; `out/<source>/_shared/paired/`).
+For a UAL biped with shared clips (index `ual_hip_scale`), the clip list ends with a **paired** group: one
+row per entry and role, `grapple · A initiator` and `grapple · B receiver`. Picking one loads a partner
+(default: a second copy of the same monster, ratio 1) and opens the pair panel: the partner picker for the
+other role (every UAL biped, sorted by hip_scale, with its B/A ratio), **swap A/B**, **close** (back to the
+monster's own clips), and three toggles: **contact IK**, **contact markers** (green: the contact point, e.g.
+a palm; red: where it must be; a line between), **alignment origin** (axes at the receiver's root).
+- The sidecar's variant is picked by the hip_scale ratio; outside every variant's range the panel says so.
+- The selected monster stays at the origin; the partner is placed by the alignment (or its inverse when the
+  selected monster is B). The alignment is fitted like the game does it (reach on the sync frame, torso
+  fronts), and per frame the same lean + two-bone IK as godot-dnd `scripts/paired_anim.gd` holds the
+  contacts: real IK (bone quaternions overridden after the mixers), not just markers. The readout shows the
+  variant, ratio, offset, frame (sync), the largest contact distance at full weight, and the lean.
+- Both clips run in lockstep on the usual controls: play/pause, scrub, speed and loop drive the selected
+  monster's clip and the partner follows its time; paused or scrubbed, the pose is re-solved from the
+  animated pose each frame. The turntable is off while a pair plays. Picking any other clip, rest, or
+  another monster ends the pair.
+- Downloads (`/api/download/<id>`, the zips, `tools/publish.py`) add `_shared/paired/` (library.json, the
+  sidecars, every paired clip) for UAL bipeds with shared clips, like `_shared/ual/`; the static index has
+  `paired` {entry: sidecar}.
+- Checked headless (Firefox, no WebGL; a same-origin test page drives `window.__viewer.pair.start()` and
+  scrubs every frame): tough:bandit max 0.4 cm, ogre:bandit 0.9 cm, and the same with the bandit selected as B; both clips
+  resolve all 65 tracks on both models.
+
 ## Skeleton, sockets and props
 
 - **skeleton** draws three.js's `SkeletonHelper` for the loaded rigged model: one line

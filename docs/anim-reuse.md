@@ -398,3 +398,97 @@ Sheets `~/.cache/monster-forge-scratch/posepilot/sheets/cmp_<id>.png`, numbers `
 - Moved to UAL (replaced in out/, old dirs in `~/.cache/monster-forge-scratch/posepilot/backup/<id>/`, promoted and
   shared): gargoyle, balor, werewolf, sahuagin-warrior, weretiger, horned-devil, steam-mephit, succubus, treant
   (fit auto). Calls in `data/rig_ual_calls.json`; per-id results in docs/references.md "Rig-friendly poses".
+
+## Paired animations (tools/paired.py, tools/blender_paired.py, 2026-11-08)
+Two monsters playing one clip pair together: an **initiator** and a **receiver** (roles are names, nothing
+else), placed relative to each other, with **contacts** (a point on one actor held on a point of the other)
+that IK keeps closed when the actors' proportions differ from the authored ones. The format does not know
+what the pair means: a grapple, a shove, a swallow, a carry, a mount and a healing touch are all "actors,
+alignment, contacts". Pilot entry: `grapple` (the initiator grabs the receiver's shoulders, the receiver
+jolts on the sync frame, struggles with its hands on the initiator's forearms, staggers when released, both
+end in idle). UAL bipeds only (every one with `anim.ual_shared`: 94 bipeds share the skeleton, so one pair
+serves every biped pairing); quadruped pairs are not in scope (plan: the same format on the canonical
+quadruped bone names, tools/quadcanon.py, once those clips share a skeleton the way UAL's do).
+
+**Files** (`out/srd-5.2.1/_shared/paired/`, next to `_shared/ual/`):
+- `<variant>_<role>.glb`: one armature-only GLB per actor clip, **the shared UAL library format**
+  (`ual_library.write_clip`: UAL1 at rest, rotations of the 64 non-root bones, the pelvis translation u in
+  UAL units). Every player that plays shared UAL clips plays these unchanged: rotations as is, pelvis =
+  hip_scale * u + pelvis_offset, other bones at the monster's rest. No root motion: the actors' roots stay
+  where the alignment puts them.
+- `library.json`: the same index as `_shared/ual/library.json` (`clips` {name: {file, frames, seconds, loop,
+  paired, role}}) plus `paired` {entry: sidecar}; godot-dnd's `Monster._ual_library()` loads it as is.
+- `<entry>.json`, the sidecar: `roles`, `fps`, `requires` and `variants`, each:
+  - `ratio` [min, max] of receiver hip_scale / initiator hip_scale it was authored for (grapple: 0.75-1.34
+    similar size; `grapple_big` 0.42-0.75, the initiator stoops and squats over a receiver about half its
+    size). 5e grapples a creature up to one size larger; a "reach up" variant (> 1.34) is the next one to
+    author. Players pick the variant whose range holds the ratio (0.05 slack) and refuse otherwise.
+  - `authored_scale` {role: hip_scale it was authored at}, `clips` {role: library clip}, `frames`,
+    `sync_frame` (the frame the contact lands: both clips start together, the receiver's reaction is keyed
+    there), `exit` {role: {state: "idle", frame}}.
+  - `alignment`: the receiver's root in the initiator's model space at frame 0 (`offset` metres, `yaw_deg`
+    about +Y; model space = monster node: +Y up, faces -Z), `scale_weights` (the plain rule: offset x
+    sum(w x hip_scale / authored_scale)), `warp_frames` (slide the receiver onto the spot; for small
+    corrections, games walk it there first), and `fit` (below).
+  - `contacts`: `from` {role, bone, offset} held on `to` {role, bone, frame_bone, offset}: a point is the
+    bone's origin + the frame bone's orientation x offset x that actor's hip_scale (offsets in UAL metres in
+    the glTF bone frame, the same on every UAL biped; frame_bone lets a shoulder point ride the clavicle,
+    not the swinging upper arm). `frames` [a, b] full weight, `blend` [in, out] smoothstep ramps, `ik`
+    {role, chain [root, mid, end]} the limb that moves (its end bone keeps its animated local rotation),
+    `tolerance` (m x mean hip_scale), `reach` (the authored reach on the fit frame), `lean` (optional:
+    {bones, max_deg, reach[frame]}).
+  The JSON carries this description in its `doc` field.
+
+**Why a fit and a lean.** Scaling the alignment by hip_scale alone (legs) missed by up to 22 cm: monster
+arms are short for their legs (ogre upper arm 1.17x UAL's at hip_scale 1.57; bandit 0.74x at 0.87) and
+their torsos are deeper than UAL's mannequin (torso front: UAL 0.13 m, bandit 0.15, tough 0.22, ogre 0.30).
+So the runtime (1) scales the offset so that, on the fit frame, every full-weight contact needs the same
+fraction of its arm's reach (|wrist target - chain root| / upper + lower length) it needed when authored
+(bisection, the offset scale clamped to fit.range x the plain rule), then (2) never closer than the two
+torso fronts + min_gap (torso front: the furthest rest vertex ahead of the root whose largest skin weight
+is on spine_01/02/03; a rest AABB is dominated by feet, coats and A-pose arms and pushed the pair 25 cm too
+far apart), and per frame (3) bends the lean bones forward, equal shares, by the smallest angle (<= max_deg)
+that brings each lean contact back to the reach it had on that frame when authored (per-frame curve: the
+IK ramp frames reach further than full contact), then (4) the two-bone IK. Ogre grabbing bandit: offset
+0.45 m (plain rule 0.54, reach fit alone 0.35 with the bandit's head in the ogre's chest), lean up to 21
+deg, contacts within 9 mm.
+
+**Authoring** (`python3 -I tools/paired.py author grapple`; ~4 s per variant, byte-identical reruns):
+`RECIPES` in tools/paired.py is the source: per variant the actors' scale and placement, a base UAL clip
+(Idle_Loop, the receiver phase-shifted), Catmull-Rom keyed rotation offsets per bone in actor axes (pitch,
+yaw, roll; pelvis location), waves (the struggle sway, with envelopes), IK chains with influence keys and a
+pole direction, planted feet. tools/blender_paired.py evaluates it in Blender on two copies of UAL1: per
+frame the base pose + offsets, then Blender IK constraints whose targets are re-placed on the OTHER actor's
+evaluated bones (four passes, so the receiver's hands follow the initiator's IK'd forearms), legs IK'd to
+where the base pose had the feet (pole angles calibrated so the IK reproduces the FK pose when the target
+sits on it; the glTF importer leaves objects in quaternion rotation mode, so the receiver's turn is set
+after switching it to XYZ). It dumps every bone's armature matrix per frame; paired.py converts them to
+UAL1's glTF bone frames (constant per-bone correction from the rest pose; frame 0 matches the library
+Idle_Loop to < 0.001 deg) and writes the clips, the sidecar (contacts from the IK list: full contact where
+the influence is 1; per-frame reach measured on UAL actors at the authored scales) and library.json.
+`--keep-blend` also saves each variant's .blend in the scratch dir for a look or hand edits (edits there
+are not read back: change the recipe).
+
+**Checks.** `python3 -I tools/paired.py check grapple tough:bandit ogre:bandit` runs the runtime model in
+numpy (pose from the clips, fit, lean, IK, contact distances on every full-contact frame, a torso capsule
+gap); `sheet` renders a contact sheet (side + front, 10 frames, skinned LOD0 in flat colours, Workbench) to
+`~/.cache/monster-forge-scratch/paired/sheet_<entry>_<a>_<b>.png`. `ual:ual` / `ual:ual@0.55` pair UAL1
+itself at the authored scales (the bake with no correction). Results 2026-11-08 (max over full contact,
+after IK): ual:ual 1.0 cm, ual:ual@0.55 0.5 cm, tough:bandit 0.4 cm, bandit:guard 1.2 cm, bandit:tough 0.6 cm, ogre:bandit
+0.9 cm, ogre:tough 0.6 cm; torso capsule gaps >= 0.15 m; godot-dnd tools/check_paired.gd and the viewer agree with it to 0.1 mm.
+Out of range: hill-giant:ogre (ratio 0.75, on the variant edge) misses by 16 cm: the giant's torso front
+keeps the ogre further than a 40 deg lean can reach.
+
+**Adding an entry** (shove, swallow, tentacle or claw grab, carry, mount, healing touch):
+1. Write `_<entry>(variant)` in tools/paired.py returning the recipe (same keys as `_grapple`): actors
+   (scale per the size ratio the variant covers), alignment offset/yaw, keys/waves per role, ik chains
+   (`to` any bone of the other actor; `frame_bone` when the bone itself swings), `lean` on chains that
+   should bend the body rather than overstretch, exit states. Register it in `RECIPES`. A swallow or carry
+   wants the receiver's root to follow a bone of the initiator: that is root motion the format does not
+   have yet (next: an `attach` {role, bone, frames} that parents the receiver's root to a bone), as is a
+   shove that moves the receiver (a root track per role).
+2. `python3 -I tools/paired.py author <entry>`, then `check` and `sheet` on a similar and a big-vs-small
+   pair; look at the sheets (hands on the targets, torsos apart, feet on the floor).
+3. godot-dnd: `python3 -I tools/sync_monsters.py --ids <ids>` (any UAL biped syncs `_shared/paired/`),
+   `godot --headless -s res://tools/check_paired.gd -- entry=<entry> a:b c:d`.
+The viewer (viewer/README.md "Paired animations") lists every entry for every UAL biped with shared clips.

@@ -160,6 +160,8 @@ def stage_status(d: Path, man: dict) -> dict:
         "external_clips": external,
         "shared_clips": shared,
         "embedded_clips": embedded,
+        # UAL bipeds with shared clips can take part in paired animations (tools/paired.py)
+        "ual_hip_scale": sh.get("hip_scale") if shared else None,
         "files": {
             "model": model, "hi": hi, "hi_textured": hi == "model_hi_tex.glb",
             "hi_bytes": (d / hi).stat().st_size if hi else None,
@@ -271,7 +273,32 @@ def build_index(source: str) -> dict:
         "body_plans": reg.get("body_plans", sorted(by_plan)),
         "summary": {"total": len(out), "stages": totals, "by_body_plan": by_plan},
         "monsters": out,
+        "paired": paired_entries(source),
     }
+
+
+PAIRED_REL = "_shared/paired"
+
+
+def paired_entries(source: str, prefix: str | None = None) -> dict:
+    """{entry: sidecar URL} of the paired animations (out/<source>/_shared/paired/library.json "paired");
+    prefix: what goes before "_shared/..." (default /out/<source>/)."""
+    lib = load_json(OUT_ROOT / source / PAIRED_REL / "library.json")
+    pre = f"/out/{source}/" if prefix is None else prefix
+    return {e: f"{pre}{PAIRED_REL}/{f}" for e, f in sorted((lib.get("paired") or {}).items())}
+
+
+def paired_library_files(source: str, man: dict) -> list[tuple[str, Path]]:
+    """(name in the bundle, path) of the paired animations (library.json, sidecars, every clip) for a
+    monster that can play them (a UAL biped with shared clips), or []."""
+    sh = ((man.get("anim") if isinstance(man.get("anim"), dict) else {}) or {}).get("ual_shared") or {}
+    lib_dir = OUT_ROOT / source / PAIRED_REL
+    if not sh.get("hip_scale") or not (lib_dir / "library.json").is_file():
+        return []
+    lib = load_json(lib_dir / "library.json")
+    names = ["library.json"] + sorted((lib.get("paired") or {}).values()) + sorted(
+        e["file"] for e in (lib.get("clips") or {}).values() if e.get("file"))
+    return [(f"{PAIRED_REL}/{n}", lib_dir / n) for n in names if (lib_dir / n).is_file()]
 
 
 # ---------------------------------------------------------------- re-run jobs
@@ -385,7 +412,8 @@ def game_files(source: str, mid: str, lods: bool = True) -> list[tuple[str, Path
     out = [(f"{mid}/{p.relative_to(d).as_posix()}", p) for p in files]
     # UAL bipeds: the clips they take from the shared library (manifest anim.ual_shared, relative to
     # out/<source>/, so the zip keeps that layout: <id>/... next to _shared/ual/...)
-    return out + shared_library_files(source, load_json(d / "manifest.json") if (d / "manifest.json").is_file() else {})
+    man = load_json(d / "manifest.json") if (d / "manifest.json").is_file() else {}
+    return out + shared_library_files(source, man) + paired_library_files(source, man)
 
 
 def shared_library_files(source: str, man: dict) -> list[tuple[str, Path]]:

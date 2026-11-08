@@ -249,6 +249,13 @@ def main() -> int:
         e["wields"] = [p for p in reg[mid].get("wields") or [] if p in published_props]
         entries.append(e)
 
+    paired_files = []
+    for e in entries:
+        if e.get("ual_hip_scale"):
+            paired_files = viewer.paired_library_files(args.source, {"anim": {"ual_shared": {"hip_scale": 1}}})
+            break
+    for name, path in paired_files:
+        pub.copy(path, f"{args.source}/{name}")
     totals = {s: sum(1 for e in entries if e["stages"][s]) for s in viewer.STAGES}
     totals["anim_complete"] = sum(1 for e in entries if e["anim_complete"])
     by_plan: dict[str, dict] = {}
@@ -270,6 +277,8 @@ def main() -> int:
         "license": "CC-BY-4.0",
         "attribution": attrib,
         "props": "props.json",
+        # paired animations (tools/paired.py), for the UAL bipeds published with shared clips
+        "paired": viewer.paired_entries(args.source, f"{args.source}/") if paired_files else {},
     }
     pub.write_json("index.json", index, indent=None)
     pub.write_json("props.json", {"source": "props", "count": len(props_out), "props": props_out})

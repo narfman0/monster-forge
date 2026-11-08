@@ -185,12 +185,13 @@ resize();
 function animate() {
   const dt = clock.getDelta();
   if (view.mixer && view.playing && !view.scrubbing) view.mixer.update(dt);
+  if (view.pair) pairTick();
   updateSocketMarkers();
   if (view.cycle && view.clips.length > 1 && view.playing) {
     view.cycleT += dt;
     if (view.cycleT >= Number($('cycle-secs').value || 4)) { view.cycleT = 0; nextClip(); }
   }
-  if ($('t-rotate').checked && view.root) view.root.rotation.y += dt * 0.5;
+  if ($('t-rotate').checked && view.root && !view.pair) view.root.rotation.y += dt * 0.5;
   if (view.raw && view.root) view.raw.group.rotation.y = view.root.rotation.y;
   updateTimeUI();
   controls.update();
@@ -202,6 +203,7 @@ function animate() {
 requestAnimationFrame(animate);
 
 function disposeModel() {
+  stopPair(false);
   if (view.mixer) { view.mixer.stopAllAction(); view.mixer.uncacheRoot(view.root); }
   if (view.skelHelper) { scene.remove(view.skelHelper); view.skelHelper.dispose?.(); }
   for (const [k, g] of Object.entries(view.lodGeoms)) if (k !== '0') g.dispose();
@@ -933,6 +935,7 @@ function setHud(entry, info) {
 function playClip(i) {
   const c = view.clips[i];
   if (!c || !c.ok || !view.mixer) return;
+  if (view.pair) stopPair(false);
   const prev = view.action;
   const action = view.mixer.clipAction(c.clip);
   action.reset();
@@ -959,6 +962,7 @@ function defaultClip() {
   return view.clips.findIndex((c) => c.ok);
 }
 function restPose() {
+  if (view.pair) stopPair(false);
   if (view.mixer) view.mixer.stopAllAction();
   view.action = null;
   view.clipIdx = -1;
@@ -1039,6 +1043,7 @@ function renderClips(entry) {
     li.onclick = () => playClip(i);
     ul.append(li);
   });
+  renderPairedClips(entry);
   renderAnimBar(entry);
   highlightClip();
   const usable = view.clips.filter((c) => c.ok).length;
@@ -1895,7 +1900,411 @@ refreshIndex().then((idx) => {
   pollJobs();
 });
 
-window.__viewer = { THREE, scene, view, state, camera, controls }; // debugging hook
+// ------------------------------------------------------------------ paired animations
+// Two monsters playing one paired entry together (tools/paired.py, docs/anim-reuse.md "Paired
+// animations"; the same runtime as godot-dnd scripts/paired_anim.gd): the sidecar's variant for the
+// two hip_scales, the receiver placed at the alignment (fitted so every contact needs the reach it
+// had when authored on the sync frame, never closer than the two torso fronts), both clips in
+// lockstep on the clip controls (the partner follows the selected monster's clip time), then per
+// frame a lean of the listed spine bones and a two-bone IK that holds each contact (bone
+// quaternions overridden after the mixers; scrub and pause re-solve from the animated pose).
+const PAIR_ROLES = ['initiator', 'receiver'];
+const PAIR_LABEL = { initiator: 'A initiator', receiver: 'B receiver' };
+const TORSO_BONES = ['spine_01', 'spine_02', 'spine_03'];
+const pairSidecars = new Map();
+const _pv = new THREE.Vector3(), _pq = new THREE.Quaternion(), _pq2 = new THREE.Quaternion();
+
+function pairEntries() { return state.index?.paired || {}; }
+function canPair(entry) { return !!(entry && entry.ual_hip_scale && Object.keys(pairEntries()).length); }
+async function pairSidecar(name) {
+  const url = pairEntries()[name];
+  if (!pairSidecars.has(url)) pairSidecars.set(url, fetch(url, { cache: 'no-store' }).then((r) => r.json()));
+  return pairSidecars.get(url);
+}
+function pickVariant(side, si, sr) {
+  const r = sr / si;
+  let best = null, bd = 1e9;
+  for (const v of side.variants || []) {
+    const [lo, hi] = v.ratio;
+    const d = r >= lo && r <= hi ? 0 : Math.min(Math.abs(r - lo), Math.abs(r - hi));
+    if (d < bd) { best = v; bd = d; }
+  }
+  return bd <= 0.05 ? best : null;
+}
+function contactWeight(c, f) {
+  const [a, b] = c.frames, [bi, bo] = c.blend;
+  if (f < a - bi || f > b + bo) return 0;
+  let x;
+  if (f < a) x = (f - (a - bi)) / Math.max(bi, 1e-9);
+  else if (f > b) x = 1 - (f - b) / Math.max(bo, 1e-9);
+  else return 1;
+  return x * x * (3 - 2 * x);
+}
+function boneMap(root) {
+  const m = new Map();
+  root.traverse((o) => { if (o.isBone && !m.has(o.name)) m.set(o.name, o); });
+  return m;
+}
+// How far the torso reaches ahead of the root at rest: the furthest vertex towards -Z whose largest
+// skin weight is on spine_01/02/03 (sidecar alignment.fit.depth).
+function torsoFront(root) {
+  let best = 0;
+  root.traverse((o) => {
+    if (!o.isSkinnedMesh) return;
+    const g = o.geometry, P = g.attributes.position, J = g.attributes.skinIndex, W = g.attributes.skinWeight;
+    if (!J || !W) return;
+    const torso = new Set(o.skeleton.bones.map((b, i) => (TORSO_BONES.includes(b.name) ? i : -1)).filter((i) => i >= 0));
+    for (let i = 0; i < P.count; i++) {
+      let bw = -1, bj = -1;
+      for (let k = 0; k < 4; k++) { const w = W.getComponent(i, k); if (w > bw) { bw = w; bj = J.getComponent(i, k); } }
+      if (torso.has(bj)) best = Math.max(best, -P.getZ(i));
+    }
+  });
+  return best;
+}
+const vec3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+function pairPoint(act, spec) {
+  const b = act.bones.get(spec.bone), fb = act.bones.get(spec.frame_bone || spec.bone);
+  const p = b.getWorldPosition(new THREE.Vector3());
+  return p.add(vec3(spec.offset).multiplyScalar(act.s).applyQuaternion(fb.getWorldQuaternion(_pq)));
+}
+// Rotate a bone's world orientation by q (about its own origin) and carry its children along.
+function rotateWorld(bone, q) {
+  const w = bone.getWorldQuaternion(new THREE.Quaternion());
+  const pw = bone.parent.getWorldQuaternion(new THREE.Quaternion());
+  bone.quaternion.copy(pw.invert().multiply(q.clone().multiply(w)));
+  bone.updateMatrixWorld(true);
+}
+function rotBetween(u, v) { return new THREE.Quaternion().setFromUnitVectors(u.clone().normalize(), v.clone().normalize()); }
+// Analytic two-bone IK (tools/paired.py two_bone_ik): the contact's "from" point onto target.
+function pairTwoBone(act, c, target, w) {
+  const [A, B, C] = c.ik.chain.map((n) => act.bones.get(n));
+  const tipLocal = vec3(c.from.offset).multiplyScalar(act.s);
+  for (let it = 0; it < 3; it++) {
+    const a = A.getWorldPosition(new THREE.Vector3()), b = B.getWorldPosition(new THREE.Vector3());
+    const cc = C.getWorldPosition(new THREE.Vector3());
+    const tip = tipLocal.clone().applyQuaternion(C.getWorldQuaternion(_pq)).add(cc);
+    const t = target.clone().sub(tip.clone().sub(cc));
+    const lab = a.distanceTo(b), lcb = b.distanceTo(cc);
+    const lat = THREE.MathUtils.clamp(a.distanceTo(t), 1e-4, (lab + lcb) * 0.999);
+    const ang = (u, v) => Math.acos(THREE.MathUtils.clamp(u.clone().normalize().dot(v.clone().normalize()), -1, 1));
+    const ac0 = ang(cc.clone().sub(a), b.clone().sub(a)), ba0 = ang(a.clone().sub(b), cc.clone().sub(b));
+    const ac1 = Math.acos(THREE.MathUtils.clamp((lcb * lcb - lab * lab - lat * lat) / (-2 * lab * lat), -1, 1));
+    const ba1 = Math.acos(THREE.MathUtils.clamp((lat * lat - lab * lab - lcb * lcb) / (-2 * lab * lcb), -1, 1));
+    let axis = cc.clone().sub(a).cross(b.clone().sub(a));
+    if (axis.length() < 1e-6) axis = t.clone().sub(a).cross(new THREE.Vector3(0, 1, 0));
+    axis.normalize();
+    const r0 = new THREE.Quaternion().setFromAxisAngle(axis, ac1 - ac0);
+    const r1 = new THREE.Quaternion().setFromAxisAngle(axis, ba1 - ba0);
+    const c1 = a.clone().add(b.clone().sub(a).applyQuaternion(r0)).add(cc.clone().sub(b).applyQuaternion(r1).applyQuaternion(r0));
+    const r2 = rotBetween(c1.clone().sub(a), t.clone().sub(a));
+    let ra = r2.clone().multiply(r0), rb = r2.clone().multiply(r0).multiply(r1);
+    if (w < 1) { ra = new THREE.Quaternion().slerp(ra, w); rb = new THREE.Quaternion().slerp(rb, w); }
+    const oldB = B.getWorldQuaternion(new THREE.Quaternion());
+    rotateWorld(A, ra);
+    const nowB = B.getWorldQuaternion(new THREE.Quaternion());
+    rotateWorld(B, rb.clone().multiply(oldB).multiply(nowB.invert()));
+  }
+}
+// Lean (tools/paired.py lean): the smallest forward bend <= maxDeg of the lean bones after which no
+// lean contact needs more of its chain's reach than when authored on this frame. Returns degrees.
+function pairLean(act, lc, f, maxDeg, w, pair) {
+  const bones = lc[0].lean.bones;
+  const piv = act.bones.get(bones[0]).getWorldPosition(new THREE.Vector3());
+  const items = [];
+  const tmean = new THREE.Vector3();
+  for (const c of lc) {
+    const [A, B, C] = c.ik.chain.map((n) => act.bones.get(n));
+    const a = A.getWorldPosition(new THREE.Vector3()), b = B.getWorldPosition(new THREE.Vector3());
+    const cc = C.getWorldPosition(new THREE.Vector3());
+    const tip = vec3(c.from.offset).multiplyScalar(act.s).applyQuaternion(C.getWorldQuaternion(_pq)).add(cc);
+    const t = pairPoint(pair.actors[c.to.role], c.to).sub(tip.sub(cc));
+    const reach = c.lean.reach[Math.max(0, Math.min(c.lean.reach.length - 1, Math.round(f)))];
+    items.push([a, a.distanceTo(b) + b.distanceTo(cc), t, Math.max(reach, 0.05)]);
+    tmean.add(t);
+  }
+  tmean.divideScalar(lc.length);
+  const dirh = tmean.sub(piv); dirh.y = 0;
+  if (dirh.length() < 1e-6 || maxDeg <= 0) return 0;
+  const axis = new THREE.Vector3(0, 1, 0).cross(dirh.normalize()).normalize();
+  const worst = (th) => {
+    const q = new THREE.Quaternion().setFromAxisAngle(axis, th);
+    let m = 0;
+    for (const [a, ln, t, reach] of items) m = Math.max(m, t.distanceTo(a.clone().sub(piv).applyQuaternion(q).add(piv)) / ln / reach);
+    return m;
+  };
+  let th = 0;
+  const mx = THREE.MathUtils.degToRad(maxDeg);
+  while (worst(th) > 1 && th < mx) th = Math.min(mx, th + THREE.MathUtils.degToRad(1));
+  th *= w;
+  if (th <= 0) return 0;
+  const q = new THREE.Quaternion().setFromAxisAngle(axis, th / bones.length);
+  for (const n of bones) rotateWorld(act.bones.get(n), q);
+  return THREE.MathUtils.radToDeg(th);
+}
+// The receiver's transform in the initiator's space at offset scale k.
+function alignMatrix(v, k) {
+  const al = v.alignment;
+  return new THREE.Matrix4().compose(vec3(al.offset).multiplyScalar(k),
+    new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(al.yaw_deg)),
+    new THREE.Vector3(1, 1, 1));
+}
+function placePair(pair, k) {
+  const m = alignMatrix(pair.variant, k);
+  const other = pair.primaryRole === 'initiator' ? 'receiver' : 'initiator';
+  const root = pair.actors[other].root;
+  (pair.primaryRole === 'initiator' ? m : m.clone().invert()).decompose(root.position, root.quaternion, root.scale);
+  for (const r of PAIR_ROLES) pair.actors[r].root.updateMatrixWorld(true);
+}
+function pairSetTime(pair, t) {
+  for (const r of PAIR_ROLES) { const a = pair.actors[r]; a.action.time = t; a.mixer.update(0); a.root.updateMatrixWorld(true); }
+}
+function reachRatios(pair, k, f) {
+  placePair(pair, k);
+  const out = {};
+  for (const c of pair.variant.contacts) {
+    if (contactWeight(c, f) < 1) continue;
+    const act = pair.actors[c.ik.role];
+    const [A, B, C] = c.ik.chain.map((n) => act.bones.get(n));
+    const a = A.getWorldPosition(new THREE.Vector3()), b = B.getWorldPosition(new THREE.Vector3());
+    const cc = C.getWorldPosition(new THREE.Vector3());
+    const tip = vec3(c.from.offset).multiplyScalar(act.s).applyQuaternion(C.getWorldQuaternion(_pq)).add(cc);
+    const t = pairPoint(pair.actors[c.to.role], c.to).sub(tip.sub(cc));
+    out[c.name] = a.distanceTo(t) / (a.distanceTo(b) + b.distanceTo(cc));
+  }
+  return out;
+}
+function fitOffset(pair) {
+  const v = pair.variant, al = v.alignment, s = { initiator: pair.actors.initiator.s, receiver: pair.actors.receiver.s };
+  let k0 = 0;
+  for (const [r, w] of Object.entries(al.scale_weights)) k0 += w * s[r] / v.authored_scale[r];
+  const fit = al.fit;
+  if (!fit) return k0;
+  const fps = pair.side.fps || 30;
+  pairSetTime(pair, fit.frame / fps);
+  const want = Object.fromEntries(v.contacts.filter((c) => c.reach).map((c) => [c.name, c.reach]));
+  const g = (k) => { const r = reachRatios(pair, k, fit.frame); return Math.max(...Object.keys(r).filter((n) => want[n]).map((n) => r[n] / want[n])) - 1; };
+  let lo = fit.range[0] * k0, hi = fit.range[1] * k0, k;
+  if (g(lo) >= 0) k = lo;
+  else if (g(hi) <= 0) k = hi;
+  else { for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (g(mid) < 0) lo = mid; else hi = mid; } k = (lo + hi) / 2; }
+  if (fit.min_gap != null) {
+    const d = vec3(al.offset).length();
+    k = Math.max(k, (pair.actors.initiator.torso + pair.actors.receiver.torso + fit.min_gap * (s.initiator + s.receiver) / 2) / d);
+  }
+  return k;
+}
+// Per frame: both actors at the primary clip's time, animated pose re-applied, then lean + IK.
+function pairTick() {
+  const pair = view.pair;
+  if (!pair || !view.action) return;
+  const fps = pair.side.fps || 30;
+  const d = pair.actors.initiator.action.getClip().duration;
+  const t = d ? ((view.action.time % d) + d) % d : 0;
+  for (const r of PAIR_ROLES) { const a = pair.actors[r]; if (a.action !== view.action) a.action.time = t; a.mixer.update(0); a.root.updateMatrixWorld(true); }
+  const f = t * fps;
+  pair.lean = {};
+  if (pair.ik) {
+    for (const r of PAIR_ROLES) {
+      const lc = pair.variant.contacts.filter((c) => c.lean && c.ik.role === r && contactWeight(c, f) > 0);
+      if (!lc.length) continue;
+      const w = Math.max(...lc.map((c) => contactWeight(c, f)));
+      let total = 0;
+      for (let i = 0; i < 3; i++) {
+        const deg = pairLean(pair.actors[r], lc, f, (lc[0].lean.max_deg ?? 40) - total, w, pair);
+        total += deg;
+        if (deg < 0.5) break;
+      }
+      pair.lean[r] = total;
+    }
+    for (const c of pair.variant.contacts) {
+      const w = contactWeight(c, f);
+      if (w > 0) pairTwoBone(pair.actors[c.ik.role], c, pairPoint(pair.actors[c.to.role], c.to), w);
+    }
+  }
+  pair.frame = f;
+  pair.contacts = {};
+  for (const c of pair.variant.contacts) {
+    const a = pairPoint(pair.actors[c.from.role], c.from), b = pairPoint(pair.actors[c.to.role], c.to);
+    pair.contacts[c.name] = { w: contactWeight(c, f), d: a.distanceTo(b), a, b };
+  }
+  updatePairMarkers();
+  renderPairReadout();
+}
+function updatePairMarkers() {
+  const pair = view.pair;
+  const show = $('t-pair-contacts')?.checked;
+  pair.markerGroup.visible = !!show;
+  pair.axes.visible = !!$('t-pair-origin')?.checked;
+  pair.axes.position.copy(pair.actors.receiver.root.position);
+  pair.axes.quaternion.copy(pair.actors.receiver.root.quaternion);
+  if (!show) return;
+  pair.variant.contacts.forEach((c, i) => {
+    const m = pair.markers[i], k = pair.contacts[c.name];
+    m.a.position.copy(k.a); m.b.position.copy(k.b);
+    m.line.geometry.setFromPoints([k.a, k.b]);
+    const on = k.w > 0;
+    m.a.material.opacity = m.b.material.opacity = on ? 1 : 0.3;
+  });
+}
+function renderPairReadout() {
+  const pair = view.pair, box = $('pair-readout');
+  if (!box) return;
+  const full = Object.values(pair.contacts).filter((c) => c.w >= 1);
+  const max = full.length ? Math.max(...full.map((c) => c.d)) : null;
+  const lean = Object.entries(pair.lean).filter(([, v]) => v > 0.05).map(([r, v]) => `${r} ${v.toFixed(0)}°`).join(', ');
+  box.textContent = `${pair.variant.name} · ratio ${pair.ratio.toFixed(2)} · offset ${pair.offset.toFixed(2)} m (×${pair.k.toFixed(2)}) · ` +
+    `frame ${pair.frame.toFixed(0)}${Math.round(pair.frame) === pair.variant.sync_frame ? ' (sync)' : ''} · ` +
+    (max == null ? 'no contact at full weight' : `contacts at full weight: max ${(max * 100).toFixed(1)} cm`) +
+    (pair.ik ? '' : ' (IK off)') + (lean ? ` · lean ${lean}` : '');
+}
+function disposePartner(root) {
+  scene.remove(root);
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    o.geometry.dispose();
+    for (const m of [].concat(o.material)) { for (const k of MAP_KEYS) m[k]?.dispose?.(); m.dispose(); }
+  });
+}
+function stopPair(replay = true) {
+  const pair = view.pair;
+  if (!pair) return;
+  view.pair = null;
+  const other = pair.actors[pair.primaryRole === 'initiator' ? 'receiver' : 'initiator'];
+  other.mixer.stopAllAction();
+  disposePartner(other.root);
+  scene.remove(pair.markerGroup, pair.axes);
+  pair.markers.forEach((m) => { m.line.geometry.dispose(); });
+  if (view.root) { view.root.position.set(0, 0, 0); view.root.quaternion.identity(); }
+  $('pair-panel').classList.add('hidden');
+  if (pair.primaryAction) { pair.primaryAction.stop(); view.mixer?.uncacheAction(pair.primaryAction.getClip()); }
+  view.action = null;
+  highlightPaired();
+  if (replay && view.root) { const i = defaultClip(); if (i >= 0) playClip(i); }
+}
+async function manifestShared(entry) {
+  const man = await (await fetch(entry.dir + 'manifest.json', { cache: 'no-store' })).json();
+  return (man.anim && man.anim.ual_shared) || {};
+}
+// Starts a pair: the selected monster in role `role`, partnerId in the other one.
+async function startPair(name, role, partnerId) {
+  const entry = view.entry, token = state.loadToken;
+  if (!canPair(entry) || !view.root) return { error: 'not a UAL biped with shared clips' };
+  stopPair(false);
+  const partner = state.index.monsters.find((m) => m.id === partnerId);
+  if (!partner || !partner.ual_hip_scale) return { error: `${partnerId}: not a UAL biped with shared clips` };
+  const other = role === 'initiator' ? 'receiver' : 'initiator';
+  const side = await pairSidecar(name);
+  const s = { [role]: entry.ual_hip_scale, [other]: partner.ual_hip_scale };
+  const variant = pickVariant(side, s.initiator, s.receiver);
+  showPairPanel(name, role, partnerId);
+  if (!variant) {
+    $('pair-readout').textContent = `no ${name} variant for size ratio ${(s.receiver / s.initiator).toFixed(2)} (B / A hip_scale)`;
+    return { error: 'no variant' };
+  }
+  $('pair-readout').textContent = 'loading partner…';
+  const dir = pairEntries()[name].replace(/[^/]*$/, '');
+  const [gltf, shP, shS, srcI, srcR] = await Promise.all([loadGLB(partner.dir + partner.files.model), manifestShared(partner),
+    manifestShared(entry), loadSharedGLB(dir + variant.clips.initiator + '.glb'), loadSharedGLB(dir + variant.clips.receiver + '.glb')]);
+  if (token !== state.loadToken || !view.root) { disposePartner(gltf.scene); return { error: 'superseded' }; }
+  const src = { initiator: srcI, receiver: srcR };
+  const proot = gltf.scene;
+  proot.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  scene.add(proot);
+  $('t-rotate').checked = false;
+  view.root.rotation.set(0, 0, 0);
+  const mk = (root, mixer, sh, r) => {
+    const { clip, ratio } = adaptClip(sharedClip(src[r].animations[0], sh, variant.clips[r]), root, variant.clips[r]);
+    const action = mixer.clipAction(clip);
+    action.setLoop(THREE.LoopRepeat, Infinity);
+    return { root, mixer, action, ratio, tracks: clip.tracks.length, s: sh.hip_scale, bones: boneMap(root), torso: torsoFront(root),
+      id: r === role ? entry.id : partnerId };
+  };
+  const pmixer = new THREE.AnimationMixer(proot);
+  const actors = { [role]: mk(view.root, view.mixer, shS, role), [other]: mk(proot, pmixer, shP, other) };
+  view.mixer.stopAllAction();
+  for (const r of PAIR_ROLES) actors[r].action.play();
+  const pair = { name, side, variant, primaryRole: role, actors, ik: $('t-pair-ik')?.checked ?? true,
+    ratio: s.receiver / s.initiator, primaryAction: actors[role].action, lean: {}, contacts: {}, frame: 0 };
+  pair.k = fitOffset(pair);
+  pair.offset = vec3(variant.alignment.offset).length() * pair.k;
+  placePair(pair, pair.k);
+  pairSetTime(pair, 0);
+  // markers: green = the "from" point (e.g. a palm), red = where it must be (the "to" point)
+  pair.markerGroup = new THREE.Group();
+  const sph = new THREE.SphereGeometry(0.025, 12, 8);
+  pair.markers = variant.contacts.map(() => {
+    const a = new THREE.Mesh(sph, new THREE.MeshBasicMaterial({ color: 0x3ddc84, transparent: true, depthTest: false }));
+    const b = new THREE.Mesh(sph, new THREE.MeshBasicMaterial({ color: 0xff4d4d, transparent: true, depthTest: false }));
+    const line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false }));
+    a.renderOrder = b.renderOrder = line.renderOrder = 10;
+    pair.markerGroup.add(a, b, line);
+    return { a, b, line };
+  });
+  pair.axes = new THREE.AxesHelper(0.4 * Math.max(actors.initiator.s, 0.5));
+  pair.axes.material.depthTest = false;
+  pair.axes.renderOrder = 10;
+  scene.add(pair.markerGroup, pair.axes);
+  view.pair = pair;
+  view.action = actors[role].action;
+  view.clipIdx = -1;
+  view.playing = true;
+  view.cycle = false;
+  syncPlayButton();
+  highlightClip();
+  highlightPaired();
+  // frame both
+  const box = new THREE.Box3().setFromObject(view.root, true).union(new THREE.Box3().setFromObject(proot, true));
+  const keep = view.box;
+  view.box = box;
+  frameCamera();
+  view.box = keep;
+  pairTick();
+  return { variant: variant.name, k: pair.k, ratios: { initiator: actors.initiator.ratio, receiver: actors.receiver.ratio } };
+}
+function highlightPaired() {
+  for (const li of document.querySelectorAll('#clips li.paired')) {
+    li.classList.toggle('sel', !!view.pair && li.dataset.entry === view.pair.name && li.dataset.role === view.pair.primaryRole);
+  }
+}
+function renderPairedClips(entry) {
+  if (!canPair(entry)) return;
+  const ul = $('clips');
+  ul.append(el('li', { className: 'group', textContent: 'paired (with a partner)' }));
+  for (const name of Object.keys(pairEntries())) {
+    for (const r of PAIR_ROLES) {
+      const li = el('li', { className: 'paired', title: `${name}: this monster as ${PAIR_LABEL[r]}; pick the partner below` },
+        el('span', { textContent: `${name} · ${PAIR_LABEL[r]}` }), el('span', { className: 'src', textContent: 'paired' }));
+      li.dataset.entry = name;
+      li.dataset.role = r;
+      li.onclick = () => startPair(name, r, view.pair?.name === name ? partnerId(view.pair) : defaultPartner(entry));
+      ul.append(li);
+    }
+  }
+  highlightPaired();
+}
+const partnerId = (pair) => pair.actors[pair.primaryRole === 'initiator' ? 'receiver' : 'initiator'].id;
+const defaultPartner = (entry) => entry.id;   // the same monster: ratio 1 always has a variant
+function showPairPanel(name, role, partner) {
+  const panel = $('pair-panel');
+  panel.classList.remove('hidden');
+  const other = role === 'initiator' ? 'receiver' : 'initiator';
+  $('pair-title').textContent = `${name}: ${view.entry.name || view.entry.id} as ${PAIR_LABEL[role]}`;
+  $('pair-other-label').textContent = PAIR_LABEL[other] + ':';
+  const sel = $('pair-partner');
+  sel.replaceChildren();
+  const me = view.entry.ual_hip_scale;
+  for (const m of state.index.monsters.filter((x) => x.ual_hip_scale).sort((a, b) => a.ual_hip_scale - b.ual_hip_scale)) {
+    const ratio = role === 'initiator' ? m.ual_hip_scale / me : me / m.ual_hip_scale;
+    sel.append(el('option', { value: m.id, textContent: `${m.name || m.id} (${m.size || '?'}, B/A ${ratio.toFixed(2)})`, selected: m.id === partner }));
+  }
+  sel.onchange = () => startPair(name, role, sel.value);
+  $('pair-swap').onclick = () => startPair(name, other, sel.value);
+  $('pair-close').onclick = () => stopPair();
+}
+$('t-pair-ik').onchange = () => { if (view.pair) view.pair.ik = $('t-pair-ik').checked; };
+
+window.__viewer = { THREE, scene, view, state, camera, controls, pair: { start: startPair, stop: stopPair, tick: pairTick } }; // debugging hook
 
 // ------------------------------------------------------------------ phone layout tabs (style.css, max-width 820px)
 for (const b of document.querySelectorAll('#tabs button')) {

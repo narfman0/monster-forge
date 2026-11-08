@@ -86,6 +86,23 @@
     <h3>animation</h3>
     <div id="anim-status" class="muted"></div>
     <ul id="clips"></ul>
+    <div id="pair-panel" class="hidden" title="paired animation: both clips play in lockstep on the controls below">
+      <div id="pair-title"></div>
+      <div class="row">
+        <span id="pair-other-label"></span>
+        <select id="pair-partner" class="grow" title="the partner (B/A = hip_scale ratio; the sidecar picks the variant by it)"></select>
+      </div>
+      <div class="row">
+        <button id="pair-swap" title="swap the roles">swap A/B</button>
+        <button id="pair-close" title="back to this monster's own clips">close</button>
+      </div>
+      <div class="row">
+        <label title="lean + two-bone IK holding each contact (off: the clips as authored, placed by the alignment)"><input type="checkbox" id="t-pair-ik" checked> contact IK</label>
+        <label title="green: the contact point (e.g. a palm), red: where it must be"><input type="checkbox" id="t-pair-contacts"> contact markers</label>
+        <label title="the receiver's root as placed by the alignment"><input type="checkbox" id="t-pair-origin"> alignment origin</label>
+      </div>
+      <div id="pair-readout" class="muted"></div>
+    </div>
     <div id="anim-controls">
       <div class="row">
         <button id="b-play" title="space">play</button>

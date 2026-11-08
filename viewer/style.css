@@ -82,6 +82,13 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); font-weight: 500;
 #clips li:hover { background: var(--bg3); }
 #clips li.sel { background: #1d2a3d; color: var(--accent); }
 #clips li .src { font-size: 10px; color: var(--muted); }
+#clips li.group { cursor: default; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+#clips li.group:hover { background: none; }
+#pair-panel { border: 1px solid var(--bg3); border-radius: 6px; padding: 6px; margin: 0 0 8px; display: flex; flex-direction: column; gap: 4px; }
+#pair-panel .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+#pair-panel select { min-width: 0; max-width: 100%; }
+#pair-title { font-weight: 600; }
+#pair-readout { font-size: 11px; }
 #cycle-secs { width: 48px; padding: 2px 4px; }
 #speed-val, #time-val { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 #anim-controls.disabled { opacity: .4; pointer-events: none; }
