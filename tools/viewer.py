@@ -234,7 +234,7 @@ def content_tags(source: str, monsters: list[dict]) -> tuple[dict[str, list[str]
     live so the page never shows a stale data/tags.computed.json); the registry's own tags when
     data/tags.json is missing or broken."""
     try:
-        defs = taglib.load_defs()
+        defs = taglib.load_defs(source)
         return taglib.compute(source, defs, taglib.load_curation(source), monsters), defs
     except (OSError, ValueError, KeyError, TypeError) as e:
         print(f"viewer: tags fall back to the registry's ({e})", file=sys.stderr)
