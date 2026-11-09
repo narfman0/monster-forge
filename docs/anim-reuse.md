@@ -424,7 +424,11 @@ quadruped bone names, tools/quadcanon.py, once those clips share a skeleton the 
   where the alignment puts them.
 - `library.json`: the same index as `_shared/ual/library.json` (`clips` {name: {file, frames, seconds, loop,
   paired, role}}) plus `paired` {entry: sidecar}; godot-dnd's `Monster._ual_library()` loads it as is.
-- `<entry>.json`, the sidecar: `roles`, `fps`, `requires` and `variants`, each:
+- `<entry>.json`, the sidecar: `roles`, `fps`, `requires`, `max_size_up` (how many D&D size categories
+  larger than the initiator the receiver may be; `grapple` 1, as 5e allows. Players compare the monsters'
+  `size` and refuse the pair beyond it before looking at the ratio: tough:hill-giant is 2.10, inside
+  grapple_up's range, but Huge is two sizes up and the contacts miss by ~50 cm; `MAX_SIZE_UP` in
+  tools/paired.py) and `variants`, each:
   - `ratio` [min, max] of receiver hip_scale / initiator hip_scale it was authored for (`grapple` 0.75-1.18
     similar size; `grapple_big` 0.42-0.75, the initiator stoops and squats over a receiver about half its
     size; `grapple_up` 1.18-2.4, a receiver up to one size larger, as 5e allows). Players pick the variant
@@ -500,7 +504,9 @@ priest:troll (2.04) 0.6, tough:minotaur-of-baphomet (1.24) 0.4, bandit:tough-bos
 >= 0.08 m. Out of reach: **tough:hill-giant** (2.10, misses 45-51 cm): the hill giant is Huge (two sizes
 up from Medium, which 5e does not allow), its arms are short inside its cloak and its belly (torso front
 0.79 m) keeps the tough 1.0 m away, so its hands cannot come down to the tough's shoulders even at 60
-deg; the tough reaches its thighs. Likewise tough:fire-giant (2.24, 22-55 cm).
+deg; the tough reaches its thighs. Likewise tough:fire-giant (2.24, 22-55 cm). Since 2026-11-09 the sidecar
+says `max_size_up` 1 and godot-dnd's `PairedAnim.start()` refuses both pairs on size (`check_paired.gd`
+tough:hill-giant:refuse).
 **Range edges** (2026-11-08): `grapple` was 0.75-1.34 but fails past ~1.2 (the lean saturates at 40 deg
 and the torsos meet: tough:minotaur-of-baphomet 1.24 34 cm, tough:horned-devil 1.28 12 cm,
 tough:stone-golem 1.33 69 cm), where grapple_up passes, so the boundary is 1.18. hill-giant:ogre (ratio

@@ -273,6 +273,11 @@ def _grapple_up() -> dict:
 
 
 RECIPES = {"grapple": lambda: [_grapple("same"), _grapple("big"), _grapple_up()]}
+# Sidecar `max_size_up`: how many D&D size categories larger than the initiator the receiver may be
+# (5e: a grapple target is at most one size larger). Players compare the monsters' `size` and refuse
+# the pair beyond it even when a variant's hip_scale ratio would fit (tough -> hill-giant is 2.10, in
+# grapple_up's range, but the giant is Huge, two sizes up, and the contacts miss by ~50 cm).
+MAX_SIZE_UP = {"grapple": 1}
 
 
 # --------------------------------------------------------------------------------------------------
@@ -653,6 +658,8 @@ def author(entry: str, keep_blend: bool = False) -> dict:
     side = {"entry": entry, "format": FORMAT, "doc": FORMAT_DOC, "skeleton": "ual", "fps": FPS,
             "roles": ["initiator", "receiver"], "requires": "manifest anim.ual_shared (hip_scale, pelvis_offset)",
             "source": "tools/paired.py RECIPES (tools/blender_paired.py bakes them)", "variants": []}
+    if entry in MAX_SIZE_UP:
+        side["max_size_up"] = MAX_SIZE_UP[entry]
     clips_out = {}
     for rc in recipes:
         ik = []
