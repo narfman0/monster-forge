@@ -80,13 +80,13 @@ def classify(name: str, mixamo_leg: bool):
         return None
     if r in ("collar", "clavicle", "shoulder"):
         return side, "clavicle"
-    if r == "armstretch":                                    # Auto-Rig Pro deform bones
-        return side, "upperarm"
-    if r == "forearmstretch":
+    if r in ("armstretch", "armtwist"):                       # Auto-Rig Pro deform bones: map_bones picks the
+        return side, "upperarm"                               # one at the limb's origin, merges the others in
+    if r in ("forearmstretch", "forearmtwist"):
         return side, "lowerarm"
-    if r == "thighstretch":
+    if r in ("thighstretch", "thightwist"):
         return side, "thigh"
-    if r == "legstretch":
+    if r in ("legstretch", "legtwist"):
         return side, "calf"
     if r in ("arm", "upperarm"):
         return side, "upperarm"
@@ -107,6 +107,9 @@ def classify(name: str, mixamo_leg: bool):
     return None
 
 
+LIMB_UAL = {"upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r", "hand_l", "hand_r", "thigh_l", "thigh_r", "calf_l", "calf_r", "foot_l", "foot_r"}
+
+
 def map_bones(bones: dict, weighted: set | None = None) -> dict:
     """bones: {name: {parent, head, tail}} (world, QA frame, +Z up, faces -Z in glTF = +Y here).
     Returns a bonemap.json dict (tools/bonemap.py's schema, status ok|partial|fail)."""
@@ -121,12 +124,18 @@ def map_bones(bones: dict, weighted: set | None = None) -> dict:
     height = max(b["head"][2] for b in bones.values())
     out, problems = {}, []
 
-    def one(key, prefer=None):
+    merge: dict = {}
+
+    def one(key, prefer=None, near=None):
         c = found.get(key) or []
         if weighted and any(n in weighted for n in c):
             c = [n for n in c if n in weighted]  # a skin-weighted bone beats an unweighted duplicate
         if not c:
             return None
+        if len(c) > 1 and near is not None:  # stretch/twist pairs: the bone nearest the previous joint starts the piece
+            pick = min(c, key=lambda n: sum((a - b) ** 2 for a, b in zip(bones[n]["head"], near)))
+            merge.update({n: pick for n in c if n != pick and re.search(r"(?i)twist|stretch", n)})
+            return pick
         return max(c, key=z) if prefer == "high" else (min(c, key=z) if prefer == "low" else c[0])
 
     pel = one((None, "pelvis"), "low")
@@ -152,15 +161,21 @@ def map_bones(bones: dict, weighted: set | None = None) -> dict:
     chains = {"spine": [n for n in ([pel] + trunk) if n], "neck_head": [n for n in (neck, head) if n]}
     for s in "lr":
         ch = []
+        prev = None
         for kind, u in (("clavicle", "clavicle"), ("upperarm", "upperarm"), ("lowerarm", "lowerarm"), ("hand", "hand")):
-            n = one((s, kind), "low" if kind in ("clavicle", "upperarm", "lowerarm") else None)
+            n = one((s, kind), "low" if kind in ("clavicle", "upperarm", "lowerarm") else None, near=prev)
+            if n:
+                prev = bones[n]["head"] if kind == "clavicle" else (bones[n]["head"] if kind == "upperarm" else bones[n]["head"])
             if n:
                 out[n] = f"{u}_{s}"
                 ch.append(n)
         chains[f"arm_{s}"] = ch
         ch = []
+        prev = bones[pel]["head"] if pel else None
         for kind, u in (("thigh", "thigh"), ("calf", "calf"), ("foot", "foot"), ("ball", "ball")):
-            n = one((s, kind), "high" if kind == "thigh" else None)
+            n = one((s, kind), "high" if kind == "thigh" else None, near=prev if kind in ("thigh", "calf") else None)
+            if n and kind in ("thigh", "calf"):
+                prev = bones[n]["head"]
             if n:
                 out[n] = f"{u}_{s}"
                 ch.append(n)
@@ -175,13 +190,42 @@ def map_bones(bones: dict, weighted: set | None = None) -> dict:
         h = inv.get(f"hand_{s}")
         if h and bones[h]["head"][0] * sign < 0:
             problems.append(f"hand_{s} {h} is on the wrong side (x={bones[h]['head'][0]:.2f})")
+    # weighted helper bones that did not map (arm_EX, wrist_EX, BK_ corrective, twist offsets, ...): fold each into the
+    # mapped limb bone whose segment is nearest its head. Left alone they fold into the nearest mapped ANCESTOR (the
+    # collar / pelvis), which pins half the upper arm to the shoulder and the arms stay stiff.
+    if weighted:
+        import math
+        keep = re.compile(r"(?i)twist|stretch|_ex(_|\d|$)|^bk_|^ac_.*(wrist|elbow|arm|leg|knee)|wrist|elbow|^[lr]_arm|leg\b|knee|shin|thigh|forearm|upperarm")
+        limb = {n for n, u in out.items() if u in LIMB_UAL}
+        def any_side(name):
+            m = re.search(r"(?:^|[_.\- ])([lr])(?:[_.\- ]|$)", name, re.I) or re.search(r"(left|right)", name, re.I)
+            return m.group(1)[0].lower() if m else None
+        def child_head(n):
+            kids = [k for k in limb if bones[k]["parent"] == n or bones.get(bones[k]["parent"], {}).get("parent") == n]
+            return bones[kids[0]]["head"] if kids else bones[n]["tail"]
+        def seg_d(pt, a, b):
+            ab = [y - x for x, y in zip(a, b)]
+            L2 = sum(x * x for x in ab) or 1e-9
+            t = max(0.0, min(1.0, sum((p - x) * d for p, x, d in zip(pt, a, ab)) / L2))
+            return math.dist(pt, [x + t * d for x, d in zip(a, ab)])
+        for n in sorted(weighted):
+            if n in out or n not in bones or not keep.search(n) or re.search(r"(?i)finger|thumb|index|middle|ring|pinky|hair", n):
+                continue
+            side = any_side(n)
+            cands = [m for m in limb if side is None or any_side(m) == side]
+            wr = re.search(r"(?i)wrist", n) and not re.search(r"(?i)^ac_|scl", n)  # a wrist twist deforms the forearm skin
+            low = [m for m in cands if out[m].startswith("lowerarm")] if wr else []
+            if low:
+                merge.setdefault(n, low[0])
+            elif cands:
+                merge.setdefault(n, min(cands, key=lambda m: seg_d(bones[n]["head"], bones[m]["head"], child_head(m))))
     status = "fail" if miss else ("ok" if not problems and not ual_missing else "partial")
     if problems and not miss:
         status = "partial"
     return {"status": status, "confidence": 1.0 if status == "ok" else 0.6, "map": out,
             "unmapped": [n for n in names if n not in out and not SKIP.search(n)],
             "ual_missing": ual_missing, "problems": problems + [f"missing essential {m}" for m in miss],
-            "chains": chains, "facing": "-Z", "height": round(height, 3), "joints": len(names),
+            "merge": merge, "chains": chains, "facing": "-Z", "height": round(height, 3), "joints": len(names),
             "left_x": "-X", "toes_point": "-Z", "source": "ext_rig"}
 
 
@@ -198,7 +242,7 @@ def merge_plan(names: list) -> dict:
     return out
 
 
-def prep(source: str, mon: dict, ext: dict) -> dict:
+def prep(source: str, mon: dict, ext: dict, merge: dict | None = None) -> dict:
     d = forge.OUT_ROOT / source / mon["id"]
     src = d / "ext" / "source.glb"
     qa = json.loads((d / "qa.json").read_text())
@@ -214,8 +258,8 @@ def prep(source: str, mon: dict, ext: dict) -> dict:
     out = d / "rig" / "skintokens_rigged.glb"
     out.parent.mkdir(exist_ok=True)
     job = {"src": str(src), "dst": str(out),
-           "pose": ext.get("pose", "REST"), "drop": ext.get("drop"), "drop_materials": ext.get("drop_materials"), "drop_cards": ext.get("drop_cards"), "yaw_deg": qa["yaw_deg"], "scale": qa["scale_factor"],
-           "tri_budget": ext.get("tri_budget", 40000), "hands": hands, "merge": merge_plan(jn)}
+           "pose": ext.get("pose", "REST"), "drop": ext.get("drop"), "drop_materials": ext.get("drop_materials"), "drop_cards": ext.get("drop_cards"), "alpha_key": ext.get("alpha_key"), "clear_normals": ext.get("clear_normals"), "yaw_deg": qa["yaw_deg"], "scale": qa["scale_factor"],
+           "tri_budget": ext.get("tri_budget", 40000), "hands": hands, "merge": merge or {}}
     p = subprocess.run([forge.BLENDER, "-b", "--factory-startup", "-P",
                         str(Path(__file__).with_name("blender_ext_rig.py")), "--", json.dumps(job)],
                        capture_output=True, text=True, timeout=900)
@@ -232,6 +276,9 @@ def run_one(source: str, mon: dict, ext: dict, map_only: bool, run_rig: bool = T
         raise SystemExit(f"{mon['id']}: run tools/ext_import.py first")
     rep = prep(source, mon, ext)
     bm = map_bones(rep["bones"], set(rep.get("weighted") or []))
+    if bm.get("merge"):  # stretch/twist pairs: fold the extras into the limb-origin bone, then map again
+        rep = prep(source, mon, ext, bm["merge"])
+        bm = map_bones(rep["bones"], set(rep.get("weighted") or []))
     bm["id"] = mon["id"]
     (d / "bonemap.json").write_text(json.dumps(bm, indent=1))
     forge.log(f"{mon['id']}: source skeleton {len(rep['bones'])} bones ({len(rep['pruned'])} pruned), height {rep['height']} m, "

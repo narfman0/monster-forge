@@ -218,6 +218,36 @@ while changed:
             pruned.append(b.name)
             eb.remove(b)
             changed = True
+# hands: some exporters leave a hand bone pointing up/out (the glTF importer guesses tails from child
+# positions). The UAL fit reads hand head -> tail as the hand axis, so re-aim any hand that is more than 25
+# degrees off its forearm at the fingertips (farthest weighted vertex along the forearm direction).
+for hn in job.get("hands") or []:
+    if hn not in eb or not eb[hn].parent:
+        continue
+    h = eb[hn]
+    fdir = (h.head - h.parent.head)
+    if fdir.length < 1e-6:
+        continue
+    fdir.normalize()
+    cur = (h.tail - h.head)
+    if cur.length > 1e-6 and math.degrees(cur.angle(fdir)) <= 25:
+        continue
+    desc, stack = {hn}, [h]
+    while stack:
+        for c in stack.pop().children:
+            desc.add(c.name)
+            stack.append(c)
+    gi = {mon.vertex_groups[n].index for n in desc if n in mon.vertex_groups}
+    far = 0.0
+    for v in mon.data.vertices:
+        if sum(g.weight for g in v.groups if g.group in gi) > 0.5:
+            far = max(far, (v.co - h.head).dot(fdir))
+    far = min(max(far, 0.5 * h.parent.length), 0.18 * (mx.z - mn.z))
+    for c in h.children:
+        c.use_connect = False
+    h.use_connect = False
+    h.tail = h.head + fdir * far
+    print("HAND re-aimed", hn, "was", round(math.degrees(cur.angle(fdir))) if cur.length > 1e-6 else None, "deg off; tip at", round(far, 3))
 # tip leaves on hands: the forearm direction continued past the wrist
 arm_mw = arm.matrix_world
 for hn in job.get("hands") or []:
@@ -237,6 +267,58 @@ for hn in job.get("hands") or []:
     tip.use_connect = False
 bpy.ops.object.mode_set(mode="OBJECT")
 bpy.context.view_layer.update()
+
+def clear_normals(objs):
+    """Drop custom split normals (toon heads often carry sphere-transferred ones that no longer match the
+    geometry once the mesh is baked from a posed armature) and use smooth normals from the geometry."""
+    for o in objs:
+        bpy.context.view_layer.objects.active = o
+        bpy.ops.object.select_all(action="DESELECT")
+        o.select_set(True)
+        try:
+            bpy.ops.mesh.customdata_custom_splitnormals_clear()
+        except RuntimeError:
+            pass
+        bpy.ops.object.shade_smooth()
+
+def alpha_key(mats, tol=0.06):
+    """Materials whose texture has an opaque flat background that the source viewer blended away (eye / eyeshadow
+    overlays on a grey sheet): key the most common colour out to alpha 0, link image alpha -> principled alpha,
+    and export the material as BLEND. job.alpha_key: [material-name substrings]."""
+    import numpy as np
+    done = []
+    for m in bpy.data.materials:
+        if not m.use_nodes or not any(k.lower() in m.name.lower() for k in mats):
+            continue
+        tex = next((n for n in m.node_tree.nodes if n.type == "TEX_IMAGE" and n.image), None)
+        bsdf = next((n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+        if not tex or not bsdf:
+            continue
+        im = tex.image
+        w, h = im.size
+        px = np.array(im.pixels[:], dtype=np.float32).reshape(h, w, 4)
+        q = (px[..., :3] * 255).round().astype(np.int32)
+        keys, counts = np.unique(q.reshape(-1, 3), axis=0, return_counts=True)
+        bg = keys[counts.argmax()] / 255.0
+        d = np.abs(px[..., :3] - bg).max(axis=2)
+        px[..., 3] = np.clip((d - tol) / tol, 0.0, 1.0)  # soft edge, fully clear within tol of the background
+        new = bpy.data.images.new(im.name + "_keyed", w, h, alpha=True)
+        new.pixels = px.reshape(-1).tolist()
+        new.alpha_mode = "STRAIGHT"
+        new.pack()
+        tex.image = new
+        m.node_tree.links.new(tex.outputs["Alpha"], bsdf.inputs["Alpha"])
+        try:
+            m.surface_render_method = "BLENDED"
+        except Exception:
+            m.blend_method = "BLEND"
+        done.append((m.name, [round(float(x), 2) for x in bg], round(float((px[..., 3] < 0.5).mean()), 2)))
+    return done
+
+if job.get("clear_normals"):
+    clear_normals(meshes)
+if job.get("alpha_key"):
+    print("ALPHA_KEY", alpha_key(job["alpha_key"]))
 
 budget = job.get("tri_budget") or 0
 tris = sum(len(p.vertices) - 2 for o in meshes for p in o.data.polygons)
