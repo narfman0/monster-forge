@@ -24,6 +24,10 @@ import sys
 import bpy
 from mathutils import Matrix, Vector
 
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import blender_ext_common as ext  # noqa: E402
+
 job = json.loads(sys.argv[sys.argv.index("--") + 1])
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=job["src"])
@@ -40,7 +44,8 @@ for o in sc.objects:
     if o.type == "MESH" and o.parent is None:  # loose meshes keep their world transform too
         _m = o.matrix_world.copy()
         o.matrix_world = _m
-arm.data.pose_position = job.get("pose", "REST")
+POSE = ext.choose_pose(sc, job.get("pose", "AUTO"), bpy.context.evaluated_depsgraph_get)
+arm.data.pose_position = POSE
 bpy.context.view_layer.update()
 
 drop = [s.lower() for s in (job.get("drop") or []) + ["icosphere"]]  # Sketchfab exports often carry a default Blender Icosphere
@@ -104,6 +109,21 @@ if job.get("drop_cards"):
     print("DROPPED card verts", drop_cards(meshes, dg))
     bpy.context.view_layer.update()
     dg = bpy.context.evaluated_depsgraph_get()  # re-evaluate: the bake below must see the edited meshes
+_b = ext.basis(arm, dg)
+R = ext.upright(_b)
+_props = [] if job.get("keep_props") else ext.outliers(meshes, dg, _b, R)
+_isl = []
+meshes = [o for o in meshes if o.name not in _props]  # filter first: a removed object has no .name
+for n in _props:
+    bpy.data.objects.remove(bpy.data.objects[n], do_unlink=True)
+if not job.get("keep_props") and meshes:
+    _isl = ext.drop_prop_islands(meshes, dg, R)
+    if _isl:
+        bpy.context.view_layer.update()
+        dg = bpy.context.evaluated_depsgraph_get()
+        print("AUTO dropped islands", [(a, b, c) for a, b, c in _isl][:12])
+if _props or R != Matrix.Identity(4):
+    print("AUTO", "dropped props", _props, "upright", [round(x, 2) for x in R.to_euler()])
 rigid = []
 for o in meshes:
     skinned = any(m.type == "ARMATURE" and m.object == arm for m in o.modifiers)
@@ -143,8 +163,8 @@ bpy.ops.object.mode_set(mode="OBJECT")
 arm.data.pose_position = "REST"
 bpy.context.view_layer.update()
 
-# QA frame: yaw about Z, uniform scale, then feet on z=0 and centred in x/y
-M = Matrix.Scale(job["scale"], 4) @ Matrix.Rotation(math.radians(job["yaw_deg"]), 4, "Z")
+# QA frame: upright (figure's up onto +Z), yaw about Z, uniform scale, then feet on z=0 and centred in x/y
+M = Matrix.Scale(job["scale"], 4) @ Matrix.Rotation(math.radians(job["yaw_deg"]), 4, "Z") @ R
 arm.matrix_world = M @ arm.matrix_world
 for o in meshes:
     if o.name in bpy.data.objects and o.parent != arm:

@@ -65,7 +65,7 @@ def import_one(source: str, mon: dict, ext: dict, args) -> None:
     raw, gen = d / "model_raw.glb", d / "model_raw_gen.glb"
     if raw.exists() and not gen.exists() and not (forge.load_manifest(d).get("ext")):
         raw.rename(gen)  # keep the generated mesh once
-    job = {"src": str(src), "dst": str(raw), "tri_budget": ext.get("tri_budget", 40000), "drop": ext.get("drop"), "drop_materials": ext.get("drop_materials"), "drop_cards": ext.get("drop_cards"), "pose": ext.get("pose", "REST")}
+    job = {"src": str(src), "dst": str(raw), "tri_budget": ext.get("tri_budget", 40000), "drop": ext.get("drop"), "drop_materials": ext.get("drop_materials"), "drop_cards": ext.get("drop_cards"), "pose": ext.get("pose", "AUTO")}
     proc = subprocess.run([forge.BLENDER, "-b", "--factory-startup", "-P",
                            str(Path(__file__).with_name("blender_ext_prep.py")), "--", json.dumps(job)],
                           capture_output=True, text=True, timeout=900)
@@ -78,7 +78,7 @@ def import_one(source: str, mon: dict, ext: dict, args) -> None:
     man = forge.load_manifest(d)
     man["ext"] = {k: ext[k] for k in ("provider", "uid", "title", "author", "url", "license", "license_url", "note")
                   if k in ext} | {"tris_source": info["tris_in"], "tris_flat": info["tris_out"],
-                                  "materials": info["materials"], "imported": forge.time.strftime("%Y-%m-%d")}
+                                  "materials": info["materials"], "pose": info.get("pose"), "imported": forge.time.strftime("%Y-%m-%d")}
     man.pop("mesh", None)
     # the generated mesh's baked maps (textures/base_color.png ...) belong to ITS uv layout: the rig stage would
     # lay them over the imported model's materials. Park them; the imported materials carry their own textures.

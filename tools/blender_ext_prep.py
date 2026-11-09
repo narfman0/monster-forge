@@ -4,20 +4,28 @@ Flatten an externally made character glb into a static, textured model_raw.glb f
 QA stage: rig modifiers applied at the REST pose, parents baked, armatures/empties/lights/cameras
 dropped, meshes over `tri_budget` decimated (collapse, UVs kept), exported with materials.
 job: {src, dst, tri_budget, drop: [name substrings of mesh objects to delete], pose: REST|POSE}.
-Writes <dst>.json with {tris_in, tris_out, meshes, materials, dims}.
+Writes <dst>.json with {tris_in, tris_out, meshes, materials, dims, pose}.
+pose AUTO (default): measures REST and POSE and keeps the saner bounding box.
 """
 import json
 import sys
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
+
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import blender_ext_common as ext  # noqa: E402
 
 job = json.loads(sys.argv[sys.argv.index("--") + 1])
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=job["src"])
 sc = bpy.context.scene
+
+
+POSE = ext.choose_pose(sc, job.get("pose", "AUTO"), bpy.context.evaluated_depsgraph_get)
 for a in [o for o in sc.objects if o.type == "ARMATURE"]:
-    a.data.pose_position = job.get("pose", "REST")  # "POSE" for models whose bind pose is not the displayed one
+    a.data.pose_position = POSE  # "POSE" for models whose bind pose is not the displayed one
 bpy.context.view_layer.update()
 dg = bpy.context.evaluated_depsgraph_get()
 
@@ -80,8 +88,23 @@ if job.get("drop_cards"):
     print("DROPPED card verts", drop_cards(meshes, dg))
     bpy.context.view_layer.update()
     dg = bpy.context.evaluated_depsgraph_get()  # re-evaluate: the bake below must see the edited meshes
+_b = ext.basis(ext.main_armature(sc), dg)
+R = ext.upright(_b)  # figure stands on its side / upside down in some rips
+_props = [] if job.get("keep_props") else ext.outliers(meshes, dg, _b, R)
+_isl = []
+meshes = [o for o in meshes if o.name not in _props]  # filter first: a removed object has no .name
+for n in _props:
+    bpy.data.objects.remove(bpy.data.objects[n], do_unlink=True)
+if not job.get("keep_props") and meshes:
+    _isl = ext.drop_prop_islands(meshes, dg, R)
+    if _isl:
+        bpy.context.view_layer.update()
+        dg = bpy.context.evaluated_depsgraph_get()
+        print("AUTO dropped islands", [(a, b, c) for a, b, c in _isl][:12])
+if _props or R != Matrix.Identity(4):
+    print("AUTO", "dropped props", _props, "upright", [round(x, 2) for x in R.to_euler()])
 for o in meshes:
-    mw = o.matrix_world.copy()
+    mw = R @ o.matrix_world
     me = bpy.data.meshes.new_from_object(o.evaluated_get(dg), preserve_all_data_layers=True, depsgraph=dg)
     for m in list(o.modifiers):
         o.modifiers.remove(m)
@@ -127,5 +150,5 @@ mats = {s.material.name for o in meshes for s in o.material_slots if s.material}
 bpy.ops.export_scene.gltf(filepath=job["dst"], export_format="GLB", export_apply=False, export_yup=True,
                           export_materials="EXPORT", export_image_format="AUTO", use_selection=False)
 json.dump({"tris_in": tris_in, "tris_out": tris_out, "meshes": len(meshes), "materials": len(mats),
-           "dims": [round(x, 4) for x in (mx - mn)]}, open(job["dst"] + ".json", "w"))
+           "dims": [round(x, 4) for x in (mx - mn)], "pose": POSE, "props_dropped": _props}, open(job["dst"] + ".json", "w"))
 print("EXT_PREP", tris_in, "->", tris_out, "meshes", len(meshes))
