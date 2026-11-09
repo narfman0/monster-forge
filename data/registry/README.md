@@ -120,14 +120,18 @@ describe or imitate any specific piece of published art.
 
 Registries for sources outside the SRD (WotC IP, personal use only) use the same record
 schema and live in the separate non-SRD checkout, `registry/<source>.json`
-(`$MONSTER_FORGE_EXTRA`, else `../monster-forge-nonsrd`; `tools/sources.py`). The
-Monster Manual 2024 one is built there by
+(`$MONSTER_FORGE_EXTRA`, else `../monster-forge-nonsrd`; `tools/sources.py`). They
+are built there by
 
 ```sh
-python3 -I tools/import_names.py [--src PATH] [--check-srd PATH] [--local]
+python3 -I tools/import_names.py [--source mm-2024|planescape] [--src PATH ...] [--check-srd PATH] [--local]
 ```
 
-from a local 5etools checkout (read as data, never vendored). The source's curation is
+from a local 5etools checkout (read as data, never vendored; `SOURCES` in the importer
+names each source's default bestiary files). A stat block already in the SRD (same slug,
+or the `srd52` flag) or a 5etools `_copy` reprint is skipped. A multi-book source
+(`planescape`) adds `book: {source, page}` (5etools source code and page) to every record
+and a top-level `skipped` list (name, book, page, reason). The source's curation is
 read from the same checkout. `--check-srd` also writes a table of size/type/speed/CR
 differences between the SRD blocks in that file and `srd-5.2.1.json` (report only).
 `forge.py`, `overrides.py` and `viewer.py` resolve non-SRD paths through

@@ -10,8 +10,8 @@ Scope tiers (see `docs/corpus-plan.md`):
    they are not in this repo. Their registries, curation and per-monster overrides live
    in a separate private checkout, `../monster-forge-nonsrd` next to this one or wherever
    `MONSTER_FORGE_EXTRA` points; `tools/sources.py` resolves the paths and
-   `tools/import_names.py` builds the Monster Manual 2024 registry there from a local
-   5etools checkout (never vendored). See `docs/body-plans.md`, "Per-source curation layout".
+   `tools/import_names.py --source <id>` builds their registries there (Monster Manual
+   2024, Planescape) from a local 5etools checkout (never vendored). See `docs/body-plans.md`, "Per-source curation layout".
 3. Other official books (2024-2025 first, then legacy 2014-era books), same split.
 
 Non-SRD monsters are WotC IP: personal use only; a public pack ships SRD assets or

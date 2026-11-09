@@ -17,9 +17,10 @@ Content tags come from, in order (docs/tags.md):
 Pipeline tags (rig-ual, rig-quad-canon, paired) depend on out/<source>/<id>/manifest.json:
 pipeline_tags() computes them (the viewer index calls it); they are kept apart from content tags.
 
-Definitions (groups, tags, implies, source -> tag) live in data/tags.json for every source; curated
-membership is per source: data/tags.json for the SRD, the non-SRD checkout's
-curation/<source>/tags.json otherwise (tools/sources.py). The computed file is
+Definitions (groups, tags, implies, source -> tag) live in data/tags.json; curated membership is
+per source: data/tags.json for the SRD, the non-SRD checkout's curation/<source>/tags.json
+otherwise (tools/sources.py), which may also add that source's own `sources` entry and `tags`
+definitions (non-SRD names never enter this public repo). The computed file is
 data/tags.computed.json for the SRD, registry/<source>.tags.json in the non-SRD checkout otherwise.
 Stdlib only.
 """
@@ -48,8 +49,18 @@ DRAGON_ID = re.compile(r"^(?:(young|adult|ancient)-)?(%s)-dragon(?:-(wyrmling))?
 
 
 # ------------------------------------------------------------------ loading
-def load_defs() -> dict:
-    return json.loads(DEFS_PATH.read_text())
+def load_defs(source: str = "srd-5.2.1") -> dict:
+    """data/tags.json (groups, tags, implies, source -> tag); a non-SRD source's curation tags.json
+    may add its own `sources` entry and `tags` definitions (non-SRD names stay out of this repo)."""
+    defs = json.loads(DEFS_PATH.read_text())
+    if source not in sources.LOCAL_SOURCES:
+        try:
+            d = json.loads(Path(sources.curation_path(source, "tags")).read_text())
+        except FileNotFoundError:
+            d = {}
+        defs["sources"] = {**defs["sources"], **(d.get("sources") or {})}
+        defs["tags"] = {**defs["tags"], **(d.get("tags") or {})}
+    return defs
 
 
 def load_curation(source: str) -> dict:
@@ -226,7 +237,7 @@ def validate(source: str, defs: dict, cur: dict, recs: list[dict], tags: dict[st
             if j not in tdefs:
                 errs.append(f"tag {t!r}: implies unknown tag {j!r}")
     if source not in defs["sources"]:
-        errs.append(f"source {source!r} has no tag in data/tags.json `sources`")
+        errs.append(f"source {source!r} has no tag in `sources` (data/tags.json, or the source's curation tags.json)")
     for t, members in cur["members"].items():
         if t not in tdefs:
             errs.append(f"members: unknown tag {t!r}{suggest(t, tdefs)}")
@@ -323,7 +334,7 @@ def main() -> int:
     ap.add_argument("--source", default="srd-5.2.1")
     ap.add_argument("--pipeline", action="store_true", help="compute: add pipeline tags from out/ manifests")
     a = ap.parse_args()
-    defs, cur, recs = load_defs(), load_curation(a.source), load_registry(a.source)
+    defs, cur, recs = load_defs(a.source), load_curation(a.source), load_registry(a.source)
     tags = compute(a.source, defs, cur, recs)
     errs = validate(a.source, defs, cur, recs, tags)
     if errs:

@@ -19,6 +19,7 @@ python3 -I tools/tags.py check            # validate + the computed file is curr
 python3 -I tools/tags.py report           # tag -> count per group, monsters without a family, dragon/draconic/dinosaur lists
 python3 -I tools/tags.py show wyvern owlbear
 python3 -I tools/tags.py list dragon flying   # ids with every tag given
+python3 -I tools/tags.py check --source planescape   # a non-SRD source (its tags.json and computed file in the non-SRD checkout)
 ```
 
 ## Why a derived file, not the registry's `tags` field
@@ -36,7 +37,7 @@ registry so godot-dnd sees the change; `check` catches a forgotten run.
 
 | group | rule | per monster |
 |---|---|---|
-| `source` | registry `source` via `sources` in data/tags.json (`srd-5.2.1` -> `srd`) | exactly one |
+| `source` | registry `source` via `sources` in data/tags.json (`srd-5.2.1` -> `srd`; a non-SRD source adds its own entry in its curation `tags.json`) | exactly one |
 | `type` | registry `type` -> `type-<type>` (`type-beast`, `type-dragon` ...) | exactly one |
 | `family` | curated `members` + rules + `implies` | at least one (or reviewed `no_family`) |
 | `dragon-kind` | registry `chromatic` / `metallic`; colour (`red-dragon`) and age (`wyrmling`, `young-dragon`, `adult-dragon`, `ancient-dragon`) from the id of a dragon-type `<age>-<colour>-dragon` / `<colour>-dragon-wyrmling` | true dragons only |
@@ -86,7 +87,13 @@ godot-dnd copies content tags only.
   rakshasa, roper, rust monster, shield guardian, stirge, succubus, swarm of crawling claws,
   wight. They still have every non-family tag.
 
-Not defined because the SRD has none: `yugoloth`, `orc`. Add them when a source needs them.
+Not defined because no source has one yet: `orc`. Add it when a source needs it.
+
+A non-SRD source defines the tags only its monsters carry (families, a dragon kind, a `planar`
+trait) in its own `curation/<source>/tags.json` (`sources` and `tags` keys, merged onto this
+table by `tags.load_defs`), so those names stay out of this public repo. A `planar` trait for the
+SRD's angels, demons, devils, genies and elementals would change `data/tags.computed.json` and
+godot-dnd's copies, so it is a separate decision.
 
 ## How tags are computed
 
@@ -120,7 +127,8 @@ Output order follows the groups, then the definition order in `data/tags.json`.
 - **A per-monster fix**: `ids: {"<id>": {"add": [...], "remove": [...], "why": "..."}}`.
 - **A group**: add it to `groups` (order = facet order); `ONE_OF` in `tools/tags.py` if every
   monster must have exactly one.
-- **A new source**: map it in `sources` (`"mm-2024": "mm-2024"`); its curated
+- **A new source**: map it in `sources` in its curation `tags.json` (`"<source>": "<tag>"`, with a
+  `source`-group tag of that name defined under `tags` there); its curated
   `members` / `ids` / `no_family` go in the non-SRD checkout, `curation/<source>/tags.json`
   (same keys as data/tags.json), and its computed file is `registry/<source>.tags.json` there
   (`tools/sources.py`). Definitions stay shared in `data/tags.json`, which must not name

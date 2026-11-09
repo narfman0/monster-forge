@@ -14,3 +14,5 @@ tools/skintokens/
 # symlink here until forge.py/overrides.py resolve through tools/sources.py.
 data/registry/mm-2024.json
 data/overrides/mm-2024
+data/registry/planescape.json
+data/overrides/planescape
