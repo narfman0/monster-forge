@@ -35,20 +35,34 @@ import forge  # noqa: E402
 import sources  # noqa: E402
 
 SKIP = re.compile(r"(?i)finger|thumb|index|middle|ring|pinky|little|hair|skirt|tail|bust|breast|cloth|ribbon|"
-                  r"bang|ponytail|socket|\bex\b|_ex|headband|bk_|cape|belt|eye|brow|jaw|tongue|lip|teeth|mouth|"
-                  r"cheek|weapon|grab|effect|face|nose|forehead|_end|_tip|twist|roll|helper|ik[_ .]|_ik|_fk|^c_|^cc_|pole|"
-                  r"scale_fix|_b\.|bend|master|traj|pos_|^root$")
+                  r"bang|ponytail|socket|\bex\b|_ex|headband|bk_|cape|belt|eye|brow|jaw|tongue|lip|teeth|mouth|spo\b|spo_|_spo|pad|deltoid|"
+                  r"cheek|weapon|grab|effect|face|nose|forehead|_end|_tip|twist|roll|helper|ik[_ .]|_ik|_fk|(?-i:^c_|^cc_)|pole|"
+                  r"scale_fix|_b\.|bend|master|traj|pos_")
+
+
+PREFIX = re.compile(r"^(?:[a-z]+rig:|bip0*1[ _]|bip[ _]|j_bip[ _]|def[-_]|cc_base_|bn_|mixamo[ _:]|[a-z]{1,3}\d{2,4}_[a-z]+\d*_\d\d_)+", re.I)
 
 
 def norm(name: str) -> str:
-    n = re.sub(r"^[a-z]+rig:", "", name, flags=re.I)          # mixamorig:
-    n = re.sub(r"[_ ]?0*\d+$", "", n)                          # trailing glTF/blender index: Hips_01, Arm.001
-    n = re.sub(r"\.\d+$", "", n)
+    """Strip the exporter's decoration: rig prefixes (mixamorig:, Bip01 / Bip001, VRM J_Bip_, Rigify DEF-), glTF's
+    appended node indices (stackable: Toe1_R_5_34), Blender .001, Auto-Rig Pro .x, and a trailing _a / _b variant."""
+    n = PREFIX.sub("", name)
+    n = re.sub(r"^c[_ ](?=[a-z])", "", n, flags=re.I)         # VRM J_Bip_C_Hips -> C_Hips -> Hips
+    for _ in range(4):
+        m = re.sub(r"(?:[_ .]\d+)+$", "", n)                  # _03, _012, .001 (never a side letter)
+        m = re.sub(r"(?<=[A-Za-z])0+\d+$", "", m) if m != n or True else m  # Hips01 / Spine001 (digit run glued to a name)
+        if m == n:
+            break
+        n = m
     n = re.sub(r"\.x$", "", n)                                # Auto-Rig Pro centre bones: spine_01.x, head.x
+    n = re.sub(r"[_ ][ab]$", "", n, flags=re.I) if re.search(r"(?i)[_ ][ab]$", n) and len(n) > 3 else n  # L_Hand_a
     return n
 
 
 def side_of(n: str):
+    m = re.match(r"^([lr])((?:arm|leg|hand|foot|shoulder)(?:[ _.\-].*)?)$", n, re.I)
+    if m:
+        return m.group(1).lower(), m.group(2)
     m = re.match(r"^(left|right)[ _.:\-]?(.*)$", n, re.I)
     if m:
         return m.group(1)[0].lower(), m.group(2)
@@ -61,25 +75,53 @@ def side_of(n: str):
     return None, n
 
 
+RIGIFY = False  # set by map_bones: the skeleton has spine.006 (Rigify: spine = pelvis, .001-.003 trunk, .004-.005 neck, .006 head)
+
+
 def classify(name: str, mixamo_leg: bool):
     """(side or None, kind) for a core bone, else None."""
-    if SKIP.search(name):
+    if SKIP.search(norm(name)):  # on the stripped name: "pl020_face01_00_head" is the head, not a face bone
         return None
+    if RIGIFY:
+        m = re.match(r"^(?:def[-_])?spine(?:\.(\d+))?(?:_\d+)?$", name, re.I)
+        if m:
+            k = int(m.group(1) or 0)
+            return (None, "pelvis" if k == 0 else "trunk" if k <= 3 else "neck" if k <= 5 else "head")
     n = norm(name)
     side, rest = side_of(n)
     r = re.sub(r"[ _.\-]", "", rest).lower()
     if side is None:
-        if r in ("hips", "hip", "pelvis", "root"):
+        if r in ("hips", "hip", "pelvis", "waist", "bodypelvis", "hipw"):
             return None, "pelvis"
-        if re.fullmatch(r"spine\d*", r) or r in ("waist", "chest", "upperchest", "torso", "abdomen"):
+        if r in ("root", "rootx", "hiproot"):
+            return None, "root"
+        if re.fullmatch(r"spine[a-d]?\d*", r) or r in ("chest", "upperchest", "torso", "abdomen", "bodybelly", "bodychest", "lback", "mback", "uback", "thorax"):
             return None, "trunk"
-        if r == "neck":
+        if r in ("neck", "headneck"):
             return None, "neck"
         if r == "head":
             return None, "head"
         return None
-    if r in ("collar", "clavicle", "shoulder"):
+    if r in ("collar", "clavicle", "clav"):
         return side, "clavicle"
+    if r == "shoulder":
+        return side, "shoulder"  # collarbone in some rigs, upper arm in others: resolved in map_bones
+    if r == "hip":
+        return side, "thigh"                                  # "hip R00": the thigh of a rig whose pelvis is "hips"
+    if r in ("armclavicle", "shoulderl", "shoulderr"):
+        return side, "clavicle"
+    if r in ("armupper",):
+        return side, "upperarm"
+    if r in ("armfore", "forearmb"):
+        return side, "lowerarm"
+    if r in ("handpalm",):
+        return side, "hand"
+    if r in ("legthigh",):
+        return side, "thigh"
+    if r in ("legcalf", "foreleg", "clank", "legshin"):
+        return side, "calf"
+    if r in ("footheel",):
+        return side, "foot"
     if r in ("armstretch", "armtwist"):                       # Auto-Rig Pro deform bones: map_bones picks the
         return side, "upperarm"                               # one at the limb's origin, merges the others in
     if r in ("forearmstretch", "forearmtwist"):
@@ -90,19 +132,19 @@ def classify(name: str, mixamo_leg: bool):
         return side, "calf"
     if r in ("arm", "upperarm"):
         return side, "upperarm"
-    if r in ("elbow", "forearm", "lowerarm"):
+    if r in ("elbow", "forearm", "lowerarm", "fore", "foreArm".lower()):
         return side, "lowerarm"
-    if r in ("hand", "wrist"):
+    if r in ("hand", "wrist", "palm"):
         return side, "hand"
-    if r in ("upleg", "thigh", "upperleg"):
+    if r in ("upleg", "thigh", "upperleg", "uplegs", "femur"):
         return side, "thigh"
-    if r in ("leg", "lowerleg", "calf", "shin"):
+    if r in ("leg", "lowerleg", "calf", "shin", "lowleg"):
         return side, ("calf" if (mixamo_leg or r != "leg") else "thigh")
     if r == "knee":
         return side, "calf"
-    if r in ("foot", "ankle"):
+    if r in ("foot", "ankle", "heel"):
         return side, "foot"
-    if r in ("toebase", "toe", "ball", "toes01", "toes"):
+    if r in ("toebase", "toe", "ball", "toes01", "toes", "toe0", "toe1", "toe01", "bip01toe0"):
         return side, "ball"
     return None
 
@@ -114,12 +156,20 @@ def map_bones(bones: dict, weighted: set | None = None) -> dict:
     """bones: {name: {parent, head, tail}} (world, QA frame, +Z up, faces -Z in glTF = +Y here).
     Returns a bonemap.json dict (tools/bonemap.py's schema, status ok|partial|fail)."""
     names = list(bones)
+    global RIGIFY
+    RIGIFY = any(re.match(r"^(?:def[-_])?spine\.006(?:_\d+)?$", n, re.I) for n in names)
     mixamo_leg = any(re.search(r"(?i)upleg|thigh|upperleg", n) for n in names)
     found: dict[tuple, list] = {}
     for n in names:
         c = classify(n, mixamo_leg)
         if c:
             found.setdefault(c, []).append(n)
+    for s_ in "lr":  # "shoulder": the collarbone when the side also has an upper arm, otherwise the upper arm itself
+        sh = found.pop((s_, "shoulder"), [])
+        if sh:
+            has_up = bool(found.get((s_, "upperarm")))
+            has_cl = bool(found.get((s_, "clavicle")))
+            found.setdefault((s_, "clavicle" if (has_up and not has_cl) or (has_up and has_cl and False) else ("upperarm" if has_cl and not has_up else "clavicle")), []).extend(sh)
     z = lambda n: bones[n]["head"][2]  # noqa: E731
     height = max(b["head"][2] for b in bones.values())
     out, problems = {}, []
@@ -138,9 +188,11 @@ def map_bones(bones: dict, weighted: set | None = None) -> dict:
             return pick
         return max(c, key=z) if prefer == "high" else (min(c, key=z) if prefer == "low" else c[0])
 
-    pel = one((None, "pelvis"), "low")
+    pel = one((None, "pelvis"), "low") or one((None, "root"), "high")
     head = one((None, "head"), "high")
     neck = one((None, "neck"), "low")
+    if not head and neck:  # a single "Head_Neck" bone: it is the head
+        head, neck = neck, None
     if pel:
         out[pel] = "pelvis"
     if head:
@@ -180,6 +232,11 @@ def map_bones(bones: dict, weighted: set | None = None) -> dict:
                 out[n] = f"{u}_{s}"
                 ch.append(n)
         chains[f"leg_{s}"] = ch
+    for s_ in "lr":  # no ankle bone, only a toe chain under the shin (Bleach rips): the toe bone IS the foot
+        if (s_, "calf") in found and not found.get((s_, "foot")) and found.get((s_, "ball")):
+            tn = one((s_, "ball"), "high")
+            if tn and tn in out and out[tn].startswith("ball"):
+                out[tn] = f"foot_{s_}"
     inv = {v: k for k, v in out.items()}
     ess = ["pelvis", "Head"] + [f"{b}_{s}" for s in "lr" for b in ("upperarm", "lowerarm", "hand", "thigh", "calf", "foot")]
     miss = [u for u in ess if u not in inv]
@@ -254,12 +311,14 @@ def prep(source: str, mon: dict, ext: dict, merge: dict | None = None) -> dict:
     sk = max(g.get("skins") or [{"joints": []}], key=lambda s: len(s["joints"]))
     jn = [g["nodes"][i].get("name", "") for i in sk["joints"]]
     mixamo_leg = any(re.search(r"(?i)upleg|thigh|upperleg", x) for x in jn)
+    global RIGIFY
+    RIGIFY = any(re.match(r"^(?:def[-_])?spine\.006(?:_\d+)?$", x, re.I) for x in jn)
     hands = [x for x in jn if (classify(x, mixamo_leg) or (0, 0))[1] == "hand"]
     out = d / "rig" / "skintokens_rigged.glb"
     out.parent.mkdir(exist_ok=True)
     job = {"src": str(src), "dst": str(out),
            "pose": ext.get("pose") or (forge.load_manifest(d).get("ext") or {}).get("pose") or "REST", "drop": ext.get("drop"), "drop_materials": ext.get("drop_materials"), "drop_cards": ext.get("drop_cards"), "alpha_key": ext.get("alpha_key"), "material_colors": ext.get("material_colors"), "clear_normals": ext.get("clear_normals"), "yaw_deg": qa["yaw_deg"], "scale": qa["scale_factor"],
-           "tri_budget": ext.get("tri_budget", 40000), "hands": hands, "merge": merge or {}}
+           "tri_budget": ext.get("tri_budget", 40000), "hands": hands, "keep": [x for x in jn if (classify(x, mixamo_leg) or (0, 0))[1] in ("foot", "ball", "calf", "thigh", "upperarm", "lowerarm", "head", "neck")], "merge": merge or {}}
     p = subprocess.run([forge.BLENDER, "-b", "--factory-startup", "-P",
                         str(Path(__file__).with_name("blender_ext_rig.py")), "--", json.dumps(job)],
                        capture_output=True, text=True, timeout=900)

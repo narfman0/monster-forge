@@ -149,7 +149,7 @@ def choose_pose(sc, want, dg_fn):
     return pick
 
 
-def drop_prop_islands(objs, dg, R, thin_min=0.35, aspect=10.0, away=0.2):
+def drop_prop_islands(objs, dg, R, thin_min=0.3, aspect=6.0, away=0.15):
     """Delete loose connected components that are not the character: long thin sticks (swords, staffs, sheaths,
     chains) and pieces floating clear of the body. Works on evaluated positions (any armature deformation included)
     and edits each object's own mesh, so skin weights survive. Returns [(object, faces, why)] for the log.

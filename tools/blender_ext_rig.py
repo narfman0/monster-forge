@@ -225,7 +225,7 @@ for v in mon.data.vertices:
     for g in v.groups:
         if g.weight > 1e-4:
             used[mon.vertex_groups[g.group].name] = True
-keep_always = set(job.get("hands") or [])
+keep_always = set(job.get("hands") or []) | set(job.get("keep") or [])  # core limb bones the skin gives no weight (a foot that only the toes carry)
 bpy.context.view_layer.objects.active = arm
 bpy.ops.object.mode_set(mode="EDIT")
 eb = arm.data.edit_bones
