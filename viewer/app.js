@@ -31,8 +31,12 @@ const savedMode = LS.get('lodMode', 'auto');
 // configured: the published index.html carries <meta name="monster-forge-static">, ?static=1
 // forces it, and a page whose host has no /api/index.json falls back to it.
 const staticMeta = document.querySelector('meta[name="monster-forge-static"]');
-let STATIC = new URLSearchParams(location.search).get('static') === '1' || !!staticMeta;
-const STATIC_INDEX = './' + (staticMeta?.content || 'index.json');
+// `?source=<name>` is the multi-source private host (tools/sync_assets.py): the index is
+// /sources/<name>/index.json and models sit under the absolute /out/<name>/<id>/ paths.
+const staticSource = new URLSearchParams(location.search).get('source');
+let STATIC = new URLSearchParams(location.search).get('static') === '1' || !!staticMeta || !!staticSource;
+const STATIC_INDEX = staticSource ? `/sources/${encodeURIComponent(staticSource)}/index.json`
+  : './' + (staticMeta?.content || 'index.json');
 
 // ------------------------------------------------------------------ state
 // ?tag=dragon,flying (or repeated ?tag=): the tag filter a shared link carries.
@@ -1681,7 +1685,7 @@ function enterStatic() {
   if (staticReady) return;
   staticReady = true;
   document.body.classList.add('static');
-  document.title = 'monster-forge · SRD monster viewer';
+  document.title = staticSource ? `monster-forge · ${staticSource}` : 'monster-forge · SRD monster viewer';
   if (state.lodMode === 'raw') state.lodMode = 'auto';
   $('t-prop').checked = true;  // the monster's own weapons, when it wields any
   $('t-prop').parentElement.title = "the monster's wielded props on its hand sockets (p); ?prop_r=<id>&prop_l=<id> picks others";
