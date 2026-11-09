@@ -360,7 +360,9 @@ a palm; red: where it must be; a line between), **alignment origin** (axes at th
   `paired` {entry: sidecar}.
 - Checked headless (Firefox, no WebGL; a same-origin test page drives `window.__viewer.pair.start()` and
   scrubs every frame): tough:bandit max 0.4 cm, ogre:bandit 0.9 cm, and the same with the bandit selected as B; both clips
-  resolve all 65 tracks on both models.
+  resolve all 65 tracks on both models. `grapple_up` (2026-11-08): bandit:ogre (ratio 1.82, also with the ogre
+  selected as B) picks grapple_up, max 2.8 cm; hill-giant:ogre picks grapple_big, 1.7 cm (lean 55 deg); the
+  same numbers as godot-dnd tools/check_paired.gd to 0.1 mm.
 
 ## Skeleton, sockets and props
 

@@ -153,7 +153,10 @@ def _grapple(variant: str) -> dict:
                    "to": {"actor": "receiver", "bone": f"upperarm_{o}", "frame_bone": f"clavicle_{o}",
                           "offset": "shoulder_top"},
                    "influence": rel, "pole": [1.0 if s == "l" else -1.0, 0.3, -1.0], "tolerance": 0.03,
-                   "lean": {"bones": ["spine_01", "spine_02", "spine_03"], "max_deg": 40}})
+                   # big: up to 55 deg (hill-giant -> ogre, ratio 0.75: the giant's belly keeps the ogre
+                   # 1.1 m off; 40 deg left one hand 16 cm short, 55 deg 1.7 cm). Runtime only: the bake
+                   # does not lean, so the clips are unchanged
+                   "lean": {"bones": ["spine_01", "spine_02", "spine_03"], "max_deg": 55 if big else 40}})
     for s, o in (("r", "l"), ("l", "r")):
         # the receiver's hands grab the initiator's forearms (the arm on the same side of the gap)
         ik.append({"name": f"receiver_hand_{s}_on_initiator_forearm_{o}", "actor": "receiver",
@@ -163,7 +166,9 @@ def _grapple(variant: str) -> dict:
                    "influence": rel_r, "pole": [1.0 if s == "l" else -1.0, 0.5, -1.0], "tolerance": 0.05})
     return {
         "entry": "grapple", "variant": "grapple_big" if big else "grapple",
-        "ratio": [0.42, 0.75] if big else [0.75, 1.34],
+        # same: 1.18 at most (past it the lean saturates and the torsos meet: tough->horned-devil 1.28 missed
+        # 12 cm, tough->stone-golem 1.33 69 cm; grapple_up takes over)
+        "ratio": [0.42, 0.75] if big else [0.75, 1.18],
         "frames": n, "sync_frame": sync,
         "actors": {"initiator": {"scale": 1.0, "base": "Idle_Loop", "keys": I, "plant_feet": True},
                    "receiver": {"scale": rs, "base": "Idle_Loop", "keys": R, "plant_feet": True, "phase": 37}},
@@ -174,7 +179,100 @@ def _grapple(variant: str) -> dict:
     }
 
 
-RECIPES = {"grapple": lambda: [_grapple("same"), _grapple("big")]}
+def _grapple_up() -> dict:
+    """grapple_up: the receiver is bigger (ratio 1.18-2.4, D&D: a grapple reaches one size up). Its
+    shoulders are out of reach (UAL shoulder 1.44 m, arm 0.55 m: a hand reaches 2.0 m at most; a 1.8x
+    receiver's shoulder tops are at 2.7 m and even its belt, spine_01, is at 1.9 m and climbs out of
+    reach past ratio ~1.9), so the contacts are the receiver's FOREARMS: the receiver bends and reaches
+    down at the small initiator, its hands landing on the initiator's shoulders (IK with lean: the
+    bigger the receiver, the further it bends, so the forearms come down to the initiator at every ratio),
+    and the initiator reaches up and seizes both forearms near the middle (a test-of-strength lock).
+    Contact order matters: the receiver's hands are solved first, then the initiator's hands follow
+    the receiver's IK'd forearms (every runtime solves contacts in list order)."""
+    rs, d = 1.8, 0.58
+    n, sync = 150, 18
+    rel = [[0, 0], [4, 0], [sync - 1, 1], [104, 1], [116, 0]]        # initiator hands on the forearms (lets go first)
+    rel_r = [[0, 0], [3, 0], [16, 1], [106, 1], [118, 0]]            # receiver hands on the shoulders
+    I = {
+        # reach up: a slight back arch and the head tipped up; once locked, it hauls down on the arms
+        "spine_01": [[0, [0, 0, 0]], [4, [0, 0, 0]], [14, [-4, 0, 0]], [30, [-3, 0, 0]], [44, [5, 0, 0]],
+                     [100, [5, 0, 0]], [114, [-2, 0, 0]], [134, [0, 0, 0]]],
+        "spine_02": [[0, [0, 0, 0]], [4, [0, 0, 0]], [14, [-3, 0, 0]], [30, [-2, 0, 0]], [44, [3, 0, 0]],
+                     [100, [3, 0, 0]], [114, [-1, 0, 0]], [134, [0, 0, 0]]],
+        "Head": [[0, [0, 0, 0]], [4, [0, 0, 0]], [14, [-22, 0, 0]], [112, [-22, 0, 0]], [132, [0, 0, 0]]],
+        "pelvis@loc": [[0, [0, 0, 0]], [6, [0, 0, 0]], [30, [0, 0, 0]], [44, [0, 0.02, -0.04]],
+                       [100, [0, 0.02, -0.04]], [118, [0, 0.01, 0]], [140, [0, 0, 0]]],
+    }
+    for s in "lr":   # arms forward and up (FK), so the IK blend swings rather than slides
+        I[f"upperarm_{s}"] = [[0, [0, 0, 0]], [4, [0, 0, 0]], [14, [-115, 0, 0]], [112, [-115, 0, 0]],
+                              [132, [0, 0, 0]]]
+        I[f"lowerarm_{s}"] = [[0, [0, 0, 0]], [4, [0, 0, 0]], [14, [-30, 0, 0]], [112, [-30, 0, 0]], [132, [0, 0, 0]]]
+    R = {
+        # bends and reaches down at the initiator; yanked forward as its forearms are seized (sync), presses down,
+        # struggles, straightens and steps back when released
+        "spine_01": [[0, [0, 0, 0]], [2, [0, 0, 0]], [16, [13, 0, 0]], [sync, [13, 0, 0]], [22, [17, 0, 0]],
+                     [32, [15, 0, 0]], [106, [15, 0, 0]], [120, [-5, 0, 0]], [140, [0, 0, 0]]],
+        "spine_02": [[0, [0, 0, 0]], [2, [0, 0, 0]], [16, [9, 0, 0]], [sync, [9, 0, 0]], [22, [12, 0, 0]],
+                     [32, [10, 0, 0]], [106, [10, 0, 0]], [120, [-3, 0, 0]], [140, [0, 0, 0]]],
+        "spine_03": [[0, [0, 0, 0]], [2, [0, 0, 0]], [16, [4, 0, 0]], [106, [4, 0, 0]], [124, [0, 0, 0]]],
+        "Head": [[0, [0, 0, 0]], [2, [0, 0, 0]], [16, [16, 0, 0]], [sync, [16, 0, 0]], [21, [4, 0, 0]],
+                 [30, [14, 0, 0]], [106, [14, 0, 0]], [120, [-6, 0, 0]], [140, [0, 0, 0]]],
+        "pelvis@loc": [[0, [0, 0, 0]], [2, [0, 0, 0]], [16, [0, 0, -0.03]], [sync, [0, 0, -0.03]],
+                       [22, [0, -0.01, -0.05]], [32, [0, 0, -0.06]], [106, [0, 0, -0.06]], [122, [0, 0.04, 0]],
+                       [142, [0, 0, 0]]],
+    }
+    for s in "lr":
+        R[f"upperarm_{s}"] = [[0, [0, 0, 0]], [2, [0, 0, 0]], [16, [-40, 0, 0]], [106, [-40, 0, 0]], [124, [0, 0, 0]]]
+        R[f"lowerarm_{s}"] = [[0, [0, 0, 0]], [2, [0, 0, 0]], [16, [-25, 0, 0]], [106, [-25, 0, 0]], [124, [0, 0, 0]]]
+    # square the torsos: Idle_Loop stands turned ~18 deg (left shoulder forward of the right); at 1.8x that
+    # puts one of the receiver's shoulders 0.2 m further away than the other and one contact out of reach
+    for keys, deg, (a0, a1, b0, b1) in ((I, 5.0, (4, 14, 112, 132)), (R, 6.0, (2, 16, 106, 124))):
+        for b in ("spine_01", "spine_02", "spine_03"):
+            keys.setdefault(b, [[0, [0, 0, 0]], [n, [0, 0, 0]]])
+            for k in keys[b]:
+                f = k[0]
+                w = 0.0 if f <= a0 or f >= b1 else 1.0 if a1 <= f <= b0 else \
+                    ((f - a0) / (a1 - a0) if f < a1 else (b1 - f) / (b1 - b0))
+                k[1] = [k[1][0], k[1][1] + deg * w, k[1][2]]
+    env = [[30, 0], [40, 1], [98, 1], [108, 0]]
+    waves = {
+        "initiator": {"spine_02": [{"axis": "yaw", "amp": 5, "period": 26, "phase": 0.55, "env": env}],
+                      "spine_01": [{"axis": "pitch", "amp": 3, "period": 13, "phase": 0.0, "env": env}]},
+        "receiver": {"pelvis": [{"axis": "yaw", "amp": 3, "period": 26, "phase": 0.0, "env": env}],
+                     "spine_01": [{"axis": "yaw", "amp": 4, "period": 26, "phase": 0.05, "env": env}],
+                     "spine_02": [{"axis": "roll", "amp": 3, "period": 13, "phase": 0.0, "env": env}],
+                     "Head": [{"axis": "yaw", "amp": 10, "period": 26, "phase": 0.3, "env": env}]},
+    }
+    ik = []
+    for s, o in (("r", "l"), ("l", "r")):
+        # first: the receiver's hands press on the initiator's shoulders (same side of the gap)
+        ik.append({"name": f"receiver_hand_{s}_on_initiator_shoulder_{o}", "actor": "receiver",
+                   "chain": [f"upperarm_{s}", f"lowerarm_{s}", f"hand_{s}"],
+                   "from": {"bone": f"hand_{s}", "offset": "palm"},
+                   "to": {"actor": "initiator", "bone": f"upperarm_{o}", "frame_bone": f"clavicle_{o}",
+                          "offset": "shoulder_top"},
+                   "influence": rel_r, "pole": [1.0 if s == "l" else -1.0, 0.6, 0.3], "tolerance": 0.05,
+                   "lean": {"bones": ["spine_01", "spine_02", "spine_03"], "max_deg": 60}})
+    for s, o in (("l", "r"), ("r", "l")):
+        # then: the initiator's hands seize the receiver's forearms (the one reaching for its own shoulder)
+        ik.append({"name": f"initiator_hand_{s}_on_receiver_forearm_{o}", "actor": "initiator",
+                   "chain": [f"upperarm_{s}", f"lowerarm_{s}", f"hand_{s}"],
+                   "from": {"bone": f"hand_{s}", "offset": "palm"},
+                   "to": {"actor": "receiver", "bone": f"lowerarm_{o}", "offset": "forearm_mid"},
+                   "influence": rel, "pole": [1.0 if s == "l" else -1.0, 0.3, -1.0], "tolerance": 0.03})
+    return {
+        "entry": "grapple", "variant": "grapple_up", "ratio": [1.18, 2.4],
+        "frames": n, "sync_frame": sync,
+        "actors": {"initiator": {"scale": 1.0, "base": "Idle_Loop", "keys": I, "plant_feet": True},
+                   "receiver": {"scale": rs, "base": "Idle_Loop", "keys": R, "plant_feet": True, "phase": 37}},
+        "alignment": {"offset": d, "yaw_deg": 180.0, "scale_weights": {"initiator": 0.5, "receiver": 0.5},
+                      "warp_frames": 4},
+        "waves": waves, "ik": ik,
+        "exit": {"initiator": {"state": "idle", "frame": n}, "receiver": {"state": "idle", "frame": n}},
+    }
+
+
+RECIPES = {"grapple": lambda: [_grapple("same"), _grapple("big"), _grapple_up()]}
 
 
 # --------------------------------------------------------------------------------------------------
@@ -453,7 +551,7 @@ def _slerp_m(a: np.ndarray, b: np.ndarray, t: float) -> np.ndarray:
 def _offsets() -> dict:
     """{"palm_l", "palm_r", "shoulder_top_l", ..., "forearm_l", ...}: offset vectors in the named bone's
     frame (UAL m). Palm: 60% from the wrist to middle_01, 2 cm to the palm side (UAL's T-pose palms face
-    down). Shoulder top: 7 cm above the shoulder joint, 2.5 cm in, in the clavicle's frame. Forearm: 65%
+    down). Shoulder top: 7 cm above the shoulder joint, 2.5 cm in, in the clavicle's frame. Forearm: 65% (forearm_mid: 45%)
     along the forearm towards the wrist, 3.5 cm up (the back of the forearm)."""
     sk = ual_skel()
     G = sk.fk(sk.local())
@@ -472,6 +570,8 @@ def _offsets() -> dict:
         out[f"shoulder_top_{s}"] = R(f"clavicle_{s}").T @ (p - pos(f"upperarm_{s}"))
         p = pos(f"lowerarm_{s}") + 0.65 * (pos(f"hand_{s}") - pos(f"lowerarm_{s}")) + 0.035 * up
         out[f"forearm_{s}"] = R(f"lowerarm_{s}").T @ (p - pos(f"lowerarm_{s}"))
+        p = pos(f"lowerarm_{s}") + 0.45 * (pos(f"hand_{s}") - pos(f"lowerarm_{s}")) + 0.035 * up
+        out[f"forearm_mid_{s}"] = R(f"lowerarm_{s}").T @ (p - pos(f"lowerarm_{s}"))
     return {k: [round(float(x), 5) for x in v] for k, v in out.items()}
 
 

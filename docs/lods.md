@@ -64,6 +64,47 @@ Quality: LOD1 is indistinguishable at normal viewing distance. LOD2 loses thin s
 feather edges. LOD3 is a silhouette with shards on thin sheets (wings, membranes); use it
 only past about 30 m on screen.
 
+### Rigged LODs (2026-11-08)
+
+The rig stage (`blender_rig.py` finalize, `blender_rig_ual.py`) writes `model_rigged_lod<k>.glb`:
+the static LOD under LOD0's armature with LOD0's skin weights. Every rigged LOD must carry
+`model_rigged.glb`'s skin joints **in the same order** (a glTF skin binds by index, and engines,
+godot-dnd's `Monster` included, bind each LOD to LOD0's skin).
+
+- **Weights, normal-aware** (`tools/blender_lod_weights.py transfer_weights`): each LOD vertex takes
+  the weights of the nearest LOD0 vertices whose normal agrees with its own (dot > 0.3 among the 12
+  nearest; inverse-distance blend of up to 3), at most 4 influences, normalised. Blender's
+  `data_transfer` POLYINTERP_NEAREST (used before) takes the nearest surface point whatever its
+  side: where two sheets touch at rest (an octopus's tentacle tips curled onto its body, a roper's
+  or otyugh's tentacles, an aboleth's) a decimated LOD2/LOD3 vertex of one sheet sat millimetres
+  from the other and got its weights, so it stayed behind or tore when the parts moved apart
+  (octopus LOD2 14 cm, aboleth LOD3 94 cm at p95 under the test pose).
+- **Check / repair** (`tools/relod.py`): `check` compares each rigged LOD with `model_rigged.glb`:
+  the joint list, then the weights: under a test pose (every bone turned 25 deg) each LOD vertex is
+  skinned with its own weights and with the weights of the nearest agreeing LOD0 vertex, at its own
+  rest position; p95 of the difference must stay under 0.1 x p95 of LOD0's displacement + 5 mm.
+  Comparing *displacements* of a LOD vertex and its nearest LOD0 vertex (what godot-dnd's
+  check_monsters.gd did) also measures the decimation: LOD3 vertices sit up to 7-14 cm off the
+  nearest LOD0 vertex on every biped (fingers and robe folds collapse), and a large turn (a death
+  clip, 0.8 m of LOD0 displacement) turns that into "drift" with identical weights: bandit LOD3 read
+  8.7 cm (limit 8.65) with weights that agree to 0.8 cm. `fix <ids>` rebuilds the rigged LODs from
+  the current `model_rigged.glb` without re-rigging: the static `model_lod<k>.glb` with the
+  normal-aware weights, or, when the rig's rest pose was grounded (`manifest.rig.grounded`:
+  `ground_feet` turned chains, so the static LODs no longer match LOD0), LOD0 itself decimated to the
+  LOD's triangle count with the same settings; then the joint nodes and `skin.joints` are put in
+  `model_rigged.glb`'s order (a re-imported armature can export its bones in another order, and
+  Godot builds the skeleton's bone order from the node layout: "LOD1: bone 2 is hind_l_upper, LOD0
+  has spine_01"; `check` compares the node order too). The old files are kept in `~/.cache/monster-forge-scratch/relod/<id>/old/`. Nothing else
+  changes (lods.json, model_lod*.glb, clips, manifest).
+- **Scan 2026-11-08** (315 rigged monsters): 12 affected, all fixed with `relod.py fix`; after it
+  `relod.py check` passes on all 318 rigged monsters and godot-dnd check_monsters.gd on every LOD.
+  Stale skeleton (the rigged LODs came from a different finalize than `model_rigged.glb` and the
+  clips: other joints, e.g. wing or tail chains inserted in one and not the other): bulette (24 vs
+  28 joints), giant-toad (21 vs 54), sphinx-of-wonder (46 vs 44), young-black-dragon (67 vs 50),
+  young-gold-dragon (75 vs 71; grounded, so decimated from LOD0). Weights from the wrong sheet at
+  LOD2/LOD3: octopus, giant-octopus, aboleth, darkmantle, roper, otyugh, giant-fire-beetle. bandit's
+  check_monsters.gd failure was the displacement metric (above), not its weights.
+
 ### Godot 4
 
 Godot 4 already generates LODs on import for every mesh (`meshes/generate_lods`, on by

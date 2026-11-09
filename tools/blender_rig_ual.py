@@ -1209,13 +1209,9 @@ def transfer_lod(path):
         bpy.data.objects.remove(o)
     for i in range(min(len(lod.data.materials), len(ME.data.materials))):
         lod.data.materials[i] = ME.data.materials[i]
-    select(ME, lod)
-    bpy.context.view_layer.objects.active = ME
-    bpy.ops.object.data_transfer(data_type="VGROUP_WEIGHTS", use_create=True, vert_mapping="POLYINTERP_NEAREST",
-                                 layers_select_src="ALL", layers_select_dst="NAME", mix_mode="REPLACE")
-    select(lod)
-    bpy.ops.object.vertex_group_limit_total(group_select_mode="ALL", limit=4)
-    bpy.ops.object.vertex_group_normalize_all(group_select_mode="ALL", lock_active=False)
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import blender_lod_weights  # normal-aware LOD0 -> LOD weights (tools/blender_lod_weights.py)
+    blender_lod_weights.transfer_weights(ME, lod)
     lod.parent = RIG
     lod.matrix_parent_inverse = RIG.matrix_world.inverted()
     lod.modifiers.new("Armature", "ARMATURE").object = RIG

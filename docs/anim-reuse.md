@@ -406,7 +406,8 @@ that IK keeps closed when the actors' proportions differ from the authored ones.
 what the pair means: a grapple, a shove, a swallow, a carry, a mount and a healing touch are all "actors,
 alignment, contacts". Pilot entry: `grapple` (the initiator grabs the receiver's shoulders, the receiver
 jolts on the sync frame, struggles with its hands on the initiator's forearms, staggers when released, both
-end in idle). UAL bipeds only (every one with `anim.ual_shared`: 94 bipeds share the skeleton, so one pair
+end in idle; `grapple_up` for a bigger receiver: the receiver bends and presses down on the initiator's
+shoulders, the initiator reaches up and holds its forearms). UAL bipeds only (every one with `anim.ual_shared`: 94 bipeds share the skeleton, so one pair
 serves every biped pairing); quadruped pairs are not in scope (plan: the same format on the canonical
 quadruped bone names, tools/quadcanon.py, once those clips share a skeleton the way UAL's do).
 
@@ -419,10 +420,10 @@ quadruped bone names, tools/quadcanon.py, once those clips share a skeleton the 
 - `library.json`: the same index as `_shared/ual/library.json` (`clips` {name: {file, frames, seconds, loop,
   paired, role}}) plus `paired` {entry: sidecar}; godot-dnd's `Monster._ual_library()` loads it as is.
 - `<entry>.json`, the sidecar: `roles`, `fps`, `requires` and `variants`, each:
-  - `ratio` [min, max] of receiver hip_scale / initiator hip_scale it was authored for (grapple: 0.75-1.34
+  - `ratio` [min, max] of receiver hip_scale / initiator hip_scale it was authored for (`grapple` 0.75-1.18
     similar size; `grapple_big` 0.42-0.75, the initiator stoops and squats over a receiver about half its
-    size). 5e grapples a creature up to one size larger; a "reach up" variant (> 1.34) is the next one to
-    author. Players pick the variant whose range holds the ratio (0.05 slack) and refuse otherwise.
+    size; `grapple_up` 1.18-2.4, a receiver up to one size larger, as 5e allows). Players pick the variant
+    whose range holds the ratio (0.05 slack) and refuse otherwise.
   - `authored_scale` {role: hip_scale it was authored at}, `clips` {role: library clip}, `frames`,
     `sync_frame` (the frame the contact lands: both clips start together, the receiver's reaction is keyed
     there), `exit` {role: {state: "idle", frame}}.
@@ -476,8 +477,31 @@ gap); `sheet` renders a contact sheet (side + front, 10 frames, skinned LOD0 in 
 itself at the authored scales (the bake with no correction). Results 2026-11-08 (max over full contact,
 after IK): ual:ual 1.0 cm, ual:ual@0.55 0.5 cm, tough:bandit 0.4 cm, bandit:guard 1.2 cm, bandit:tough 0.6 cm, ogre:bandit
 0.9 cm, ogre:tough 0.6 cm; torso capsule gaps >= 0.15 m; godot-dnd tools/check_paired.gd and the viewer agree with it to 0.1 mm.
-Out of range: hill-giant:ogre (ratio 0.75, on the variant edge) misses by 16 cm: the giant's torso front
-keeps the ogre further than a 40 deg lean can reach.
+
+**grapple_up** (authored at receiver 1.8x, 2026-11-08). The contact choice: the receiver's **forearms**, not
+its shoulders or belt. A UAL hand reaches 2.0 m at most (shoulder 1.44 m, arm 0.55 m); a 1.8x receiver's
+shoulder tops are at 2.7 m and even its belt (spine_01, 1.9 m) is out of reach past ratio ~1.9. Forearms
+come down to wherever the initiator is, so they scale: the receiver bends (spine 15/10/4 deg, knees, head
+down) and its hands IK onto the initiator's shoulder tops with a lean of up to 60 deg (the bigger the
+receiver, the further it bends: 0 deg at 1.3-1.8 on real monsters, 44 at ual@2.3); then the initiator's
+hands IK onto the receiver's forearms (`forearm_mid`, 45% from elbow to wrist, back of the forearm). The
+contact list puts the receiver's contacts first: every runtime solves contacts in list order, so the
+initiator's hands follow the receiver's IK'd forearms (no runtime change). The initiator lets go (frame
+104-116) before the receiver lifts its arms (106-118). Both torsos are squared (spine yaw +5/+6 deg x 3):
+Idle_Loop stands turned ~18 deg, which at 1.8x put one receiver shoulder 0.2 m further than the other.
+Results (max over full contact, after IK; numpy, godot and the viewer agree to 0.1 mm): ual:ual@1.8 0.8 cm,
+ual@1.25 0.8, ual@2.3 3.0, ual@2.4 2.9; tough:ogre (1.57) 1.3, bandit:ogre (1.82) 2.8, guard:troll (1.76) 0.6,
+priest:troll (2.04) 0.6, tough:minotaur-of-baphomet (1.24) 0.4, bandit:tough-boss (1.28) 0.6; torso gaps
+>= 0.08 m. Out of reach: **tough:hill-giant** (2.10, misses 45-51 cm): the hill giant is Huge (two sizes
+up from Medium, which 5e does not allow), its arms are short inside its cloak and its belly (torso front
+0.79 m) keeps the tough 1.0 m away, so its hands cannot come down to the tough's shoulders even at 60
+deg; the tough reaches its thighs. Likewise tough:fire-giant (2.24, 22-55 cm).
+**Range edges** (2026-11-08): `grapple` was 0.75-1.34 but fails past ~1.2 (the lean saturates at 40 deg
+and the torsos meet: tough:minotaur-of-baphomet 1.24 34 cm, tough:horned-devil 1.28 12 cm,
+tough:stone-golem 1.33 69 cm), where grapple_up passes, so the boundary is 1.18. hill-giant:ogre (ratio
+0.75, `grapple_big`) missed by 16 cm with a 40 deg lean (the giant's 0.79 m belly keeps the ogre 1.08 m
+off); grapple_big's lean max is now 55 deg: 1.7 cm, torso gap 3 mm (lean is runtime only, the clips are
+unchanged).
 
 **Adding an entry** (shove, swallow, tentacle or claw grab, carry, mount, healing touch):
 1. Write `_<entry>(variant)` in tools/paired.py returning the recipe (same keys as `_grapple`): actors

@@ -135,8 +135,9 @@ def clamp_metallic(materials) -> None:
 
 
 def transfer(lod_path: str):
-    """Import a static LOD and give it LOD0's weights (nearest surface point, at most 4
-    influences, normalised) under the one armature; returns the LOD object (export_lod)."""
+    """Import a static LOD and give it LOD0's weights (nearest LOD0 vertices whose normal agrees,
+    at most 4 influences, normalised: tools/blender_lod_weights.py) under the one armature; returns
+    the LOD object (export_lod)."""
     before = set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=lod_path)
     lod = next(o for o in bpy.data.objects if o not in before and o.type == "MESH")
@@ -144,13 +145,8 @@ def transfer(lod_path: str):
         bpy.data.objects.remove(o)
     for i in range(min(len(lod.data.materials), len(me.data.materials))):
         lod.data.materials[i] = me.data.materials[i]  # LOD0's material, so the name matches (docs/lods.md)
-    select(me, lod)
-    bpy.context.view_layer.objects.active = me
-    bpy.ops.object.data_transfer(data_type="VGROUP_WEIGHTS", use_create=True, vert_mapping="POLYINTERP_NEAREST",
-                                 layers_select_src="ALL", layers_select_dst="NAME", mix_mode="REPLACE")
-    select(lod)
-    bpy.ops.object.vertex_group_limit_total(group_select_mode="ALL", limit=4)
-    bpy.ops.object.vertex_group_normalize_all(group_select_mode="ALL", lock_active=False)
+    import blender_lod_weights  # was data_transfer POLYINTERP_NEAREST: wrong sheet where parts touch
+    blender_lod_weights.transfer_weights(me, lod)
     lod.parent = arm
     lod.modifiers.new("Armature", "ARMATURE").object = arm
     return lod
@@ -506,6 +502,17 @@ def quality() -> dict:
 
 UPRIGHT = {"biped", "winged_biped", "centauroid", "merfolk_naga", "floating"}
 HORIZONTAL = {"quadruped", "winged_quadruped", "avian", "insectoid", "serpentine", "aquatic"}
+# Horizontal bodies (docs/rig-anim.md "Facing check"): a second mirror scan on the lower half of
+# the height (legs, belly, a low head, the tail), used when it disagrees with the full scan by
+# MIRROR_BAND_APART+ deg and is the more decisive one. Above it a dragon's wings, one raised and
+# one spread, broke the left/right mirror so the plane across the body won (adult-red-dragon 86.5 deg, adult/ancient brass 71.5/78, ancient-white 84.5,
+# young-bronze 84; all face front), and a weasel lying in a shallow C (head swung to one side) is
+# more mirror-symmetric across its chord than along it (94). Not used alone: cutting a deer's head
+# off leaves a box of legs that mirrors both ways (giant-elk read 96.5), and a curled tail pulls it
+# (ancient-black 30). Not serpentine (advisory: coils) nor aquatic (a turtle's flippers).
+MIRROR_BAND = 0.5
+MIRROR_BAND_APART = 45
+MIRROR_BAND_PLANS = {"quadruped", "winged_quadruped", "avian", "insectoid"}
 SIGN_MIN = 0.2  # a head-end cue below this does not vote
 # How the head end is named (docs/rig-anim.md "Facing check"). Each cue gives a sign along
 # the mirror axis and a confidence 0..1; the head end is known when two cues agree (no
@@ -588,9 +595,37 @@ def facing() -> dict:
         tree.insert(p, i)
     tree.balance()
     # coarse scan of the symmetry plane over 180 degrees, then refine around the best
-    errs = {phi: mirror_error(cen, area, pick, tree, phi, h)[0] for phi in range(-90, 90, 3)}
+    mc, ma, mp, mt = cen, area, pick, tree
+    errs = {phi: mirror_error(mc, ma, mp, mt, phi, h)[0] for phi in range(-90, 90, 3)}
+    basis = "full"
+    band_note = None
+    if plan in MIRROR_BAND_PLANS:
+        # second scan on the lower band (wings and a raised tail left out); it replaces the full
+        # scan only when the two disagree by 45+ deg and the band is the more decisive one: its
+        # best plane beats the full scan's best by a larger factor than the other way round, and
+        # it stands out more from a typical plane (contrast)
+        low = np.nonzero(cen[:, 2] < z0 + MIRROR_BAND * h)[0]
+        bc, ba = cen[low], area[low]
+        bp = np.searchsorted(low, pick[np.isin(pick, low)])
+        bt = KDTree(len(bc))
+        for i, p in enumerate(bc):
+            bt.insert(p, i)
+        bt.balance()
+        errs_b = {phi: mirror_error(bc, ba, bp, bt, phi, h)[0] for phi in range(-90, 90, 3)}
+        fb, bb = min(errs, key=errs.get), min(errs_b, key=errs_b.get)
+        near = lambda d, x: min(d.items(), key=lambda kv: abs((kv[0] - x + 90) % 180 - 90))[1]  # noqa: E731
+        r_full, r_band = near(errs, bb) / errs[fb], near(errs_b, fb) / errs_b[bb]
+        c_full = 1.0 - errs[fb] / float(np.median(list(errs.values())))
+        c_band = 1.0 - errs_b[bb] / float(np.median(list(errs_b.values())))
+        apart = abs((fb - bb + 90) % 180 - 90)
+        band_note = {"band_axis_deg": bb, "full_axis_deg": fb, "apart_deg": apart,
+                     "ratio_full": round(r_full, 3), "ratio_band": round(r_band, 3),
+                     "contrast_full": round(c_full, 3), "contrast_band": round(c_band, 3)}
+        if apart >= MIRROR_BAND_APART and r_band > r_full and c_band > c_full:
+            basis = "lower_band"
+            mc, ma, mp, mt, errs = bc, ba, bp, bt, errs_b
     phi0 = min(errs, key=errs.get)
-    fine = {phi0 + d: mirror_error(cen, area, pick, tree, phi0 + d, h) for d in np.arange(-3, 3.01, 0.5)}
+    fine = {phi0 + d: mirror_error(mc, ma, mp, mt, phi0 + d, h) for d in np.arange(-3, 3.01, 0.5)}
     phi = float(min(fine, key=lambda k: fine[k][0]))
     e_best, offset = fine[phi]
     e_med = float(np.median(list(errs.values())))
@@ -605,6 +640,7 @@ def facing() -> dict:
     side = cen @ lat - offset
     out = {"plan": plan, "symmetry_error": round(e_best, 4), "symmetry_error_median": round(e_med, 4),
            "symmetry_contrast": round(contrast, 3), "axis_deg": round(phi, 1),
+           "mirror_basis": basis, **({"mirror_band": band_note} if band_note else {}),
            "scan": {int(k): round(v, 4) for k, v in errs.items()}}
     # second opinion for legged horizontal bodies: the long axis of the ground footprint
     low = cen[:, 2] < z0 + 0.04 * h
@@ -973,10 +1009,69 @@ def fallback_chain(nb: int) -> dict:
         a0, b0 = segs[k]
         ab = b0 - a0
         x[i] = k + float(np.clip((P[i] - a0) @ ab / max(float(ab @ ab), 1e-12), 0, 1))
-    _build(me, joints, parents, names, _lin_weights(x[inv], nb))
-    return {"bones": nb, "length_m": round(L, 3), "root": names[m], "head_end": "b" if head_b else "a",
-            "ends": ends, "loose_verts": int((~main).sum()), "tube_radius_m": round(r, 3),
-            "reassigned_verts": int(far.sum())}
+    weights = _lin_weights(x[inv], nb)
+    wings = _chain_wings(P, inv, segs, dist, r, joints, parents, names, weights) if job.get("wings") else None
+    _build(me, joints, parents, names, weights)
+    rep = {"bones": nb, "length_m": round(L, 3), "root": names[m], "head_end": "b" if head_b else "a",
+           "ends": ends, "loose_verts": int((~main).sum()), "tube_radius_m": round(r, 3),
+           "reassigned_verts": int(far.sum())}
+    if wings is not None:
+        rep["wings"] = wings
+    return rep
+
+
+WING_BONES = 3
+
+
+def _chain_wings(P, inv, segs, dist, r, joints, parents, names, weights) -> dict:
+    """Winged serpents (couatl, flying snake; rig strategy `wings`): the surface standing well clear of
+    the body tube and above it is wing. Per side (x of the vertex against the nearest chain point): a
+    WING_BONES chain wing_<s>_01.. from the wing's base (the centroid of its vertices nearest the body)
+    to its farthest vertex, parented to the body bone under the base; its vertices weighted along that
+    line, blended into the body bone over the first 1.5 tube radii out (the chain's own weights are
+    scaled down by the wing share). Appends to joints / parents / names / weights in place."""
+    nb0 = len(names)
+    k = np.argmin(dist, axis=1)
+    dmin = dist[np.arange(len(P)), k]
+    a0 = np.array([segs[i][0] for i in k])
+    b0 = np.array([segs[i][1] for i in k])
+    ab = b0 - a0
+    tt = np.clip(np.einsum("ij,ij->i", P - a0, ab) / np.maximum(np.einsum("ij,ij->i", ab, ab), 1e-12), 0, 1)
+    near = a0 + ab * tt[:, None]
+    cand = (dmin > 1.5 * r) & (P[:, 2] > near[:, 2] + r)
+    share = np.clip((dmin - 1.5 * r) / (1.5 * r), 0, 1)
+    out = {}
+    total = np.zeros(len(P))
+    adds = []
+    for s, sgn in (("r", 1), ("l", -1)):
+        sel = cand & (np.sign(P[:, 0] - near[:, 0]) == sgn)
+        if sel.sum() < 0.02 * len(P):
+            continue
+        idx = np.nonzero(sel)[0]
+        base_idx = idx[dmin[idx] <= np.quantile(dmin[idx], 0.15)]
+        root = P[base_idx].mean(0)
+        tip = P[idx[np.argmax(np.linalg.norm(P[idx] - root, axis=1))]]
+        L = float(np.linalg.norm(tip - root))
+        if L < 2 * r:
+            continue
+        par = int(np.bincount(k[base_idx], minlength=len(segs)).argmax())
+        u = np.clip((P - root) @ (tip - root) / (L * L), 0, 1)
+        pts = [root + (tip - root) * i / WING_BONES for i in range(WING_BONES + 1)]
+        w_side = np.where(sel, share, 0.0)
+        lw = _lin_weights(u * WING_BONES, WING_BONES)
+        for i in range(WING_BONES):
+            joints.append((pts[i], pts[i + 1]))
+            parents.append(par if i == 0 else len(names) - 1)
+            names.append(f"wing_{s}_{i + 1:02d}")
+            adds.append((len(names) - 1, (lw[i] * w_side)[inv]))
+        total += w_side
+        out[s] = {"verts": int(sel.sum()), "length_m": round(L, 3), "parent": names[par]}
+    keep = (1 - total)[inv]
+    for i in range(nb0):
+        weights[i] = weights[i] * keep
+    for i, w in adds:
+        weights[i] = w
+    return out
 
 
 def fallback_vertical(nb: int) -> dict:

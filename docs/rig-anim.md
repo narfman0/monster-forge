@@ -89,6 +89,26 @@ Blender (glTF -Z) gets a scrambled skeleton:
 - **Body axis:** the vertical plane the surface is most mirror-symmetric about (scan over
   180 degrees, refined to 0.5). Paired wings, legs and horns vote for the true axis instead
   of pulling it sideways, which is what fooled QA's footprint PCA on the dragon.
+- **Lower-band second scan** (quadruped, winged_quadruped, avian, insectoid; 2026-11-08): the
+  same scan on the surface below half the height (legs, belly, a low head, the tail). It replaces
+  the full scan only when the two axes are 45+ deg apart **and** the band is the more decisive
+  one: its best plane beats the full scan's best by a larger factor than the reverse
+  (`ratio_band` > `ratio_full`) and it stands out more from a typical plane (`contrast_band` >
+  `contrast_full`). `facing.json` records `mirror_basis` (`full` | `lower_band`) and `mirror_band`
+  (both axes and the four numbers). Why: wings posed asymmetrically (one raised, one spread)
+  break the left/right mirror so the plane *across* the body won: adult-red-dragon 86.5 deg,
+  adult/ancient brass 71.5/78, ancient-white 84.5, young-bronze 84 (all face front); and a weasel
+  lying in a shallow C (head swung to one side) is more symmetric across its chord than along it
+  (94). Not the band alone: a deer cut at mid-height is a box of four legs that mirrors both ways
+  (giant-elk read 96.5), a curled tail pulls it (ancient-black 30), birds' and spiders' legs and
+  folded wings spread sideways (wyvern, crab). A bend-tolerant scan (each slice along the axis
+  mirrored about its own centre) fixed the crocodiles but read giant-elk at 51 and
+  saber-toothed-tiger at 36, so it was dropped. Run on all 147 horizontal-plan meshes (old
+  verdict from the stored facing.json vs the new code): 7 changed, all to the right answer
+  (adult-red-dragon, weasel, ancient-brass, ancient-white, young-bronze, giant-scorpion now pass;
+  adult-brass refused -> ok/unverified, one head-end cue), none of the others moved. Still
+  refused although they face front: crocodile (89.5) and giant-crocodile (92): the band does not
+  decide for them (the full scan is as decisive), and their `rig_facing_check` stays false.
 - **Head end:** named by cues, each a sign along the axis with a confidence 0..1
   (`blender_rig.HEAD_CUES`, `rig/facing.json` `cues`):
   - `high_centre_end`: more surface in the top 40% of the height near the centre plane at
