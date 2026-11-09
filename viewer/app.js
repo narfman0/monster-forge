@@ -56,6 +56,8 @@ const state = {
   ov: null,            // GET /api/override/<id> payload for the selected monster
   props: {},           // static mode: props.json records by id (grip_socket, dir, ...)
   tags: urlTags(),     // selected tag filter (AND), mirrored in ?tag=a,b
+  // review mode (tools/viewer.py --review): enabled when GET /api/review answers; data = {id: review}
+  rv: { enabled: false, on: false, data: {}, focus: 'ref', chain: Promise.resolve(), saving: 0 },
 };
 
 // ------------------------------------------------------------------ three.js scene
@@ -1010,6 +1012,7 @@ function updateTimeUI() {
 function highlightClip() {
   [...$('clips').children].forEach((li, i) => li.classList.toggle('sel', i === view.clipIdx));
   [...$('anim-bar').children].forEach((b) => b.classList.toggle('on', Number(b.dataset.clip) === view.clipIdx));
+  if (state.rv.on) renderReview();
 }
 
 // Toolbar selector: the animation_set in order (missing clips greyed), then any other clip.
@@ -1444,6 +1447,10 @@ function fillFilters(idx) {
   for (const s of STAGES) stage.append(el('option', { value: `no:${s}`, textContent: `missing ${s}` }));
   stage.append(el('option', { value: 'anim-incomplete', textContent: 'anim set incomplete' }));
   stage.append(el('option', { value: 'errors', textContent: 'has errors' }));
+  if (state.rv.enabled) {
+    for (const [v, t] of [['rv:none', 'review: no verdict'], ['rv:incomplete', 'review: not complete'],
+      ['rv:bad', 'review: any bad'], ['rv:done', 'review: complete']]) stage.append(el('option', { value: v, textContent: t }));
+  }
   plans.value = keepPlan; sizes.value = keepSize; stage.value = keepStage;
   if (STATIC) fillStaticFilters(idx);
 }
@@ -1481,6 +1488,13 @@ function matches(m) {
     if (kind === 'no' && m.stages[s]) return false;
     if (st === 'anim-incomplete' && m.anim_complete) return false;
     if (st === 'errors' && !m.errors) return false;
+    if (kind === 'rv') {
+      const rv = state.rv.data[m.id];
+      if (s === 'none' && rvStarted(rv)) return false;
+      if (s === 'incomplete' && rvComplete(m)) return false;
+      if (s === 'done' && !rvComplete(m)) return false;
+      if (s === 'bad' && !rvBad(rv).length) return false;
+    }
   }
   for (const t of state.tags) if (!tagsOf(m).includes(t)) return false;
   if (q) {
@@ -1506,6 +1520,7 @@ function applyFilters() {
     if (m.has_override) nm.append(el('span', { className: 'ov', textContent: '✎', title: 'has overrides' }));
     const js = state.jobs[m.id] || m.job;
     if (js) nm.append(el('span', { className: `job ${js}`, title: `re-run ${js}` }));
+    if (state.rv.enabled) nm.append(rvBadge(m));
     const li = el('li', { className: m.id === state.selId ? 'sel' : '' }, th,
       el('div', {}, nm,
         el('div', { className: 'sub', textContent: `${STATIC ? m.type : m.body_plan} · ${m.size} · CR ${m.cr}` })), dots);
@@ -1514,6 +1529,7 @@ function applyFilters() {
     frag.append(li);
   }
   ul.append(frag);
+  if (state.rv.on) rvProgress();  // the review strip counts the list as filtered
 }
 
 // ------------------------------------------------------------------ tag facet (docs/tags.md)
@@ -1628,6 +1644,7 @@ function select(id) {
   renderSide(entry);
   loadOverrides(entry.id);
   renderJob();
+  if (state.rv.on) { if (id !== state.rv.last) state.rv.focus = 'ref'; state.rv.last = id; renderReview(); }
 }
 
 function move(step) {
@@ -1738,6 +1755,11 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { $('lightbox').classList.add('hidden'); $('lod-settings').classList.add('hidden'); if (typing) e.target.blur(); return; }
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key;
+  if (state.rv.enabled && (k === 'r' || (state.rv.on && reviewKey(k)))) {
+    if (k === 'r') setReview(!state.rv.on);
+    e.preventDefault();
+    return;
+  }
   if (k === 'j' || k === 'ArrowDown') move(1);
   else if (k === 'k' || k === 'ArrowUp') move(-1);
   else if (k === ' ') togglePlay();
@@ -1762,6 +1784,7 @@ window.addEventListener('hashchange', () => { const id = decodeURIComponent(loca
 window.addEventListener('focus', async () => {
   if (!state.index || STATIC) return;  // a published index does not change under the page
   const before = JSON.stringify(state.index.monsters.find((m) => m.id === state.selId));
+  if (state.rv.enabled) await loadReviews();
   await refreshIndex();
   const after = state.index.monsters.find((m) => m.id === state.selId);
   if (after && JSON.stringify(after) !== before) select(after.id);
@@ -2008,6 +2031,7 @@ refreshIndex().then((idx) => {
   const first = idx.monsters.find((m) => m.id === want) || idx.monsters.find((m) => m.stages.qa) || idx.monsters[0];
   if (first) select(first.id);
   pollJobs();
+  if (!STATIC) loadReviews().then(() => { if (state.rv.enabled) { fillFilters(state.index); applyFilters(); } });
 });
 
 // ------------------------------------------------------------------ paired animations
@@ -2420,6 +2444,248 @@ window.__viewer = { THREE, scene, view, state, camera, controls, pair: { start: 
 for (const b of document.querySelectorAll('#tabs button')) {
   b.addEventListener('click', () => {
     document.body.classList.toggle('tab-info', b.dataset.tab === 'info');
+    document.body.classList.toggle('tab-review', b.dataset.tab === 'review');
     for (const o of document.querySelectorAll('#tabs button')) o.classList.toggle('on', o === b);
   });
 }
+
+// ------------------------------------------------------------------ review mode (viewer/README.md "Review mode")
+// With tools/viewer.py --review, GET /api/review answers and the page offers review mode: thumbs up / down
+// for the reference, mesh, paint and rig and for every clip, plus a note, saved at once through
+// POST /api/review/<id> into the `review` key of data/overrides/<source>/<id>.json (tools/review.py
+// reads them: report, ids --bad <aspect> for re-rolls). Without the flag (the LAN instance, static mode)
+// none of it shows.
+const RV_ASPECTS = ['ref', 'mesh', 'paint', 'rig'];
+const RV_LABEL = { ref: 'reference', mesh: 'mesh', paint: 'paint', rig: 'rig' };
+async function loadReviews() {
+  if (STATIC) return;
+  try {
+    const r = await fetch('/api/review', { cache: 'no-store' });
+    if (!r.ok) return;
+    const res = await r.json();
+    if (!res.enabled) return;
+    // keep local verdicts a save is still carrying
+    state.rv.data = state.rv.saving ? { ...res.reviews, ...state.rv.data } : (res.reviews || {});
+    if (!state.rv.enabled) {
+      state.rv.enabled = true;
+      $('b-review').classList.remove('hidden');
+      if (LS.get('review', false) || new URLSearchParams(location.search).get('review') === '1') setReview(true);
+    }
+    if (state.rv.on) renderReview();
+  } catch { /* no review mode */ }
+}
+// what can be judged on a monster: the aspects whose stage is done, the clips found (animation_set order first)
+function rvClips(m) {
+  const found = m.found_clips || [], exp = m.expected_clips || [];
+  return [...exp.filter((c) => found.includes(c)), ...found.filter((c) => !exp.includes(c))];
+}
+function rvAspects(m) { return RV_ASPECTS.filter((a) => m.stages?.[a]); }
+const rvStarted = (rv) => !!rv && (RV_ASPECTS.some((a) => rv[a]) || Object.keys(rv.clips || {}).length > 0 || !!rv.note);
+function rvComplete(m) {
+  const rv = state.rv.data[m.id];
+  return !!rv && rvAspects(m).every((a) => rv[a]) && rvClips(m).every((c) => rv.clips?.[c]);
+}
+function rvBad(rv) {
+  if (!rv) return [];
+  return [...RV_ASPECTS.filter((a) => rv[a] === 'bad'), ...Object.entries(rv.clips || {}).filter(([, v]) => v === 'bad').map(([c]) => c)];
+}
+function rvBadge(m) {
+  const rv = state.rv.data[m.id];
+  const bad = rvBad(rv), done = rvComplete(m);
+  const cls = !rvStarted(rv) ? 'none' : bad.length ? 'bad' : done ? 'ok' : 'part';
+  const title = cls === 'none' ? 'not reviewed' : bad.length ? `review: bad ${bad.join(', ')}${done ? '' : ' (not complete)'}`
+    : done ? 'review: complete, all ok' : 'review: started';
+  return el('span', { className: `rv rvb-${cls}`, title });
+}
+function setReview(on) {
+  if (!state.rv.enabled) return;
+  state.rv.on = on;
+  LS.set('review', on);
+  document.body.classList.toggle('rv-on', on);
+  $('b-review').classList.toggle('on', on);
+  $('review-panel').classList.toggle('hidden', !on);
+  $('tab-review').classList.toggle('hidden', !on);
+  if (on) {
+    if (getComputedStyle($('tabs')).display !== 'none') $('tab-review').click();  // phone: show the panel
+    renderReview();
+  } else if (document.body.classList.contains('tab-review')) $('tab-list').click();
+}
+function rvFocusClip() {
+  const c = view.clips[view.clipIdx];
+  const m = view.entry;
+  return c && m && m.id === state.selId && rvClips(m).includes(c.clip.name) ? c.clip.name : null;
+}
+function rvProgress() {
+  const all = state.index.monsters, list = state.filtered;
+  const done = (ms) => ms.filter(rvComplete).length, started = (ms) => ms.filter((m) => rvStarted(state.rv.data[m.id])).length;
+  const n = list.length, d = done(list), st = started(list);
+  $('rv-progress').querySelector('.done').style.width = `${(100 * d) / Math.max(n, 1)}%`;
+  $('rv-progress').querySelector('.part').style.width = `${(100 * (st - d)) / Math.max(n, 1)}%`;
+  const filtered = n !== all.length;
+  const tags = state.tags.size ? ` (tags: ${[...state.tags].join(', ')})` : '';
+  $('rv-count').textContent = `${d} / ${n} reviewed${filtered ? ' in the list' + tags : ''}, ${st - d} started`
+    + (filtered ? ` · all: ${done(all)} / ${all.length}` : '');
+}
+function renderReview() {
+  if (!state.rv.on || !state.index) return;
+  rvProgress();
+  const m = state.index.monsters.find((x) => x.id === state.selId);
+  if (!m) return;
+  const rv = state.rv.data[m.id] || {};
+  $('rv-name').textContent = m.name || m.id;
+  const clipNow = rvFocusClip();
+  const row = (key, label, val, aspect, applicable, onFocus, extra) => {
+    const focus = state.rv.focus === aspect && (aspect !== 'clip' || label === clipNow);
+    const b = (v, txt) => {
+      const btn = el('button', { type: 'button', className: `rv-b rv-${v}` + (val === v ? ' on' : ''), textContent: txt,
+        title: `${label}: ${v} (${v === 'ok' ? 'j' : 'k'}; again clears)`, disabled: !applicable });
+      btn.onclick = (e) => { e.stopPropagation(); onFocus(); rvVerdict(v); };
+      return btn;
+    };
+    const r = el('div', { className: 'rv-row' + (focus ? ' focus' : '') + (applicable ? '' : ' na') + (val ? ` v-${val}` : '') },
+      el('span', { className: 'rv-key', textContent: key }), el('span', { className: 'rv-label', textContent: label }, extra),
+      b('ok', '▲ ok'), b('bad', '▼ bad'));
+    r.onclick = () => { onFocus(); renderReview(); };
+    return r;
+  };
+  const asp = $('rv-aspects');
+  asp.replaceChildren();
+  const can = rvAspects(m);
+  RV_ASPECTS.forEach((a, i) => {
+    let extra = null;
+    if (a === 'ref' && m.files?.ref) {
+      const img = el('img', { className: 'rv-thumb', src: m.dir + m.files.ref, alt: 'reference', title: 'reference image (click to enlarge)' });
+      img.onclick = (e) => { e.stopPropagation(); $('lightbox').querySelector('img').src = img.src; $('lightbox').classList.remove('hidden'); };
+      extra = img;
+    }
+    if (!can.includes(a)) extra = el('small', { className: 'muted', textContent: ' (stage not done)' });
+    asp.append(row(String(i + 1), RV_LABEL[a], rv[a], a, can.includes(a), () => { state.rv.focus = a; }, extra));
+  });
+  const box = $('rv-clips');
+  box.replaceChildren();
+  const clips = rvClips(m);
+  if (!clips.length) box.append(el('div', { className: 'muted', textContent: 'no clips' }));
+  for (const c of clips) {
+    const i = view.clips.findIndex((x) => x.ok && x.clip.name === c);
+    const extra = (m.expected_clips || []).includes(c) ? null : el('small', { className: 'muted', textContent: ' extra' });
+    box.append(row(c === clipNow ? '5' : '', c, rv.clips?.[c], 'clip', true, () => {
+      state.rv.focus = 'clip';
+      if (i >= 0 && view.clipIdx !== i) playClip(i);
+    }, extra));
+  }
+  const note = $('rv-note');
+  if (document.activeElement !== note || note.dataset.id !== m.id) {
+    note.value = rv.note || '';
+    note.dataset.id = m.id;
+  }
+}
+// key handling while review mode is on (true = consumed)
+function reviewKey(k) {
+  const m = state.index && state.index.monsters.find((x) => x.id === state.selId);
+  if (!m) return false;
+  if (k >= '1' && k <= '4') { state.rv.focus = RV_ASPECTS[Number(k) - 1]; renderReview(); return true; }
+  if (k === '5') { rvToClip(m, false); renderReview(); return true; }
+  if (k === 'j') { rvVerdict('ok'); return true; }
+  if (k === 'k') { rvVerdict('bad'); return true; }
+  if (k === 'x') { rvVerdict(null); return true; }
+  if (k === 'n') { $('rv-note').focus(); return true; }
+  if (k === ']') { move(1); return true; }
+  if (k === '[') { move(-1); return true; }
+  if (k === 'u') { rvNextUnreviewed(); return true; }
+  if (k === '.' || k === ',') { nextClip(k === '.' ? 1 : -1); state.rv.focus = 'clip'; renderReview(); return true; }
+  return false;
+}
+// focus the clip aspect: the playing clip, else (or with unjudged) the first clip without a verdict
+function rvToClip(m, unjudged) {
+  state.rv.focus = 'clip';
+  const rv = state.rv.data[m.id] || {};
+  const cur = rvFocusClip();
+  if (cur && !(unjudged && rv.clips?.[cur])) return true;
+  const clips = rvClips(m);
+  const start = cur ? clips.indexOf(cur) + 1 : 0;
+  const order = [...clips.slice(start), ...clips.slice(0, start)];
+  const next = order.find((c) => !rv.clips?.[c] && view.clips.some((x) => x.ok && x.clip.name === c));
+  const pick = next || (unjudged ? null : order.find((c) => view.clips.some((x) => x.ok && x.clip.name === c)));
+  if (!pick) return false;
+  playClip(view.clips.findIndex((x) => x.ok && x.clip.name === pick));
+  return true;
+}
+function rvVerdict(v) {
+  const m = state.index.monsters.find((x) => x.id === state.selId);
+  if (!m) return;
+  const rv = structuredClone(state.rv.data[m.id] || {});
+  const f = state.rv.focus;
+  let target;
+  if (f === 'clip') {
+    target = rvFocusClip();
+    if (!target) { $('rv-save').textContent = ' play a clip first (5 or , .)'; return; }
+    rv.clips = rv.clips || {};
+    if (v === null || rv.clips[target] === v) delete rv.clips[target]; else rv.clips[target] = v;
+  } else {
+    if (!rvAspects(m).includes(f)) { $('rv-save').textContent = ` ${f}: stage not done`; return; }
+    if (v === null || rv[f] === v) delete rv[f]; else rv[f] = v;
+  }
+  const set = f === 'clip' ? rv.clips[target] : rv[f];
+  rvSave(m.id, rv);
+  if (set) {  // move on: the next aspect not judged yet, then the clips one by one
+    if (f !== 'clip') {
+      const nextA = rvAspects(m).slice(rvAspects(m).indexOf(f) + 1).find((a) => !rv[a]);
+      if (nextA) state.rv.focus = nextA; else rvToClip(m, true);
+    } else rvToClip(m, true);
+  }
+  renderReview();
+  applyFilters();
+}
+function rvSave(id, rv) {
+  const body = { ...rv };
+  delete body.date;
+  state.rv.data[id] = rv;
+  state.rv.saving++;
+  $('rv-save').textContent = ' saving…';
+  state.rv.chain = state.rv.chain.then(async () => {
+    try {
+      const r = await fetch(`/api/review/${encodeURIComponent(id)}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const res = await r.json();
+      if (!r.ok) throw new Error((res.details || [res.error]).join('; '));
+      if (state.rv.data[id] === rv) {  // no newer local edit since
+        if (Object.keys(res.review).length) state.rv.data[id] = res.review; else delete state.rv.data[id];
+      }
+      $('rv-save').textContent = ` saved ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    } catch (err) {
+      $('rv-save').textContent = ' NOT saved: ' + err.message;
+    } finally {
+      state.rv.saving--;
+    }
+  });
+  return state.rv.chain;
+}
+function rvSaveNote() {
+  const note = $('rv-note'), id = note.dataset.id;
+  if (!id) return;
+  const rv = structuredClone(state.rv.data[id] || {});
+  const v = note.value.trim();
+  if ((rv.note || '') === v) return;
+  if (v) rv.note = v; else delete rv.note;
+  rvSave(id, rv);
+  applyFilters();
+}
+function rvNextUnreviewed() {
+  const list = state.filtered;
+  if (!list.length) return;
+  const i = list.findIndex((m) => m.id === state.selId);
+  for (let k = 1; k <= list.length; k++) {
+    const m = list[(i + k + list.length) % list.length];
+    if (!rvComplete(m)) { select(m.id); state.rv.focus = 'ref'; renderReview(); return; }
+  }
+  $('rv-save').textContent = ' every monster in the list is reviewed';
+}
+$('b-review').onclick = () => setReview(!state.rv.on);
+$('rv-prev').onclick = () => move(-1);
+$('rv-next').onclick = () => move(1);
+$('rv-unrev').onclick = rvNextUnreviewed;
+$('rv-note').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); rvSaveNote(); e.target.blur(); }
+});
+$('rv-note').addEventListener('blur', rvSaveNote);
+window.__viewer.review = { load: loadReviews, set: setReview, verdict: rvVerdict, key: reviewKey, complete: rvComplete };

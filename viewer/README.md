@@ -6,6 +6,7 @@ Local progress dashboard and asset/animation viewer. No build step, no framework
 python3 -I tools/viewer.py                 # http://127.0.0.1:8787/, opens a browser
 python3 -I tools/viewer.py --port 9000 --source srd-5.2.1 --no-open
 python3 -I tools/viewer.py --port 8790 --no-open --out-root out/_viewtest   # test tree
+python3 -I tools/viewer.py --host 0.0.0.0 --port 8788 --review --no-open     # review mode, from the LAN too
 ```
 
 `tools/viewer.py` (stdlib only) serves:
@@ -20,6 +21,9 @@ python3 -I tools/viewer.py --port 8790 --no-open --out-root out/_viewtest   # te
 | `POST /api/run/<id>` | `{"stages": ["qa", "paint", "lod"], "force": true}`: queue `forge.py run <id> --stages ... --force` (stages: ref, mesh, qa, paint, lod, rig, anim) |
 | `GET /api/jobs[?id=<id>&tail=N]` | queue and recent jobs: status (`queued`, `running`, `done`, `failed`, `cancelled`), rc, times, log tail |
 | `POST /api/jobs/<n>/cancel` | drop a queued job or terminate the running forge process |
+| `GET /api/review` | `--review` only: `{enabled, source, date, aspects, verdicts, reviews: {<id>: review}}`, every stored verdict (Review mode, below) |
+| `GET /api/review/<id>` | `--review` only: `{id, review}` |
+| `POST /api/review/<id>` | `--review` only: the review object (no `date`; `null`/missing = untouched); validated, dated today, written into the `review` key of `data/overrides/<source>/<id>.json`; replies `{id, review}` (`{}` = removed) |
 | `GET /api/download` | every rigged monster: `{monsters: {<id>: {files, bytes, zip}}, zip_all}` |
 | `GET /api/download/<id>` | one monster's game files: `{id, zip, files: [{name, url, bytes}]}` (urls under `/out/`) |
 | `GET /api/download/<id>.zip` | those files as one zip, folder `<id>/`: `model_rigged.glb`, `model_rigged_lod*.glb`, `anims/*.glb` + `*.json`, `manifest.json`, `lods.json` (what godot-dnd's `sync_monsters.py` reads) |
@@ -38,7 +42,9 @@ The server binds 127.0.0.1 only and answers loopback clients only. POSTs must ca
 `Content-Type: application/json`, a `Host` of `127.0.0.1:<port>` or `localhost:<port>` and
 no foreign `Origin` (so other web pages cannot drive the job queue), and every `<id>` must
 be a registry id of the served source. `--out-root` serves another out tree for testing
-(re-run jobs still write to `out/`).
+(re-run jobs still write to `out/`); `--overrides-dir DIR` reads and writes override files in
+DIR instead of `data/overrides/<source>/` (tests: a scratch copy, so test verdicts never land
+in the real files).
 
 On a phone or a window narrower than 820 px (or a phone on its side) the layout stacks: the 3D view
 on top, then a tab strip switching between the monster list and the clips/overrides/details panel (the
@@ -248,6 +254,7 @@ with other ComfyUI clients.
 | `paint` | object (JSON in the form) | paint | multiview paint settings (`enabled`, `views`, `denoise`, ...; see `tools/overrides.py`) |
 | `lod_screen_ratios` | 3 decreasing floats in (0, 4] | - (viewer only) | auto LOD switch points, fraction of viewport height for LOD0/LOD1/LOD2; unset = viewer settings |
 | `notes` | string | - | why the override exists |
+| `review` | object | - | review mode verdicts (not shown in the form; its saves keep them): "Review mode" below |
 
 ## Animations in the page
 
@@ -457,11 +464,98 @@ scimitar and the shortbow; its shield is published too and shows with `?prop_l=s
 `?prop_r=` / `?prop_l=` work as in dev but only for published props. A hand with nothing
 wielded stays empty: no placeholder sword and bow on a harpy.
 
+## Review mode
+
+For judging every monster and clip by eye, with the verdicts landing where re-rolls read
+them. Start a review instance (a second one next to the read-only LAN viewer on 8787):
+
+```sh
+python3 -I tools/viewer.py --host 0.0.0.0 --port 8788 --review --no-open
+```
+
+and open `http://<host>:8788/` (on this machine `http://127.0.0.1:8788/`). Without
+`--review` the routes `GET /api/review`, `GET /api/review/<id>` and `POST /api/review/<id>`
+do not exist (404) and the page shows nothing of review mode; the published static copy never
+has it. With `--host 0.0.0.0 --review`, LAN clients may POST verdicts (and only verdicts:
+overrides and re-run jobs stay loopback-only). A verdict POST must be
+`Content-Type: application/json`, carry a `Host` that is an IP address, `localhost` or this
+machine's name (so a DNS-rebound name is refused) and no `Origin` other than `http://<Host>`;
+the id must be a registry id of the served source and the body must pass
+`tools/overrides.py`'s `review` validator.
+
+**Storage.** Each monster's verdicts are one object under the key `review` of its override
+file `data/overrides/<source>/<id>.json`:
+
+```json
+"review": {"date": "2026-11-08", "ref": "ok", "mesh": "bad", "paint": "ok", "rig": "ok",
+           "clips": {"attack_melee": "bad", "walk": "ok"}, "note": "jaw melts at LOD1"}
+```
+
+Values are `ok` or `bad`; untouched aspects are left out, `date` is the day of the last
+write (the server stamps it), clip names are the clip files' names, the note is free text up
+to 2000 characters. The write changes only the `review` member (replaced, appended as the
+last key, or removed when nothing is left), so the file's other keys keep their order and
+text (2-space JSON, trailing newline); a file holding nothing else is created and deleted as
+needed. The file's mtime is kept (tools/batch.py dates `ref_pick` pins and prompt edits by
+it). `review` is not forge input; the overrides panel hides it and its saves keep it.
+
+**In the page.** `review` in the toolbar (or `r`) opens the review panel over the top right
+of the 3D view (on a phone: a third tab, `review`, under the view). It shows
+
+- a progress strip: monsters fully reviewed / monsters in the list, and how many are started.
+  Fully reviewed = a verdict on every aspect whose stage is done and on every clip found.
+  The count follows the list as filtered (search, selects, the tag facet: `0 / 7 reviewed in
+  the list (tags: goblinoid)`, plus the total over all monsters);
+- `[ prev`, `next ]` and `next unreviewed (u)` (the next monster in the list, wrapping, that is
+  not fully reviewed);
+- one row per aspect (1 reference with the reference image, click to enlarge; 2 mesh; 3 paint;
+  4 rig) and one per clip found (animation_set order, then extra clips), each with ▲ ok and ▼ bad;
+  the focused row is outlined, the playing clip is the clip row with the focus (`5`);
+- a note (`n`; Enter saves, Shift+Enter is a new line, leaving the field saves too).
+
+Each verdict is saved at once (`saved 10:58:26` / `NOT saved: <reason>` next to the name); a
+verdict given again clears it. After a verdict the focus moves on to the next aspect not
+judged yet, then to the playing clip, then plays the next clip without a verdict, so a
+monster is `j j j j j j j ...` (or `k` where something is wrong) from top to bottom. The list
+shows a square after each name (hollow: no verdict, grey: started, green: fully reviewed
+and all ok, red: any bad), and the status select gains `review: no verdict`, `not
+complete`, `any bad`, `complete`. Review mode is remembered per browser; `?review=1` opens it.
+
+Keys while review mode is on (they replace the clip keys `1`-`5`, `j`/`k` and `n`; the other
+keys keep working, arrows still move between monsters):
+
+| key | does |
+|---|---|
+| `r` | review mode on / off |
+| `1` `2` `3` `4` | focus reference / mesh / paint / rig |
+| `5` | focus the clip (the playing one, else the first clip) |
+| `j` / `k` | ok / bad on the focused aspect (again: clear) |
+| `x` | clear the focused verdict |
+| `,` `.` | previous / next clip (plays it, focuses it) |
+| `n` | write the note |
+| `[` `]` | previous / next monster in the list |
+| `u` | next monster in the list not fully reviewed |
+
+**Summaries and re-rolls** (`tools/review.py`, docs/batch.md "Re-rolls from review verdicts"):
+
+```sh
+python3 -I tools/review.py report        # prints and writes out/<source>/_review.md
+python3 -I tools/review.py ids --bad mesh                      # aboleth,owlbear  (for batch.py --ids)
+python3 -I tools/review.py ids --bad clip:walk,clips --plan quadruped --lines
+python3 -I tools/batch.py run --ids "$(python3 -I tools/review.py ids --bad mesh)" --stages mesh,qa --dry-run
+```
+
+The report has the counts per aspect and per clip (ok, bad, not judged of those applicable),
+the monsters with any bad grouped by aspect and by body plan, and the notes. `ids` takes
+`--bad` / `--ok` (ref, mesh, paint, rig, clips, `clip:<name>`, any; comma lists match any),
+`--unreviewed`, `--incomplete`, `--noted`, `--plan`, `--tag` and prints a comma list (or
+`--lines`); `batch.py --ids` also reads `-` (stdin) and `@<file>`.
+
 ## Keys
 
 `j`/`k` or arrows: next/previous monster · space: play/pause · `n`/`N`: next/previous clip ·
 `1`-`9`: pick clip · `0`: rest pose · `c`: cycle clips · `w`: wireframe · `W`: wire on shaded · `s`: sockets ·
 `p`: placeholder props · `t`: textures · `a`: auto LOD ·
-`l`: pin the next LOD · `f`: frame camera · `/`: search · Esc: leave search / close image or
-LOD settings. Shortcuts work while a toolbar checkbox or slider has focus, not in text
+`l`: pin the next LOD · `f`: frame camera · `/`: search · `r`: review mode (with `--review`; its keys
+are under Review mode) · Esc: leave search / close image or LOD settings. Shortcuts work while a toolbar checkbox or slider has focus, not in text
 fields.

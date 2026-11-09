@@ -238,3 +238,54 @@ body.static #list li { grid-template-columns: 40px minmax(0, 1fr); }
   #tabs { grid-row: 1; grid-column: 2; }
   #sidebar, #panel { grid-row: 2; grid-column: 2; }
 }
+
+/* review mode (tools/viewer.py --review, viewer/README.md "Review mode"): a panel over the view's top
+   right on desktop, its own tab on a phone */
+#list li .nm .rv { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-left: 5px; vertical-align: 1px; }
+#list .rv.rvb-none { border: 1px solid var(--muted); }
+#list .rv.rvb-part { background: var(--muted); }
+#list .rv.rvb-ok { background: var(--qa); }
+#list .rv.rvb-bad { background: #e05a5a; }
+#review-panel { position: fixed; top: 10px; right: 292px; width: 290px; max-height: calc(100vh - 70px); overflow-y: auto; z-index: 6;
+  background: rgba(25,28,34,.95); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; box-shadow: 0 4px 16px #0008; }
+body.static #review-panel, body.static #b-review, body.static #tab-review { display: none !important; }
+.rv-head { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; margin-bottom: 4px; }
+#rv-name { font-weight: 600; }
+#rv-save { font-size: 11px; margin-left: auto; }
+#rv-progress .track { position: relative; display: flex; height: 6px; background: var(--off); border-radius: 3px; overflow: hidden; }
+#rv-progress .fill.done { background: var(--qa); }
+#rv-progress .fill.part { background: var(--muted); }
+#rv-count { font-size: 11px; margin-top: 2px; }
+.rv-nav button { font-size: 12px; padding: 2px 6px; }
+.rv-rows { display: flex; flex-direction: column; gap: 2px; }
+.rv-row { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto auto; gap: 6px; align-items: center; padding: 2px 4px;
+  border-radius: 4px; border: 1px solid transparent; cursor: pointer; }
+.rv-row:hover { background: var(--bg3); }
+.rv-row.focus { border-color: var(--accent); background: #1d2a3d; }
+.rv-row.na { opacity: .5; }
+.rv-key { font-size: 10px; color: var(--muted); text-align: center; }
+.rv-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+.rv-thumb { width: 26px; height: 26px; object-fit: cover; border-radius: 3px; border: 1px solid var(--line); cursor: zoom-in; }
+.rv-b { padding: 1px 7px; font-size: 11px; }
+.rv-b:disabled { opacity: .4; cursor: default; }
+.rv-b.rv-ok.on { background: var(--qa); border-color: var(--qa); color: #0b1220; }
+.rv-b.rv-bad.on { background: #e05a5a; border-color: #e05a5a; color: #0b1220; }
+.rv-row.v-ok .rv-label { color: var(--qa); }
+.rv-row.v-bad .rv-label { color: #ef8a8a; }
+#rv-note { width: 100%; margin-top: 6px; min-height: 2.6em; resize: vertical; background: var(--bg3); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; font: inherit; }
+#rv-legend { margin-top: 4px; line-height: 1.35; }
+@media (max-width: 820px), (max-height: 500px) {
+  #review-panel { position: static; grid-row: 3; grid-column: 1; width: auto; max-height: none; min-height: 0; z-index: auto;
+    border: 0; border-radius: 0; box-shadow: none; background: var(--bg2); padding: 8px 10px; display: none; }
+  body.rv-on.tab-review #review-panel { display: block; }
+  body.tab-review #sidebar, body.tab-review #panel { display: none; }
+  #rv-legend { display: none; }
+  .rv-row { padding: 4px; }
+  .rv-b { font-size: 15px; padding: 6px 12px; }  /* touch targets */
+  .rv-nav button { font-size: 14px; padding: 6px 8px; }
+  #rv-note { font-size: 16px; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  #review-panel { grid-row: 2; grid-column: 2; }
+}

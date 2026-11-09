@@ -68,6 +68,7 @@
     <label><input type="checkbox" id="t-ref" checked> 1.8 m ref</label>
     <label><input type="checkbox" id="t-rotate"> turntable</label>
     <button id="b-frame" title="re-frame camera (f)">frame</button>
+    <button id="b-review" class="hidden" title="review mode: thumbs up / down per aspect and clip (r)">review</button>
     <span id="lod-bar" title="level of detail: auto (a) or a pinned level (l cycles)"></span>
     <span id="lod-readout" class="muted"></span>
     <span id="albedo-bar" class="hidden"></span>
@@ -84,7 +85,30 @@
 <nav id="tabs" aria-label="panels">
   <button id="tab-list" class="on" data-tab="list">monsters</button>
   <button id="tab-info" data-tab="info">clips · details</button>
+  <button id="tab-review" data-tab="review" class="hidden">review</button>
 </nav>
+
+<!-- review mode (tools/viewer.py --review, viewer/README.md "Review mode"): verdicts go to the
+     `review` key of data/overrides/<source>/<id>.json -->
+<aside id="review-panel" class="hidden" aria-label="review">
+  <div class="rv-head"><b>review</b> <span id="rv-name"></span><span id="rv-save" class="muted"></span></div>
+  <div id="rv-progress" title="fully reviewed: every done stage and every found clip judged">
+    <div class="track"><div class="fill done"></div><div class="fill part"></div></div>
+    <div id="rv-count" class="muted"></div>
+  </div>
+  <div class="row rv-nav">
+    <button id="rv-prev" title="previous monster in the list ([)">[ prev</button>
+    <button id="rv-next" title="next monster in the list (])">next ]</button>
+    <button id="rv-unrev" class="grow" title="next monster in the list not fully reviewed (u)">next unreviewed (u)</button>
+  </div>
+  <div id="rv-aspects" class="rv-rows"></div>
+  <h4>clips <span class="muted">(the playing clip has the focus)</span></h4>
+  <div id="rv-clips" class="rv-rows"></div>
+  <textarea id="rv-note" rows="2" placeholder="note (n; Enter saves, Shift+Enter new line)"></textarea>
+  <div class="keys muted" id="rv-legend">1-4 ref / mesh / paint / rig · 5 clip · j ok · k bad · x clear ·
+    , . previous / next clip · n note · [ ] previous / next monster · u next unreviewed · r leave review.
+    A verdict moves the focus on to the next aspect.</div>
+</aside>
 
 <aside id="panel">
   <section>
@@ -157,7 +181,7 @@
     <a id="download-link" class="muted" download></a>
   </section>
   <section class="muted keys">
-    j/k ↑/↓ move · space play · n next clip · 1-9 pick clip · 0 rest · c cycle · w wire · W wire on shaded · s sockets · p prop · t textures · a auto LOD · l pin next LOD · f frame · / search
+    r review mode (with --review) · j/k ↑/↓ move · space play · n next clip · 1-9 pick clip · 0 rest · c cycle · w wire · W wire on shaded · s sockets · p prop · t textures · a auto LOD · l pin next LOD · f frame · / search
   </section>
 </aside>
 

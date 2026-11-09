@@ -7,8 +7,11 @@ overrides (GET/POST /api/override/<id>, data/overrides/<source>/<id>.json) and a
 job queue (POST /api/run/<id>, GET /api/jobs) that runs tools/forge.py one job at a time,
 and downloads of the game files (GET /api/download[/<id>[.zip]|/all.zip|/tag/<tag>.zip], ?tag= filters,
 viewer/README.md). Index entries carry content tags and pipeline tags (tools/tags.py, docs/tags.md).
+With --review, review mode: GET /api/review (every stored verdict) and POST /api/review/<id> write
+the `review` key of the override file (tools/review.py); without the flag those routes do not exist.
 
     python3 -I tools/viewer.py [--port 8787] [--source srd-5.2.1] [--no-open]
+    python3 -I tools/viewer.py --host 0.0.0.0 --port 8788 --review --no-open   # review from the LAN
 
 Binds 127.0.0.1 by default (--host 0.0.0.0 to share the read-only view on the LAN: overrides and
 re-run jobs stay loopback-only). POSTs must be JSON from a same-origin page.
@@ -38,6 +41,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import overrides  # noqa: E402  (tools/overrides.py)
+import review as reviewlib  # noqa: E402  (tools/review.py)
 import sources  # noqa: E402  (tools/sources.py)
 import tags as taglib  # noqa: E402  (tools/tags.py)
 
@@ -500,6 +504,7 @@ def override_view(source: str, mid: str) -> dict:
     rec = registry_record(source, mid)
     style = load_json(ROOT / "data" / "style.json").get("name")
     eff = overrides.effective(rec, source, style)
+    eff.pop(reviewlib.KEY, None)  # review mode's verdicts: not a panel field (POST keeps them)
     man = load_json(OUT_ROOT / source / mid / "manifest.json")
     picked = (man.get("ref") or {}).get("picked")
     if picked is not None:
@@ -513,9 +518,29 @@ def override_view(source: str, mid: str) -> dict:
             "ref_candidates": len(refs), "run_stages": list(RUN_STAGES)}
 
 
+REVIEW_LOCK = threading.Lock()
+
+
+def review_state(source: str) -> dict:
+    """GET /api/review: every stored verdict ({id: review}) and what review mode judges."""
+    return {"enabled": True, "source": source, "date": reviewlib.today(), "aspects": list(reviewlib.ASPECTS),
+            "verdicts": list(reviewlib.VERDICTS),
+            "reviews": reviewlib.load_all(source, sorted(registry_ids(source)))}
+
+
+def _ip_literal(host: str) -> bool:
+    import ipaddress
+    try:
+        ipaddress.ip_address(host.strip("[]"))
+        return True
+    except ValueError:
+        return False
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     source = "srd-5.2.1"
     lan_read = False  # True with --host 0.0.0.0: non-loopback clients get GET/HEAD only
+    review = False  # --review: GET /api/review, POST /api/review/<id> (LAN clients too)
     extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map,
                       ".js": "text/javascript", ".mjs": "text/javascript",
                       ".glb": "model/gltf-binary", ".json": "application/json"}
@@ -548,9 +573,31 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return None
         return mid
 
+    def _review_post_ok(self) -> bool:
+        """POST /api/review/<id> with --review, from any client the server answers (the review
+        instance is meant for the LAN): JSON only, a Host that is an IP literal, localhost or
+        this machine's name (no DNS-rebound names) and no foreign Origin."""
+        import socket
+        host = self.headers.get("Host", "")
+        name = host.rsplit(":", 1)[0] if not host.endswith("]") else host
+        names = {"localhost", socket.gethostname().lower(), socket.getfqdn().lower()}
+        if not host or not (_ip_literal(name) or name.lower() in names):
+            self.send_json({"error": "bad Host header"}, 403)
+            return False
+        origin = self.headers.get("Origin")
+        if origin is not None and origin != f"http://{host}":
+            self.send_json({"error": "cross-origin request refused"}, 403)
+            return False
+        if not self.headers.get("Content-Type", "").startswith("application/json"):
+            self.send_json({"error": "Content-Type must be application/json"}, 415)
+            return False
+        return True
+
     def _local_ok(self) -> bool:
         """Loopback client, and for POSTs a same-origin JSON request (blocks other sites
         from driving the job queue through the browser)."""
+        if self.command == "POST" and Handler.review and self.path.startswith("/api/review/"):
+            return self._review_post_ok()
         if self.client_address[0] not in ("127.0.0.1", "::1"):
             if self.command in ("GET", "HEAD") and Handler.lan_read:  # --host 0.0.0.0: read-only view
                 return True
@@ -586,6 +633,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             mid = self._mid(path, "/api/override/")
             if mid:
                 self.send_json(override_view(self.source, mid))
+            return
+        if Handler.review and path == "/api/review":
+            self.send_json(review_state(self.source))
+            return
+        if Handler.review and path.startswith("/api/review/"):
+            mid = self._mid(path, "/api/review/")
+            if mid:
+                self.send_json({"id": mid, "review": reviewlib.load(self.source, mid)})
             return
         if path == "/api/jobs":
             q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
@@ -688,8 +743,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if errs:
                 self.send_json({"error": "invalid override", "details": errs}, 400)
                 return
-            overrides.save(self.source, mid, body)
+            with REVIEW_LOCK:
+                if isinstance(body, dict) and reviewlib.KEY not in body:  # the panel never sends it: keep it
+                    kept = reviewlib.load(self.source, mid)
+                    if kept:
+                        body = {**body, reviewlib.KEY: kept}
+                overrides.save(self.source, mid, body)
             self.send_json(override_view(self.source, mid))
+            return
+        if Handler.review and path.startswith("/api/review/"):
+            mid = self._mid(path, "/api/review/")
+            if not mid:
+                return
+            try:
+                with REVIEW_LOCK:
+                    rv = reviewlib.save(self.source, mid, body)
+            except ValueError as e:
+                self.send_json({"error": "invalid review", "details": [str(e)]}, 400)
+                return
+            self.send_json({"id": mid, "review": rv})
             return
         if path.startswith("/api/run/"):
             mid = self._mid(path, "/api/run/")
@@ -736,7 +808,14 @@ def main() -> int:
     ap.add_argument("--no-open", action="store_true", help="do not open a browser")
     ap.add_argument("--quiet", action="store_true", help="no request log")
     ap.add_argument("--out-root", help="serve another out/ tree (testing; re-run jobs still write to out/)")
+    ap.add_argument("--review", action="store_true",
+                    help="review mode: GET /api/review and POST /api/review/<id> (writes the `review` key of "
+                         "data/overrides/<source>/<id>.json; LAN clients may POST it too). Off by default")
+    ap.add_argument("--overrides-dir", help="read and write override files in this directory instead of "
+                                            "data/overrides/<source>/ (testing)")
     args = ap.parse_args()
+    if args.overrides_dir:
+        reviewlib.set_overrides_dir(args.overrides_dir)
     if args.out_root:
         global OUT_ROOT
         OUT_ROOT = Path(args.out_root).resolve()
@@ -747,10 +826,12 @@ def main() -> int:
         return 2
     Handler.source = args.source
     Handler.lan_read = args.host not in ("127.0.0.1", "::1", "localhost")
+    Handler.review = args.review
     JOBS.source = args.source
     srv = Server((args.host, args.port), functools.partial(Handler, directory=str(VIEWER)))
     url = f"http://{'127.0.0.1' if args.host in ('0.0.0.0', '') else args.host}:{args.port}/"
-    print(f"monster-forge viewer: {url}  (source {args.source}, Ctrl-C to stop)", flush=True)
+    print(f"monster-forge viewer: {url}  (source {args.source}{', review mode' if args.review else ''}"
+          f"{', overrides ' + args.overrides_dir if args.overrides_dir else ''}, Ctrl-C to stop)", flush=True)
     if not args.no_open:
         threading.Timer(0.5, webbrowser.open, (url,)).start()
     try:

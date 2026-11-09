@@ -1812,6 +1812,24 @@ def cmd_report(args) -> int:
 
 
 # ---------------------------------------------------------------- CLI
+def read_ids(value: str | None) -> str | None:
+    """--ids: a comma list, "-" (ids from stdin) or "@<file>" (ids from a file); in a file or on
+    stdin ids may be separated by commas, spaces or newlines and `#` starts a comment (so
+    `tools/review.py ids --bad mesh --lines > f` then `--ids @f` works). Returns the comma list.
+    An empty list is an error, never "all"."""
+    if value is None:
+        return None
+    if value == "-" or value.startswith("@"):
+        text = sys.stdin.read() if value == "-" else Path(value[1:]).expanduser().read_text()
+        text = "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+    else:
+        text = value
+    ids = list(dict.fromkeys(x for x in text.replace(",", " ").split() if x))
+    if not ids:
+        raise SystemExit(f"--ids {value!r}: no ids (an empty list never means all)")
+    return ",".join(ids)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -1819,7 +1837,8 @@ def main(argv=None) -> int:
     def common(p):
         p.add_argument("--source", default="srd-5.2.1")
         p.add_argument("--plans", help="comma list of body plans")
-        p.add_argument("--ids", help="comma list of monster ids (runs them even when on hold)")
+        p.add_argument("--ids", help="comma list of monster ids (runs them even when on hold); \"-\" reads them "
+                                     "from stdin, @<file> from a file (e.g. tools/review.py ids --bad mesh --lines)")
         p.add_argument("--tier", help="tiers: 1, 1,2 or 1-3 (0 = pilots, 4 = hold); default all but hold for run")
         p.add_argument("--stages", help=f"comma subset of {','.join(STAGES)}")
         p.add_argument("--n", type=int, default=3, help="ref candidates (unarmed_reference monsters: at least 4)")
@@ -1849,7 +1868,7 @@ def main(argv=None) -> int:
     rp.add_argument("--review-below", type=float, default=-2.0, help="rig scores below this need review")
     fa = sub.add_parser("facing", help="re-run the facing gate (Blender, CPU) where its record is stale")
     fa.add_argument("--source", default="srd-5.2.1")
-    fa.add_argument("--ids", help="comma list of monster ids")
+    fa.add_argument("--ids", help="comma list of monster ids, - (stdin) or @<file>")
     fa.add_argument("--tier", help="with --stale: tiers to scan (default all but pilots)")
     fa.add_argument("--plans", help="with --stale: body plans to scan")
     fa.add_argument("--stale", action="store_true",
@@ -1863,6 +1882,8 @@ def main(argv=None) -> int:
     au = sub.add_parser("audit", help="coverage tables and the gap list (markdown)")
     au.add_argument("--source", default="srd-5.2.1")
     args = ap.parse_args(argv)
+    if getattr(args, "ids", None) is not None:
+        args.ids = read_ids(args.ids)
     if getattr(args, "stages", None):
         bad = [x for x in args.stages.split(",") if x not in STAGES]
         if bad:

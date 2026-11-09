@@ -292,7 +292,30 @@ the pass has passed the monster (its `_batch.json` entry has the stages of this 
 or until the pass ends.
 
 Selection: `--tier 1`, `1,2` or `1-3` (0 = pilots, 4 = hold), `--plans`, `--ids` (also runs
-hold records), `--include-pilots`. `run` with no `--tier` does tiers 1-3. Order: tier, then
+hold records; a comma list, `-` to read ids from stdin or `@<file>` from a file, separated by
+commas, spaces or newlines, `#` comments; an empty list is an error, never "all"),
+`--include-pilots`.
+
+**Re-rolls from review verdicts.** The viewer's review mode (`tools/viewer.py --review`,
+viewer/README.md "Review mode") stores thumbs up / down per aspect (ref, mesh, paint, rig,
+each clip) and a note in the `review` key of `data/overrides/<source>/<id>.json`;
+`tools/review.py` turns them into id lists for `--ids`:
+
+```sh
+python3 -I tools/review.py report                                  # out/<source>/_review.md: counts, bad by aspect / plan, notes
+python3 -I tools/batch.py run --ids "$(python3 -I tools/review.py ids --bad ref)" --stages ref,mesh,qa,paint,lod,rig,anim --dry-run
+python3 -I tools/review.py ids --bad mesh --lines > ~/.cache/rerun-mesh.txt
+python3 -I tools/batch.py run --ids @$HOME/.cache/rerun-mesh.txt --stages mesh,qa,paint,lod,rig,anim
+python3 -I tools/review.py ids --bad clips --plan quadruped | python3 -I tools/batch.py run --ids - --stages anim
+```
+
+The verdict says what is wrong, not how to fix it: a bad `ref` usually wants a prompt edit or
+a `ref_pick` (docs/references.md), a bad `mesh` a re-pick or re-roll, a bad clip an anim
+change, before the re-run. The batch skips stages whose output exists, so a re-run of a
+judged-bad stage needs that stage forced (`forge.py run <id> --stages ... --force`, or
+the override that makes it stale). After a re-roll, clear or re-judge the verdict in the
+viewer (it is dated) so the next `ids --bad` does not pick the monster again. A verdict
+write keeps the override file's mtime, so it never makes an old `ref_pick` look newly chosen. `run` with no `--tier` does tiers 1-3. Order: tier, then
 the plan's record count (biped, quadruped, winged_quadruped, ...), then size (medium,
 large, small, huge, tiny, gargantuan), then id.
 

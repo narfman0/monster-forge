@@ -240,6 +240,41 @@ def _reweight(v):
     return None
 
 
+REVIEW_ASPECTS = ("ref", "mesh", "paint", "rig")
+REVIEW_VERDICTS = ("ok", "bad")
+REVIEW_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+REVIEW_CLIP = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
+
+
+def _review(v):
+    """review: the viewer's review mode verdicts (tools/review.py, viewer/README.md "Review mode"):
+    {date: YYYY-MM-DD, ref|mesh|paint|rig: ok|bad, clips: {<clip>: ok|bad}, note}; untouched aspects
+    are left out."""
+    if not isinstance(v, dict):
+        return "must be an object"
+    for k, x in v.items():
+        if k == "date":
+            if not (isinstance(x, str) and REVIEW_DATE.match(x)):
+                return "date must be YYYY-MM-DD"
+        elif k in REVIEW_ASPECTS:
+            if x not in REVIEW_VERDICTS:
+                return f"{k} must be one of {list(REVIEW_VERDICTS)}"
+        elif k == "clips":
+            if not (isinstance(x, dict) and len(x) <= 40):
+                return "clips must be an object {clip: ok|bad} (at most 40)"
+            for c, cv in x.items():
+                if not REVIEW_CLIP.match(c):
+                    return f"clips: bad clip name {c!r}"
+                if cv not in REVIEW_VERDICTS:
+                    return f"clips.{c} must be one of {list(REVIEW_VERDICTS)}"
+        elif k == "note":
+            if not (isinstance(x, str) and len(x) <= 2000):
+                return "note must be a string of <= 2000 chars"
+        else:
+            return f"unknown key {k!r} (allowed: date, {', '.join(REVIEW_ASPECTS)}, clips, note)"
+    return None
+
+
 # field -> (validator, stage it affects, help)
 FIELDS = {
     "tri_budget": (_num(300, 200000, True), "mesh", "LOD0 triangle budget"),
@@ -334,6 +369,9 @@ FIELDS = {
                           "viewer auto LOD: LOD0/LOD1/LOD2 when the model covers more than these fractions "
                           "of the viewport height (else LOD3); unset = the viewer's settings"),
     "notes": (_text(2000), None, "free text"),
+    "review": (_review, None, "review mode verdicts {date, ref, mesh, paint, rig: ok|bad, clips: {<clip>: ok|bad}, "
+               "note}, written by the viewer's review mode (tools/viewer.py --review) and read by tools/review.py "
+               "(report, ids --bad <aspect> for re-rolls); not forge input"),
 }
 
 
