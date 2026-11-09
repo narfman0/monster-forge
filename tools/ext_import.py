@@ -7,7 +7,8 @@
 
 curation/<source>/external.json (in the extra repo, never in this one) maps record id to
     {"provider": "sketchfab", "uid": "...", "title", "author", "url", "license", "license_url",
-     "tri_budget": 40000 (optional), "drop": ["name substring", ...] (optional),
+     "tri_budget": 40000 (optional), "drop": ["object name substring", ...], "drop_materials": ["material name substring", ...] (optional),
+     "drop_cards": true (delete tiny flat large components: alpha cards without their transparency),
      "pose": "REST"|"POSE" (optional; POSE when the skinned rest pose is mangled), "note"}.
 
 For each id: downloads the glb through the Sketchfab API (token in ~/.config/sketchfab/token or
@@ -64,7 +65,7 @@ def import_one(source: str, mon: dict, ext: dict, args) -> None:
     raw, gen = d / "model_raw.glb", d / "model_raw_gen.glb"
     if raw.exists() and not gen.exists() and not (forge.load_manifest(d).get("ext")):
         raw.rename(gen)  # keep the generated mesh once
-    job = {"src": str(src), "dst": str(raw), "tri_budget": ext.get("tri_budget", 40000), "drop": ext.get("drop"), "pose": ext.get("pose", "REST")}
+    job = {"src": str(src), "dst": str(raw), "tri_budget": ext.get("tri_budget", 40000), "drop": ext.get("drop"), "drop_materials": ext.get("drop_materials"), "drop_cards": ext.get("drop_cards"), "pose": ext.get("pose", "REST")}
     proc = subprocess.run([forge.BLENDER, "-b", "--factory-startup", "-P",
                            str(Path(__file__).with_name("blender_ext_prep.py")), "--", json.dumps(job)],
                           capture_output=True, text=True, timeout=900)
@@ -79,6 +80,13 @@ def import_one(source: str, mon: dict, ext: dict, args) -> None:
                   if k in ext} | {"tris_source": info["tris_in"], "tris_flat": info["tris_out"],
                                   "materials": info["materials"], "imported": forge.time.strftime("%Y-%m-%d")}
     man.pop("mesh", None)
+    # the generated mesh's baked maps (textures/base_color.png ...) belong to ITS uv layout: the rig stage would
+    # lay them over the imported model's materials. Park them; the imported materials carry their own textures.
+    tex = d / "textures"
+    if tex.is_dir():
+        old = d / "textures_gen"
+        shutil.rmtree(old, ignore_errors=True)
+        tex.rename(old)
     forge.save_manifest(d, man)
     forge.log(f"{mon['id']}: external {ext['uid'][:8]} {info['tris_in']} -> {info['tris_out']} tris, "
               f"{info['meshes']} meshes, {info['materials']} materials")

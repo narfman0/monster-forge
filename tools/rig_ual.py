@@ -364,9 +364,11 @@ def main():
     ap.add_argument("--fit", nargs="+", default=["auto"], choices=("auto", "skintokens"))
     ap.add_argument("--weights", nargs="+", default=["skintokens"], choices=("skintokens", "heat", "transfer"))
     ap.add_argument("--jobs", type=int, default=1)
+    ap.add_argument("--source", default=SOURCE, help="out/<source>/ and its registry (default the SRD)")
     ap.add_argument("--no-sheets", action="store_true")
     ap.add_argument("--compare", action="store_true", help="print the comparison from the metrics on disk only")
     a = ap.parse_args()
+    use_source(a.source)
     tags = [f"{f}_{w}" for f in a.fit for w in a.weights]
     if a.compare:
         for mid in a.ids:

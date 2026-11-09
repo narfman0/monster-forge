@@ -21,12 +21,65 @@ for a in [o for o in sc.objects if o.type == "ARMATURE"]:
 bpy.context.view_layer.update()
 dg = bpy.context.evaluated_depsgraph_get()
 
-drop = [s.lower() for s in job.get("drop") or []]
+drop = [s.lower() for s in (job.get("drop") or []) + ["icosphere"]]  # Sketchfab exports often carry a default Blender Icosphere
+drop_mat = [s.lower() for s in job.get("drop_materials") or []]
 for o in list(sc.objects):
-    if o.type == "MESH" and any(s in o.name.lower() for s in drop):
+    if o.type == "MESH" and (any(s in o.name.lower() for s in drop) or
+                             any(s in (sl.material.name.lower() if sl.material else "") for sl in o.material_slots for s in drop_mat)):
         bpy.data.objects.remove(o, do_unlink=True)
 
+def drop_cards(objs, depsgraph, max_verts=24, min_frac=0.2):
+    """Delete tiny, large-footprint connected components (alpha cards / hair planes that lost their transparency in
+    the glTF export): <= max_verts vertices spanning >= min_frac of the figure's height in two axes."""
+    import bmesh
+    boxes = {}
+    ev = {o: o.evaluated_get(depsgraph) for o in objs}
+    zmin, zmax = 1e9, -1e9
+    for o, e in ev.items():
+        me = e.to_mesh()
+        for v in me.vertices:
+            w = e.matrix_world @ v.co
+            zmin, zmax = min(zmin, w.z), max(zmax, w.z)
+        e.to_mesh_clear()
+    height = max(zmax - zmin, 1e-6)
+    removed = 0
+    for o, e in ev.items():
+        me = e.to_mesh()
+        pos = [e.matrix_world @ v.co for v in me.vertices]
+        e.to_mesh_clear()
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        bm.verts.ensure_lookup_table()
+        seen, kill = set(), []
+        for v in bm.verts:
+            if v.index in seen:
+                continue
+            st, comp = [v], []
+            seen.add(v.index)
+            while st:
+                x = st.pop()
+                comp.append(x)
+                for ed in x.link_edges:
+                    y = ed.other_vert(x)
+                    if y.index not in seen:
+                        seen.add(y.index)
+                        st.append(y)
+            if len(comp) <= max_verts:
+                ext = sorted(max(pos[c.index][i] for c in comp) - min(pos[c.index][i] for c in comp) for i in range(3))
+                if ext[1] >= min_frac * height:
+                    kill += comp
+        if kill:
+            removed += len(kill)
+            bmesh.ops.delete(bm, geom=kill, context="VERTS")
+            bm.to_mesh(o.data)
+        bm.free()
+    return removed
+
 meshes = [o for o in sc.objects if o.type == "MESH" and not o.hide_get() and o.data.polygons]
+if job.get("drop_cards"):
+    print("DROPPED card verts", drop_cards(meshes, dg))
+    bpy.context.view_layer.update()
+    dg = bpy.context.evaluated_depsgraph_get()  # re-evaluate: the bake below must see the edited meshes
 for o in meshes:
     mw = o.matrix_world.copy()
     me = bpy.data.meshes.new_from_object(o.evaluated_get(dg), preserve_all_data_layers=True, depsgraph=dg)
