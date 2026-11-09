@@ -284,6 +284,11 @@ FIELDS = {
     "normal_cage": (_num(0.001, 0.2), "mesh", "normal bake search band (fraction of bbox diagonal)"),
     "ref_pick": (_num(0, 15, True), "mesh", "which ref_<i>.png feeds the mesh stage"),
     "seed_mesh": (_num(0, 2**31 - 1, True), "mesh", "Pixal3D seed"),
+    "mesh_n": (_num(1, 8, True), "mesh", "mesh candidates (seeds) per conditioning mode, auto-picked by "
+               "tools/mesh_score.py (docs/mesh-quality.md); 1 = one mesh, as before"),
+    "mesh_views": (_choice("single", "mv", "both"), "mesh", "single: Pixal3D from the reference alone; mv: "
+                   "multi-view from Wan 2.2 turnaround views (tools/turnaround.py); both: candidates of each"),
+    "mesh_pick": (_text(8), "mesh", "pin a mesh candidate by tag (s0, s1, mv0, ...; manifest mesh.candidates)"),
     "ref_unarmed_check": (_bool, "ref", "unarmed_reference monsters: score the candidates for a held weapon and "
                           "pick the most empty-handed unless ref_pick is pinned (docs/references.md)"),
     "prompt_extra": (_text(500), "ref", "appended to the reference prompt"),
@@ -428,6 +433,7 @@ def defaults(mon: dict, style_name: str | None = None) -> dict:
     return {
         "tri_budget": TRI_BUDGET_BY_SIZE.get(size, 12000), "vg_factor": 0.5, "upsample": 1024,
         "texture_size": tex, "normal_cage": 0.015, "ref_pick": 0, "seed_mesh": None,
+        "mesh_n": 1, "mesh_views": "single", "mesh_pick": None,
         "ref_unarmed_check": bool(mon.get("unarmed_reference")),
         "prompt_extra": "", "negative_extra": "", "style": style_name, "seed_ref": None, "ref_template": None,
         "yaw": None, "forward": "-Z", "level": plan in FEET_BY_PLAN,

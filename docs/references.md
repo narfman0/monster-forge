@@ -514,3 +514,11 @@ death), fly flaps both wings, idle/fly min_z 0.06 m (the avian hover), death on 
 swarm-of-insects 4 of 4 single beetles, ref_2 (side view): mesh 0.30 m long; QA's auto yaw
 (pca_upper_mass_end) faced it backwards and the facing check (head_known false) passes either
 way, so `yaw` is pinned 118.6; not rigged.
+
+## Mesh from the reference: candidates and multi-view (2026-11-08)
+
+`forge.py mesh` can roll several Pixal3D meshes per reference and keep the best by score (`--mesh-n`, override
+`mesh_n`, pin `mesh_pick`), and can add Wan 2.2 turnaround views of the reference for Pixal3D's multi-view model
+(`--mesh-views mv|both`, override `mesh_views`). Both are off by default; the pilot found multi-view worse than
+single-view and most bad SRD meshes caused by the reference (a hidden wing, a robe), not the seed. Details,
+sheets, timings and the ranked re-roll list: `docs/mesh-quality.md`.

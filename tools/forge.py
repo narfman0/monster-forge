@@ -873,9 +873,33 @@ def stage_ref(mon: dict, d: Path, args) -> None:
     log(f"{mon['id']}: ref done in {dt}s ({len(images)} candidates, picked {pick})")
 
 
-def build_mesh_graph(mon: dict, image_name: str, seed: int, settings: dict, dirname: str = "") -> dict:
+MV_UNET = "pixal3d_multiview_int8_convrot.safetensors"
+MV_VIEWS = ("front", "left", "back", "right")
+
+
+def mv_graph(wf: dict, views: dict, fov: float) -> None:
+    """Swap the single-view conditioning for Pixal3DMultiViewConditioning on pre-framed views (tools/turnaround.py:
+    the same scale in every view, on black): {view: uploaded image name} for front/left/back/right (any subset,
+    front first). The background removal, crop and MoGe FOV nodes go; save_crop keeps the front view."""
+    for nid in ("load_image", "bg_model", "bg_remove", "crop", "moge_model", "moge", "fov"):
+        wf.pop(nid, None)
+    cond = {"clip_vision_model": ["dino", 0], "fov": fov}
+    for v in MV_VIEWS:
+        if views.get(v):
+            wf["mv_" + v] = {"class_type": "LoadImage", "inputs": {"image": views[v]}}
+            cond[v] = ["mv_" + v, 0]
+    wf["cond"] = {"class_type": "Pixal3DMultiViewConditioning", "inputs": cond}
+    wf["unet"]["inputs"]["unet_name"] = MV_UNET
+    first = next(v for v in MV_VIEWS if views.get(v))
+    wf["save_crop"]["inputs"]["images"] = ["mv_" + first, 0]
+
+
+def build_mesh_graph(mon: dict, image_name: str, seed: int, settings: dict, dirname: str = "",
+                     views: dict | None = None) -> dict:
     wf = load_workflow("image_to_lowpoly.api.json")
     wf["load_image"]["inputs"]["image"] = image_name
+    if views:  # multi-view conditioning (docs/mesh-quality.md)
+        mv_graph(wf, views, settings.get("mv_fov", 20.0))
     wf["ss_sample"]["inputs"]["seed"] = seed
     wf["shape_sample"]["inputs"]["seed"] = seed + 1
     wf["tex_sample"]["inputs"]["seed"] = seed + 2
@@ -1032,6 +1056,122 @@ def pick_decimate_attempt(attempts: list, target: int) -> int:
     return min(ok, key=lambda x: (x[1], -x[0]))[0]
 
 
+MESH_SCORE = ROOT / "tools" / "mesh_score.py"
+TURNAROUND = ROOT / "tools" / "turnaround.py"
+CAND_SEED_STEP = 10  # candidate k's seed = the mesh seed + 10 k (each graph uses seed .. seed + 3)
+MESH_VIEW_MODES = ("single", "mv", "both")
+
+
+def mesh_plan(mon: dict, ov: dict, args) -> tuple[int, str]:
+    """(candidates per mode, view mode) for the mesh stage: --mesh-n / override mesh_n (default 1) and
+    --mesh-views / override mesh_views (default "single"). (1, "single") is the old one-mesh stage."""
+    n = getattr(args, "mesh_n", None) or ov.get("mesh_n") or 1
+    views = getattr(args, "mesh_views", None) or ov.get("mesh_views") or "single"
+    if views not in MESH_VIEW_MODES:
+        raise RuntimeError(f"mesh_views {views!r}: choose from {MESH_VIEW_MODES}")
+    return int(n), views
+
+
+def _file_crc(p: Path) -> str:
+    return f"{zlib.crc32(p.read_bytes()) & 0xFFFFFFFF:08x}"
+
+
+def turnaround_views(mon: dict, d: Path, est_mesh: Path, seed: int, sub: str) -> tuple[dict, dict]:
+    """Turnaround views (tools/turnaround.py) for this ref.png, uploaded: ({view: ComfyUI name}, record). Reused
+    while ref.png is unchanged (turnaround/turnaround.json ref_crc)."""
+    import turnaround
+    tdir = d / "turnaround"
+    rep_p = tdir / "turnaround.json"
+    crc = _file_crc(d / "ref.png")
+    rep = json.loads(rep_p.read_text()) if rep_p.exists() else {}
+    gen = rep.get("generate")
+    if rep.get("ref_crc") != crc or not all((tdir / f"{v}.png").exists() for v in rep.get("views") or {"x": 0}):
+        gen = turnaround.generate(sys.modules[__name__], mon, d, seed, est_mesh)
+        rep = json.loads(rep_p.read_text())
+        rep.update({"ref_crc": crc, "generate": gen})
+        rep_p.write_text(json.dumps(rep, indent=1) + "\n")
+    else:
+        log(f"{mon['id']}: turnaround views exist for this ref.png, reused")
+    if len(rep["views"]) < 2:
+        raise RuntimeError(f"{mon['id']}: turnaround found no side or back view in {gen.get('videos')} videos")
+    names = {v: upload_file(tdir / f"{v}.png", sub, f"mv_{v}_{crc}.png") for v in rep["views"]}
+    rec = {k: rep.get(k) for k in ("fov", "el", "ref_iou", "picks", "views", "generate")}
+    return names, rec
+
+
+def mesh_candidates(mon: dict, d: Path, args, settings: dict, seed: int, ref_name: str, sub: str) -> dict | None:
+    """Roll mesh candidates (seeds x conditioning modes), score them (tools/mesh_score.py) and pick one: the
+    override / --mesh-pick tag, else the best score. Returns {seed, views, candidates, mesh_pick, ...} for
+    stage_mesh to build the picked graph (ComfyUI serves it from cache when it was the last one rolled), or None
+    for the plain one-mesh stage. docs/mesh-quality.md."""
+    ov = ov_for(mon)
+    n, mode = mesh_plan(mon, ov, args)
+    if n <= 1 and mode == "single":
+        return None
+    cdir = d / "mesh_cand"
+    shutil.rmtree(cdir, ignore_errors=True)
+    cdir.mkdir()
+    cands, t_all = [], time.time()
+
+    def roll(tag: str, kind: str, s: int, views: dict | None = None, pickable: bool = True) -> None:
+        t0 = time.time()
+        g = hi_poly_graph(build_mesh_graph(mon, ref_name, s, settings, d.name, views))
+        if kind == "single" and "bg_remove" in g:  # the reference's mask, for the silhouette score
+            g["mask_img"] = {"class_type": "MaskToImage", "inputs": {"mask": ["bg_remove", 0]}}
+            g["save_mask"] = {"class_type": "SaveImage", "inputs": {
+                "images": ["mask_img", 0], "filename_prefix": f"monster-forge/{mon['source']}/{d.name}/ref_mask"}}
+        out = run_prompt(g, f"{mon['id']} mesh candidate {tag}")
+        fetch_output(out["save_hi"]["3d"][0], cdir / f"{tag}_hi.glb")
+        if out.get("save_mask") and not (cdir / "ref_mask.png").exists():
+            fetch_output(out["save_mask"]["images"][0], cdir / "ref_mask.png")
+        cands.append({"tag": tag, "kind": kind, "seed": s, "pickable": pickable,
+                      "seconds": round(time.time() - t0, 1)})
+
+    for k in range(n if mode in ("single", "both") else 1):
+        roll(f"s{k}", "single", seed + CAND_SEED_STEP * k, pickable=mode != "mv")
+    tr, views = None, None
+    if mode in ("mv", "both"):
+        t0 = time.time()
+        try:
+            views, tr = turnaround_views(mon, d, cdir / "s0_hi.glb", seed, sub)
+        except Exception as e:  # no usable turnaround: the single-view candidates stand
+            log(f"{mon['id']}: WARNING turnaround failed ({str(e)[:300]}); single-view candidates only")
+            tr = {"error": str(e)[:1000]}
+            for c in cands:
+                c["pickable"] = True
+        tr["seconds"] = round(time.time() - t0, 1)
+        for k in range(n if views else 0):
+            roll(f"mv{k}", "mv", seed + CAND_SEED_STEP * k, views)
+    t0 = time.time()
+    job = {"ref_mask": str(cdir / "ref_mask.png"), "body_plan": mon["body_plan"],
+           "front_view": mon["body_plan"] in FRONT_VIEW_PLANS,
+           "candidates": [{"tag": c["tag"], "path": str(cdir / f"{c['tag']}_hi.glb")} for c in cands]}
+    (cdir / "score_job.json").write_text(json.dumps(job, indent=1))
+    proc = subprocess.run([PIL_PYTHON, "-I", str(MESH_SCORE), str(cdir / "score_job.json")],
+                          capture_output=True, text=True, timeout=1800)
+    if proc.returncode != 0:
+        raise RuntimeError(f"{mon['id']}: mesh score failed: {proc.stderr.strip()[-800:]}")
+    rep = json.loads(proc.stdout.strip().splitlines()[-1])
+    for c, r in zip(cands, rep["candidates"]):
+        c.update({k: r.get(k) for k in ("score", "parts", "metrics", "error") if k in r})
+    want = getattr(args, "mesh_pick", None) or ov.get("mesh_pick")
+    tags = [c["tag"] for c in cands]
+    if want is not None and want in tags:
+        pick, how = tags.index(want), "pinned"
+    else:
+        if want is not None:
+            log(f"{mon['id']}: WARNING mesh_pick {want!r} is not a candidate ({tags}); picking by score")
+        ok = [i for i, c in enumerate(cands) if c["pickable"]]
+        pick, how = max(ok, key=lambda i: (cands[i].get("score") or 0, -i)), "score"
+    c = cands[pick]
+    log(f"{mon['id']}: mesh candidates " + ", ".join(f"{x['tag']} {x.get('score')}" for x in cands)
+        + f"; picked {c['tag']} ({how})")
+    return {"seed": c["seed"], "views": views if c["kind"] == "mv" else None, "candidates": cands,
+            "mesh_pick": {"tag": c["tag"], "index": pick, "by": how}, "turnaround": tr, "mode": mode, "n": n,
+            "score_seconds": round(time.time() - t0, 1), "seconds": round(time.time() - t_all, 1),
+            "last": pick == len(cands) - 1}
+
+
 def stage_mesh(mon: dict, d: Path, args) -> None:
     if (d / "model_raw.glb").exists() and not args.force:
         log(f"{mon['id']}: mesh exists, skip")
@@ -1048,7 +1188,10 @@ def stage_mesh(mon: dict, d: Path, args) -> None:
     seed = args.seed if args.seed is not None else ov.get("seed_mesh", base_seed(mon["id"]) % 100000)
     sub = f"monster-forge/{mon['source']}/{d.name}"
     name = upload_file(ref, sub)
-    wf = build_mesh_graph(mon, name, seed, settings, d.name)
+    cand = mesh_candidates(mon, d, args, settings, seed, name, sub)
+    if cand:
+        seed = cand["seed"]
+    wf = build_mesh_graph(mon, name, seed, settings, d.name, cand and cand["views"])
     target = settings["target_tris"]
     attempts, times = [], {}
     t0 = time.time()
@@ -1118,10 +1261,20 @@ def stage_mesh(mon: dict, d: Path, args) -> None:
                    "decimate_kept": decimate_kept,
                    "ref_picked": (pick if pick is not None else man.get("ref", {}).get("picked"))}
     man["mesh"]["decimator_used"] = used
+    if cand:
+        man["mesh"]["views"] = "mv" if cand["views"] else "single"
+        man["mesh"]["candidates"] = cand["candidates"]
+        man["mesh"]["mesh_pick"] = cand["mesh_pick"]
+        man["mesh"]["candidate_plan"] = {"n": cand["n"], "views": cand["mode"], "seconds": cand["seconds"],
+                                         "score_seconds": cand["score_seconds"]}
+        if cand["turnaround"]:
+            man["mesh"]["turnaround"] = cand["turnaround"]
+        if cand["views"]:
+            man["mesh"]["model"] = MV_UNET
     if dec is not None:
         man["mesh"]["weighted_decimate"] = dec
         man["mesh"]["phase_seconds"] = times
-    man.setdefault("timings", {})["mesh"] = dt
+    man.setdefault("timings", {})["mesh"] = dt if not cand else round(dt + cand["seconds"], 1)
     man.pop("qa", None)
     paint.clear_paint(d, man)
     rig.clear_rig(d, man)
@@ -1288,7 +1441,13 @@ def main() -> int:
     ap.add_argument("--source", default="srd-5.2.1")
     ap.add_argument("--force", action="store_true", help="redo stages whose outputs exist")
     ap.add_argument("--seed", type=int, help="override the per-monster seed")
-    ap.add_argument("--n", type=int, default=1, help="reference candidates to generate")
+    ap.add_argument("--n", type=int, default=None, help="reference candidates to generate (ref, run; default 1); "
+                    "with `mesh`: mesh candidates, as --mesh-n")
+    ap.add_argument("--mesh-n", dest="mesh_n", type=int, default=None,
+                    help="mesh: candidates per conditioning mode, auto-picked (override mesh_n; docs/mesh-quality.md)")
+    ap.add_argument("--mesh-views", dest="mesh_views", default=None, choices=["single", "mv", "both"],
+                    help="mesh: single-view, multi-view from turnaround views, or both (override mesh_views)")
+    ap.add_argument("--mesh-pick", dest="mesh_pick", default=None, help="mesh: pin a candidate tag (s0, mv1, ...)")
     ap.add_argument("--pick", type=int, help="which ref_<i>.png feeds the mesh stage")
     ap.add_argument("--style", default=None,
                     help="ref: house art style JSON ('none' = unstyled pilot prompts)")
@@ -1327,6 +1486,10 @@ def main() -> int:
                     help="rig: skintokens (default) or ual: bipeds rigged straight onto the UAL skeleton, clips "
                     "into anims_ual/ (overrides the override rig_source; docs/anim-reuse.md)")
     args = ap.parse_args()
+    if args.cmd == "mesh" and args.n is not None and args.mesh_n is None:
+        args.mesh_n = args.n
+    if args.n is None:
+        args.n = 1
 
     reg = load_registry(args.source)
     if args.cmd == "contact":
