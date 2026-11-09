@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Use an existing, externally made model as a record's mesh instead of generating one.
 
-    python3 tools/ext_import.py --source mha                 # every id in curation/<source>/external.json
-    python3 tools/ext_import.py --source mha deku todoroki   # some of them
-    python3 tools/ext_import.py --source mha --list
+    python3 tools/ext_import.py --source <src>               # every id in curation/<source>/external.json
+    python3 tools/ext_import.py --source <src> <id> <id>     # some of them
+    python3 tools/ext_import.py --source <src> --list
 
 curation/<source>/external.json (in the extra repo, never in this one) maps record id to
     {"provider": "sketchfab", "uid": "...", "title", "author", "url", "license", "license_url",
