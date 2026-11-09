@@ -24,6 +24,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import anim_quad  # noqa: E402
 import overrides  # noqa: E402
 import rig  # noqa: E402
 
@@ -83,7 +84,7 @@ def clip_job(mon: dict, d: Path, adir: Path, report: Path) -> dict:
             "upright": plan in UPRIGHT or plan in RADIAL,
             "arms": plan in ARMED and bool(mon.get("hands")), "plan": plan, "weapon_r": wielded(mon),
             "weapon_l": wielded(mon, "hand_l"), "tail_fused": rig.tail_fused(mon),
-            "template": mon.get("rig_template")}
+            "template": mon.get("rig_template"), "mocap": anim_quad.plan(mon, d)}
 
 
 def stage_anim(fg, mon: dict, d: Path, args) -> None:
@@ -104,6 +105,7 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
     report = adir / "clips.json"
     report.unlink(missing_ok=True)
     job = clip_job(mon, d, adir, report)
+    job["clips"] += [c for c in job["mocap"] if c not in job["clips"]]  # extras (run): docs/rig-anim.md
     t0 = time.time()
     proc = subprocess.run([fg.BLENDER, "-b", "--factory-startup", "--python-exit-code", "1", "-P", str(BLENDER_CLIPS),
                            "--", json.dumps(job)], capture_output=True, text=True, timeout=1800)
@@ -112,7 +114,7 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
         raise RuntimeError(f"{mon['id']}: clips failed (rc={proc.returncode})")
     rep = json.loads(report.read_text())
     dt = round(time.time() - t0, 1)
-    clips = sorted(rep["clips"], key=want.index)
+    clips = sorted(rep["clips"], key=lambda c: want.index(c) if c in want else len(want))
     man = fg.load_manifest(d)
     man["anim"] = {"clips": clips, "missing": [c for c in want if c not in clips], "seconds": dt,
                    **{c: rep["clips"][c] for c in clips},
@@ -124,6 +126,7 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
         man["anim"]["partial_legs"] = rep["partial_legs"]
     if rep.get("warnings"):  # blender_clips.py's topology gate: parts dropped from the clips, odd legs
         man["anim"]["warnings"] = rep["warnings"]
+    anim_quad.stamp(man, job["mocap"], rep)  # manifest.anim.mocap / speeds (quadruped mocap clips)
     man.setdefault("timings", {})["anim"] = dt
     rig.clear_stage_errors(man, "anim")
     fg.save_manifest(d, man)

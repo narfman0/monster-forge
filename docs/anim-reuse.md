@@ -3,6 +3,11 @@
 Status: opt-in in the pipeline (override `anim_source: "ual"`, then `forge.py promote <id>`); run on all 50
 rigged bipeds (sheets judged, below). Not yet loaded in the viewer or Godot.
 
+Quadrupeds: the canonical quadruped skeleton (tools/quadcanon.py) plays CC0 Mesh2Motion fox / horse / dragon clips
+retargeted chain by chain (tools/anim_quad.py, tools/blender_quad_retarget.py, the `mocap` builder in
+tools/blender_clips.py), gated by the clip audit with a procedural fallback per clip: docs/rig-anim.md "Quadruped
+mocap clips". Per-monster bakes, not a shared library: the retarget scales stride, time and the body per monster.
+
 ## Why
 Our rigs come from SkinTokens: per-mesh skeletons (`bone_N`, 30-34 bones) with only the socket bones
 named (`hand_l/r`, `grip_l/r`, `head`, `back`, `hip_l/r`). Clips are procedural per monster. Nothing

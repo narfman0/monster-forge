@@ -1050,11 +1050,17 @@ def effector(g: dict, rest: bool = False) -> Vector:
 
 def key_feet(clip: Clip, fix: list[list[float]]) -> None:
     """Foot targets: rest + the clip's offset + a per-frame lift (a spider's tip, or a
-    swinging foot whose shin drags something through the ground)."""
+    swinging foot whose shin drags something through the ground). A clip with `foot_rot` (mocap)
+    also turns a level foot's target by that world delta (the paw rolls off and flexes in the swing)."""
+    turn = getattr(clip, "foot_rot", None)
     for i, (g, tgt, rest) in enumerate(clip.targets):
+        q0 = (world @ arm.data.bones[g["ik_bone"]].matrix_local).to_quaternion() if turn and g["level"] else None
         for f in range(1, clip.frames + 2):
             tgt.location = rest + clip.foot(g, (f - 1) / clip.frames) + Vector((0, 0, fix[i][f - 1]))
             tgt.keyframe_insert("location", frame=f)
+            if q0 is not None:
+                tgt.rotation_quaternion = turn(g, (f - 1) / clip.frames) @ q0
+                tgt.keyframe_insert("rotation_quaternion", frame=f)
 
 
 def key_fk(clip: Clip) -> None:
@@ -1109,13 +1115,17 @@ def sample(clip: Clip) -> tuple[np.ndarray, np.ndarray, list[np.ndarray]]:
         if clip.targets:
             clip.reach.append([(effector(g) - tgt.matrix_world.translation).length
                                for g, tgt, _ in clip.targets])
+            if getattr(clip, "reach_down", False):  # mocap: only a target below the foot asks for a lower body
+                clip.reach[-1] = [r if tgt.matrix_world.translation.z < effector(g).z - FOOT_TOL else 0.0
+                                  for r, (g, tgt, _) in zip(clip.reach[-1], clip.targets)]
     return np.array(lows), np.array(loose), pos
 
 
 def planted(clip: Clip, f: int) -> list[int]:
     """Legs standing on frame f (0-based): IK fully on and the foot not lifted."""
     t = f / clip.frames
-    return [i for i, g in enumerate(legs) if clip.ik(g, t) >= 1 and clip.foot(g, t).z == 0]
+    plant = getattr(clip, "plant_z", {})  # mocap: a paw raised at rest is set down that far (mocap())
+    return [i for i, g in enumerate(legs) if clip.ik(g, t) >= 1 and clip.foot(g, t).z == plant.get(g["foot"], 0.0)]
 
 
 def correction(clip: Clip, lows: np.ndarray, loose: np.ndarray) -> list[float]:
@@ -1332,7 +1342,11 @@ def build(clip: Clip) -> dict:
                         continue
                     if k <= 0.5:
                         continue
-                    if not g["level"]:
+                    if getattr(clip, "lift_feet", False):  # mocap: a flexing paw's skin clears the floor by its
+                        # swing height (the target's own lift): its toes hung below the lifted foot bone and dragged
+                        want = sole[i] + max(0.0, clip.foot(g, f / clip.frames).z - clip.plant_z.get(g["foot"], 0.0))
+                        fix[i][f] = max(0.0, fix[i][f] + want - clip.foot_low[f][i])
+                    elif not g["level"]:
                         fix[i][f] = max(0.0, fix[i][f] + sole[i] - clip.foot_low[f][i])
             key_feet(clip, fix)
         if SMOOTH_CLIPS and clip.ground == "floor":  # once, on the settled series (see POP_TOL)
@@ -3803,6 +3817,236 @@ def legless_clips() -> dict:
 makers = legless_clips() if legless else stand_clips() if STAND else plan_clips()
 
 
+# --- mocap (tools/anim_quad.py, docs/rig-anim.md "Quadruped mocap clips") ---------------------------
+# job mocap {clip: {"file": data/quadmocap/<rig>/<clip>.json, "rig", "nominal": the source animal's hip height
+# (m), optional "time" (a fixed time scale), "ground": floor | rest | hover | lift, "ik": "on" | "contact" | "off",
+# "wings" (map and beat the wings), "amp" (a borrowed clip's size), "roll_max" (degrees), "secondary" (false:
+# no follow-through), "paw_flex"}} (tools/anim_quad.py plan()): a canonical quadruped's clip built from a sampled
+# CC0 source clip instead of the curves above. Every mapped bone turns by the source bone's world rotation
+# delta from the source idle's first frame (blender_quad_retarget.bone_deltas: chains resampled by length
+# share; a bone with no source rides its parent), the body moves with the source pelvis and the feet follow
+# the source feet as IK targets, both scaled by the hind hip height (length) and slowed by sqrt(hip height /
+# the source animal's) (time), the planted frames locked (lock_feet: no skating; a loop's planted feet slide
+# back at the clip's own ground speed, reported as `speed_mps`). One-shots ease in from and out to the rest
+# pose (the idle's first frame). Then the same ground, IK, smoothing and export passes as every clip.
+MOCAP = job.get("mocap") or {}
+MOCAP_ON = bool(MOCAP) and CANON and LABELLED and len(legs) == 4
+MOCAP_LEAD = (0.15, 0.25)  # seconds: a one-shot eases in from the rest pose over the first, out over the last
+SWING_MIN = 0.03  # metres (x SCALE, like FLOOR_TOL): least swing clearance of a mocap loop's paw, 1.5 x the clip
+                  # audit's 2 cm contact band (blender_clip_audit CONTACT_TOL)
+MOCAP_PAW_FLEX = False  # a lifted paw flexing with the source foot rolled toe-to-heel just above the floor at each
+                        # touchdown (the clip audit's foot_slide 0.2-0.6 h on wolf and rat walks): paws stay level
+MOCAP_ROLL_WINGED = 25.0  # degrees: a winged body's fall rolls no further (it lies on its belly, not on a wing)
+PAW_UP, PAW_DOWN = 0.06, 0.3  # x hip height: a leg whose lowest skinned vertex is higher than PAW_UP at rest holds
+                              # its paw raised (tiger 0.16, wolf 0.01); set down up to PAW_DOWN
+# The in-build gate: a mocap clip is rebuilt with the procedural maker (report `mocap_fallback`) when, after the
+# retries, it sinks deeper than GATE_SINK x height or a standing foot stays more than GATE_REACH x height short
+# of its target. The procedural clips passed the same floor and IK passes, so they are the safe answer; the
+# audit gate (tools/clip_audit.py) adds edge stretch, foot sliding, penetration and limbs through the torso.
+GATE_SINK, GATE_REACH = 0.03, 0.05
+if MOCAP_ON:
+    import blender_quad_retarget as bqr
+    _SLOTS = bqr.target_slots(set(by_name))
+    _PARENT = {b["name"]: b["parent"] for b in bones}
+    _REST = {b["name"]: (Vector(b["head"]), Vector(b["tail"])) for b in bones}
+    _ORDER, _todo = [], [b["name"] for b in bones if b["parent"] is None]
+    while _todo:
+        _ORDER.append(_todo.pop(0))
+        _todo += kids.get(_ORDER[-1], [])
+    _hind_up = [by_name[f"{g['canon']}_upper"]["head"][2] if f"{g['canon']}_upper" in by_name
+                else by_name[g["chain"][0]]["head"][2] for g in hind]
+    HIP_H = sum(_hind_up) / len(_hind_up)
+    _MOTION: dict = {}
+
+
+def _lerp_list(seq: list, u: float, loop: bool):
+    n = len(seq)
+    i0 = int(math.floor(u))
+    a = u - i0
+    i1 = i0 + 1
+    if loop:
+        i0, i1 = i0 % n, i1 % n
+    else:
+        i0, i1 = max(0, min(n - 1, i0)), max(0, min(n - 1, i1))
+    return seq[i0], seq[i1], a
+
+
+def mocap(name: str, spec: dict, scale: float = 1.0, phase: float | None = None) -> Clip:
+    """A clip from a sampled source clip (see MOCAP above). `scale` < 1 shortens the steps and the body's
+    travel (the walk / lunge retry), `phase` starts a loop part-way through (start_phase, as the walk)."""
+    if spec["file"] not in _MOTION:
+        _MOTION[spec["file"]] = json.loads(Path(spec["file"]).read_text())
+    m = _MOTION[spec["file"]]
+    loop, n, fps = m["loop"], m["frames"], m["fps"]
+    if loop and phase is None and name != "idle":
+        ph, dev0, _ = start_phase(lambda p: mocap(name, spec, scale, p))
+        c = mocap(name, spec, scale, ph)
+        c.info = {**c.info, "start_phase": round(ph, 4), "from_idle_phase0_m": round(dev0, 4)}
+        return c
+    phase = phase or 0.0
+    tau = spec.get("time") or max(0.5, min(2.5, math.sqrt(HIP_H / spec["nominal"])))  # Froude: t ~ sqrt(size)
+    k = HIP_H
+    c = Clip(name, m["seconds"] * tau, loop)
+    secs = m["seconds"] * tau
+    lead_in = 0.0 if loop else min(0.3, MOCAP_LEAD[0] / secs)
+    lead_out = 0.0 if loop or spec.get("ground") == "rest" else min(0.3, MOCAP_LEAD[1] / secs)
+
+    amp = spec.get("amp", 1.0)  # a borrowed clip played smaller (the dragon's flinch on a fox body)
+
+    def w(t: float) -> float:
+        a = smooth(t / lead_in) if lead_in else 1.0
+        b = 1 - smooth((t - (1 - lead_out)) / lead_out) if lead_out else 1.0
+        return a * b * amp
+
+    def u_of(t: float) -> float:
+        return ((t + phase) % 1.0) * n if loop else t * (n - 1)
+
+    deltas = bqr.bone_deltas(m, _REST, _PARENT, _SLOTS, spec.get("wings", False), HIP_H, spec.get("wings", False))
+    neck_share = deltas.pop("_neck_share")
+    if root not in deltas and _SLOTS["pelvis"] in deltas:  # a top bone above the pelvis ("root") carries its turn
+        deltas[root] = deltas[_SLOTS["pelvis"]]
+    full = bqr.ride(deltas, _PARENT, _ORDER, n)
+    roll_max = spec.get("roll_max")
+    if roll_max is not None:  # a fall rolls the body no further than this about its length (cap_roll)
+        bqr.cap_roll(full, root, (MOCAP_ROLL_WINGED if wings else roll_max))
+        deltas = {b: full[b] for b in deltas}
+    # secondary motion: the tail and (when the clip does not beat them) the wings follow through
+    chains = ([tail] if tail else []) + ([wg["chain"] for wg in wings] if not spec.get("wings") else [])
+    if chains and spec.get("secondary", True):
+        deltas = bqr.follow_through(deltas, full, _PARENT, chains, tau / fps, loop, HIP_H, _REST)
+        secondary = deltas.pop("_secondary")
+        full = bqr.ride(deltas, _PARENT, _ORDER, n)
+    else:
+        secondary = {}
+
+    def dq(seq, t):
+        a, b, f = _lerp_list(seq, u_of(t), loop)
+        return bqr.slerp(Quaternion(), bqr.slerp(Quaternion(a), Quaternion(b), f), w(t))
+
+    for b in _ORDER:
+        if b == root or b not in deltas:
+            continue
+        p = _PARENT[b]
+        c.rot.setdefault(b, []).append(
+            (None, lambda t, b=b, p=p: dq(full[p], t).inverted() @ dq(full[b], t)))
+    # The body transform keys the root bone (key_root): it turns by the root's own delta about its head, and its
+    # head is placed so that the pelvis lands where the source pelvis goes: the root need not be the pelvis
+    # (wolf: spine_01, rat: spine_02), and turning the root about the pelvis swung the body off its path.
+    pel = _SLOTS["pelvis"] or root
+    path, b = [], pel
+    while b != root and b is not None:
+        path.append((b, _PARENT[b]))
+        b = _PARENT[b]
+    rq = full[root]
+    h_root = Vector(by_name[root]["head"])
+    h_pel = Vector(by_name[pel]["head"])
+    c.pivot = h_root.copy()
+    c.tilt = lambda t: dq(rq, t)
+    sink = Vector((0, 0, -drop * IDLE_SINK)) if loop and spec.get("ground", "floor") == "floor" else Vector()
+
+    def vec(seq, t):
+        a, b, f = _lerp_list(seq, u_of(t), loop)
+        return Vector(a).lerp(Vector(b), f)
+    pel_path = m["pelvis"] if loop else [[p[0] - m["pelvis"][0][0], p[1] - m["pelvis"][0][1], p[2]] for p in m["pelvis"]]
+
+    def lift(t):
+        want = h_pel + vec(pel_path, t) * (k * scale * w(t)) + sink
+        for x, par in path:  # pelvis head = root head + the rest offsets along the path, each turned by its bone
+            want -= dq(full[par], t) @ (Vector(by_name[x]["head"]) - Vector(by_name[par]["head"]))
+        return want - h_root
+    c.lift = lift
+    feet_src = m["feet"]
+    if not loop:  # a one-shot starts from the idle's stance: its feet move from where they stand on frame 0
+        feet_src = {lg: [[p[0] - ps[0][0], p[1] - ps[0][1], p[2]] for p in ps] for lg, ps in feet_src.items()}
+    con = bqr.contacts(feet_src, loop, fps)
+    speed = bqr.stance_speed(feet_src, con, loop, fps)
+    locked = bqr.lock_feet(feet_src, con, loop, fps, speed)
+    if loop:  # a swing clears the floor by at least SWING_MIN (the rat's 3.4 cm hips: a 4 mm paw lift scuffed)
+        for lg, ps in locked.items():
+            peak = max(p[2] for p in ps) * HIP_H
+            if 1e-6 < peak < SWING_MIN * SCALE:
+                kz = SWING_MIN * SCALE / peak
+                locked[lg] = [[p[0], p[1], p[2] * kz if p[2] > 1e-4 else p[2]] for p in ps]
+    # A paw the rest pose holds off the floor (the saber-toothed tiger's front left, 0.17 x hip height; dragons
+    # rearing a fore paw, up to 0.7) is set down in every mocap clip, the idle's first frame included, when it is
+    # at most PAW_DOWN x hip height up; a higher one keeps its raised rest and is never a standing foot (the
+    # floor pass lowered the tiger 2.7 m chasing a raised paw the flinch had pulled out of reach).
+    # (by the leg's lowest skinned vertex at rest: foot bone tails point into the floor at different depths)
+    c.plant_z, dz = {}, {}
+    for i, g in enumerate(legs):
+        up = float(REST_V[leg_of[i], 2].min()) if leg_of[i].any() else 0.0
+        if up > PAW_DOWN * HIP_H:
+            dz[g["canon"]] = 1e-4
+        elif up > PAW_UP * HIP_H:
+            dz[g["canon"]] = c.plant_z[g["foot"]] = -up
+    c.reach_down = True  # correction(): lower the body only for a standing foot whose target is below its IK end
+    c.lift_feet = True   # build(): a foot whose skin dips below its rest sole has its target raised by the dip
+    c.foot = lambda g, t: vec(locked[g["canon"]], t) * (k * scale * w(t)) + Vector((0, 0, dz.get(g["canon"], 0.0)))
+    if c.plant_z:
+        c.info["paws_down"] = {f: round(-z, 3) for f, z in c.plant_z.items()}
+    if any(v == 1e-4 for v in dz.values()):
+        c.info["paws_raised"] = [g["foot"] for g in legs if dz.get(g["canon"]) == 1e-4]
+    # a lifted paw flexes with the source foot; a planted one stays level (its rest orientation): the level IK
+    # asked to match a planted dragon foot's turn gave up on position and the floor pass sank the body for it
+    lifted = {lg: [0.0 if x else 1.0 for x in cs] for lg, cs in con.items()}
+    for lg, cs in lifted.items():  # eased over a frame either side
+        lifted[lg] = [max(cs[i], 0.5 * cs[(i - 1) % n], 0.5 * cs[(i + 1) % n]) if loop else
+                      max(cs[i], 0.5 * cs[max(0, i - 1)], 0.5 * cs[min(n - 1, i + 1)]) for i in range(n)]
+    rot_feet = {g["canon"]: full[g["foot"]] for g in legs if g["ik_bone"] == g["foot"] and g["foot"] in full}
+
+    def foot_rot(g, t):
+        if g["canon"] not in rot_feet:
+            return Quaternion()
+        a, b, f = _lerp_list(lifted[g["canon"]], u_of(t), loop)
+        return bqr.slerp(Quaternion(), dq(rot_feet[g["canon"]], t), a + (b - a) * f)
+    if spec.get("paw_flex", MOCAP_PAW_FLEX):
+        c.foot_rot = foot_rot
+    ik = spec.get("ik", "on")
+    if ik == "off":
+        c.ik = lambda g, t: 0.0
+    elif ik == "contact":  # a fall: each leg's IK holds while its foot is planted, lets go (eased) once it lifts
+        soft = {g["canon"]: next((i for i, x in enumerate(con[g["canon"]]) if not x), n) / max(1, n - 1)
+                for g in legs}  # the first frame the foot is off the ground
+        c.ik = lambda g, t: 1.0 - smooth((t - soft[g["canon"]]) / 0.12)
+    c.ground = spec.get("ground", "floor")
+    if c.ground == "hover":
+        c.hover = HOVER
+    elif c.ground == "lift":
+        c.hover = SWIM_LEGS * drop
+    elif c.ground == "rest":  # lying from when the source body is within 5% of its lowest
+        zs = [p[2] for p in pel_path]
+        lo = min(zs)
+        last = max(i for i, z in enumerate(zs) if z > lo + 0.05 * (max(zs) - lo + 1e-9)) + 1
+        c.rest_from = max(0.5, min(0.95, last / max(1, n - 1)))
+    c.info = {**c.info, "mocap": {"rig": m["rig"], "clip": m["clip"], "action": m["action"], "time_scale": round(tau, 4),
+                        "length_scale_m": round(k, 4), "neck_share": round(neck_share, 3),
+                        **({"secondary": secondary} if secondary else {})}, "stride_scale": scale, "legs": len(legs),
+              "feet": [g["foot"] for g in legs], "tail": tail}
+    if loop and speed > 0:
+        c.info["speed_mps"] = round(speed * k * scale / tau, 4)
+    return c
+
+
+PROCEDURAL: dict = {}  # clip -> the procedural maker a mocap clip replaced (the gate's fallback)
+if MOCAP_ON:
+    for _n, _spec in MOCAP.items():
+        if _n in makers:
+            PROCEDURAL[_n] = makers[_n]
+        makers[_n] = lambda s, _n=_n, _spec=_spec: mocap(_n, _spec, s)
+
+
+def mocap_gate(r: dict, torn: int) -> list[str]:
+    """Why a built mocap clip fails the in-build gate (GATE_SINK / GATE_REACH); [] passes. Tears are the
+    audit gate's (edge stretch against the procedural clip, tools/clip_audit.py): torn edge counts were
+    30-270 on mocap clips whose sheets read clean (tiger death, run), 0-9 on the procedural ones."""
+    why = []
+    if r["min_z"] < -GATE_SINK * height:
+        why.append(f"sink {-r['min_z'] / height:.3f}h")
+    if r.get("ik_reach_gap", 0.0) > GATE_REACH * height:
+        why.append(f"reach {r['ik_reach_gap'] / height:.3f}h")
+    return why
+
+
 def lifted_idle(base):
     """job idle_lift (anim.py): "match_move" holds the idle where the move clip
     (job move_clip: swim or fly, for a creature with no walk) holds the body, its ground
@@ -3902,10 +4146,14 @@ if LIFTED:
     for _n in list(makers):
         if _n != "idle" and _n not in MOVE_CLIPS and _n != "burrow":  # burrow digs into the floor
             makers[_n] = lifted_oneshot(makers[_n])
+            if _n in PROCEDURAL:
+                PROCEDURAL[_n] = lifted_oneshot(PROCEDURAL[_n])
 elif legs and not legless:
     for _n in list(makers):
         if _n not in ("idle", "burrow") and _n not in MOVE_CLIPS:
             makers[_n] = at_idle_height(makers[_n])
+            if _n in PROCEDURAL:  # the mocap gate's fallback is placed the same way
+                PROCEDURAL[_n] = at_idle_height(PROCEDURAL[_n])
 report = {"height": round(height, 3), "drop": round(drop, 3), "size": round(SIZE, 3), "size_scale": round(SCALE, 4),
           **({"ground_contacts": int(GROUND.sum())} if GROUND.any() else {}),
           "root": root, "head": head, "neck": neck,
@@ -3935,7 +4183,7 @@ for name in order:
     report["clips"][name] = build(makers[name](1.0))
     if name == "idle" and LIFTED:
         IDLE_Z["z"] = report["clips"]["idle"]["body_z_first"]
-    if name in ("walk", "attack_melee", "cast"):  # a part skinned to a leg (owlbear: tail fan on a hind
+    if name in ("walk", "attack_melee", "cast") and not job.get("no_retry"):  # a part skinned to a leg (owlbear: tail fan on a hind
         for k in (0.8, 0.65, 0.5):  # shin) sweeping through the ground, or feet that cannot
             r = report["clips"][name]  # reach it with the body raised: smaller steps
             if r["min_z"] >= -DIP_MAX and r.get("ik_reach_gap", 0) <= REACH_MAX * height \
@@ -3944,6 +4192,30 @@ for name in order:
             report["clips"][name] = build(makers[name](k))
             if name == "walk" and TORN.get("n", 0) > TEAR_MAX:
                 report["clips"][name]["torn_edges"] = TORN["n"]
+    if report["clips"][name].get("mocap") and name != "burrow":
+        mtorn = TORN.get("n", 0)
+        report["clips"][name]["torn_edges"] = mtorn
+        why = mocap_gate(report["clips"][name], mtorn) if job.get("mocap_gate", True) else []
+        if why:  # the procedural clip instead (a clip with no procedural maker, run, is dropped)
+            print(f"clip {name}: mocap fails the gate ({', '.join(why)})")
+            if name in PROCEDURAL:
+                TORN.clear()
+                makers[name] = lambda s, _m=PROCEDURAL[name], _n=name: _named(_m(s), _n)
+                report["clips"][name] = build(makers[name](1.0))
+                for k in ((0.8, 0.65, 0.5) if name in ("walk", "attack_melee", "cast") else ()):
+                    r = report["clips"][name]
+                    if r["min_z"] >= -DIP_MAX and r.get("ik_reach_gap", 0) <= REACH_MAX * height \
+                            and (name != "walk" or TORN.get("n", 0) <= TEAR_MAX):
+                        break
+                    report["clips"][name] = build(makers[name](k))
+                report["clips"][name]["mocap_fallback"] = why
+                report["clips"][name]["torn_edges"] = TORN.get("n", 0)
+            else:
+                del report["clips"][name]
+                (Path(job["out_dir"]) / f"{name}.glb").unlink(missing_ok=True)
+                (Path(job["out_dir"]) / f"{name}.json").unlink(missing_ok=True)
+                report.setdefault("mocap_dropped", {})[name] = why
+                continue
     print(f"clip {name}: {report['clips'][name]}")
 with open(job["report"], "w") as f:
     json.dump(report, f, indent=1)

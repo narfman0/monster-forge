@@ -103,6 +103,12 @@ feet = [ch[-1] for ch in legs]
 leg_len = [chain_len(ch) for ch in legs]
 # per leg: vertices whose strongest bone is the foot or below it (the sole)
 foot_verts = [np.nonzero(np.isin(dom, list(desc(f))))[0] for f in feet]
+# foot sliding (clip_audit gate foot_slide): a foot's contact point is the centroid of its SLIDE_PTS lowest
+# vertices; it is planted on a frame where that point is within CONTACT_TOL of the floor (2 cm on a 0.95-6.5 m
+# body, in proportion outside that band, as blender_clips' metre constants)
+SLIDE_PTS = 8
+SIZE_SCALE = SIZE / 0.95 if SIZE < 0.95 else SIZE / 6.5 if SIZE > 6.5 else 1.0
+CONTACT_TOL = 0.02 * SIZE_SCALE
 arms = {s: [n for n in ch if n in PB] for s, ch in (parts.get("arms") or {}).items()}
 wings = {s: [n for n in ch if n in PB] for s, ch in (parts.get("wings") or {}).items()}
 tail = [n for n in parts.get("tail") or [] if n in PB]
@@ -271,6 +277,7 @@ def evaluate(name, act, tiles=None):
     f0, n = int(round(f0)), int(round(f1 - f0))
     loop = name in LOOPS
     pos, lows, st_p, st_max, over2, joints, foot_low, sock_dev, pen = [], [], [], [], [], [], [], {}, {}
+    foot_pt = []
     st_where = (0, {})
     for i in range(n + 1):
         scene.frame_set(f0 + i)
@@ -295,6 +302,8 @@ def evaluate(name, act, tiles=None):
                 jt["wtip_" + c[-1]] = bone_tail(c[-1])
         joints.append(jt)
         foot_low.append([float(co[v, 2].min()) - GROUND if len(v) else 0.0 for v in foot_verts])
+        foot_pt.append([co[v[np.argsort(co[v, 2])[:SLIDE_PTS]]].mean(axis=0) if len(v) else np.zeros(3)
+                        for v in foot_verts])
         for s in SOCKETS:
             m = (W @ PB[s].matrix).inverted()
             off = np.array((m @ Vector(co[SOCK_NEAR[s]].mean(axis=0))).to_tuple())
@@ -375,6 +384,31 @@ def evaluate(name, act, tiles=None):
                         "slide_frac": r4(np.ptp(path[:, 0]) / max(leg_len[k], 1e-6)),
                         "stance_speed": round(float(np.median(sv)), 3), "stance_share": round(float(stance.mean()), 2)})
         rep["feet"] = per
+        # foot sliding: within each run of planted frames, how far the contact point travels over the ground
+        # beyond the clip's own ground speed (a loop's planted feet move back at the walk's speed, the median
+        # of every planted step; a one-shot's should stay put), summed over the run; the worst run
+        FP = np.array(foot_pt)  # (n+1, legs, 3)
+        on = (FP[:, :, 2] - GROUND) < CONTACT_TOL
+        both = on[:-1] & on[1:]
+        # the touchdown and lift-off steps of each plant are left out (a low swing passes within CONTACT_TOL at
+        # speed; that is a scuff at the plant's edge, not a planted foot sliding)
+        inner = both & np.r_[np.zeros((1, both.shape[1]), bool), both[:-1]] & np.r_[both[1:], np.zeros((1, both.shape[1]), bool)]
+        if loop:
+            inner = both & np.roll(both, 1, axis=0) & np.roll(both, -1, axis=0)
+        dv = np.diff(FP[:, :, :2], axis=0)
+        vref = np.array([0.0, float(np.median(dv[..., 1][inner]))]) if loop and inner.any() else np.zeros(2)
+        slip = np.linalg.norm(dv - vref, axis=2) * inner
+        worst, leg = 0.0, None
+        for k in range(slip.shape[1]):
+            acc_s = 0.0
+            for i in range(slip.shape[0]):
+                acc_s = acc_s + slip[i, k] if inner[i, k] else 0.0
+                if acc_s > worst:
+                    worst, leg = acc_s, feet[k]
+        rep["foot_slide_m"] = r4(worst)
+        rep["foot_slide_frac"] = r4(worst / HEIGHT)
+        rep["foot_slide_foot"] = leg
+        rep["planted_share"] = r4(float(on.mean()))
     for s, c in wings.items():
         if c:
             path = np.array([j["wtip_" + c[-1]] for j in joints])

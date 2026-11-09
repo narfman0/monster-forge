@@ -1689,6 +1689,142 @@ xorn, which HEAD cannot animate at all) and the added clips (`attack_ranged` on 
 spirit-naga, drider; `swim` on gibbering-mouther; `attack_special` / `walk` files named after their clip on shrieker-fungus,
 seahorse, fire-elemental). No other monster's clips change.
 
+### Quadruped mocap clips (2026-11-08)
+
+The procedural sine gait read stiff on four legs; bipeds look right because they play Quaternius' mocap-derived UAL
+clips (docs/anim-reuse.md). Canonical quadrupeds (the standard skeleton above: canon.json `ok` / `partial`, 104 of
+110) now play retargeted CC0 clips where those pass the gates, procedural clips elsewhere.
+
+```sh
+python3 -I tools/anim_quad.py sample                       # source .blend -> data/quadmocap/<rig>/<clip>.json (once)
+python3 -I tools/anim_quad.py plan wolf                    # source rig and clips a monster gets
+python3 -I tools/anim_quad.py run wolf --backup DIR        # anim --force + audit + gate fallback (+ manifest.anim.gate)
+python3 -I tools/anim_quad.py run --all --jobs 4           # every canonical quadruped (one Blender per job)
+python3 -I tools/anim_quad.py gate wolf                    # audit + gate only, on the clips there
+python3 -I tools/forge.py anim wolf --force                # the stage alone builds mocap clips too (no audit gate)
+```
+
+**Sources** (licenses/README.md). Mesh2Motion (CC0 1.0, github.com/Mesh2Motion/mesh2motion-assets @ dc2eb3cf; the
+app github.com/scottpetrovic/mesh2motion-app ships the same clips as meshopt-compressed GLBs, which this Blender
+cannot import). Three rigged quadrupeds with clips: **fox** (idle, walk, trot, run, bite, death, swim, ...),
+**horse** (idle, walk, trot, run, headbutt, kick, death, ...), **dragon** (idle, walk, attack, hurt, death,
+fire-breath, fly-flap, ...). No `hit` on the fox or horse. Quaternius' animal packs were not used: their downloads
+need a browser (itch), each animal has its own rig, and newer packs carry the non-redistributable QAL licence.
+Downloads only in `~/.cache/monster-forge-scratch/quadmocap/packs/`. The animation .blend files link
+`rigs/rig-<rig>.blend` by a Windows path; the sampler relinks it and opens with scripts off.
+
+**Sampling** (`tools/blender_quad_retarget.py` as a script, `anim_quad.py sample`). Each clip's deform bones are
+evaluated per frame (the source rig's IK and copy constraints included) and stored, monster-independent, as
+(Z up, +Y forward, +X right: the sources face -Y, so they are turned 180 degrees about Z): per source bone the
+world rotation delta from the source **idle's first frame** (one reference per rig, as the UAL work found: from
+the bind pose the source's stance is added onto ours), the pelvis and each foot's offset from that frame in source
+hind hip heights. 21 clips, 1.4 MB, in `data/quadmocap/`; the anim stage never needs the packs.
+
+**Which source.** `anim_quad.rig_for`: horse for hoofed and horned grazers (deer, elk, horses, camel, goats,
+rhinoceros, elephant, mammoth, triceratops, boars, hippopotamus, hippogriff, pegasus, nightmare, gorgon, unicorn),
+dragon for dragons, wyrmlings, the pseudodragon and reptiles (crocodiles, lizards, hydra, dragon turtle,
+ankylosaurus), fox for the rest. Clips the rig lacks are borrowed (`BORROW`): `hit` from the dragon's hurt at half
+amplitude on fox / horse bodies (`BORROW_AMP`; at full size the tiger collapsed flat), `breath` from the dragon's
+fire breath. `run` (fox, horse) is offered beyond the animation_set, like the UAL bipeds' run. Stay procedural:
+cast, burrow, attack_ranged, swim on horse and dragon bodies (the fox paddle on a crocodile's sprawled legs flailed),
+death on winged quadrupeds (the sources roll onto a side, the dragon's 127 degrees: onto a wing; the procedural
+death lies on the belly). Override `anim_mocap: false` or `{clip: false}`.
+
+**Mapping** (`blender_quad_retarget.bone_deltas`, `blender_clips.mocap`). Chain by chain onto the canonical names:
+source hips -> `pelvis`, the spine before the chest -> `spine_NN`, the bone the fore legs hang from -> `chest`, the
+spine after it -> `neck_NN`, head -> `head`, tail -> `tail_NN`, each leg's bones above the foot -> the leg's
+`_shoulder` / `_hip` (`_2`, `_3`), `_upper`, `_lower`, `_ankle`, the foot -> `_foot`, toes -> `_toe_NN`, the dragon's
+shoulder and wing_1..5 -> `wing_<s>_NN` (fly only). Chains of different length are resampled by length share
+(short-arc slerp between the two nearest source bones). A bone with no source (extras: ears, horns, `snout`) rides
+its parent. Each bone turns by its world delta: the FK layer is D_parent^-1 D_bone in world axes (key_fk), the root
+bone by its own delta about its head, placed so the pelvis follows the source pelvis (the root need not be the
+pelvis: wolf `spine_01`, rat `spine_02`). Neck and head take `NECK_K` x (our neck / the source's, in hip heights) of
+the source's chest-relative turn, at least 0.5; a head with no neck bone 0.4 (`NECK_NONE`: the giant crocodile's
+reared 90 degrees with the dragon's whole neck swing). A fly's wing deltas are taken about their mean over the clip
+(the source's are from its folded idle wings; ours rest raised). Falls roll the body at most 95 degrees about its
+length (`cap_roll`: a side, not the back). One-shots ease in from the rest pose over 0.15 s and out over 0.25 s (no
+ease-out on death); their feet and pelvis move from where they stand on the clip's first frame (the fox's bite
+starts from a wider stance than its idle: eased in from rest, a planted hind foot slid 17 cm). Loops start at the
+frame nearest the idle's first frame (start_phase, as the procedural walk). Every clip's idle-frame-0 is the rest
+pose with the body `IDLE_SINK` down, as the procedural clips, so mocap and procedural clips start on the same pose.
+
+**Scaling, stride matching, feet.** Lengths scale by the hind hip height (`length_scale_m`); time by
+sqrt(hip height / the source animal's), clamped 0.5-2.5 (`time_scale`; `anim_quad.NOMINAL_HIP`: fox 0.45 m, horse
+1.4 m, dragon 1.2 m: Froude scaling, so a mammoth's walk is slower and a rat's faster). Feet are IK targets on the
+source feet's paths (the existing leg IK, `level_ik_bends`, floor passes). `lock_feet`: a frame is planted when the
+source foot is within 0.035 hip heights of its idle height and not rising or falling fast (one-shots: not moving);
+planted frames sit on the floor, still across, and in a loop slide back at exactly the clip's ground speed (the
+median planted speed), in a one-shot not at all; a swing goes from one plant to the next along the source's own
+fore-aft progress, kept monotonic (a time blend drew the paw back mid-air), at least `SWING_MIN` (3 cm x SCALE)
+clear of the floor (the rat's 4 mm paw lift scuffed). Paws stay level (`MOCAP_PAW_FLEX` off: a flexing paw rolled
+toe to heel just above the floor at each touchdown). Mocap clips lower the body only for a standing foot whose
+target is below it (`reach_down`; lowering for a raised paw out of reach sank the tiger 2.7 m) and lift a foot's
+target where its skin dips below its swing height (`lift_feet`). A paw the rest pose holds up (a leg's lowest
+vertex above `PAW_UP` 0.06 hip heights: the tiger's front left 0.16, the rearing dragons' fore paws) is set down
+in every mocap clip when at most `PAW_DOWN` 0.3 up, else kept raised and never a standing foot. The walk / lunge
+retry (stride 0.8, 0.65, 0.5 when a foot cannot reach) applies as for procedural walks. Speed:
+`speed_mps` in the clip report = the planted feet's speed x length scale x stride / time scale;
+`manifest.anim.speeds` {walk, run: m/s at 1x}, synced to godot-dnd (`Monster.move_speed_scale`).
+
+**Secondary motion** (`follow_through`). The tail chain, and the wing chains in every clip that does not beat them,
+lag their rigid pose through a damped angular spring per bone, root to tip (2.6 Hz / sqrt(1 + chain length in hip
+heights), damping 0.45, at most 30 degrees, blended in by 0.6 x (0.5 + length), 0.3-1; six sub-steps per frame;
+loops run three times round and keep the last, so they close). Baked into the clip like everything else. Ears are
+not driven (the canonical rig names them only as `head_xN` extras, with horns). Bipeds' UAL clips are untouched
+(only canonical quadrupeds get a `mocap` job).
+
+**Gates.** In the build (`mocap_gate`): after its retries a mocap clip that sinks more than 0.03 x height or leaves
+a standing foot more than 0.05 x height short is rebuilt with the procedural maker (clip report `mocap_fallback`;
+`run`, which has none, is dropped). Then the clip audit gate (`clip_audit.GATE`, hard flags; the rest of the audit
+still only scores):
+- `sink`: lowest vertex below the floor by more than 0.03 x height (not burrow);
+- `foot_slide`: a planted foot travelling over the ground beyond the clip's own ground speed, summed over one plant,
+  more than 0.08 x height. Planted = the centroid of the foot's 8 lowest vertices within 2 cm of the floor (x the
+  size band's scale, as blender_clips' metre constants); a loop's planted feet are expected to move back at the
+  median planted speed, a one-shot's not at all; the touchdown and lift-off steps are left out; not on death,
+  burrow, fly, swim or lifted clips. Calibrated on the pilots' procedural clips that read clean on the sheets
+  (0.03-0.06 there: the centroid wanders as a paw loads);
+- `limb_in_torso` (self-intersection): a limb's distal half inside the torso ellipsoid beyond its rest share, more
+  than 0.25 (not death).
+`anim_quad.run_one`: a mocap clip failing the gate is rebuilt procedural (`<id>/mocap_gate.json` {clip: flags},
+read by `plan`), audited, and kept procedural only when its gate severity is lower; otherwise the mocap clip is
+restored. `manifest.anim.gate` = {checked, clips: {clip: {mocap, procedural (severities), fix}}}; a procedural clip
+failing with nothing to fall back to is recorded with `fix: none (procedural clip)`.
+
+**Manifest.** `manifest.anim.mocap` = {version (`anim_quad.MOCAP_VERSION`), clips {clip: "<rig>/<clip>"},
+procedural [...]}; `batch.py` marks the anim stage stale for a canonical quadruped whose version differs (re-run with
+`--force`). Clip reports carry `mocap` {rig, clip, action, time_scale, length_scale_m, neck_share, secondary}.
+
+**Pilots** (sheets `~/.cache/monster-forge-scratch/quadmocap/sheets/{before,after}/<id>.png`):
+| id | source | mocap clips | procedural (why) | judged on the sheets |
+|---|---|---|---|---|
+| wolf | fox | idle, walk (0.65 stride, 0.53 m/s), attack_melee, death | hit (audit: the borrowed flinch slid 0.16 h); run dropped (limb through torso, no procedural run) | better: the walk steps and flexes, the bite drops the head, the death rears and collapses on its side (rears high: theatrical) |
+| giant-elk | horse | idle, walk (0.5 stride, 1.23 m/s), attack_melee (head-butt), hit, run (8.3 m/s) | death (build: a standing foot 0.06 h short) | clearly better: antler charge instead of a nod, a real gallop |
+| saber-toothed-tiger | fox | idle, death | walk (build: sink 0.04 h), attack_melee, hit (audit: slide) | the idle now stands on four feet (its raised paw set down); otherwise as before |
+| young-blue-dragon | dragon | walk (0.55 m/s, kept: the procedural walk sinks and slides more), fly (wings beat about their rest) | idle, attack_melee, breath, hit (audit: slide, procedural less), death (winged) | walk and fly better; the rest unchanged |
+| giant-crocodile | dragon | none | all (build: its near-straight legs cannot reach under the dragon's motion; idle slid more) | unchanged |
+| rat | fox | idle, hit, death, run (0.60 m/s) | walk (audit: slide 0.10 h vs 0.06), attack_melee (build: sink) | hit and run better; death rears high for a rat |
+
+**Rollout** (98 more canonical quadrupeds; backups `~/.cache/monster-forge-scratch/quadmocap/backup/<id>/`):
+Every canonical quadruped ran through `anim_quad.py run` (`--jobs 4`, about 1 h 20 min for 98; dragons with 9 clips
+take ~10 min each with the gate's rebuilds); 0 errors. 100 of 104 play at least one mocap clip (none: ankylosaurus,
+dragon turtle, giant crocodile, mammoth: every clip fell back). Mocap / procedural per clip over the 104: idle 80 / 24,
+walk 47 / 57, attack_melee 41 / 63, fly 40 / 8, death 37 / 67 (winged: always procedural), hit 29 / 75, run 26
+(offered to the 59 fox / horse bodies), breath 22 / 22, swim 2 / 25. Gate outcomes recorded in manifest.anim.gate:
+204 clips sent back to procedural, 41 kept mocap because the procedural clip scored no better, 29 procedural clips
+failing with nothing to fall back to. Walk speeds (47 mocap walks) median 0.75 m/s (0.36-1.75), runs (26) median
+5.3 m/s. Per monster: `~/.cache/monster-forge-scratch/quadmocap/summary.txt` (mocap and procedural clips, speeds,
+gate fixes, worst three audit flags).
+
+Audit over every audited monster (227: the 103 UAL-rig bipeds are skipped by design, as before): 77 have a clip
+failing the hard gate. foot_slide 155 clips (41 mocap, all kept because their procedural clip slid as much or more;
+114 procedural), sink 24 (all procedural), limb_in_torso 9 (all procedural). The procedural failures are not new
+problems: they were never gated before (foot_slide did not exist); their fix is a rig or clip change, listed in
+`out/srd-5.2.1/_audit/clips.md` "Gate".
+
+Regression: procedural builds byte-identical to HEAD (goblin-warrior, constrictor-snake, giant-spider, and the wolf
+with mocap off): the new code paths run only on mocap clips.
+
 ## Body plans (2026-11-04)
 
 One pilot per plan the six pilots did not cover took the whole chain (`forge.py run`, paint

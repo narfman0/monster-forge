@@ -67,7 +67,17 @@ T = {
     "idle_wander": 0.15,   # idle: over this = more than an idle
     "attack_weak": 0.04,   # attack: largest vertex travel x height under this = no visible strike
     "limb_in_torso": 0.25,  # share of a limb's distal vertices inside the torso ellipsoid beyond rest
+    "foot_slide": 0.08,    # a planted foot (contact point within 2 cm of the floor, blender_clip_audit CONTACT_TOL)
+                           # travelling over the ground beyond the clip's own ground speed, summed over one plant,
+                           # x height (not death, burrow, fly, swim, or a lifted clip). Calibrated on the pilots'
+                           # procedural clips that read clean on the sheets: 0.03-0.06 (the contact point is a
+                           # centroid of the lowest vertices and wanders a little as a paw loads)
 }
+# Hard gate (docs/rig-anim.md "Quadruped mocap clips"): these flags fail a clip, the rest score it. sink = ground
+# penetration (lowest vertex below the floor by more than T["sink"] x height, not burrow), foot_slide, and
+# limb_in_torso (self-intersection: a limb's distal half inside the torso ellipsoid, not death). A failing mocap
+# clip falls back to the procedural one (tools/anim_quad.py gate; manifest anim.gate records it).
+GATE = {"sink", "foot_slide", "limb_in_torso"}
 
 
 def registry() -> dict:
@@ -210,6 +220,21 @@ def flags_for(t: dict, m: dict) -> list[dict]:
         for k, v in (r.get("limb_in_torso") or {}).items() if c != "death" else ():  # a lying body tucks its legs
             if v > T["limb_in_torso"]:
                 add(c, f"limb_in_torso:{k}", v, T["limb_in_torso"])
+        if c not in ("death", "burrow") and not lifted and r.get("foot_slide_frac", 0) > T["foot_slide"]:
+            add(c, "foot_slide", r["foot_slide_frac"], T["foot_slide"])
+            out[-1]["where"] = r.get("foot_slide_foot")
+    for f in out:
+        if f["flag"].split(":")[0] in GATE:
+            f["gate"] = True
+    return out
+
+
+def gate_fails(fl: list[dict]) -> dict:
+    """{clip: [gate flag names]} from flags_for()."""
+    out = {}
+    for f in fl:
+        if f.get("gate"):
+            out.setdefault(f["clip"], []).append(f["flag"])
     return out
 
 
@@ -230,7 +255,9 @@ def report(root: Path, out: Path, ts: list[dict]) -> list[dict]:
         spd = implied_speed(w) if "error" not in w else None
         rec_walk = (t["rec"].get("speeds") or {}).get("walk")
         rows.append({"id": t["id"], "plan": t["plan"], "rig": t["rig_tool"], "height": m["height"],
-                     "score": round(sum(f["sev"] for f in fl), 2), "flags": fl,
+                     "score": round(sum(f["sev"] for f in fl), 2), "flags": fl, "gate": gate_fails(fl),
+                     "mocap": sorted(((json.loads((t["dir"] / "manifest.json").read_text()).get("anim") or {})
+                                      .get("mocap") or {}).get("clips") or {}),
                      "stretch": {c: r.get("edge_stretch_p999") for c, r in m["clips"].items()},
                      "walk_speed_mps": spd, "srd_walk_mps": round(rec_walk * 0.3048 / 6, 2) if rec_walk else None,
                      "skipped_ual": t["skipped_ual"],
@@ -280,6 +307,18 @@ def write_md(out: Path, rows: list[dict]) -> None:
         L.append(f"| {plan} | {len(rs)} | {med(rs, ['idle'])} | {med(rs, ['walk'])} | "
                  f"{med(rs, ['attack_melee', 'attack_ranged'])} | {med(rs, ['hit'])} | {med(rs, ['death'])} | "
                  f"{med(rs, ['fly', 'swim'])} | {sum(1 for r in rs if r['flags'])} | {top} |")
+    gc, gm = {}, {}
+    for r in rows:
+        for c, fs in (r.get("gate") or {}).items():
+            for g in {x.split(":")[0] for x in fs}:
+                gc[g] = gc.get(g, 0) + 1
+                key = "mocap" if c in (r.get("mocap") or []) else "procedural"
+                gm[(g, key)] = gm.get((g, key), 0) + 1
+    L += ["", "## Gate (hard flags: clips failing, of them mocap / procedural)", "",
+          f"{sum(1 for r in rows if r.get('gate'))} of {len(rows)} monsters have a failing clip.", "",
+          "| gate flag | clips | mocap | procedural |", "|---|---|---|---|"]
+    for g in sorted(GATE):
+        L.append(f"| {g} | {gc.get(g, 0)} | {gm.get((g, 'mocap'), 0)} | {gm.get((g, 'procedural'), 0)} |")
     L += ["", "## Flag counts (monsters affected, non-biped / biped)", "",
           "| flag | non-biped | biped | median severity |", "|---|---|---|---|"]
     fc = {}

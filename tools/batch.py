@@ -376,6 +376,11 @@ def status(rec: dict, source: str, args=None) -> dict:
         why = qa_stale(rec, man)
         if why:
             done["qa"], stale["qa"] = False, why
+    if done["anim"] and d.is_dir():
+        import anim_quad  # canonical quadrupeds: clips older than the mocap version (docs/rig-anim.md)
+        why = anim_quad.stale(rec, d, man)
+        if why:
+            done["anim"], stale["anim"] = False, why
     skipped = {}
     u = unit_rec(rec)  # a swarm's stages run on its unit
     if not paint_enabled(u):
