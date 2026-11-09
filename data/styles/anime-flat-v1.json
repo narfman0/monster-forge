@@ -1,0 +1,34 @@
+{
+  "name": "anime-flat-v1",
+  "checkpoint": "animagine-xl-3.1.safetensors",
+  "positive_suffix": "anime coloring, cel shading, flat colors, clean lineart, character design sheet style, standing, simple background, white background, masterpiece, high score, great score, absurdres",
+  "negative": "lowres, bad anatomy, bad hands, text, error, missing finger, extra digits, fewer digits, cropped, worst quality, low quality, low score, bad score, average score, signature, watermark, username, blurry, 3d, realistic, photo, shadow, drop shadow, gradient background, multiple views, (nude, topless:1.5), (monochrome, grayscale:1.3)",
+  "strip_from_subject": [
+    "Low-poly game asset,",
+    "plain gray background, clean silhouette, flat even lighting."
+  ],
+  "lora": [],
+  "cfg": 6.0,
+  "steps": 28,
+  "sampler": "euler_ancestral",
+  "scheduler": "normal",
+  "width": 1024,
+  "height": 1024,
+  "controlnet": {
+    "model": "controlnet-union-sdxl-promax.safetensors",
+    "type": "openpose",
+    "strength": 0.6,
+    "start": 0.0,
+    "end": 0.6,
+    "body_plans": [
+      "biped",
+      "winged_biped"
+    ],
+    "pose_images": {
+      "default": "workflows/pose/apose_openpose.png",
+      "tiny": "workflows/pose/apose_openpose_small.png",
+      "small": "workflows/pose/apose_openpose_small.png"
+    }
+  },
+  "notes": "Anime characters (private sources). Animagine XL 3.1 knows booru character tags; the tags go in the source's per-id override `prompt_extra` in the private repo, never here. 1024x1024 matches the OpenPose template (a different aspect would stretch the pose). Flat cel colours and a plain white background so Pixal3D does not bake shading. Same A-pose OpenPose ControlNet as the house style (biped), which keeps limbs readable for rigging. Untested until the first MHA batch."
+}

@@ -51,7 +51,8 @@ OUT_ROOT = ROOT / "out"
 BLENDER = os.environ.get("BLENDER", "/usr/bin/blender")
 # Any Python with Pillow; the ComfyUI venv has it.
 PIL_PYTHON = os.environ.get("PIL_PYTHON", str(Path.home() / "workspace/ComfyUI/.venv/bin/python"))
-COMFY = os.environ.get("COMFY_URL", "http://127.0.0.1:8188")
+COMFY = os.environ.get("COMFY_URL", "http://127.0.0.1:8188").rstrip("/")
+COMFY_TOKEN = os.environ.get("COMFY_TOKEN", "")  # bearer token for a remote ComfyUI (empty = none)
 CLIENT_ID = f"monster-forge-{uuid.uuid4().hex[:8]}"
 
 # LOD0 budget by size category (triangles). See docs/lowpoly-density.md and docs/lods.md.
@@ -160,9 +161,25 @@ def base_seed(mid: str) -> int:
 # ---------------------------------------------------------------- ComfyUI API
 def http(method: str, path: str, body: bytes | None = None, headers: dict | None = None,
          timeout: float = 60) -> bytes:
-    req = urllib.request.Request(COMFY + path, data=body, method=method, headers=headers or {})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read()
+    headers = dict(headers or {})
+    if COMFY_TOKEN:  # remote ComfyUI behind a bearer token (Beam: deploy/beam/README.md)
+        headers.setdefault("Authorization", f"Bearer {COMFY_TOKEN}")
+    req = urllib.request.Request(COMFY + path, data=body, method=method, headers=headers)
+    last = None
+    for attempt in range(4 if COMFY_TOKEN else 1):  # a remote cold start or a gateway blip: retry GETs
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            if method != "GET" or e.code not in (502, 503, 504):
+                raise
+            last = e
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            if method != "GET" or not COMFY_TOKEN:
+                raise
+            last = e
+        time.sleep(5 * (attempt + 1))
+    raise last
 
 
 def get_json(path: str):
