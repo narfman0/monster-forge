@@ -30,7 +30,7 @@ bpy.context.view_layer.update()
 dg = bpy.context.evaluated_depsgraph_get()
 
 drop = [s.lower() for s in (job.get("drop") or []) + ["icosphere"]]  # Sketchfab exports often carry a default Blender Icosphere
-drop_mat = [s.lower() for s in job.get("drop_materials") or []]
+drop_mat = [s.lower() for s in (job.get("drop_materials") or []) + ["outline"]]  # inverted-hull outline shells render as a black/grey solid without backface culling
 for o in list(sc.objects):
     if o.type == "MESH" and (any(s in o.name.lower() for s in drop) or
                              any(s in (sl.material.name.lower() if sl.material else "") for sl in o.material_slots for s in drop_mat)):

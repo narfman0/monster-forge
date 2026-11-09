@@ -3,7 +3,9 @@
 
   python3 tools/ext_registry.py --source <src> [--tags]
 
-roster.json: {series, license?, characters: {id: {name, height_m?, size?}}}. Every character becomes a medium
+roster.json: {series, license?, characters: {id: {name, height_m?, size?, reference_prompt?, prompt_extra?}}}.
+A character with a reference_prompt is one to GENERATE (no usable existing model): its record carries the prompt,
+and overrides/<source>/<id>.json gets the style and prompt_extra for the ref stage (tools/forge.py ref/mesh/rig). Every character becomes a medium
 biped humanoid record in the same schema as the SRD registry (animation set idle/walk/attack_melee/hit/death, hand
 sockets), so ext_import.py / ext_rig.py / forge.py promote / the viewer treat it like any other source. There is
 no reference_prompt (models come from existing assets, not generation). Existing records keep their hand edits
@@ -39,6 +41,8 @@ def main() -> int:
     for cid, ch in ro["characters"].items():
         m = dict(BASE, id=cid, name=ch["name"], source=a.source, page=0, tags=[a.source, "anime", "character"],
                  scale_m=ch.get("height_m", 1.7))
+        if ch.get("reference_prompt"):
+            m["reference_prompt"] = ch["reference_prompt"]
         if cid in old:
             m.update({k: old[cid][k] for k in ("scale_m", "tags") if k in old[cid]})
         mons.append(m)
@@ -48,6 +52,12 @@ def main() -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
     (sources.extra_dir() / "overrides" / a.source).mkdir(parents=True, exist_ok=True)
+    for cid, ch in ro["characters"].items():
+        if ch.get("prompt_extra"):
+            of = sources.extra_dir() / "overrides" / a.source / f"{cid}.json"
+            ov = json.loads(of.read_text()) if of.exists() else {}
+            ov.update({"style": ro.get("style", "anime-flat-v1"), "prompt_extra": ch["prompt_extra"]})
+            of.write_text(json.dumps(ov, indent=2, ensure_ascii=False) + "\n")
     print(f"{a.source}: {len(mons)} records -> {path}")
     if a.tags:
         tj = cur / "tags.json"
