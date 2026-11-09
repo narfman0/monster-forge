@@ -156,6 +156,187 @@ def centaur():
             "margin": 1.12}
 
 
+def serpent(kind="raised"):
+    """Serpentine proxies (2026-11-08, docs/references.md "Serpentine and centauroid poses"), the same 4 m
+    body along X with the head at +X as snake(), seen from the side (camera 20 degrees up), stretched out
+    in a shallow S so the generated spine chain (blender_rig.fallback_chain: snout and tail are the two
+    surface points farthest apart) runs nose to tail. kind:
+    - raised: nagas, grick: the front third rises off the ground in a smooth curve and levels out at
+      the head, which looks forward (a cobra-like guard, not coiled), the rear two thirds on the ground.
+    - wings: couatl, flying snake: as raised, plus two feathered wings raised in a V from the middle of
+      the body, short enough that their tips stay nearer the middle than the snout and tail.
+    - legs: behir: a long body on six pairs of short legs, every foot planted, the head a little raised.
+    - worm: purple worm: a thick, even tube, the front quarter raised with a wide round open maw facing
+      forward, a stinger at the tail end.
+    - naga: as raised, with a big human head (a face, hair down the back of the neck) instead of the
+      reptile wedge, so the model draws a face rather than a snake's or dragon's head."""
+    n, L = 96, 4.0
+    raise_from = {"raised": 0.62, "naga": 0.62, "wings": 0.62, "legs": 0.86, "worm": 0.74}[kind]
+    A = 0.30 if kind != "worm" else 0.22
+    H = {"raised": 0.95, "naga": 0.95, "wings": 0.85, "legs": 0.30, "worm": 0.90}[kind]
+    x0 = -L / 2 + raise_from * L
+    F = (1 - raise_from) * L
+    front = bezier((0, 0, 0), (0.35 * F, 0, 0), (0.30 * F, 0, H), (0.70 * F, 0, H), n=40)
+    seg = [0.0]
+    for a, b in zip(front, front[1:]):
+        seg.append(seg[-1] + (Vector(b) - Vector(a)).length)
+    pts, radii = [], []
+    for i in range(n + 1):
+        t = i / n                               # 0 = tail tip, 1 = snout
+        if kind == "worm":
+            r = 0.05 + 0.20 * min(1.0, t / 0.12)
+        elif kind == "legs":
+            r = 0.02 + 0.16 * min(1.0, t / 0.3)
+        elif t < 0.35:
+            r = 0.015 + 0.15 * math.sin(0.5 * math.pi * t / 0.35)
+        elif t < 0.70:
+            r = 0.165
+        else:
+            r = 0.165 - 0.06 * min(1.0, (t - 0.70) / 0.25)
+        if t <= raise_from:                     # on the ground, the S in plan
+            x = -L / 2 + t * L
+            u = t / raise_from
+            y = A * math.sin(2 * math.pi * u) * (1 - u) ** 0.5
+            z = r
+        else:                                   # the raised front along the curve, by arc length
+            d = (t - raise_from) * L
+            j = min(range(len(seg)), key=lambda k: abs(seg[k] - d))
+            fx, _, fz = front[j]
+            x, y, z = x0 + fx, 0.0, r + fz
+        pts.append((x, y, z))
+        radii.append(r)
+    chain(pts, radii)
+    hx, hy, hz = pts[-1]
+    if kind == "worm":                          # a round maw facing forward: a thick ring with a dark hollow
+        bpy.ops.mesh.primitive_torus_add(major_radius=0.20, minor_radius=0.07, location=(hx + 0.05, hy, hz))
+        ob = bpy.context.active_object
+        ob.rotation_euler = (0, math.radians(90), 0)
+        capsule(pts[0], (pts[0][0] - 0.30, pts[0][1], pts[0][2] + 0.15), 0.06, 0.01)   # tail stinger
+    elif kind == "naga":
+        head("woman", (hx + 0.10, hy, hz + 0.08), (1, 0, 0), 1.7)
+    else:
+        k = 1.3 if kind == "legs" else 1.0
+        head("reptile", (hx + 0.02, hy, hz + 0.01), (1, 0, -0.1), 1.1 * k)
+    if kind == "legs":                          # six pairs of short legs, feet planted outside the body
+        for j in range(6):
+            t = 0.30 + j * 0.10
+            px, py, pz = pts[round(t * n)]
+            for sgn in (-1, 1):
+                chain([(px, py + sgn * 0.10, pz), (px + 0.05, py + sgn * 0.34, pz + 0.04), (px + 0.10, py + sgn * 0.40, 0.03)],
+                      [0.065, 0.05, 0.04])
+    if kind == "wings":                         # feathered wings raised in a V from mid-body
+        px, py, pz = pts[round(0.50 * n)]
+        W = 1.0
+        for sgn in (-1, 1):
+            root = Vector((px, py + sgn * 0.10, pz + 0.10))
+            up = Vector((0, sgn * math.sin(math.radians(25)), math.cos(math.radians(25))))
+            at = lambda u, v, root=root, up=up: root + Vector((u * W, 0, 0)) + up * (v * W)
+            # a bird's wing swept up and back: the leading edge to a high tip, the feathered trailing
+            # edge stepping back down to the body
+            outline = [root + Vector((0.20, 0, 0)), at(0.18, 0.45), at(0.0, 0.85), at(-0.40, 1.20), at(-0.52, 1.02),
+                       at(-0.50, 0.92), at(-0.62, 0.78), at(-0.58, 0.62), at(-0.66, 0.48), at(-0.52, 0.30),
+                       root + Vector((-0.30, 0, 0))]
+            membrane(outline, 0.04)
+    if kind == "legs":                          # a little from the front and above, so both rows of legs show
+        return {"view": (0.35, -1.0, math.tan(math.radians(25))), "margin": 1.08}
+    return {"view": (0.0, -1.0, math.tan(math.radians(20))), "margin": 1.08}
+
+
+def plesiosaur():
+    """Plesiosaurus (2026-11-08): a broad flat body swimming level, four big paddle flippers spread out
+    from the sides (front pair larger), a long slender neck reaching forward and a little up to a small
+    head, a short tapering tail; facing +X, seen from the side and above (camera 30 degrees up, 35 off the
+    side) so all four flippers show. No legs or feet to draw."""
+    z = 0.6
+    ellipsoid((0, 0, z), 0.95, 0.55, 0.30)                         # flat broad body
+    for fx, L, w in ((0.45, 1.05, 0.32), (-0.55, 0.85, 0.26)):     # front and hind paddles
+        for sgn in (-1, 1):
+            a = Vector((fx, sgn * 0.45, z - 0.05))
+            b = a + Vector((-0.30 * L, sgn * 0.90 * L, -0.12))
+            slab(a, b, w, 0.035, (1, 0, 0))
+    neck = bezier((0.85, 0, z + 0.05), (1.35, 0, z + 0.15), (1.85, 0, z + 0.45), (2.35, 0, z + 0.55), n=14)
+    chain(neck, [0.20 - 0.11 * i / 14 for i in range(15)])
+    head("reptile", neck[-1], (1, 0, -0.1), 1.2)
+    # a short thin tail: a long wedge here was drawn as the head (the creature turned round)
+    tail = bezier((-0.85, 0, z), (-1.05, 0, z - 0.02), (-1.20, 0, z - 0.04), (-1.32, 0, z - 0.05), n=6)
+    chain(tail, [0.10 - 0.09 * i / 6 for i in range(7)])
+    a = math.radians(35)
+    return {"view": (math.sin(a), -math.cos(a), math.tan(math.radians(30))), "margin": 1.08}
+
+
+def scorpion():
+    """Scorpion (2026-11-08): a low segmented body facing +X, eight legs (four a side) spread out with
+    every tip on the ground, two big pincers on arms held forward, a segmented tail arched up over the
+    back to a stinger pointing forward; seen from the side and a little above and in front (camera 25
+    degrees up, 30 off the side), so both pincers and the arched tail show."""
+    z = 0.22
+    ellipsoid((0.25, 0, z), 0.30, 0.22, 0.10)                      # cephalothorax
+    for j in range(5):                                              # abdomen segments
+        ellipsoid((-0.10 - j * 0.14, 0, z), 0.09, 0.22 - 0.015 * j, 0.10)
+    for sgn in (-1, 1):
+        for j in range(4):
+            hx = 0.32 - j * 0.14
+            chain([(hx, sgn * 0.18, z), (hx - 0.05 + 0.10 * (j < 2), sgn * 0.45, z + 0.16), (hx - 0.10 + 0.22 * (j < 2) - 0.12 * (j >= 2), sgn * 0.62, 0.02)],
+                  [0.035, 0.03, 0.02])
+        sh = Vector((0.50, sgn * 0.12, z))                          # pincer arm forward, claw open
+        el = Vector((0.75, sgn * 0.38, z + 0.06))
+        wr = Vector((1.00, sgn * 0.30, z + 0.05))
+        chain([sh, el, wr], [0.05, 0.05, 0.06])
+        ellipsoid(wr + Vector((0.12, 0, 0)), 0.14, 0.08, 0.06)
+        capsule(wr + Vector((0.20, sgn * 0.03, 0.02)), wr + Vector((0.36, sgn * 0.0, 0.03)), 0.04, 0.015)
+        capsule(wr + Vector((0.20, -sgn * 0.03, -0.01)), wr + Vector((0.33, -sgn * 0.04, 0.0)), 0.035, 0.012)
+    tail = bezier((-0.70, 0, z + 0.03), (-1.05, 0, z + 0.25), (-1.05, 0, z + 0.80), (-0.55, 0, z + 0.85), n=12)
+    chain(tail, [0.08 - 0.035 * i / 12 for i in range(13)])
+    capsule(tail[-1], Vector(tail[-1]) + Vector((0.12, 0, -0.12)), 0.05, 0.008)   # stinger
+    a = math.radians(30)
+    return {"view": (math.sin(a), -math.cos(a), math.tan(math.radians(25))), "margin": 1.08}
+
+
+def centaur_wide(lower="lion"):
+    """Rig-friendly centauroids (2026-11-08): a human torso rising from the front of a four-legged
+    (lower "lion") or eight-legged spider (lower "spider") body, the arms in the wide A-pose (45 degrees
+    out, clear of the body, open hands), every foot planted and apart; three-quarter front view. The torso
+    sits where a quadruped's neck would be, so no animal neck or head can be drawn."""
+    if lower == "spider":
+        ellipsoid((0, -0.55, 0.85), 0.55, 0.70, 0.45)          # abdomen
+        ellipsoid((0, 0.20, 0.80), 0.40, 0.40, 0.30)           # cephalothorax
+        ty, tz = 0.42, 1.02                                    # where the torso rises
+        for sgn in (-1, 1):                                    # four legs a side, knees high, feet wide
+            for j, (ay, fy) in enumerate(((0.45, 1.30), (0.30, 0.55), (0.10, -0.35), (-0.05, -1.10))):
+                hip = Vector((sgn * 0.32, ay, 0.85))
+                knee = Vector((sgn * 0.95, (ay + fy) / 2 + 0.05, 1.30))
+                foot = Vector((sgn * 1.45, fy, 0.03))
+                chain([hip, knee, foot], [0.08, 0.06, 0.03])
+        view_deg = 60
+    else:
+        ellipsoid((0, -0.10, 0.95), 0.30, 0.72, 0.30)          # lion barrel
+        ellipsoid((0, 0.38, 0.98), 0.30, 0.24, 0.30)           # chest, under the torso (no bulge ahead of it:
+                                                               # one there was drawn as a lion's head)
+        ellipsoid((0, -0.68, 0.98), 0.29, 0.27, 0.29)          # rump
+        for sgn in (-1, 1):
+            chain([(sgn * 0.20, 0.50, 0.82), (sgn * 0.24, 0.53, 0.45), (sgn * 0.26, 0.55, 0.05)], [0.11, 0.08, 0.07])
+            ellipsoid((sgn * 0.26, 0.62, 0.04), 0.08, 0.12, 0.05)
+            chain([(sgn * 0.20, -0.68, 0.90), (sgn * 0.24, -0.55, 0.55), (sgn * 0.26, -0.78, 0.30), (sgn * 0.26, -0.74, 0.05)],
+                  [0.14, 0.09, 0.07, 0.07])
+            ellipsoid((sgn * 0.26, -0.66, 0.04), 0.08, 0.12, 0.05)
+        pts = bezier((0, -0.92, 1.05), (0, -1.30, 1.00), (0, -1.55, 0.85), (0, -1.75, 0.70), n=8)   # tail out behind
+        chain(pts, [0.05 - 0.004 * i for i in range(9)])
+        ty, tz = 0.48, 1.12
+        view_deg = 45
+    capsule((0, ty, tz), (0, ty + 0.02, tz + 0.32), 0.18, 0.19)     # waist
+    ellipsoid((0, ty + 0.02, tz + 0.48), 0.23, 0.14, 0.19)           # chest
+    capsule((0, ty + 0.02, tz + 0.64), (0, ty + 0.03, tz + 0.72), 0.06, 0.06)
+    ellipsoid((0, ty + 0.05, tz + 0.84), 0.095, 0.11, 0.125)         # head
+    for sgn in (-1, 1):
+        sh = Vector((sgn * 0.24, ty + 0.02, tz + 0.60))
+        d = Vector((sgn * math.sin(math.radians(45)), 0.05, -math.cos(math.radians(45))))
+        el, wr = sh + d * 0.30, sh + d * 0.56
+        chain([sh, el, wr], [0.07, 0.05, 0.04])
+        ellipsoid(wr + d * 0.08, 0.035, 0.06, 0.075)                 # open hand
+    a = math.radians(view_deg)
+    return {"view": (math.sin(a), math.cos(a), math.tan(math.radians(12))), "margin": 1.08}
+
+
 def slab(a, b, width, thick, side=(1, 0, 0)):
     """A flat ellipsoid from a to b (a wing membrane, a headdress flap): `width` across, along
     the direction `side` (made perpendicular to b - a), `thick` through it."""
@@ -533,7 +714,15 @@ def quad_pose(kind="mammal", wings=False, small=False):
 QUAD_POSES = {"quad_side": ("mammal", False), "quad_low_side": ("reptile", False), "quad_wings_side": ("dragon", True)}
 
 
-TEMPLATES = {"serpentine_side_depth": snake, "centaur_34_depth": centaur, "hydra_34_depth": hydra,
+TEMPLATES = {"serpentine_side_depth": snake,
+             "serpentine_raised_side_depth": lambda: serpent("raised"),
+             "serpentine_wings_side_depth": lambda: serpent("wings"),
+             "naga_raised_side_depth": lambda: serpent("naga"),
+             "serpentine_legs_side_depth": lambda: serpent("legs"),
+             "worm_raised_side_depth": lambda: serpent("worm"),
+             "centaur_wide_34_depth": lambda: centaur_wide("lion"),
+             "plesiosaur_34_depth": plesiosaur, "scorpion_34_depth": scorpion,
+             "drider_wide_34_depth": lambda: centaur_wide("spider"), "centaur_34_depth": centaur, "hydra_34_depth": hydra,
              "twohead_dog_34_depth": twohead_dog, "sphinx_side_depth": sphinx, "chimera_34_depth": chimera,
              "biped_wings_front_depth": lambda: biped(wings=True), "biped_tail_front_depth": lambda: biped(tail=True),
              "biped_wings_tail_front_depth": lambda: biped(wings=True, tail=True),

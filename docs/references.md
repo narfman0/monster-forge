@@ -337,6 +337,53 @@ weasel, giant crocodile; all face +Y in thumb.png): a three-quarter reference me
 or a wing swept to one side, which the check reads as sideways. Those have `rig_facing_check: false`.
 
 
+### Serpentine and centauroid poses (2026-11-08)
+
+The 13 tier-4 holds (serpentine and centauroid) and two records whose prompts kept drawing the wrong animal
+(plesiosaurus: sauropods; scorpion: wasps) got their own depth templates (`tools/blender_ref_templates.py`
+`serpent(kind)`, `centaur_wide(lower)`, `plesiosaur()`, `scorpion()`; `forge.REF_TEMPLATES`, 0.7 / end 0.6 unless
+the override tunes it), chosen per id with the override `ref_template`, and a whole per-id subject in
+`prompt_tweaks.json` (the constrictor-snake pattern: the prompt agrees with the pose; earlier rounds kept as
+`tried_2026_11_08*`). The plain snakes keep the plan default `serpentine_side`.
+
+| template | proxy | used by |
+|---|---|---|
+| `serpentine_side` (2026-11-04) | 4 m snake in a shallow S on the ground, head a little raised | venomous-snake, giant-venomous-snake, giant-constrictor-snake, swarm-of-venomous-snakes (its unit) |
+| `serpentine_raised_side` | the rear two thirds on the ground in an S, the front third rising in a smooth curve and levelling at the head (0.95 m up on 4 m), head forward | grick |
+| `naga_raised_side` | as above with a big human head (`head("woman")`, 1.7x) | guardian-naga, spirit-naga |
+| `serpentine_wings_side` | raised, plus two feathered wings in a V from mid-body (tips nearer the middle than the snout, so the spine chain still runs snout to tail) | couatl, flying-snake |
+| `serpentine_legs_side` | a long body on six pairs of short legs, every foot planted, head a little raised; 25 degrees up and a little from the front | behir |
+| `worm_raised_side` | a thick even tube, the front quarter raised with a round open maw, a tail stinger | purple-worm |
+| `centaur_wide_34` | a lion body on four planted legs, tail out behind, a human torso rising where the neck would be (no chest bulge ahead of it: one was drawn as a lion's head), arms 45 degrees out, open hands; 45 degrees off the front | lamia (0.55 / 0.5) |
+| `drider_wide_34` | a spider body on eight wide-planted legs, the human torso rising from the front, arms out | drider (0.55 / 0.5) |
+| `plesiosaur_34` | a flat broad body, four paddles spread, a long neck forward to a small head, a short thin tail; 30 degrees up | plesiosaurus |
+| `scorpion_34` | low segmented body, eight legs down, two pincers forward, the tail arched over the back to the sting | scorpion |
+
+Rounds (4 candidates each; picks in the overrides' notes):
+
+- Plain snakes: round 1 usable for all four. couatl and flying-snake: round 1 (wings raised, raised front).
+- guardian-naga, spirit-naga: rounds 1-2 drew dragon / snake heads (the reptile wedge in the depth map won over
+  "human-like face"); `naga_raised_side` (a human head in the proxy) gave faces in round 3; spirit-naga's colours
+  wandered until round 4 weighted the black scales and black hair.
+- grick: round 1 green snakes with eyes; round 2 (eyeless, four tentacles round a beak, style guard) picked.
+- behir: round 1 photo-like toys without horns; round 2 (horns, style guard) picked.
+- purple-worm: round 1 photo-like, maw closed; round 2 open toothed maw.
+- drider: rounds 1-2 photo renders (dark backdrop, then white); the ink style does not hold under the spider template.
+  Round 2 ref_0 (eight planted legs, dark elf torso, arms out) taken.
+- lamia: rounds 1-2 drew mannequins and a woman sitting on a whole lion; round 3 ("headless lion body", lion-head
+  negatives 1.7, no chest bulge in the proxy): ref_0 topless (rejected), ref_2 clothed (white top) picked.
+- plesiosaurus: round 1 read the proxy's tail wedge as the head (turned round); the short thin tail fixed it.
+- scorpion: round 1 (golden ink scorpions, pincers, arched sting).
+
+As with the quadrupeds, the depth maps pull some candidates toward photo / toy looks; the per-id prompts carry the
+`pose_style_guard` words. Meshing notes: the plesiosaurus (seen from 30 degrees above) meshed rolled about 50 degrees
+onto its side, so its override turns QA leveling on (`level` true, `level_tilt` 60); the lamia (three-quarter view)
+meshed 45 degrees off +Y and has `yaw` 134.5, as centaur-trooper has 100.5.
+
+death-dog, hydra and sphinx-of-lore were already re-drawn with `twohead_dog_34`, `hydra_34` and `sphinx_side`
+(2026-11-07, above): one two-headed hound, one five-necked body, a woman-faced winged lion. They were not re-rolled
+again; their open items are rig ones (legs / tail found, the sphinx's wings).
+
 ## Unarmed check subject (name with a weapon word)
 
 `forge.py` passes the display name ("a kuo-toa whip") to `tools/unarmed_check.py` for the

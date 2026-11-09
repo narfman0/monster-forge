@@ -144,6 +144,14 @@ elif CANON:
 elif PLAN in QUAD_PLANS and not job["upright"] and not job["sprawl"] and job["feet"] == 4 and \
         (legs := rig_topology.quad_legs(bones, height)):
     pass
+# radial (the xorn): legs round a vertical axis have no left and right for a gait, so the body
+# always gets the standing set (it rocks over its base and the arms do the work) plus a burrow
+# (radial_burrow); the leg chains it finds stay unkeyed and ride the body.
+elif PLAN == "radial":
+    _found = rig_topology.find_legs(bones, height, job["feet"], False, rescue=False)
+    STAND = {"legs_found": len(_found), "need": job["feet"], "unkeyed_legs": [g["chain"] for g in _found],
+             "radial": True}
+    legs = []
 else:
     legs = rig_topology.find_legs(bones, height, 8 if job["sprawl"] else job["feet"], job["sprawl"],
                                   rescue=not job["upright"], sprawl_drop=job["sprawl"])
@@ -210,7 +218,9 @@ if tail and not fan:
 # tail reaching out sideways (the giant toad's right hind leg, the kobold's tail)
 WING_PLANS = {"winged_quadruped", "winged_biped", "avian"}
 wing_search = PLAN in WING_PLANS or "fly" in job["clips"]
-wings = [{"side": w[0], "chain": w[1]} for w in job["wings"]] if job.get("wings") else [] if legless else \
+wings = [{"side": w[0], "chain": w[1]} for w in job["wings"]] if job.get("wings") else \
+    [{"side": s, "chain": rig_topology.canon_chain(bones, f"wing_{s}")} for s in "rl"
+     if rig_topology.canon_chain(bones, f"wing_{s}")] if PLAN == "serpentine" else [] if legless else \
     [{"side": s, "chain": rig_topology.canon_chain(bones, f"wing_{s}")} for s in "rl"
      if rig_topology.canon_chain(bones, f"wing_{s}")] if CANON else \
     rig_topology.find_wings(bones, height, legs, arms, exclude=(head,) if head else (),
@@ -2343,6 +2353,8 @@ def plan_clips() -> dict:
         sets["breath"] = lambda s: breath()
     if "l" in arm_by_side and "r" in arm_by_side:
         sets["attack_ranged"] = lambda s: attack_ranged()
+    else:  # no arm pair (a spitting or tail-spiking manticore, a drider or centaur whose arms the rig missed):
+        sets["attack_ranged"] = lambda s: cast(scale=s)  # the cast's head thrust (or one-arm reach), built as attack_ranged
     sets["cast"] = lambda s: cast(scale=s)
     sets["swim"] = lambda s: swim_legged()
     sets["burrow"] = lambda s: burrow()
@@ -2497,11 +2509,27 @@ def idle_serpent() -> Clip:
     body_pitch(c, lambda t: 4 * math.sin(2 * math.pi * t), NECK_S)
     c.turn(BODY["head"], "Z", wave(8.0, 1, 0.5))
     c.turn(BODY["head"], "X", wave(4.0, 2, 0.0))
+    for wg in wings:  # winged serpents: the wings stir (a slow small beat that starts at rest)
+        c.turn(wg["chain"][0], "Y", lambda t, s_=wg["side"]: sym(s_, -6 * math.sin(2 * math.pi * t)))
     return c
 
 
 STRIKE_S = 2 / 3    # the strike rears the front third of the body chain
 STRIKE_T = (0, 0.38, 0.5, 0.62, 1.0)  # rest, wound up, struck, held, rest
+
+
+RAISED_DEG = 25.0   # a front third rising more steeply than this at rest is a raised (naga) pose
+
+
+def strike_raise() -> float:
+    """Degrees the strike span (from STRIKE_S to the head's tip) rises at rest: atan of its rise over
+    its horizontal run."""
+    part = [nm for nm, sv in zip(BODY["path"], BODY["s"]) if sv >= STRIKE_S]
+    if not part:
+        return 0.0
+    a, b = Vector(by_name[part[0]]["head"]), Vector(by_name[BODY["head"]]["tail"])
+    d = b - a
+    return math.degrees(math.atan2(d.z, math.hypot(d.x, d.y)))
 
 
 def strike_serpent() -> Clip:
@@ -2515,8 +2543,17 @@ def strike_serpent() -> Clip:
     c = Clip("attack_melee", 1.0, False)
     c.ground = "contact"
     mid_s = STRIKE_S + 0.5 * (1.0 - STRIKE_S)
-    base = body_pitch(c, keys(*zip(STRIKE_T, (0, 75, -8, -8, 0))), STRIKE_S, mid_s)
-    front = body_pitch(c, keys(*zip(STRIKE_T, (0, -40, -6, -6, 0))), mid_s)
+    # a body whose front third already stands raised (nagas, the couatl, the grick, the purple worm:
+    # the serpentine_raised_side pose) rears only what is left to a 75 degree guard, and strikes down
+    # through its own raise: rearing it the full 75 on top threw the head back over the body
+    pre = strike_raise()
+    if pre > RAISED_DEG:
+        rear, dive = max(15.0, 75.0 - pre), -8.0 - 0.6 * pre
+        base = body_pitch(c, keys(*zip(STRIKE_T, (0, rear, dive, dive, 0))), STRIKE_S, mid_s)
+        front = body_pitch(c, keys(*zip(STRIKE_T, (0, -0.5 * rear, -6, -6, 0))), mid_s)
+    else:
+        base = body_pitch(c, keys(*zip(STRIKE_T, (0, 75, -8, -8, 0))), STRIKE_S, mid_s)
+        front = body_pitch(c, keys(*zip(STRIKE_T, (0, -40, -6, -6, 0))), mid_s)
     c.turn(BODY["head"], "X", keys(*zip(STRIKE_T, (0, -10, 4, 4, 0))))
     # the coil: a sideways S on each side of the mid-body root, between 0.3 of the chain
     # and the strike span; each side's turns add up to nothing, so the tail keeps its
@@ -2535,6 +2572,8 @@ def strike_serpent() -> Clip:
     slide = keys(*zip(STRIKE_T, (0, -0.04, 0.08, 0.08, 0)))
     c.lift = lambda t: fwd * body_len * slide(t)
     c.info = {"neck": base + front, "strike_span": round(1 - STRIKE_S, 3), "slide_m": round(0.12 * body_len, 3)}
+    if pre > RAISED_DEG:
+        c.info["raised_deg"] = round(pre, 1)
     return c
 
 
@@ -2610,6 +2649,15 @@ def fly_serpent() -> Clip:
     c.ground, c.hover = "lift", HOVER
     c.lift = lambda t: Vector((0, 0, 0.02 * height * math.sin(2 * math.pi * t)))
     c.info["lift_m"] = round(HOVER, 4)
+    if wings:  # a winged serpent's wing chains (blender_rig._chain_wings): two beats per loop
+        for wg in wings:
+            s_, ch = wg["side"], wg["chain"]
+            # -10 (up, a little in over the back) .. +30 (out and down): the raised wings of the reference
+            # fold in across the body past -10
+            c.turn(ch[0], "Y", lambda t, s_=s_: sym(s_, 10 - 20 * math.cos(2 * math.pi * 2 * t)))
+            for i, n in enumerate(ch[1:], 1):
+                c.turn(n, "Y", lambda t, s_=s_, i=i: sym(s_, -10 * math.cos(2 * math.pi * (2 * t - 0.08 * i))))
+        c.info["wing_beats"] = 2
     return c
 
 
@@ -2862,9 +2910,31 @@ def death_stand() -> Clip:
     return c
 
 
+def radial_burrow() -> Clip:
+    """Radial burrow (the xorn phases into stone): the arms rise over the top, the body turns a
+    quarter about its axis as it drops and sinks BURROW_SINK x its height into the ground, the arms
+    plunging down with it. Ground `none`: below the ground is allowed. Ends sunk, holds."""
+    c = stand_clip("burrow", 1.5, False, "none")
+    c.pivot = Vector((cx, leg_y, 0.0))
+    sink = keys((0, 0), (0.3, 0), (1, 1))
+    turn = keys((0, 0), (0.25, 0), (1, 90))
+    c.tilt = lambda t: Quaternion(AXES["Z"], math.radians(turn(t)))
+    c.lift = lambda t: Vector((0, 0, -BURROW_SINK * height * sink(t) + 0.03 * height * keys((0, 0), (0.25, 1), (0.4, 0))(t)))
+    relax_arms(c, lambda t: 1 - smooth(t / 0.2))
+    raise_ = keys((0, 0), (0.25, 1), (0.45, 0.3), (1, 0.2))
+    for a in arms:
+        c.turn(a["upper"], "X", lambda t: 70 * raise_(t))
+        c.turn(a["forearm"], "X", lambda t: 25 * raise_(t))
+    upper(c, "X", keys((0, 0), (0.25, 6), (0.6, -12), (1, -12)))
+    c.info = {"sinks_m": round(BURROW_SINK * height, 4), "turn_deg": 90, "below_ground": "allowed"}
+    return c
+
+
 def stand_clips() -> dict:
     sets = {"idle": lambda s: idle_stand(), "walk": lambda s: walk_stand(), "attack_melee": lambda s: attack_stand(),
             "hit": lambda s: hit_stand(), "death": lambda s: death_stand()}
+    if PLAN == "radial":
+        sets["burrow"] = lambda s: radial_burrow()
     if arms:
         sets["cast"] = lambda s: cast(stand_clip)
     if "l" in arm_by_side and "r" in arm_by_side:
@@ -3489,11 +3559,14 @@ def death_fish() -> Clip:
     c = fish_clip("death", 2.2, False)
     c.ground, c.rest_from = "rest", 0.8
     c.pivot = Vector((cx, leg_y, 0.5 * height))
-    roll = lambda t: 175 * smooth((t - 0.2) / 0.5)
+    # an upright body (the seahorses: taller than long) rolled belly-up about its length would
+    # stand on its head: it tips over onto its side instead
+    most = 90 if height > 1.2 * mesh_len else 175
+    roll = lambda t: most * smooth((t - 0.2) / 0.5)
     c.tilt = lambda t: Quaternion(AXES["Y"], math.radians(roll(t)))
     c.lift = lambda t: Vector((0, 0, SWIM_LIFT * height * (1 - smooth((t - 0.3) / 0.5))))
     body_wave(c, lambda t: 12 * math.sin(2 * math.pi * 2 * t) * (1 - smooth(t / 0.45)), 0.6, env=tail_env)
-    c.info = {"rolls": "belly-up"}
+    c.info = {"rolls": "belly-up" if most > 90 else "onto its side"}
     return c
 
 
@@ -3685,10 +3758,12 @@ def legless_clips() -> dict:
                 "idle": lambda s: idle_serpent(), "attack_melee": lambda s: strike_serpent(),
                 "hit": lambda s: hit_serpent(), "death": lambda s: death_serpent(),
                 "cast": lambda s: cast_serpent(), "breath": lambda s: breath_serpent(),
-                "burrow": lambda s: burrow_serpent(), "fly": lambda s: fly_serpent()}
+                "burrow": lambda s: burrow_serpent(), "fly": lambda s: fly_serpent(),
+                "attack_ranged": lambda s: cast_serpent()}  # a spit / ray: the head cast, built as attack_ranged
     elif PLAN == "amorphous" and STACK:
         sets = {"idle": lambda s: idle_blob(), "walk": lambda s: walk_blob(), "attack_melee": lambda s: attack_blob(),
-                "hit": lambda s: hit_blob(), "death": lambda s: death_blob()}
+                "hit": lambda s: hit_blob(), "death": lambda s: death_blob(),
+                "swim": lambda s: walk_blob()}  # an ooze swims as it oozes
     elif CLOTH:
         sets = {"idle": lambda s: idle_cloth(), "walk": lambda s: walk_cloth(), "attack_melee": lambda s: attack_cloth(),
                 "hit": lambda s: hit_cloth(), "death": lambda s: death_cloth()}
@@ -3721,7 +3796,7 @@ def legless_clips() -> dict:
         sets = {"idle": lambda s: idle_float(), "fly": lambda s: fly_float(), "walk": lambda s: fly_float(),
                 "attack_melee": lambda s: attack_float(), "hit": lambda s: hit_float(),
                 "death": lambda s: death_float(), "swim": lambda s: swim_float(),
-                "cast": lambda s: cast(hover_clip)}
+                "cast": lambda s: cast(hover_clip), "attack_ranged": lambda s: cast(hover_clip)}
     return sets
 
 
@@ -3842,12 +3917,21 @@ report = {"height": round(height, 3), "drop": round(drop, 3), "size": round(SIZE
           **({"body": STACK} if STACK and not STALK else {}), **({"tail": FISHTAIL} if FISHTAIL else {}),
           **({"warnings": WARNINGS} if WARNINGS else {}), **({"sting": sting} if sting else {}),
           **({"claws": claws} if claws else {})}
+def _named(c, name: str):
+    c.name = name
+    return c
+
+
 order = sorted(job["clips"], key=lambda n: n != "idle") if LIFTED else job["clips"]  # the idle sets IDLE_Z
 for name in order:
     if name not in makers:
         report["skipped"].append(name)
         continue
     TORN.clear()
+    _make = makers[name]
+    # a maker shared by two clips (attack_special from the attack_melee builder: the seahorse, the
+    # shrieker) builds under the clip's own name, so anims/<name>.glb is the clip the manifest lists
+    makers[name] = lambda s, _m=_make, _n=name: _named(_m(s), _n)
     report["clips"][name] = build(makers[name](1.0))
     if name == "idle" and LIFTED:
         IDLE_Z["z"] = report["clips"]["idle"]["body_z_first"]

@@ -1,0 +1,10 @@
+{
+  "ref_template": {
+    "name": "centaur_wide_34",
+    "strength": 0.55,
+    "end": 0.5
+  },
+  "notes": "2026-11-08 tier-4 release: reference posed by the centaur_wide_34 depth template (docs/references.md \"Serpentine and centauroid poses\"). Pick 2 (round 3: tawny lion body on four planted paws, a woman's torso in a white top with orange sleeves, arms out, clawed hands; ref_0 topless (rejected), ref_3 a white lion). yaw 134.5: the three-quarter reference meshed 45.5 degrees off +Y (the facing gate's suggested yaw), as centaur-trooper's did.",
+  "ref_pick": 2,
+  "yaw": 134.5
+}

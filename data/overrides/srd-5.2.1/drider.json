@@ -1,0 +1,9 @@
+{
+  "ref_template": {
+    "name": "drider_wide_34",
+    "strength": 0.55,
+    "end": 0.5
+  },
+  "notes": "2026-11-08 tier-4 release: reference posed by the drider_wide_34 depth template (docs/references.md \"Serpentine and centauroid poses\"). Pick 0 (round 2: black spider with eight planted legs and a dark elf torso; photo-like, the ink style did not hold under the template).",
+  "ref_pick": 0
+}

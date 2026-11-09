@@ -545,6 +545,16 @@ REF_TEMPLATES = {
                     "strength": 0.75, "start": 0.0, "end": 0.7},
     "chimera_34": {"image": "workflows/pose/chimera_34_depth.png", "type": "depth",
                    "strength": 0.75, "start": 0.0, "end": 0.7},
+    # serpentine and centauroid variants (docs/references.md "Serpentine and centauroid poses", 2026-11-08;
+    # tools/blender_ref_templates.py serpent(), centaur_wide()), chosen per id by the override `ref_template`:
+    # nagas and the grick with the front third raised, the couatl and flying snake with raised feathered
+    # wings, the behir on six pairs of short legs, the purple worm with a raised open maw; the lamia (lion)
+    # and drider (spider) with a human torso in the wide A-pose over planted legs; plesiosaur_34 (four paddle
+    # flippers, long neck) and scorpion_34 (pincers forward, tail arched) for records whose prompts drew
+    # sauropods and wasps
+    **{n: {"image": f"workflows/pose/{n}_depth.png", "type": "depth", "strength": 0.7, "start": 0.0, "end": 0.6}
+       for n in ("serpentine_raised_side", "naga_raised_side", "serpentine_wings_side", "serpentine_legs_side", "worm_raised_side",
+                 "centaur_wide_34", "drider_wide_34", "plesiosaur_34", "scorpion_34")},
     # rig-friendly bipeds (docs/references.md "Rig-friendly poses", 2026-11-08): image-to-3D fuses
     # parts that touch in the picture, so arms 45 degrees out, feet apart, wings raised clear of the
     # arms, a tail held out clear of the legs. A stronger OpenPose (from the same proxy as the depth

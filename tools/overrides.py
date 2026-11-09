@@ -158,10 +158,13 @@ def _idle_lift(v):
 
 
 def _fallback(v):
-    """rig_fallback: {"bones": n} over the plan's generated skeleton (rig.RIG_STRATEGY)."""
-    if not isinstance(v, dict) or not v or set(v) - {"bones"}:
-        return 'must be {"bones": n}'
-    return _num(3, 32, True)(v["bones"])
+    """rig_fallback: {"bones": n, "wings": bool} over the plan's generated skeleton (rig.strategy): `wings`
+    adds a chain per wing found on the mesh to a spine_chain (blender_rig._chain_wings)."""
+    if not isinstance(v, dict) or not v or set(v) - {"bones", "wings"}:
+        return 'must be {"bones": n, "wings": bool}'
+    if "wings" in v and not isinstance(v["wings"], bool):
+        return "wings: true or false"
+    return _num(3, 32, True)(v["bones"]) if "bones" in v else None
 
 
 UAL_CLIPS = ("idle", "walk", "run", "attack_melee", "hit", "death", "cast")

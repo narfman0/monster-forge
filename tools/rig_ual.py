@@ -238,6 +238,13 @@ def stage(fg, mon: dict, d: Path, args) -> None:
                 bonemap.run(mid)
             keep.parent.mkdir(exist_ok=True)
             shutil.copy2(d / "model_rigged.glb", keep)
+        # a re-meshed record (frost-giant, 2026-11-08): the stage rigged it with SkinTokens again first, but the
+        # bonemap.json of the old SkinTokens rig was kept and named bones the new rig does not have (KeyError
+        # in fit_skintokens). Map again whenever the kept SkinTokens rig is newer than the map.
+        bm = d / "bonemap.json"
+        if (man.get("rig") or {}).get("tool") != "ual" and (d / "model_rigged.glb").exists() and \
+                (not bm.exists() or bm.stat().st_mtime < keep.stat().st_mtime):
+            bonemap.run(mid)
         if fit == "skintokens" and json.loads((d / "bonemap.json").read_text()).get("status") not in ("ok", "partial"):
             raise RuntimeError(f"{mid}: bonemap.json status is not ok/partial")
         src = keep

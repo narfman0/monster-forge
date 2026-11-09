@@ -34,6 +34,10 @@ UPRIGHT = {"biped", "winged_biped"}
 # Plans with no walking legs: blender_clips.py's "legless" builders drive their body chain
 # (and arms, tentacles) instead of feet. docs/rig-anim.md "Body plans".
 LEGLESS = {"serpentine", "floating", "amorphous", "plant_object", "tentacled", "aquatic", "merfolk_naga", "swarm"}
+# Radial bodies (the xorn): no mirrored gait; blender_clips.py gives them the standing set and a burrow
+# on an upright skeleton (arms found as for a biped), RADIAL_FEET the legs it looks for.
+RADIAL = {"radial"}
+RADIAL_FEET = 3
 # Plans whose arms the clips drive (when the record has hands), besides the upright ones.
 ARMED = {"centauroid", "merfolk_naga", "floating"}
 PROPS = ROOT / "data" / "registry" / "props.json"
@@ -74,7 +78,9 @@ def clip_job(mon: dict, d: Path, adir: Path, report: Path) -> dict:
     lift, move = idle_lift(mon, want)
     return {"idle_lift": lift, "move_clip": move,
             "src": str(d / "model_rigged.glb"), "out_dir": str(adir), "report": str(report), "clips": want,
-            "feet": overrides.FEET_BY_PLAN.get(plan, 0), "sprawl": plan in SPRAWLED, "upright": plan in UPRIGHT,
+            "feet": RADIAL_FEET if plan in RADIAL else 8 if rig.sprawled(mon) and plan not in SPRAWLED
+            else overrides.FEET_BY_PLAN.get(plan, 0), "sprawl": plan in SPRAWLED or rig.sprawled(mon),
+            "upright": plan in UPRIGHT or plan in RADIAL,
             "arms": plan in ARMED and bool(mon.get("hands")), "plan": plan, "weapon_r": wielded(mon),
             "weapon_l": wielded(mon, "hand_l"), "tail_fused": rig.tail_fused(mon),
             "template": mon.get("rig_template")}
@@ -89,7 +95,7 @@ def stage_anim(fg, mon: dict, d: Path, args) -> None:
         stage_ual(fg, mon, d, args)
         return
     plan = mon["body_plan"]
-    if plan not in overrides.FEET_BY_PLAN and plan not in LEGLESS:
+    if plan not in overrides.FEET_BY_PLAN and plan not in LEGLESS and plan not in RADIAL:
         fg.log(f"{mon['id']}: no clips for plan {plan} yet, skip")
         return
     if not (d / "model_rigged.glb").exists():

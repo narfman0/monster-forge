@@ -177,11 +177,11 @@ def hold_reason(rec: dict) -> str | None:
     plan = u["body_plan"]
     unit = (u.get("swarm_unit") or {}).get("unit")
     pre = f"swarm unit {unit}: " if unit else ""
-    if plan == "centauroid":
-        return "centauroid: the centaur-trooper pilot is not through anim (new centaur_34 reference, mesh re-made)"
-    if plan == "serpentine":
-        return (pre + "serpentine: the serpentine_side depth template is new; the constrictor-snake pilot is being "
-                "re-made with it (paint, rig, anim pending)")
+    # 2026-11-08: the serpentine and centauroid holds are released: constrictor-snake and centaur-trooper are
+    # through anim, and the tier-4 records have their own pose templates (serpentine_raised_side,
+    # serpentine_wings_side, serpentine_legs_side, worm_raised_side, centaur_wide_34, drider_wide_34;
+    # docs/references.md "Serpentine and centauroid poses"). Nothing is on hold now; the hook stays.
+    del plan, pre
     return None
 
 
@@ -227,14 +227,15 @@ def classify(rec: dict, pilot_keys: dict) -> dict:
 # head chain), cast, swim, burrow; attack_ranged with both arms. The legless builders are
 # fixed sets; serpentine and floating have the clips2 extras, the others do not.
 LEGLESS_CLIPS = {
-    "serpentine": {"idle", "walk", "swim", "attack_melee", "hit", "death", "cast", "breath", "burrow", "fly"},
-    "amorphous": {"idle", "walk", "attack_melee", "hit", "death"},
+    "serpentine": {"idle", "walk", "swim", "attack_melee", "hit", "death", "cast", "breath", "burrow", "fly",
+                   "attack_ranged"},
+    "amorphous": {"idle", "walk", "attack_melee", "hit", "death", "swim"},
     "plant_object": {"idle", "walk", "attack_melee", "attack_special", "hit", "death"},
     "tentacled": {"idle", "swim", "fly", "walk", "attack_melee", "hit", "death"},
     "aquatic": {"idle", "swim", "walk", "attack_melee", "attack_special", "hit", "death"},
     "merfolk_naga": {"idle", "swim", "walk", "hit", "death"},
     "swarm": {"idle", "walk", "fly", "swim", "attack_melee", "hit", "death"},
-    "floating": {"idle", "fly", "walk", "attack_melee", "hit", "death", "swim", "cast"},
+    "floating": {"idle", "fly", "walk", "attack_melee", "hit", "death", "swim", "cast", "attack_ranged"},
 }
 
 
@@ -246,12 +247,12 @@ def buildable_clips(rec: dict) -> set:
         if plan == "merfolk_naga" and rec.get("hands"):
             s |= {"attack_melee", "attack_ranged"}
         return s
+    if plan in anim.RADIAL:  # the standing set + a burrow (blender_clips.py stand_clips, radial_burrow)
+        return {"idle", "walk", "attack_melee", "hit", "death", "burrow", "cast"}
     if plan not in overrides.FEET_BY_PLAN:
-        return set()  # radial: anim.stage_anim skips the plan
-    s = {"walk", "idle", "hit", "death", "attack_melee", "fly", "breath", "cast", "swim", "burrow"}
-    if plan in anim.UPRIGHT or (plan in anim.ARMED and rec.get("hands")):
-        s.add("attack_ranged")
-    return s
+        return set()
+    # attack_ranged: the two-arm shot, else (2026-11-08) the cast's head thrust built under that name
+    return {"walk", "idle", "hit", "death", "attack_melee", "fly", "breath", "cast", "swim", "burrow", "attack_ranged"}
 
 
 def missing_clips_expected(rec: dict) -> list:
@@ -284,14 +285,15 @@ GAPS = [
      False, "-", "fixed in cade6ef: prompt_tweaks.json `_plans.avian` (front view, both wings spread; "
      "theropods excepted)"),
     ("serpentine_template", "serpentine: pilot re-made with the serpentine_side depth template",
-     lambda r: r["body_plan"] == "serpentine" and r["id"] not in PILOTS, True, "everything (ref)",
-     "owned by the pilot stream; release once constrictor-snake is through anim"),
+     lambda r: r["body_plan"] == "serpentine" and r["id"] not in PILOTS, False, "-",
+     "released 2026-11-08: constrictor-snake is through anim; per-id pose templates (docs/references.md)"),
     ("swarm_unit", "swarms: one unit per swarm (prompt, unit scale_m) (fixed)",
      lambda r: bool(r.get("swarm_unit")) and r["id"] not in PILOTS, False, "-",
      "fixed in cade6ef: forge.SWARM_UNITS makes each swarm as one unit (plan, template, size, scale_m); "
      "swarm-of-rats keeps its column-of-rats pilot"),
     ("centauroid", "centauroid: no centaur pilot through anim yet",
-     lambda r: r["body_plan"] == "centauroid", True, "everything (ref)", "centaur-trooper in progress"),
+     lambda r: r["body_plan"] == "centauroid", False, "-",
+     "released 2026-11-08: centaur-trooper is through anim; lamia / drider use centaur_wide_34 / drider_wide_34"),
     ("ghost_prompt", "specter, wraith: the ghost's legless-robe prompt tweak (fixed)",
      lambda r: r["id"] in GHOST_PROMPT, False, "-",
      "fixed in cade6ef: per-id specter / wraith tweaks in data/prompt_tweaks.json"),
@@ -683,7 +685,7 @@ def rig_kind(rec: dict, d: Path) -> str:
     """A swarm costs what its unit's plan costs (SkinTokens rolls or a generated skeleton)."""
     if (d / "rig" / "chosen.glb").exists():
         return "rig_fallback"  # rebuild from the kept skeleton: ~5-7 s
-    return "rig_fallback" if unit_rec(rec)["body_plan"] in rig.RIG_STRATEGY else "rig"
+    return "rig_fallback" if rig.strategy(unit_rec(rec)) else "rig"
 
 
 def est_key(stage: str, rec: dict, d: Path) -> str:
@@ -796,8 +798,8 @@ def audit_markdown(reg: dict, pilot_keys: dict) -> str:
         c = collections.Counter(cls[r["id"]]["status"] for r in rs)
         pil = [r["id"] for r in rs if r["id"] in PILOTS]
         kinds = collections.Counter(
-            f"fallback:{rig.RIG_STRATEGY[p]['kind']}" if p in rig.RIG_STRATEGY else "SkinTokens"
-            for p in (units[r["id"]]["body_plan"] for r in rs))
+            f"fallback:{rig.strategy(u)['kind']}" if rig.strategy(u) else "SkinTokens"
+            for u in (units[r["id"]] for r in rs))
         rigs = kinds.most_common(1)[0][0] if len(kinds) == 1 else ", ".join(f"{k} {v}" for k, v in kinds.most_common())
         miss = collections.Counter(c2 for r in rs for c2 in missing_clips_expected(units[r["id"]]))
         lines.append(f"| {plan} | {n} | {', '.join(pil) or '-'} | {c['proven']} | "

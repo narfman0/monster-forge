@@ -1,0 +1,8 @@
+{
+  "ref_template": "serpentine_wings_side",
+  "notes": "2026-11-08 tier-4 release: reference posed by the serpentine_wings_side depth template (docs/references.md \"Serpentine and centauroid poses\"). 2026-11-08 tier-4 release, round 1: pick 3 (blue feathered wings raised, red-green-yellow body (ref_0 grew legs)). rig_fallback wings: a 3-bone chain per feathered wing found on the mesh (blender_rig._chain_wings), beaten in fly and stirred in idle (docs/rig-anim.md tier-4 release).",
+  "ref_pick": 3,
+  "rig_fallback": {
+    "wings": true
+  }
+}

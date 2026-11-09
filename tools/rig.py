@@ -98,6 +98,14 @@ WINGED = {"winged_quadruped", "winged_biped"}
 SPINED = {"biped", "winged_biped", "quadruped", "winged_quadruped", "avian", "centauroid", "merfolk_naga"}
 HEADLESS = {"insectoid", "amorphous", "plant_object", "swarm"}  # no head term: spiders' is in the body, blobs have none
 LEG_RANGE = {"insectoid": (6, 10)}  # 8 legs + pedipalps or claws reach the ground too
+# Rig templates whose legs differ from their plan's: the drider is a centauroid (a torso with arms) on a
+# spider's eight sprawled legs (2026-11-08). anim.py gives its clips the same (feet 8, sprawled).
+LEG_RANGE_BY_TEMPLATE = {"custom.drider": (8, 10)}
+SPRAWLED_TEMPLATES = {"custom.drider"}
+
+
+def sprawled(mon: dict) -> bool:
+    return mon["body_plan"] in SPRAWLED or mon.get("rig_template") in SPRAWLED_TEMPLATES
 # plausible joint counts; SkinTokens gave goblin 29-37, wolf 22-28, owlbear 18-46,
 # dragon 45-80, spider 37, harpy 22-43
 JOINTS = {"biped": (24, 70), "winged_biped": (24, 80), "quadruped": (20, 70), "winged_quadruped": (36, 100),
@@ -139,14 +147,14 @@ def score_v1(st: dict, feet: int) -> float:
         - 0.02 * st["empty_bones"] - 0.02 * st["zero_length_bones"]
 
 
-def score_terms(st: dict, plan: str, hands: bool = False) -> dict:
+def score_terms(st: dict, plan: str, hands: bool = False, template: str | None = None) -> dict:
     """Weighted penalties per term (all >= 0) from blender_rig.py's score report."""
     w = WEIGHTS
     # a coiled snake, a blob or a radial octopus has no mirror plane to measure joints against
     t = {"symmetry": 0.0 if plan in FACING_ADVISORY else w["symmetry"] * st["symmetry"],
          "dead_bones": w["dead_bones"] * (st["empty_bones"] + st["zero_length_bones"])}
     if plan in FEET:
-        lo, hi = LEG_RANGE.get(plan, (FEET[plan], FEET[plan]))
+        lo, hi = LEG_RANGE_BY_TEMPLATE.get(template) or LEG_RANGE.get(plan, (FEET[plan], FEET[plan]))
         t["legs"] = w["legs"] * (max(0, lo - st["legs"]) + max(0, st["legs"] - hi))
         t["leg_pairs"] = w["leg_pairs"] * abs(st["legs_r"] - st["legs_l"])
         t["feet_mirror"] = w["feet_mirror"] * min(st["feet_mirror"], 1.0)
@@ -173,14 +181,14 @@ def score_terms(st: dict, plan: str, hands: bool = False) -> dict:
     return {k: round(v, 4) for k, v in t.items()}
 
 
-def score(st: dict, plan: str, hands: bool = False) -> float:
+def score(st: dict, plan: str, hands: bool = False, template: str | None = None) -> float:
     """Higher is better (0 is a perfect roll). Falls back to score_v1 for an old report
     without the quality terms."""
     if st["unweighted_verts"]:
         return -10.0
     if "torso_bones" not in st:
         return score_v1(st, FEET.get(plan, 0))
-    return -sum(score_terms(st, plan, hands).values())
+    return -sum(score_terms(st, plan, hands, template).values())
 
 
 # Terms that mean a part the plan needs is missing or doubled: the anim stage cannot build
@@ -188,13 +196,13 @@ def score(st: dict, plan: str, hands: bool = False) -> float:
 STRUCTURE = ("legs", "leg_pairs", "spine", "head", "tail", "wings", "arms")
 
 
-def scored(st: dict, plan: str, hands: bool) -> dict:
+def scored(st: dict, plan: str, hands: bool, template: str | None = None) -> dict:
     """st plus score, score_v1, terms and problems (what roll_<i>.json and manifest
     rig.rolls keep)."""
-    st["score"] = round(score(st, plan, hands), 3)
+    st["score"] = round(score(st, plan, hands, template), 3)
     st["score_v1"] = round(score_v1(st, FEET.get(plan, 0)), 3)
     if "torso_bones" in st:
-        st["terms"] = score_terms(st, plan, hands)
+        st["terms"] = score_terms(st, plan, hands, template)
         st["problems"] = [k for k in STRUCTURE if st["terms"].get(k, 0) > 0]
     return st
 
@@ -209,7 +217,7 @@ def summary(st: dict) -> dict:
 
 def score_job(mon: dict, src: Path, report: Path) -> dict:
     plan = mon["body_plan"]
-    return {"mode": "score", "src": str(src), "report": str(report), "sprawl": plan in SPRAWLED,
+    return {"mode": "score", "src": str(src), "report": str(report), "sprawl": sprawled(mon),
             "wingless": mon.get("rig_template") == "custom.theropod",
             "upright": plan in UPRIGHT_BODY, "plan": plan}
 
@@ -225,23 +233,40 @@ RIG_STRATEGY = {
     "tentacled": {"kind": "tentacle_hub", "bones": 5},    # root + body + 5-bone chain per tentacle tip
     "swarm": {"kind": "root"},                            # one cluster on one bone; the game instances units
 }
+# A rig template that asks for a generated skeleton whatever its plan: the seahorses are `aquatic`
+# with `custom.spine_chain` (an upright curled body). SkinTokens gave them a 15-16 joint star with no
+# chain blender_clips.py could swim (find_body: one bone), so the anim stage built nothing and every
+# batch run read "ran and exited 0 but still not done" (2026-11-08).
+RIG_STRATEGY_BY_TEMPLATE = {
+    "custom.spine_chain": {"kind": "spine_chain", "bones": 16},
+    # the couatl: the chain plus a 3-bone chain per wing found on the mesh (blender_rig._chain_wings); the
+    # flying snake (custom.spine_chain) asks for the same with the override rig_fallback {"wings": true}
+    "custom.spine_chain_winged": {"kind": "spine_chain", "bones": 16, "wings": True},
+}
+
+
+def strategy(mon: dict) -> dict | None:
+    """The generated-skeleton spec for this record (RIG_STRATEGY by plan, else by rig template), or None
+    for SkinTokens."""
+    return RIG_STRATEGY_BY_TEMPLATE.get(mon.get("rig_template")) or RIG_STRATEGY.get(mon.get("body_plan"))
 
 
 def fallback_spec(mon: dict) -> dict:
     """The plan's fallback skeleton (RIG_STRATEGY), with the override rig_fallback over it."""
-    return {**RIG_STRATEGY[mon["body_plan"]], **(overrides.load(mon["source"], mon["id"]).get("rig_fallback") or {})}
+    return {**strategy(mon), **(overrides.load(mon["source"], mon["id"]).get("rig_fallback") or {})}
 
 
 def fallback_stale(mon: dict, d: Path) -> bool:
     """The override rig_fallback asks for another skeleton than rig/fallback_build.json was built
     with: `rig --force` builds it again (CPU). Without the override nothing changes."""
-    if mon["body_plan"] not in RIG_STRATEGY or not overrides.load(mon["source"], mon["id"]).get("rig_fallback"):
+    if not strategy(mon) or not overrides.load(mon["source"], mon["id"]).get("rig_fallback"):
         return False
     built = d / "rig" / "fallback_build.json"
     if not built.exists():
         return True
     rep, spec = json.loads(built.read_text()), fallback_spec(mon)
-    return rep.get("kind") != spec["kind"] or ("bones" in spec and rep.get("bones") != spec["bones"])
+    return rep.get("kind") != spec["kind"] or ("bones" in spec and rep.get("bones") != spec["bones"]) or \
+        bool(spec.get("wings")) != ("wings" in rep)
 
 
 def fallback_rig(fg, mon: dict, d: Path) -> dict:
@@ -252,7 +277,8 @@ def fallback_rig(fg, mon: dict, d: Path) -> dict:
     out = rdir / "fallback.glb"
     rep = blender(fg, {"mode": "fallback", "src": str(d / "model.glb"), "dst": str(out),
                        "report": str(rdir / "fallback_build.json"), "plan": mon["body_plan"], **spec})
-    st = scored(blender(fg, score_job(mon, out, rdir / "fallback.json")), mon["body_plan"], bool(mon.get("hands")))
+    st = scored(blender(fg, score_job(mon, out, rdir / "fallback.json")), mon["body_plan"], bool(mon.get("hands")),
+                mon.get("rig_template"))
     st["file"] = out.name
     st["build"] = rep
     (rdir / "fallback.json").write_text(json.dumps(st, indent=1))
@@ -335,7 +361,7 @@ def roll(fg, mon: dict, d: Path, rolls: int) -> dict:
         if proc.returncode != 0 or not out.exists():
             fg.log(f"{mon['id']}: rig roll {i} failed ({proc.stderr.strip().splitlines()[-1][:120] if proc.stderr else proc.returncode})")
             continue
-        st = scored(blender(fg, score_job(mon, out, rdir / f"roll_{i}.json")), plan, hands)
+        st = scored(blender(fg, score_job(mon, out, rdir / f"roll_{i}.json")), plan, hands, mon.get("rig_template"))
         st["file"] = out.name
         (rdir / f"roll_{i}.json").write_text(json.dumps(st, indent=1))
         worst = sorted(st.get("terms", {}).items(), key=lambda kv: -kv[1])[:3]
@@ -480,7 +506,7 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
         raise RuntimeError(f"{mon['id']}: model.glb faces {facing['angle_deg']} deg off +Y (confidence "
                            f"{facing['confidence']}): SkinTokens scrambles misfaced meshes. Pin `yaw` "
                            f"(about {facing.get('suggested_yaw')}) and re-run qa, or set rig_facing_check false")
-    if rolling and mon["body_plan"] in RIG_STRATEGY:
+    if rolling and strategy(mon):
         if args.rig_reroll:  # still measure SkinTokens on the plan, for the record
             try:
                 skt = roll(fg, mon, d, args.rig_rolls or ROLLS)
@@ -498,7 +524,7 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
     albedo = tex / "base_color_painted.png"
     rep = blender(fg, {"mode": "finalize", "src": str(chosen), "base_color": str(albedo if albedo.exists() else tex / "base_color.png"),
                        "lods": lod_paths, "out_dir": str(d), "report": str(d / "rig.json"),
-                       "sprawl": mon["body_plan"] in SPRAWLED, "hands": bool(mon.get("hands")),
+                       "sprawl": sprawled(mon), "hands": bool(mon.get("hands")),
                        "sockets": mon.get("sockets") or [], "feet": FEET.get(mon["body_plan"], 0),
                        "upright": mon["body_plan"] in UPRIGHT_BODY, "add_wings": adds_wings(mon), "wing_seam": wing_seam(mon),
                        "add_tail": adds_tail(mon), "tail_fused": tail_fused(mon), "fix_legs": fix_legs(mon),
@@ -511,7 +537,8 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
                             "wing_seam": wing_seam(mon),
                             "add_tail": adds_tail(mon), "tail_fused": tail_fused(mon), "fix_legs": fix_legs(mon),
                             **({"tail_adopt": tail_adopt(mon)} if tail_adopt(mon) else {}),
-                            "feet": FEET.get(mon["body_plan"], 0)}), mon["body_plan"], bool(mon.get("hands")))
+                            "feet": FEET.get(mon["body_plan"], 0)}), mon["body_plan"], bool(mon.get("hands")),
+                mon.get("rig_template"))
     (d / "rig" / "chosen.json").write_text(json.dumps(q, indent=1))
     man = fg.load_manifest(d)
     missing = [s for s in (mon.get("sockets") or []) if s not in rep["sockets"]]
@@ -519,7 +546,7 @@ def stage_rig(fg, mon: dict, d: Path, args) -> None:
         fg.log(f"{mon['id']}: rig could not place sockets {missing}")
     prev = (man.get("rig") or {}).get("tool")  # a UAL rig replaced by this one (rig_source back to skintokens)
     tool = info.get("tool") or (prev if prev != "ual" else None) or \
-        (f"fallback:{RIG_STRATEGY[mon['body_plan']]['kind']}" if mon["body_plan"] in RIG_STRATEGY else "skintokens")
+        (f"fallback:{strategy(mon)['kind']}" if strategy(mon) else "skintokens")
     man["rig"] = {"tool": tool, "joints": rep["joints"], "legs": rep["legs"], "symmetry": rep["symmetry"],
                   "sockets": rep["sockets"], "sockets_missing": missing,
                   "empty_bones": rep["empty_bones"], "seconds": round(time.time() - t0, 1),

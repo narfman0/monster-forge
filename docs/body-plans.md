@@ -143,6 +143,15 @@ non-SRD counts and edge cases are in that repo's `docs/body-plans.md`.
 | radial | 1 |
 | **total** | **330** |
 
+**Pipeline status (2026-11-08):** all 330 SRD records have every stage (ref, mesh, qa, paint, lod, rig, anim) and
+every `animation_set` clip (`tools/batch.py report`: 330 / 330). The last 20 were the tier-4 serpentine and centauroid
+holds and a few stragglers (docs/rig-anim.md "Tier-4 release"). How the custom templates above are built today:
+`custom.spine_chain` is a generated chain (`rig.RIG_STRATEGY_BY_TEMPLATE`, also for the two `aquatic` seahorses);
+`custom.spine_chain_winged` adds a 3-bone chain per wing found on the mesh; `custom.serpent_multileg` (behir) is the
+plain chain, its legs ride the body; `custom.drider` is SkinTokens scored and animated sprawled on 8 legs
+(`rig.LEG_RANGE_BY_TEMPLATE`, `rig.sprawled`); `custom.centaur` (centaur-trooper, lamia) is SkinTokens on the legged
+framework with arms; `custom.radial_tripod` (xorn) gets the standing clip set plus a radial burrow.
+
 40 of the 49 `winged_quadruped` entries are the ten true-dragon colours times
 four ages. They share one `custom.dragon` rig and differ by mesh and scale.
 

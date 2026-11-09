@@ -1616,6 +1616,79 @@ quarter of that drops `use_rotation` (clip report `ik_unlevel`, its foot follows
 +0.003 m, audit 4.3. None of the 110 existing quadruped rigs triggers it (the idle clip on every one), and lion,
 wolf, draft horse, pegasus, adult green dragon and black dragon wyrmling (44 clips) rebuild byte-identical.
 
+### Tier-4 release: serpentine, centauroid, radial, seahorses (2026-11-08)
+
+The last 20 SRD records without a complete model (13 tier-4 holds, frost-giant, plesiosaurus, scorpion, the two
+seahorses, xorn, centaur-trooper's paint) went through the chain. What the rig and anim stages needed:
+
+- **Seahorses** (`aquatic`, `custom.spine_chain`): the anim stage "ran and exited 0 but still read as not done" because
+  SkinTokens gave both a 15-16 joint star, `blender_clips.find_body` found a one-bone body, and no aquatic clip could be
+  built (`manifest.anim.clips` empty, every clip `skipped`). `rig.strategy(mon)`: a generated skeleton by plan
+  (`RIG_STRATEGY`) or else by rig template (`RIG_STRATEGY_BY_TEMPLATE`: `custom.spine_chain` -> `spine_chain`, 16
+  bones), so the seahorses get the snout-to-tail-curl chain and the fish clips. `death_fish` tips an upright body
+  (taller than 1.2 x its length) 90 degrees onto its side instead of rolling it 175 degrees onto its head.
+- **Clip files named after the clip.** A maker shared by two clips built under its own name: `attack_special` (the
+  seahorse, the shrieker fungus) was written as `anims/attack_melee.glb` while the manifest listed `attack_special`.
+  The build loop now names each clip after the `animation_set` entry it builds (`_named`). shrieker-fungus was
+  re-animated (its `attack_special.glb` is the old `attack_melee` motion, keys identical; the stray
+  `attack_melee.glb` is left for godot-dnd's sync to decide).
+- **Radial** (xorn): `anim.RADIAL` plans run `blender_clips.py` upright with `feet` 3, and the script always gives them
+  the standing set (`stand_clips`: idle, glide walk, two-arm attack, hit, death; the legs found ride the body, listed in
+  `stand_fallback.unkeyed_legs`) plus `radial_burrow` (arms up, a quarter turn about the axis while it sinks
+  `BURROW_SINK` x height, ground `none`). `batch.buildable_clips` lists the set.
+- **Raised serpents** (nagas, couatl, grick, purple worm drawn with `serpentine_raised_side` / `naga_raised_side` /
+  `serpentine_wings_side` / `worm_raised_side`, docs/references.md): the spine chain and the slither are unchanged (the
+  raised front is the rest pose, so every clip keeps it). `strike_serpent` measures the strike span's rise at rest
+  (`strike_raise`); above `RAISED_DEG` (25) it rears only what is left to 75 degrees and strikes down through its own
+  raise (`attack_melee.json` `raised_deg`). Rearing the full 75 on top threw the head back over the body. Lower snakes
+  (the constrictor) build as before.
+- **Drider** (`centauroid`, `custom.drider`): `rig.LEG_RANGE_BY_TEMPLATE` scores 8-10 legs and `rig.sprawled(mon)` runs
+  the rig's part search and the clips sprawled (insect gait on 8 legs, `anim.clip_job` feet 8) while the plan's arms
+  (`anim.ARMED`) and head (centauroid `find_head`) stay.
+
+- **Winged serpents** (couatl `custom.spine_chain_winged`; flying-snake by the override `rig_fallback {"wings": true}`):
+  `blender_rig._chain_wings` takes the surface well clear of the body tube (more than 1.5 tube radii) and above it as
+  wing, per side a 3-bone `wing_<s>_01..03` from the wing's base to its farthest vertex, parented to the body bone under
+  the base, weights along that line blended into the body. `blender_clips` reads them by name on serpentine plans:
+  `fly` beats them twice a loop (-10 .. +30 degrees about the body axis; more inward folded the raised wings across the
+  back), `idle` stirs them. Couatl 224 / 169 vertices (wings 1.9 / 1.7 m), flying snake 84 / 147.
+- **attack_ranged without an arm pair, swim for oozes** (so every record's `animation_set` is built): the legged
+  framework builds `attack_ranged` from the cast (head thrust, or the one arm found) when the rig has no arm pair
+  (centaur-trooper, manticore, drider), floating from its cast (djinni), serpentine from `cast_serpent` (spirit-naga's
+  ray); amorphous `swim` is its ooze (gibbering-mouther). Each was re-animated; its other clips stayed key-identical
+  (manticore's existing clips predate later clip fixes and differ from what HEAD builds, so its old files were kept and
+  only `attack_ranged` added). `batch.LEGLESS_CLIPS` / `buildable_clips` list them.
+- **fire-elemental** listed `walk` but had only `fly.glb` (the floating set builds walk with the fly maker): the clip
+  naming fix gives it `walk.glb` (re-animated; `fly.glb` left in place).
+- **UAL re-mesh** (`tools/rig_ual.py`): a record on `rig_source ual` with `rig_ual_fit skintokens` that is re-meshed gets
+  a fresh SkinTokens rig first, but its old `bonemap.json` was kept and named bones the new rig lacks (frost-giant:
+  `KeyError: 'bone_5'` in `fit_skintokens`). The map is made again whenever the kept SkinTokens rig is newer. After the
+  rig: `forge.py anim`, `promote`, `share` as before (the batch does not run promote / share).
+
+Results (sheets: ref, mesh views, 5 frames per clip in `~/.cache/monster-forge-scratch/complete/sheets/<id>.png`):
+
+| id | rig | clips | notes |
+|---|---|---|---|
+| venomous-snake, giant-venomous-snake, giant-constrictor-snake, swarm-of-venomous-snakes | `fallback:spine_chain` 16 | idle, walk, swim, attack_melee, hit, death | as the constrictor |
+| guardian-naga, spirit-naga, grick | spine_chain, raised front (raised_deg 30-43) | + cast; spirit-naga + attack_ranged | big human head / tentacled beak on the chain's head bone |
+| couatl, flying-snake | spine_chain + 2 wing chains (22 joints) | + fly (wings beat), cast | |
+| behir | spine_chain 16; its 12 legs ride the body | + breath | a leg chain per foot would be the next step (`custom.serpent_multileg`) |
+| purple-worm | spine_chain 16, 25 m | + burrow | raised maw (raised_deg 46) |
+| drider | SkinTokens roll_0 of 8 (score -4.61): 8 legs, no arms (the small torso's arms read as legs) | idle, walk (6 of 8 legs step), attack_melee (front legs), attack_ranged (head cast), hit, death | sockets head, hip_l/r only; hand sockets missing |
+| lamia | SkinTokens: 4 legs, 2 arms, no problems | idle, walk, attack_melee, cast, hit, death | yaw 134.5 (three-quarter reference); a second hanging tail sheet stretches in the attack |
+| seahorse, giant-seahorse | spine_chain 16 (was a SkinTokens star) | idle, swim, attack_special / attack_melee, hit, death | |
+| plesiosaurus | SkinTokens (no problems) | idle, swim, attack_melee, hit, death | level true / tilt 60 (the mesh came rolled 50 degrees); flippers ride the body |
+| scorpion | SkinTokens (leg_pairs) | idle, walk, attack_melee, hit, death | |
+| xorn | the existing SkinTokens rig | radial standing set + burrow | the mesh is a two-legged beast on a rock base (not radial): a radial re-roll is open |
+| frost-giant | UAL (skintokens fit), re-meshed from pin 3 | idle and hit shared UAL, the rest procedural | the pinned candidate is a robed giant (the robe question in the handoff) |
+
+Regression: every procedural-clip monster's clips rebuilt with HEAD's tools and with these (`complete/bin/regress.py`,
+the GLB binary chunk + animation JSON minus names): 211 of 227 monsters key-identical. The 16 that differ are the
+intended ones: the 12 records built or re-animated here (new raised strike, wings, seahorse death, drider sprawl, the
+xorn, which HEAD cannot animate at all) and the added clips (`attack_ranged` on centaur-trooper, djinni, manticore,
+spirit-naga, drider; `swim` on gibbering-mouther; `attack_special` / `walk` files named after their clip on shrieker-fungus,
+seahorse, fire-elemental). No other monster's clips change.
+
 ## Body plans (2026-11-04)
 
 One pilot per plan the six pilots did not cover took the whole chain (`forge.py run`, paint
