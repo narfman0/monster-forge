@@ -180,6 +180,12 @@ UAL_EXTRA_KINDS = ("wing", "tail", "limb", "strip", "head")
 UAL_EXTRA_KEYS = {"root", "kind", "side", "parent", "auto"}
 
 
+def _mocap(v):
+    if isinstance(v, bool) or (isinstance(v, dict) and v and all(isinstance(k, str) and c is False for k, c in v.items())):
+        return None
+    return "true, false, or {clip: false}"
+
+
 def _ual_extras(v):
     """rig_ual_extras: "auto" or a list of {root (SkinTokens bone), kind, side?, parent? (UAL bone)} or
     {auto: "head", side, kind: "head"} (tools/blender_rig_ual.py add_extras)."""
@@ -240,6 +246,13 @@ def _reweight(v):
     return None
 
 
+def _rule_names(v):
+    """ref_rules_skip: names of data/prompt_tweaks.json `_rules` entries to leave out for this record."""
+    if not (isinstance(v, list) and len(v) <= 20 and all(isinstance(x, str) and _NAME.match(x) for x in v)):
+        return "must be a list of up to 20 rule names"
+    return None
+
+
 REVIEW_ASPECTS = ("ref", "mesh", "paint", "rig")
 REVIEW_VERDICTS = ("ok", "bad")
 REVIEW_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -294,6 +307,8 @@ FIELDS = {
     "prompt_extra": (_text(500), "ref", "appended to the reference prompt"),
     "negative_extra": (_text(500), "ref", "appended to the negative prompt"),
     "style": (_style, "ref", "art style (name or data/*.json path; 'none' = unstyled)"),
+    "ref_rules_skip": (_rule_names, "ref", "prompt_tweaks.json `_rules` names left out of this record's reference "
+                       "prompt (a table rule that misfires on one record, e.g. a skull matched by an undead rule)"),
     "seed_ref": (_num(0, 2**31 - 1, True), "ref", "reference image seed"),
     "ref_template": (_ref_template, "ref", "ControlNet pose template: false (none), a name (apose, serpentine_side, "
                      "centaur_34) or {image, type, strength, start, end} over the body plan's (docs/references.md)"),
@@ -369,6 +384,8 @@ FIELDS = {
                     "copies the passing ones into anims/ (docs/anim-reuse.md). Default procedural"),
     "anim_ual_exclude": (_ual_clips, "anim", "anim_source ual: clips that keep the procedural version whatever "
                          "the gate says (a visual call: torn robe, a tail riding a leg)"),
+    "anim_mocap": (_mocap, "anim", "canonical quadrupeds: false keeps every clip procedural, {clip: false} that clip "
+                   "(tools/anim_quad.py; docs/rig-anim.md \"Quadruped mocap clips\"). Default true"),
     "paint": (_paint, "paint", "multiview paint: {enabled, views, denoise, ip_weight, cn_strength, ...}"),
     "lod_screen_ratios": (_screen_ratios, None,
                           "viewer auto LOD: LOD0/LOD1/LOD2 when the model covers more than these fractions "
@@ -435,7 +452,7 @@ def defaults(mon: dict, style_name: str | None = None) -> dict:
         "texture_size": tex, "normal_cage": 0.015, "ref_pick": 0, "seed_mesh": None,
         "mesh_n": 1, "mesh_views": "single", "mesh_pick": None,
         "ref_unarmed_check": bool(mon.get("unarmed_reference")),
-        "prompt_extra": "", "negative_extra": "", "style": style_name, "seed_ref": None, "ref_template": None,
+        "prompt_extra": "", "negative_extra": "", "ref_rules_skip": None, "style": style_name, "seed_ref": None, "ref_template": None,
         "yaw": None, "forward": "-Z", "level": plan in FEET_BY_PLAN,
         "level_tilt": TILT_CAP_BY_PLAN.get(plan, DEFAULT_TILT_CAP), "level_pitch": None,
         "lod_ratios": list(LOD_RATIOS), "rig_facing_check": True, "lod_screen_ratios": None, "notes": "",

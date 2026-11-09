@@ -465,8 +465,17 @@ def _finish(res: dict) -> dict:
 
 # --- CLI ------------------------------------------------------------------------------------
 
+def use_source(source: str) -> None:
+    """Work on out/<source>/ and that source's registry (default the SRD)."""
+    global SOURCE
+    SOURCE = source
+
+
 def rigged_bipeds() -> list[str]:
-    reg = json.loads((ROOT / "data" / "registry" / f"{SOURCE}.json").read_text())
+    import sys
+    sys.path.insert(0, str(ROOT / "tools"))
+    import sources
+    reg = json.loads(sources.registry_path(SOURCE).read_text())
     return [m["id"] for m in reg["monsters"] if m.get("body_plan") in PLANS
             and (ROOT / "out" / SOURCE / m["id"] / "model_rigged.glb").exists()]
 

@@ -296,6 +296,13 @@ hold records; a comma list, `-` to read ids from stdin or `@<file>` from a file,
 commas, spaces or newlines, `#` comments; an empty list is an error, never "all"),
 `--include-pilots`.
 
+**Other sources** (`--source <id>`, registries in the non-SRD checkout, `tools/sources.py`): the
+pilots are SRD records, so a non-SRD source has none of its own; `pilot_keys_for` takes the
+(body_plan, rig_template) pairs the SRD pilots proved from the SRD registry, and the tiers, notes
+and order of `plan`, `run`, `audit` and `report` follow them (2026-11-09; before, every non-SRD
+record read "tier 3 untested"). SRD output is unchanged. Promote and share for UAL bipeds are
+not run by the batch for any source (`forge.py promote <id> --source <id>`, `forge.py share ...`).
+
 **Re-rolls from review verdicts.** The viewer's review mode (`tools/viewer.py --review`,
 viewer/README.md "Review mode") stores thumbs up / down per aspect (ref, mesh, paint, rig,
 each clip) and a note in the `review` key of `data/overrides/<source>/<id>.json`;

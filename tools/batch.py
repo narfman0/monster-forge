@@ -185,6 +185,17 @@ def hold_reason(rec: dict) -> str | None:
     return None
 
 
+def pilot_keys_for(source: str, reg: dict) -> dict:
+    """{(body_plan, rig_template): pilot id} from the pilots in `reg`. A non-SRD source has no
+    pilots of its own: its labels (tiers) come from the SRD registry's pilots, which proved
+    those plans and templates (labels only; order and estimates do not change)."""
+    if source != "srd-5.2.1":
+        if "srd-5.2.1" not in _REG_CACHE:
+            _REG_CACHE["srd-5.2.1"] = fg.load_registry("srd-5.2.1")
+        reg = _REG_CACHE["srd-5.2.1"]
+    return {(reg[p]["body_plan"], reg[p]["rig_template"]): p for p in PILOTS if p in reg}
+
+
 def classify(rec: dict, pilot_keys: dict) -> dict:
     """{tier, status, note} for one record (see the module doc). A swarm is classified as
     its unit (unit_rec): plan, template and size of the unit, tier 2 at best (the swarm
@@ -532,7 +543,7 @@ def pin_notes(rec: dict, s: dict) -> str | None:
 # hashes those after each ref stage it runs (manifest.ref.prompt_fp) and status() compares
 # that stamp with the prompt forge would build now. A manifest with no stamp (every reference
 # made before this rule) is never stale by it: --reroll-changed-prompts covers those.
-PROMPT_FIELDS = ("prompt_extra", "negative_extra", "ref_template", "swarm_unit", "style")
+PROMPT_FIELDS = ("prompt_extra", "negative_extra", "ref_template", "swarm_unit", "style", "ref_rules_skip")
 
 
 def prompt_fingerprint(prompt: str, negative: str, template: str | None, n: int | None) -> str:
@@ -742,7 +753,7 @@ def parse_tiers(v: str | None) -> set | None:
 def work_list(reg: dict, args) -> list:
     """[(rec, cls)] in batch order: tier, then the plan's size in the registry (big proven
     groups first), then size category (medium/large/small before the extremes), then id."""
-    pilot_keys = {(reg[p]["body_plan"], reg[p]["rig_template"]): p for p in PILOTS if p in reg}
+    pilot_keys = pilot_keys_for(args.source, reg)
     plan_n = collections.Counter(r["body_plan"] for r in reg.values())
     size_rank = {"medium": 0, "large": 1, "small": 2, "huge": 3, "tiny": 4, "gargantuan": 5}
     plans = set(args.plans.split(",")) if getattr(args, "plans", None) else None
@@ -785,7 +796,7 @@ def hms(s: float) -> str:
 # ---------------------------------------------------------------- audit
 def cmd_audit(args) -> int:
     reg = fg.load_registry(args.source)
-    pilot_keys = {(reg[p]["body_plan"], reg[p]["rig_template"]): p for p in PILOTS if p in reg}
+    pilot_keys = pilot_keys_for(args.source, reg)
     print(audit_markdown(reg, pilot_keys))
     return 0
 
@@ -1632,7 +1643,7 @@ def ready_for_paint(rows: list) -> tuple[list, list]:
 
 def cmd_report(args) -> int:
     reg = fg.load_registry(args.source)
-    pilot_keys = {(reg[p]["body_plan"], reg[p]["rig_template"]): p for p in PILOTS if p in reg}
+    pilot_keys = pilot_keys_for(args.source, reg)
     bdir = Path(args.batch_dir) if args.batch_dir else fg.OUT_ROOT / args.source
     bj = viewer.load_json(bdir / "_batch.json") or {"monsters": {}, "sessions": [], "events": []}
     rows = []

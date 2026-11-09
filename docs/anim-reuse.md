@@ -386,6 +386,12 @@ in `anims_ual/`; `ual_library.py unshare <id>` puts them back, checked byte-iden
 - Result (75 UAL bipeds): 373 of 484 anims/ GLBs shared, 36.9 MB -> 11 library files 0.88 MB; 111 GLBs (9.0 MB) stay
   per-monster (attack_ranged 46, attack_melee 31, walk 13, death 11, fly/swim 6, idle 2, cast 1, breath 1: the
   procedural clips). Re-run `share` after any `promote` (promote copies the clips back; rig --force drops ual_shared).
+- **Other sources** (2026-11-09): `rig_ual`, `retarget_ual`, `bonemap`, `rig_ual_verdict` and `ual_library` keep a
+  module-level `SOURCE` (default `srd-5.2.1`); `use_source(<id>)` points them at `out/<id>/` and that source's
+  registry (`tools/sources.py`). The rig stage calls it with the monster's source, `forge.py promote` / `share` with
+  `--source`, and `rig_ual_verdict.py` takes `--source`. A source shares into its own library,
+  `out/<source>/_shared/ual/` (the same UAL clips; `manifest.anim.ual_shared.library` is relative to `out/<source>/`).
+  Sight calls (`data/rig_ual_calls.json`) are SRD only; another source's verdicts are rules only.
 
 ## Rig-friendly re-rolls (2026-11-08)
 The 24 bipeds left on SkinTokens or review above were re-drawn with the rig-friendly pose (docs/references.md

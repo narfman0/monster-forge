@@ -69,6 +69,14 @@ def registry() -> dict:
     return {m["id"]: m for m in json.loads(REGISTRY.read_text())["monsters"]}
 
 
+def use_source(source: str) -> None:
+    """Work on out/<source>/ and that source's registry (tools/sources.py; default the SRD). The pipeline
+    calls it with the monster's source (rig_ual.stage, forge.py promote / share)."""
+    global SOURCE, REGISTRY
+    import sources
+    SOURCE, REGISTRY = source, sources.registry_path(source)
+
+
 def held(mon: dict, socket: str = "hand_r") -> dict | None:
     """props.json entry of the prop in `socket` (anim.wielded's rule: the first wields entry with that
     grip_socket); None = unarmed."""

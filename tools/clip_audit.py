@@ -6,7 +6,7 @@
     python3 -I tools/clip_audit.py --sheets 12             # review sheets: the 12 worst non-bipeds
     python3 -I tools/clip_audit.py --sheets wolf,owlbear   # ... or these
 
---root is the directory holding <id>/ (default out/srd-5.2.1; a copy works: only model_rigged.glb,
+--source picks the registry (default srd-5.2.1; tools/sources.py). --root is the directory holding <id>/ (default out/<source>; a copy works: only model_rigged.glb,
 manifest.json and anims/ are read), --out where the results go (default <root>/_audit: <id>.json
 metrics, flags.json, clips.md, sheets/<id>.png). Nothing under <id>/ is written.
 
@@ -82,6 +82,14 @@ GATE = {"sink", "foot_slide", "limb_in_torso"}
 
 def registry() -> dict:
     return {m["id"]: m for m in json.loads(REGISTRY.read_text())["monsters"]}
+
+
+def use_source(source: str) -> None:
+    """Read that source's registry (tools/sources.py; default the SRD); --root defaults to out/<source>."""
+    global SOURCE, REGISTRY
+    sys.path.insert(0, str(ROOT / "tools"))
+    import sources
+    SOURCE, REGISTRY = source, sources.registry_path(source)
 
 
 def targets(root: Path, ids: list[str] | None) -> list[dict]:
@@ -385,14 +393,17 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("ids", nargs="*")
     ap.add_argument("--all", action="store_true")
-    ap.add_argument("--root", default=str(ROOT / "out" / SOURCE))
+    ap.add_argument("--source", default=SOURCE, help="registry (tools/sources.py); --root defaults to out/<source>")
+    ap.add_argument("--root")
     ap.add_argument("--out")
     ap.add_argument("--jobs", type=int, default=4)
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--report", action="store_true", help="flags and clips.md only, no Blender")
     ap.add_argument("--sheets", help="N (worst N non-bipeds) or comma-separated ids")
     a = ap.parse_args()
-    root = Path(a.root)
+    if a.source != SOURCE:
+        use_source(a.source)
+    root = Path(a.root or ROOT / "out" / SOURCE)
     out = Path(a.out) if a.out else root / "_audit"
     out.mkdir(parents=True, exist_ok=True)
     ts = targets(root, a.ids or None)

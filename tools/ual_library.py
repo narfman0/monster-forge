@@ -55,6 +55,12 @@ ROOT = Path(__file__).resolve().parent.parent
 SOURCE = "srd-5.2.1"
 OUT = ROOT / "out" / SOURCE
 LIB_REL = "_shared/ual"
+
+
+def use_source(source: str) -> None:
+    """Work on out/<source>/ (its own library under out/<source>/_shared/ual; default the SRD)."""
+    global SOURCE, OUT
+    SOURCE, OUT = source, ROOT / "out" / source
 VERSION = 2
 FPS = 30          # blender_rig_ual.FPS: output frames per second
 IMPORT_FPS = 30   # the scene fps Blender's glTF importer converts UAL's seconds to frames with

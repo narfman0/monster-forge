@@ -367,6 +367,7 @@ def ref_prompt(mon: dict) -> tuple[str, str, list[str]]:
     (plan, rules, id). `_frozen.ids` are records with an accepted reference: any plan, rule or
     per-id entry with `skip_frozen` passes them by, so a new table rule does not change (and
     re-roll) a reference already judged good; drop an id from the list to let the rules in.
+    The override `ref_rules_skip` leaves the named `_rules` out for one record.
     `_frozen.pass5_ids` (accepted in the 2026-11-06 pass-5 review) are skipped only by entries
     with `"skip_frozen": "pass5"`: the older `true` entries shaped their references and still apply."""
     tw = load_prompt_tweaks()
@@ -387,7 +388,8 @@ def ref_prompt(mon: dict) -> tuple[str, str, list[str]]:
     plan = live((tw.get("_plans") or {}).get(mon["body_plan"]) or {})
     if mon.get("rig_template") in (plan.get("except_templates") or []):
         plan = {}
-    rules = [r for r in (tweak_rule(r, mon) for r in tw.get("_rules") or [] if live(r)) if r]
+    skip = set(ov_for(mon).get("ref_rules_skip") or [])  # override: table rules that misfire on this record
+    rules = [r for r in (tweak_rule(r, mon) for r in tw.get("_rules") or [] if live(r) and r.get("name") not in skip) if r]
     ent = live(tw.get(mon["id"]) or {})
     used = (([f"plan:{mon['body_plan']}"] if plan else []) + [f"rule:{r.get('name', '?')}" for r in rules]
             + ([f"id:{mon['id']}"] if ent else []))
@@ -1498,6 +1500,7 @@ def main() -> int:
         return subprocess.run([PIL_PYTHON, "-I", str(ROOT / "tools" / "contact_sheet.py"), str(dst), *dirs]).returncode
     if args.cmd == "promote":
         import retarget_ual
+        retarget_ual.use_source(args.source)
         for mid in args.ids:
             log(f"{mid}: promoted {retarget_ual.promote(mid)}")
         return 0
@@ -1512,6 +1515,7 @@ def main() -> int:
         return 0
     if args.cmd == "share":
         import ual_library
+        ual_library.use_source(args.source)
         reps = {mid: ual_library.check(mid) for mid in args.ids}
         keys = {r["key"] for rep in reps.values() for r in (rep.get("clips") or {}).values() if r.get("shared")}
         loops = {r["key"] for rep in reps.values() for c, r in (rep.get("clips") or {}).items() if c in ual_library.LOOP_CLIPS}

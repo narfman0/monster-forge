@@ -36,6 +36,15 @@ SCRATCH = Path.home() / ".cache" / "monster-forge-scratch" / "rigual"
 CLIP_ORDER = ["idle", "walk", "run", "attack_melee", "hit", "cast", "death"]
 
 
+def use_source(source: str) -> None:
+    """Work on out/<source>/ and that source's registry, here and in retarget_ual / bonemap (default the SRD)."""
+    global SOURCE
+    import bonemap
+    SOURCE = source
+    retarget_ual.use_source(source)
+    bonemap.use_source(source)
+
+
 def ual1() -> str:
     return next(p for p in retarget_ual.packs() if "UAL1" in Path(p).name)
 
@@ -156,10 +165,10 @@ def variant(fit: str, weights: str, extras: bool) -> str:
     return f"{fit}_{weights}" + ("_x" if extras else "")
 
 
-def variant_for(mid: str, source: str = SOURCE) -> str:
+def variant_for(mid: str, source: str | None = None) -> str:
     """The variant the overrides make the stage write (rig_ual_verdict reads that one)."""
     import overrides
-    ov = overrides.load(source, mid)
+    ov = overrides.load(source or SOURCE, mid)
     return variant(ov.get("rig_ual_fit") or "auto", ov.get("rig_ual_weights") or "heat",
                    bool(ov.get("rig_ual_extras") or ov.get("rig_ual_add_tail")))
 
@@ -209,8 +218,9 @@ def stage(fg, mon: dict, d: Path, args) -> None:
     mid = mon["id"]
     if mon["body_plan"] not in UPRIGHT:
         raise RuntimeError(f"{mid}: rig_source ual is for bipeds/winged bipeds, not {mon['body_plan']}")
+    use_source(mon.get("source") or SOURCE)
     if d.resolve() != (ROOT / "out" / SOURCE / mid).resolve():
-        raise RuntimeError(f"{mid}: rig_source ual writes out/{SOURCE}/<id>/ only (no --out-suffix/--source)")
+        raise RuntimeError(f"{mid}: rig_source ual writes out/{SOURCE}/<id>/ only (no --out-suffix)")
     if not (d / "model.glb").exists():
         raise RuntimeError(f"{mid}: no model.glb; run `qa` first")
     man = fg.load_manifest(d)

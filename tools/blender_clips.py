@@ -3502,6 +3502,18 @@ def attack_tent() -> Clip:
     return c
 
 
+def cast_tent(name: str = "cast") -> Clip:
+    """A gesture, not a lash: the front tentacles rise and spread slowly, hold trembling at the top
+    while the body swells, then settle (modrons and other tentacled casters; also attack_ranged)."""
+    c = tent_clip(name, 1.6, False)
+    rise = keys((0, 0), (0.3, 55), (0.7, 55), (1, 0))
+    for i, ch in enumerate(front_tents()):
+        tent_turn(c, ch, lambda t, i=i: rise(t) + (4 * math.sin(2 * math.pi * 6 * t) if 0.3 < t < 0.7 else 0) * (1 if i % 2 else -1), 0.05)
+    c.turn("body", "X", keys((0, 0), (0.3, -6), (0.7, -6), (1, 0)))
+    c.scale[root] = lambda t: vscale(root, 1, 1 + 0.06 * keys((0, 0), (0.3, 1), (0.7, 1), (1, 0))(t))
+    return c
+
+
 def hit_tent() -> Clip:
     c = tent_clip("hit", 0.5, False)
     k = keys((0, 0), (0.18, 1), (1, 0))
@@ -3791,7 +3803,8 @@ def legless_clips() -> dict:
     elif PLAN == "tentacled" and TENTS:
         sets = {"idle": lambda s: idle_tent(), "swim": lambda s: swim_tent(), "fly": lambda s: swim_tent("fly"),
                 "walk": lambda s: crawl_tent(), "attack_melee": lambda s: attack_tent(),
-                "hit": lambda s: hit_tent(), "death": lambda s: death_tent()}
+                "hit": lambda s: hit_tent(), "death": lambda s: death_tent(),
+                "cast": lambda s: cast_tent(), "attack_ranged": lambda s: cast_tent("attack_ranged")}
     elif PLAN == "aquatic" and BODY and len(BODY["path"]) >= 4:
         sets = {"idle": lambda s: swim_fish("idle", 2.4, 6.0), "swim": lambda s: swim_fish(),
                 "walk": lambda s: swim_fish("walk"), "attack_melee": lambda s: attack_fish(),

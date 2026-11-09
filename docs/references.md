@@ -408,6 +408,11 @@ under `"_plans"`, per-body-plan entries applied first (`forge.ref_prompt`):
 
 `manifest.ref.tweaks` lists what applied (`plan:avian`, `id:ghoul`).
 
+Per-id entries in this table are SRD only (it is a public file). Another source's per-monster
+prompt words go in its overrides (`prompt_extra`, `negative_extra`, `ref_template`, `seed_ref`),
+and a table rule that misfires on one record is left out with the override `ref_rules_skip`
+(a list of `_rules` names, e.g. `fleshy_undead` on a bare skull whose type is undead; 2026-11-09).
+
 **avian** (all but `custom.theropod`): "neutral standing stance with wings partly spread,
 side view" becomes "(front view, body facing the viewer:1.2), standing upright with both feet
 on the ground, (both wings spread wide open to the left and right:1.3), symmetrical pose";

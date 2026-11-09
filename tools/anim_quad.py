@@ -153,7 +153,16 @@ def sample(packs: Path, rigs: list[str]) -> None:
         ref.unlink(missing_ok=True)
 
 
-OUT = ROOT / "out" / "srd-5.2.1"
+SOURCE = "srd-5.2.1"
+OUT = ROOT / "out" / SOURCE
+
+
+def use_source(source: str) -> None:
+    """Work on out/<source>/ and that source's registry (the audit gate too; default the SRD)."""
+    global SOURCE, OUT
+    import clip_audit
+    SOURCE, OUT = source, ROOT / "out" / source
+    clip_audit.use_source(source)
 GATE_FILE = "mocap_gate.json"  # <id>/: clips the audit gate sent back to procedural ({clip: [flags]})
 
 
@@ -185,7 +194,7 @@ def audit_gate(mid: str) -> dict:
 
 def forge_anim(mid: str) -> None:
     for attempt in range(2):  # once more after a crash (a Blender segfault was seen once, not reproducible)
-        p = subprocess.run([sys.executable, "-I", str(ROOT / "tools" / "forge.py"), "anim", mid, "--force"],
+        p = subprocess.run([sys.executable, "-I", str(ROOT / "tools" / "forge.py"), "anim", mid, "--force", "--source", SOURCE],
                            capture_output=True, text=True, timeout=3600)
         if not p.returncode:
             return
@@ -257,12 +266,15 @@ def main() -> None:
     ap.add_argument("--rigs", nargs="*", default=list(SOURCE_CLIPS))
     ap.add_argument("--jobs", type=int, default=1, help="monsters at once (each runs one Blender at a time)")
     ap.add_argument("--backup", type=Path, help="copy <id>/ here once before replacing its clips")
+    ap.add_argument("--source", default=SOURCE, help="registry and out/<source>/ (tools/sources.py)")
     args = ap.parse_args()
+    if args.source != SOURCE:
+        use_source(args.source)
     if args.cmd == "sample":
         sample(args.packs, args.rigs)
         return
     import forge as fg
-    reg = fg.load_registry("srd-5.2.1")
+    reg = fg.load_registry(SOURCE)
     ids = canonical_ids() if args.all else args.ids
     if args.cmd == "plan":
         for mid in ids:

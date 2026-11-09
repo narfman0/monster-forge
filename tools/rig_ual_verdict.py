@@ -266,6 +266,14 @@ def verdict(mid: str, mon: dict, variant: str = VARIANT, calls: dict | None = No
 RULES_DATE = "2026-11-07"
 
 
+def use_source(source: str) -> None:
+    """Work on out/<source>/ and that source's registry (default the SRD)."""
+    global SOURCE, OUT
+    import rig_ual
+    SOURCE, OUT = source, ROOT / "out" / source
+    rig_ual.use_source(source)
+
+
 def candidates(variant: str) -> list[str]:
     reg = retarget_ual.registry()
     ids = {p.parts[-4] for p in OUT.glob(f"*/rig_ual/{variant}/metrics.json")}
@@ -285,7 +293,10 @@ def main():
     ap.add_argument("--variant", default=VARIANT)
     ap.add_argument("--compare", action="store_true", help="compare with the verdict.json on disk; write nothing")
     ap.add_argument("--no-calls", action="store_true", help="the rules alone (ignore data/rig_ual_calls.json)")
+    ap.add_argument("--source", default=SOURCE, help="registry and out/<source>/ (tools/sources.py)")
     a = ap.parse_args()
+    if a.source != SOURCE:
+        use_source(a.source)
     ids = candidates(a.variant) if a.all else a.ids
     if not ids:
         ap.error("give monster ids or --all")
