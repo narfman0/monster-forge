@@ -232,7 +232,7 @@ def map_bones(bones: dict, weighted: set | None = None) -> dict:
                 out[n] = f"{u}_{s}"
                 ch.append(n)
         chains[f"leg_{s}"] = ch
-    for s_ in "lr":  # no ankle bone, only a toe chain under the shin (Bleach rips): the toe bone IS the foot
+    for s_ in "lr":  # no ankle bone, only a toe chain under the shin: the toe bone IS the foot
         if (s_, "calf") in found and not found.get((s_, "foot")) and found.get((s_, "ball")):
             tn = one((s_, "ball"), "high")
             if tn and tn in out and out[tn].startswith("ball"):
