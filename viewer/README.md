@@ -464,6 +464,13 @@ scimitar and the shortbow; its shield is published too and shows with `?prop_l=s
 `?prop_r=` / `?prop_l=` work as in dev but only for published props. A hand with nothing
 wielded stays empty: no placeholder sword and bow on a harpy.
 
+**The private host (`?source=<s>`).** `tools/sync_assets.py` mirrors every source's `out/`
+to srv (the authoritative copy, LAN-only nginx on port 5070, `deploy/srv/`) and writes one
+static index per source plus `sources/all/index.json`. `/viewer/?source=<s>` reads
+`/sources/<s>/index.json`; `?source=all` (where `/` redirects) shows every source at once,
+with ids `<source>/<id>` (`#mha/deku`) and the source tags (`srd`, `planescape`, `mha` ...)
+as the filter. Its `props.json` gives each prop an absolute `dir` (`/out/props/<id>/`).
+
 ## Review mode
 
 For judging every monster and clip by eye, with the verdicts landing where re-rolls read

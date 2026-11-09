@@ -1,5 +1,5 @@
 # Private monster-forge host (LAN only, no Caddy route): the viewer + every source's out/ assets.
-# Installed at /media/data/other/monster-forge on srv. Written by `tools/sync_assets.py --dest srv:<this dir>`:
+# Installed at /media/data/other/monster-forge on srv (the authoritative out/ for every source). Written by `tools/sync_assets.py sync|push|site`:
 #   ./site   landing page, viewer/, sources.json, sources/<s>/index.json
 #   ./out    assets, mirrored from the repo's out/<s>/ (never in git)
 services:

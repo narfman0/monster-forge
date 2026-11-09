@@ -1237,7 +1237,8 @@ function propIdFor(param) {
 const realProps = new Map();  // id -> Promise<THREE.Object3D | null>
 function loadRealProp(id) {
   if (!realProps.has(id)) {
-    const dir = `${STATIC ? 'props/' : '/out/props/'}${encodeURIComponent(id)}/`;
+    // props.json may give each prop's dir (absolute /out/props/<id>/ on the private host, tools/sync_assets.py)
+    const dir = state.props[id]?.dir?.startsWith('/') ? state.props[id].dir : `${STATIC ? 'props/' : '/out/props/'}${encodeURIComponent(id)}/`;
     realProps.set(id, Promise.all([
       loader.loadAsync(dir + 'model.glb'),
       fetch(dir + 'manifest.json', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({})),
@@ -1685,7 +1686,7 @@ function enterStatic() {
   if (staticReady) return;
   staticReady = true;
   document.body.classList.add('static');
-  document.title = staticSource ? `monster-forge · ${staticSource}` : 'monster-forge · SRD monster viewer';
+  document.title = staticSource ? `monster-forge · ${staticSource === 'all' ? 'every source' : staticSource}` : 'monster-forge · SRD monster viewer';
   if (state.lodMode === 'raw') state.lodMode = 'auto';
   $('t-prop').checked = true;  // the monster's own weapons, when it wields any
   $('t-prop').parentElement.title = "the monster's wielded props on its hand sockets (p); ?prop_r=<id>&prop_l=<id> picks others";
