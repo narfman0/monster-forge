@@ -258,7 +258,7 @@ def prep(source: str, mon: dict, ext: dict, merge: dict | None = None) -> dict:
     out = d / "rig" / "skintokens_rigged.glb"
     out.parent.mkdir(exist_ok=True)
     job = {"src": str(src), "dst": str(out),
-           "pose": ext.get("pose", "REST"), "drop": ext.get("drop"), "drop_materials": ext.get("drop_materials"), "drop_cards": ext.get("drop_cards"), "alpha_key": ext.get("alpha_key"), "clear_normals": ext.get("clear_normals"), "yaw_deg": qa["yaw_deg"], "scale": qa["scale_factor"],
+           "pose": ext.get("pose", "REST"), "drop": ext.get("drop"), "drop_materials": ext.get("drop_materials"), "drop_cards": ext.get("drop_cards"), "alpha_key": ext.get("alpha_key"), "material_colors": ext.get("material_colors"), "clear_normals": ext.get("clear_normals"), "yaw_deg": qa["yaw_deg"], "scale": qa["scale_factor"],
            "tri_budget": ext.get("tri_budget", 40000), "hands": hands, "merge": merge or {}}
     p = subprocess.run([forge.BLENDER, "-b", "--factory-startup", "-P",
                         str(Path(__file__).with_name("blender_ext_rig.py")), "--", json.dumps(job)],

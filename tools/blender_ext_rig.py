@@ -281,6 +281,30 @@ def clear_normals(objs):
             pass
         bpy.ops.object.shade_smooth()
 
+def paint_materials(table):
+    """Sources that ship without texture images (flat-shaded game rips): give each material a base colour.
+    job.material_colors: {material-name substring: "#rrggbb"}; the first matching key wins, later keys are longer fallbacks."""
+    def lin(c):
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+    done = {}
+    for m in bpy.data.materials:
+        hexv = next((v for k, v in table.items() if k.lower() in m.name.lower()), None)
+        if not hexv:
+            continue
+        r, g, b = (int(hexv.lstrip("#")[i:i + 2], 16) / 255 for i in (0, 2, 4))
+        m.use_nodes = True
+        bsdf = next((n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None) or m.node_tree.nodes.new("ShaderNodeBsdfPrincipled")
+        bsdf.inputs["Base Color"].default_value = (lin(r), lin(g), lin(b), 1.0)
+        bsdf.inputs["Roughness"].default_value = 0.7
+        bsdf.inputs["Metallic"].default_value = 0.0
+        out = next((n for n in m.node_tree.nodes if n.type == "OUTPUT_MATERIAL"), None) or m.node_tree.nodes.new("ShaderNodeOutputMaterial")
+        if not out.inputs["Surface"].is_linked:
+            m.node_tree.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+        m.diffuse_color = (lin(r), lin(g), lin(b), 1.0)
+        done[m.name] = hexv
+    return done
+
+
 def alpha_key(mats, tol=0.06):
     """Materials whose texture has an opaque flat background that the source viewer blended away (eye / eyeshadow
     overlays on a grey sheet): key the most common colour out to alpha 0, link image alpha -> principled alpha,
@@ -317,6 +341,8 @@ def alpha_key(mats, tol=0.06):
 
 if job.get("clear_normals"):
     clear_normals(meshes)
+if job.get("material_colors"):
+    print("PAINT", paint_materials(job["material_colors"]))
 if job.get("alpha_key"):
     print("ALPHA_KEY", alpha_key(job["alpha_key"]))
 
