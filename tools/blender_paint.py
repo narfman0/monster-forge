@@ -429,6 +429,9 @@ def mode_bake():
         cosang = -(nrm @ np.asarray(cam["view"]))
         w = np.where(vis, cosang * smoothstep(cos_min, cos_min + 0.25, cosang), 0.0)
         w *= trust[yi, xi]
+        wm = os.path.join(job["paint_dir"], f"{name}_weight.png")  # optional 0..1 mask: limit a view to the region where its image is trustworthy
+        if os.path.exists(wm):
+            w *= read_png(wm)[:, :, 0][yi, xi]
         # close-up views carry more pixels per texel: weight by resolution
         w *= (max_scale / cam["ortho_scale"]) ** float(params.get("res_power", 1.0))
         k = w > 1e-4
