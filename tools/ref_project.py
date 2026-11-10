@@ -32,6 +32,11 @@ shutil.copyfile(tex / "base_color.png", tex / "base_color_voxel.png")
 views = [{"name": v, "yaw": paint.VIEW_SPECS[v][0], "elev": paint.VIEW_SPECS[v][1], "hint": paint.VIEW_SPECS[v][2], "head": False}
          for v in ("front", "back", "left", "right", "front_left", "front_right")]
 hb = paint.head_box(qa, mon["body_plan"])
+_hs = pdir / "head_shift.json"  # tools/ref_head.py lifts the head crop to the top of the hair: move the head camera the same way
+if _hs.exists() and (pdir / "cameras.json").exists():
+    _f = next(v for v in json.loads((pdir / "cameras.json").read_text())["views"] if v["name"] == "front")
+    _dy = json.loads(_hs.read_text())["dy_px"]
+    hb = dict(hb, center=[c - _dy * (_f["ortho_scale"] / _f["width"]) * u for c, u in zip(hb["center"], _f["up"])])
 hd = paint.head_view_dir(qa, mon["body_plan"])
 base = math.degrees(math.atan2(-hd[0], hd[1]) - math.atan2(-paint.fwd_vec(qa)[0], paint.fwd_vec(qa)[1]))
 views.append({"name": "head", "yaw": paint.VIEW_SPECS["head"][0] + base, "elev": paint.VIEW_SPECS["head"][1], "hint": "front view", "head": True})
@@ -111,13 +116,18 @@ def align_head(pdir):
     ed = np.linalg.norm(a2 - a1)
     cx, cy = (a1 + a2) / 2
     yy, xx = np.mgrid[0:H, 0:W].astype("float32")
-    q = np.sqrt(((xx - cx) / (0.95 * ed)) ** 2 + ((yy - (cy + 0.35 * ed)) / (0.95 * ed)) ** 2)
+    ry = np.where(yy < cy + 0.35 * ed, 1.45, 0.95) * ed  # taller above the eyes: covers the old texture's dark bang edge
+    q = np.sqrt(((xx - cx) / (0.95 * ed)) ** 2 + ((yy - (cy + 0.35 * ed)) / ry) ** 2)
     wmask = np.clip((1.0 - q) / 0.25, 0, 1)
     Image.fromarray((wmask * 255).astype("uint8")).convert("RGB").save(pdir / "head_weight.png")
     print("head aligned: eye distance render %.0f px, redraw %.0f px, scale %.2f, rotate %.1f deg" % (np.linalg.norm(va), np.linalg.norm(vb), sc, np.degrees(ang)))
 
 
-if (pdir / "head_gen_qwen.png").exists():
+if (pdir / "head_gen_final.png").exists():  # tools/ref_head.py: geometry-aligned redraw, no eye detection
+    shutil.copyfile(pdir / "head_gen_final.png", pdir / "head_gen.png")
+    shutil.copyfile(pdir / "head_weight_final.png", pdir / "head_weight.png")
+    print("head: using head_gen_final.png")
+elif (pdir / "head_gen_qwen.png").exists():
     align_head(pdir)
 report = {}
 for v in ("front", "back", "left", "right", "front_left", "front_right"):
@@ -150,5 +160,5 @@ print("silhouette IoU raw / box-aligned / flow-aligned:", json.dumps(report))
 ms = int(os.environ.get("TEX_SIZE", man["mesh"]["settings"]["texture_size"]))
 paint.blender(forge, {"mode": "bake", "src": str(d / "model.glb"), "dst": str(d / "model.glb"), "voxel_tex": str(tex / "base_color_voxel.png"), "paint_dir": str(pdir),
                       "texture_size": ms, "out_tex": str(tex / "base_color_painted.png"), "coverage": str(tex / "paint_coverage.png"),
-                      "report": str(pdir / "bake.json"), "params": {"color_match": 0.0}})
+                      "report": str(pdir / "bake.json"), "params": {"color_match": 0.0, "edge_px": 40, "max_angle": 55, **json.loads(os.environ.get("BAKE_PARAMS", "{}"))}})
 print("painted", json.loads((pdir / "bake.json").read_text())["painted_fraction"])

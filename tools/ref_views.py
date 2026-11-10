@@ -28,7 +28,7 @@ VAE = "qwen_image_vae.safetensors"
 
 VIEWS = {
     "clean": "Redraw this exact character, front view, same pose, same face, same hair, same outfit and colours, "
-             "but remove all paint splatter, spray, smoke, particles and decorations around and behind her. Keep her hair purple.",
+             "but remove all paint splatter, spray, smoke, particles and decorations around and behind her.",
     "back": "Show this exact character from directly behind, seen from the back, standing in the same A-pose. "
             "Keep the same hair colour and length, the same outfit and every colour; show the back of the hair and clothes.",
     "left": "Show this exact character in a pure side view, facing left, same A-pose, same outfit and colours.",
@@ -38,6 +38,10 @@ VIEWS = {
 }
 STYLE = (" Full body, head to boots, flat cel-shaded anime style with clean outlines, plain white background, "
          "no text, no extra objects, no shadow.")
+
+
+LOCK = (" Keep the hair colour, skin colour and every clothing colour exactly the same as in the input image; do not recolour anything."
+        " Character description: {desc}.")
 
 
 def graph(image: str, prompt: str, seed: int, steps: int, cfg: float, prefix: str) -> dict:
@@ -123,6 +127,11 @@ def main() -> int:
     ap.add_argument("--frame-only", action="store_true", help="skip generation: mask and frame the existing views/ + ref")
     a = ap.parse_args()
     d = forge.OUT_ROOT / a.source / a.id
+    try:  # the registry's reference prompt names the colours; Qwen drifts hair colour on unseen sides without it
+        desc = forge.load_registry(a.source)[a.id].get("reference_prompt", "")
+        desc = desc.split("(legs apart")[0].split(". Low-poly")[0].strip(" ,.")
+    except Exception:  # noqa: BLE001
+        desc = ""
     ref = d / (f"ref_{a.pick}.png" if a.pick is not None else "ref.png")
     if a.frame_only:
         frame(d, d / "ref.png")
@@ -132,7 +141,7 @@ def main() -> int:
     out.mkdir(exist_ok=True)
     rec = {"ref": ref.name, "seed": a.seed, "steps": a.steps, "cfg": a.cfg, "model": UNET}
     for v in a.views.split(","):
-        res = forge.run_prompt(graph(name, VIEWS[v], a.seed, a.steps, a.cfg, f"monster-forge/views/{a.source}/{a.id}/{v}"), f"{a.id} view {v}")
+        res = forge.run_prompt(graph(name, VIEWS[v] + (LOCK.format(desc=desc) if desc else ""), a.seed, a.steps, a.cfg, f"monster-forge/views/{a.source}/{a.id}/{v}"), f"{a.id} view {v}")
         forge.fetch_output(res["save"]["images"][0], out / f"{v}.png")
         forge.log(f"{a.id}: {v} -> {out / (v + '.png')}")
     (out / "views.json").write_text(json.dumps(rec, indent=1) + "\n")

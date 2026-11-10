@@ -444,6 +444,31 @@ def mode_bake():
     alpha = smoothstep(0.0, full_w, wsum)[:, None]
     out = vox_bu.copy()
     out[pix] = alpha * painted + (1 - alpha) * vox_bu[pix]
+    # fill thin unpainted strips inside islands (creases no camera sees, e.g. under a fringe) from painted neighbours in UV
+    # space, so they do not keep the dark voxel colour; at most fill_px texels deep (default 6), bigger gaps stay voxel colour
+    fill_px = int(params.get("fill_px", 6))
+    if fill_px > 0:
+        isl = np.zeros(T * T, bool)
+        isl[pix] = True
+        isl = isl.reshape(T, T)
+        ok = np.zeros(T * T, bool)
+        ok[pix] = alpha[:, 0] > 0.5
+        ok = ok.reshape(T, T)
+        flat = np.zeros((T * T, 3))
+        flat[pix] = out[pix]
+        flat = flat.reshape(T, T, 3)
+        for _ in range(fill_px):
+            s_ = np.zeros((T, T, 3))
+            c_ = np.zeros((T, T))
+            for dy, dx in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+                s_ += np.roll(np.roll(flat, dy, 0), dx, 1) * np.roll(np.roll(ok, dy, 0), dx, 1)[:, :, None]
+                c_ += np.roll(np.roll(ok, dy, 0), dx, 1)
+            grow = isl & ~ok & (c_ > 0)
+            if not grow.any():
+                break
+            flat[grow] = s_[grow] / c_[grow][:, None]
+            ok = ok | grow
+        out[pix] = flat.reshape(T * T, 3)[pix]
     # bleed the painted colour 3 texels into the gutter around each island so mip-maps and
     # bilinear lookups at chart borders do not pick up the voxel colour
     cov = np.zeros(T * T, bool)
