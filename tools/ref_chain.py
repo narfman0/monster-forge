@@ -4,7 +4,7 @@
   ~/.cache/mf-venv/bin/python tools/ref_chain.py <src> <id> --pick N [--tex 4096] [--skip-rig]
 
 Steps (each logs; a failure stops with a non-zero exit):
-  1. ref_N.png -> ref.png, Qwen-Image-Edit redraws it clean on white (tools/ref_views.py --views clean) -> ref.png
+  1. (--web: ref_web.png, a picked 2D image, redrawn as a front A-pose) ref_N.png -> ref.png, Qwen-Image-Edit redraws it clean on white (tools/ref_views.py --views clean) -> ref.png
   2. back, left, right views from that front (tools/ref_views.py), framed into turnaround/
   3. multi-view mesh (forge.py mesh --mesh-views mv; fails if manifest mesh.views != "mv") + qa
   4. texture projection from the clean views (tools/ref_project.py), a Qwen redraw of the head crop for a sharp face (tools/ref_head.py), re-project, lod
@@ -46,16 +46,18 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("src")
     ap.add_argument("id")
-    ap.add_argument("--pick", type=int, required=True)
+    ap.add_argument("--pick", type=int)
+    ap.add_argument("--web", action="store_true", help="start from out/<src>/<id>/ref_web.png (a picked 2D image from tools/ref_web.py) instead of a generated ref_N.png")
     ap.add_argument("--tex", default="4096")
     ap.add_argument("--skip-rig", action="store_true")
     a = ap.parse_args()
     d = ROOT / "out" / a.src / a.id
     forge = [PY, "tools/forge.py"]
     t0 = time.time()
-    shutil.copyfile(d / f"ref_{a.pick}.png", d / "ref.png")
-    run([PY, "tools/ref_views.py", a.id, "--source", a.src, "--views", "clean"])
-    shutil.copyfile(d / "views" / "clean.png", d / "ref.png")
+    first = "apose" if a.web else "clean"
+    shutil.copyfile(d / ("ref_web.png" if a.web else f"ref_{a.pick}.png"), d / "ref.png")  # ref_views frames against ref.png
+    run([PY, "tools/ref_views.py", a.id, "--source", a.src, "--views", first])
+    shutil.copyfile(d / "views" / f"{first}.png", d / "ref.png")
     log(f"{a.id}: reference cleaned")
     for v in ("back", "left", "right"):
         (d / "views" / f"{v}.png").unlink(missing_ok=True)

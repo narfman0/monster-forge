@@ -29,6 +29,9 @@ VAE = "qwen_image_vae.safetensors"
 VIEWS = {
     "clean": "Redraw this exact character, front view, same pose, same face, same hair, same outfit and colours, "
              "but remove all paint splatter, spray, smoke, particles and decorations around and behind her.",
+    "apose": "Redraw this exact character standing in a neutral A-pose, front view, facing the camera, arms hanging slightly away from the body "
+             "with open hands, legs straight and slightly apart, full body head to feet. Keep the exact same design, face, hair, outfit and colours; "
+             "remove any weapon, held object, text, effects and background.",
     "back": "Show this exact character from directly behind, seen from the back, standing in the same A-pose. "
             "Keep the same hair colour and length, the same outfit and every colour; show the back of the hair and clothes.",
     "left": "Show this exact character in a pure side view, facing left, same A-pose, same outfit and colours.",
@@ -132,7 +135,14 @@ def main() -> int:
         desc = desc.split("(legs apart")[0].split(". Low-poly")[0].strip(" ,.")
     except Exception:  # noqa: BLE001
         desc = ""
-    ref = d / (f"ref_{a.pick}.png" if a.pick is not None else "ref.png")
+    ref = d / (f"ref_{a.pick}.png" if a.pick is not None else ("ref_web_sq.png" if a.views == "apose" else "ref.png"))
+    if a.views == "apose":  # web image: pad to a white square so Qwen does not crop the figure
+        from PIL import Image
+        im = Image.open(d / "ref_web.png").convert("RGB")
+        sq = max(im.size)
+        c = Image.new("RGB", (sq, sq), (255, 255, 255))
+        c.paste(im, ((sq - im.width) // 2, (sq - im.height) // 2))
+        c.resize((1024, 1024), Image.LANCZOS).save(ref)
     if a.frame_only:
         frame(d, d / "ref.png")
         return 0

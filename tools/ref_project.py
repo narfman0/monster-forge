@@ -35,8 +35,9 @@ hb = paint.head_box(qa, mon["body_plan"])
 _hs = pdir / "head_shift.json"  # tools/ref_head.py lifts the head crop to the top of the hair: move the head camera the same way
 if _hs.exists() and (pdir / "cameras.json").exists():
     _f = next(v for v in json.loads((pdir / "cameras.json").read_text())["views"] if v["name"] == "front")
-    _dy = json.loads(_hs.read_text())["dy_px"]
-    hb = dict(hb, center=[c - _dy * (_f["ortho_scale"] / _f["width"]) * u for c, u in zip(hb["center"], _f["up"])])
+    _sh = json.loads(_hs.read_text())
+    _k = _f["ortho_scale"] / _f["width"]  # metres per pixel
+    hb = dict(hb, center=[c - _sh["dy_px"] * _k * u + _sh.get("dx_px", 0.0) * _k * r for c, u, r in zip(hb["center"], _f["up"], _f["right"])])
 hd = paint.head_view_dir(qa, mon["body_plan"])
 base = math.degrees(math.atan2(-hd[0], hd[1]) - math.atan2(-paint.fwd_vec(qa)[0], paint.fwd_vec(qa)[1]))
 views.append({"name": "head", "yaw": paint.VIEW_SPECS["head"][0] + base, "elev": paint.VIEW_SPECS["head"][1], "hint": "front view", "head": True})

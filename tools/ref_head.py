@@ -47,13 +47,16 @@ def crop_box(cams: dict) -> list[float]:
 
 
 def fit_to_head(box: list[float], mask) -> list[float]:
-    """QA's head box can sit low on a character with long hair or a hat: lift the (square) box so its top is just above the
-    silhouette top of the front view (`mask`: bool array, the front render's silhouette)."""
-    ys, _ = np.nonzero(mask)
+    """QA's head box can sit low on long hair or a hat, or off to one side (a hair ornament, a hood): move the (square) box so its
+    top is just above the silhouette top of the front view and its centre is on the head, read from the silhouette's extent over
+    the face rows (`mask`: bool array, the front render's silhouette)."""
+    ys, xs = np.nonzero(mask)
     side = box[2] - box[0]
     top = float(ys.min()) - 0.04 * side
-    dy = top - box[1]
-    return [box[0], box[1] + dy, box[2], box[3] + dy]
+    rows = (np.arange(mask.shape[0]) >= top + 0.35 * side) & (np.arange(mask.shape[0]) <= top + 0.85 * side)
+    cols = np.nonzero(mask[rows].any(axis=0))[0]
+    cx = (cols.min() + cols.max()) / 2 if len(cols) else (box[0] + box[2]) / 2
+    return [cx - side / 2, top, cx + side / 2, top + side]
 
 
 def graph(img: str, ref: str, den: float, seed: int, prefix: str) -> dict:
@@ -109,7 +112,8 @@ def main() -> int:
     # pixels, y down), or the redraw lands off the face; cumulative so a re-run does not undo it
     sp = pdir / "head_shift.json"
     old = json.loads(sp.read_text())["dy_px"] if sp.exists() else 0.0
-    sp.write_text(json.dumps({"dy_px": old + (y0 - box0[1])}) + "\n")
+    olx = json.loads(sp.read_text())["dx_px"] if sp.exists() else 0.0
+    sp.write_text(json.dumps({"dy_px": old + (y0 - box0[1]), "dx_px": olx + (x0 - box0[0])}) + "\n")
     front = Image.open(pdir / "front_gen.png").convert("RGB")
     crop = front.crop((int(round(x0)), int(round(y0)), int(round(x1)), int(round(y1)))).resize((1024, 1024), Image.LANCZOS)
     crop.save(pdir / "head_up.png")
