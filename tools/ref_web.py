@@ -59,12 +59,15 @@ def wiki_images(host: str, title: str, limit: int = 8) -> list[dict]:
     return (tall + [o for o in out if o["h"] < 1.2 * o["w"]][:2])[:limit]
 
 
-def booru_images(tag: str, limit: int = 8) -> list[dict]:
-    d = curl_json(BOORU + urllib.parse.quote(f"{tag} solo standing full_body").replace("%20", "+"))
+def booru_images(tag: str, limit: int = 8, relaxed: bool = False) -> list[dict]:
+    """relaxed: `<tag> solo` only (full_body/standing tags are rare for minor characters); Qwen completes cut-off legs in the A-pose redraw."""
+    d = curl_json(BOORU + urllib.parse.quote(f"{tag} solo" if relaxed else f"{tag} solo standing full_body").replace("%20", "+"))
+    if relaxed and isinstance(d, list) and len(d) >= 100:
+        d += curl_json(BOORU + urllib.parse.quote(f"{tag} solo").replace("%20", "+") + "&pid=1") or []
     d = d if isinstance(d, list) else []
     bad = {"comic", "chibi", "cosplay", "photo", "monochrome", "sketch"}
     d = [p for p in d if p["height"] >= 900 and p["height"] >= 1.2 * p["width"] and not bad & set(p["tags"].split())]
-    d.sort(key=lambda p: (bool({"white_background", "simple_background"} & set(p["tags"].split())), -abs(p["height"] / p["width"] - 1.7)), reverse=True)
+    d.sort(key=lambda p: (bool({"full_body"} & set(p["tags"].split())), bool({"white_background", "simple_background"} & set(p["tags"].split())), -abs(p["height"] / p["width"] - 1.7)), reverse=True)
     return [{"name": f"booru-{p['id']}", "url": p["sample_url"] if p.get("sample") and p.get("sample_height", 0) >= 1400 else p["file_url"],
              "w": p["width"], "h": p["height"], "kind": "booru"} for p in d[:limit]]
 
@@ -79,6 +82,7 @@ def main() -> int:
     ap.add_argument("--tag")
     ap.add_argument("--n", type=int, default=8)
     ap.add_argument("--pick")
+    ap.add_argument("--relaxed", action="store_true", help="booru: `<tag> solo` only, full-body preferred but not required")
     a = ap.parse_args()
     d = forge.OUT_ROOT / a.src / a.id / "web"
     d.mkdir(parents=True, exist_ok=True)
@@ -93,7 +97,7 @@ def main() -> int:
     if a.wiki and a.title:
         cands += wiki_images(a.wiki, a.title, a.n)
     if a.tag:
-        cands += booru_images(a.tag, a.n)
+        cands += booru_images(a.tag, a.n, a.relaxed)
     meta = []
     for i, c in enumerate(cands):
         out = d / f"{c['kind'][0]}{i}.png"
