@@ -618,6 +618,8 @@ def fit_skintokens():
     for u in CORE:
         if u in inv:
             J[u] = SK_POS[inv[u]].copy()
+    if "spine_03" not in J and "neck_01" in J and "pelvis" in J:  # SkinTokens gave no spine bones (pelvis -> neck only): spine_03 at 80%
+        J["spine_03"] = J["pelvis"] + (J["neck_01"] - J["pelvis"]) * 0.8
     if "spine_01" not in J:  # a 1-bone spine (imp): spine_01 a third of the way pelvis -> spine_03
         J["spine_01"] = J["pelvis"] + (J["spine_03"] - J["pelvis"]) / 3
         if "spine_02" not in J:

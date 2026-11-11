@@ -44,7 +44,7 @@ STYLE = (" Full body, head to boots, flat cel-shaded anime style with clean outl
 
 
 LOCK = (" Keep the hair colour, skin colour and every clothing colour exactly the same as in the input image; do not recolour anything."
-        " Character description: {desc}.")
+        " The hands are empty: do not add or keep any weapon, staff, sword or other held object. Character description: {desc}.")
 
 
 def graph(image: str, prompt: str, seed: int, steps: int, cfg: float, prefix: str) -> dict:

@@ -42,6 +42,26 @@ def log(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
+def rig_stage(a, d, forge, t0):
+    host = os.environ.get("RIG_HOST", "9900x")
+    rel = f"out/{a.src}/{a.id}/"
+    for stale in ("rig", "rig_ual", "anims_ual", "anims"):
+        shutil.rmtree(d / stale, ignore_errors=True)
+    subprocess.run(["ssh", "-n", "-o", "BatchMode=yes", host, f"mkdir -p ~/workspace/monster-forge/{rel}"], check=True)
+    subprocess.run(["rsync", "-a", "--delete", rel, f"{host}:workspace/monster-forge/{rel}"], cwd=ROOT, check=True)
+    r = subprocess.run(["ssh", "-n", "-o", "BatchMode=yes", host, f"cd ~/workspace/monster-forge && git pull -q --ff-only; cd ../monster-forge-nonsrd && git pull -q --ff-only; "
+                        f"cd ../monster-forge && COMFY_URL=http://localhost:8188 PIL_PYTHON=python3 python3 -I tools/forge.py rig {a.id} --source {a.src} --force 2>&1 | tail -2"],
+                       capture_output=True, text=True)
+    log(f"{a.id}: skintokens: {(r.stdout or r.stderr).strip()[-200:]}")
+    subprocess.run(["rsync", "-a", f"{host}:workspace/monster-forge/{rel}", rel], cwd=ROOT, check=True)
+    run(forge + ["rig", a.id, "--source", a.src, "--rig-source", "ual", "--force"])
+    run(forge + ["promote", a.id, "--source", a.src])
+    m = json.loads((d / "anims_ual" / "metrics.json").read_text())["clips"]
+    log(f"{a.id}: rigged, worst clip stretch {max(c['edge_stretch_p999'] for c in m.values()):.1f}")
+    log(f"{a.id}: chain done in {time.time() - t0:.0f}s")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("src")
@@ -50,10 +70,14 @@ def main() -> int:
     ap.add_argument("--web", action="store_true", help="start from out/<src>/<id>/ref_web.png (a picked 2D image from tools/ref_web.py) instead of a generated ref_N.png")
     ap.add_argument("--tex", default="4096")
     ap.add_argument("--skip-rig", action="store_true")
+    ap.add_argument("--rig-only", action="store_true", help="only the SkinTokens rig, UAL fit and promote (the mesh and texture are already done)")
     a = ap.parse_args()
     d = ROOT / "out" / a.src / a.id
     forge = [PY, "tools/forge.py"]
     t0 = time.time()
+    if a.rig_only:
+        a.pick = None
+        return rig_stage(a, d, forge, t0)
     first = "apose" if a.web else "clean"
     shutil.copyfile(d / ("ref_web.png" if a.web else f"ref_{a.pick}.png"), d / "ref.png")  # ref_views frames against ref.png
     run([PY, "tools/ref_views.py", a.id, "--source", a.src, "--views", first])
@@ -82,21 +106,7 @@ def main() -> int:
     run(forge + ["lod", a.id, "--source", a.src, "--force"])
     log(f"{a.id}: textured, lod done")
     if not a.skip_rig:
-        host = os.environ.get("RIG_HOST", "9900x")
-        rel = f"out/{a.src}/{a.id}/"
-        for stale in ("rig", "rig_ual", "anims_ual", "anims"):
-            shutil.rmtree(d / stale, ignore_errors=True)
-        subprocess.run(["ssh", "-n", "-o", "BatchMode=yes", host, f"mkdir -p ~/workspace/monster-forge/{rel}"], check=True)
-        subprocess.run(["rsync", "-a", "--delete", rel, f"{host}:workspace/monster-forge/{rel}"], cwd=ROOT, check=True)
-        r = subprocess.run(["ssh", "-n", "-o", "BatchMode=yes", host, f"cd ~/workspace/monster-forge && git pull -q --ff-only; cd ../monster-forge-nonsrd && git pull -q --ff-only; "
-                            f"cd ../monster-forge && COMFY_URL=http://localhost:8188 PIL_PYTHON=python3 python3 -I tools/forge.py rig {a.id} --source {a.src} --force 2>&1 | tail -2"],
-                           capture_output=True, text=True)
-        log(f"{a.id}: skintokens: {(r.stdout or r.stderr).strip()[-200:]}")
-        subprocess.run(["rsync", "-a", f"{host}:workspace/monster-forge/{rel}", rel], cwd=ROOT, check=True)
-        run(forge + ["rig", a.id, "--source", a.src, "--rig-source", "ual", "--force"])
-        run(forge + ["promote", a.id, "--source", a.src])
-        m = json.loads((d / "anims_ual" / "metrics.json").read_text())["clips"]
-        log(f"{a.id}: rigged, worst clip stretch {max(c['edge_stretch_p999'] for c in m.values()):.1f}")
+        rig_stage(a, d, forge, t0)
     log(f"{a.id}: chain done in {time.time() - t0:.0f}s")
     return 0
 
